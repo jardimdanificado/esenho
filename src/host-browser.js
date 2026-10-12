@@ -846,13 +846,17 @@ async function main() {
     'sheet-layers', 'sheet-lab', 'sheet-hud-customizer'
   ]);
   const DOCKVIEW_SHEET_MAP = {
-    'sheet-brushes': 'brushes',
+    'sheet-brushes': 'lab',
     'sheet-layers': 'layers',
     'sheet-tools': 'tools',
     'sheet-lab': 'lab',
     'sheet-pixelart': 'pixelart',
     'sheet-menu': 'settings',
-    'touch-color-modal': 'color'
+    'touch-color-modal': 'color',
+    'sheet-hud-customizer': 'hud',
+    'sheet-recents': 'recents',
+    'sheet-new-proj': 'newproj',
+    'sheet-filters': 'filters'
   };
 
   function closeAllSheets(onlySide = null) {
@@ -867,6 +871,16 @@ async function main() {
       if (onlySide === 'left' && LEFT_SIDE_SHEETS.has(m.id)) m.classList.remove('active');
       if (onlySide === 'right' && RIGHT_SIDE_SHEETS.has(m.id)) m.classList.remove('active');
     });
+  }
+
+  function openSheet(id) {
+    if (window.isDockviewPainter && DOCKVIEW_SHEET_MAP[id] && typeof window.openPainterDockPanel === 'function') {
+      window.openPainterDockPanel(DOCKVIEW_SHEET_MAP[id]);
+      if (typeof syncUiFromHost === 'function') syncUiFromHost();
+      return;
+    }
+    closeAllSheets();
+    document.getElementById(id)?.classList.add('active');
   }
 
   function toggleSheet(id) {
@@ -3545,19 +3559,23 @@ async function main() {
       ]);
     }
 
-    // 6. Panels & HUD Submenu
+    // 6. View Submenu (Show/Hide Tabs & HUD)
     const isSheetOrDockOpen = (sheetId) => {
       if (window.isDockviewPainter && DOCKVIEW_SHEET_MAP[sheetId] && window.painterDockviewApi) {
         return !!window.painterDockviewApi.getPanel(DOCKVIEW_SHEET_MAP[sheetId]);
       }
       return !!document.getElementById(sheetId)?.classList.contains('active');
     };
-    const panelItems = [
-      { type: 'item', label: (isSheetOrDockOpen('sheet-brushes') ? '✓ ' : '') + 'Brush Presets (Vector Stroke Styles)', action: () => toggleSheet('sheet-brushes') },
-      { type: 'item', label: (isSheetOrDockOpen('sheet-layers') ? '✓ ' : '') + 'Layers Panel', action: () => toggleSheet('sheet-layers') },
-      { type: 'item', label: (isSheetOrDockOpen('sheet-tools') ? '✓ ' : '') + (isVecLayer ? 'Vector Tools & Nodes' : 'Tools & Modes'), action: () => toggleSheet('sheet-tools') },
-      { type: 'item', label: (isSheetOrDockOpen('sheet-lab') ? '✓ ' : '') + 'Brush Studio Lab', action: () => toggleSheet('sheet-lab') },
-      { type: 'item', label: (isSheetOrDockOpen('touch-color-modal') ? '✓ ' : '') + 'Color Studio', action: () => {
+    const isTimelineOpen = window.isDockviewPainter
+      ? !!window.painterDockviewApi?.getPanel('timeline')
+      : !!host.rasterAnimatorUI?.visible;
+    const panelItems = [];
+    if (!window.isDockviewPainter) {
+      panelItems.push({ type: 'item', label: (isSheetOrDockOpen('sheet-brushes') ? '✓ ' : '') + 'Brush Library', hotkey: 'B', action: () => toggleSheet('sheet-brushes') });
+    }
+    panelItems.push(
+      { type: 'item', label: (isSheetOrDockOpen('sheet-lab') ? '✓ ' : '') + 'Brush Lab', hotkey: window.isDockviewPainter ? 'B' : undefined, action: () => toggleSheet('sheet-lab') },
+      { type: 'item', label: (isSheetOrDockOpen('touch-color-modal') ? '✓ ' : '') + 'Color Studio', hotkey: 'C', action: () => {
         if (window.isDockviewPainter && typeof window.togglePainterDockPanel === 'function') {
           window.togglePainterDockPanel('color');
           return;
@@ -3565,20 +3583,26 @@ async function main() {
         const cm = document.getElementById('touch-color-modal');
         if (cm?.classList.contains('active')) closeTouchColorModal();
         else openTouchColorModal();
-      }}
-    ];
+      }},
+      { type: 'item', label: (isSheetOrDockOpen('sheet-layers') ? '✓ ' : '') + 'Layers Stack', hotkey: 'L', action: () => toggleSheet('sheet-layers') },
+      { type: 'item', label: (isSheetOrDockOpen('sheet-tools') ? '✓ ' : '') + (isVecLayer ? 'Vector Tools & Nodes' : 'Tools & Modes'), action: () => toggleSheet('sheet-tools') }
+    );
     if (!isVecLayer) {
-      panelItems.push({ type: 'item', label: (isSheetOrDockOpen('sheet-pixelart') ? '✓ ' : '') + 'Pixel Art Suite', action: () => toggleSheet('sheet-pixelart') });
+      panelItems.push({ type: 'item', label: (isSheetOrDockOpen('sheet-pixelart') ? '✓ ' : '') + 'Pixel Art Studio', action: () => toggleSheet('sheet-pixelart') });
+    }
+    if (window.isDockviewPainter) {
+      panelItems.push({ type: 'item', label: (isSheetOrDockOpen('sheet-filters') ? '✓ ' : '') + 'Filters', action: () => toggleSheet('sheet-filters') });
     }
     panelItems.push(
-      { type: 'item', label: 'Toggle Animation Timeline', action: () => document.getElementById('btn-menu-toggle-anim')?.click() },
+      { type: 'item', label: (isTimelineOpen ? '✓ ' : '') + 'Animation Timeline', action: () => document.getElementById('btn-menu-toggle-anim')?.click() },
       { type: 'sep' },
-      { type: 'item', label: 'Configure Panels & HUD...', action: () => document.getElementById('btn-menu-configure-panels')?.click() },
+      { type: 'item', label: (isSheetOrDockOpen('sheet-hud-customizer') ? '✓ ' : '') + 'Customize Canvas HUD', action: () => toggleSheet('sheet-hud-customizer') },
+      { type: 'item', label: (isSheetOrDockOpen('sheet-menu') ? '✓ ' : '') + 'Project & Preferences', hotkey: 'Ctrl+B', action: () => toggleSheet('sheet-menu') },
       window.isDockviewPainter
-        ? { type: 'item', label: 'Reset Dock Layout to Default', action: () => window.resetPainterDockLayout?.() }
+        ? { type: 'item', label: 'Reset Layout to Default', action: () => window.resetPainterDockLayout?.() }
         : { type: 'item', label: 'Close All Open Panels', action: () => closeAllSheets() }
     );
-    addSubmenu('Panels & HUD', panelItems);
+    addSubmenu('View', panelItems);
 
     // 7. Active Layer Submenu
     const activeLayerItems = [
@@ -3605,8 +3629,8 @@ async function main() {
     );
     addSubmenu('Active Layer', activeLayerItems);
 
-    // 8. View & Navigation Submenu
-    addSubmenu('View & Navigation', [
+    // 8. Navigation Submenu
+    addSubmenu('Navigation', [
       { type: 'item', label: 'Zoom to Fit (Reset View)', hotkey: 'Ctrl+0', action: () => {
         host.zoom = 1.0; host.panX = 0; host.panY = 0; host.canvasRotation = 0; host.render();
       }},
@@ -5232,26 +5256,27 @@ async function main() {
     const dockSel = document.getElementById('dock-select-brush-preset');
     const delBtn  = document.getElementById('ui-btn-del-preset');
 
+    const CATEGORY_LABELS = {
+      sketch: 'Sketch & Pencil',
+      ink: 'Inking',
+      paint: 'Painting',
+      marker: 'Markers',
+      charcoal: 'Charcoal & Pastel',
+      airbrush: 'Airbrush',
+      texture: 'Textured',
+      blend: 'Blenders & Smudge',
+      eraser: 'Erasers',
+      fx: 'FX & Pixel Art'
+    };
+
     const fillSelect = (sel) => {
       if (!sel) return;
       sel.innerHTML = '';
 
-      const grpBuiltin = document.createElement('optgroup');
-      grpBuiltin.label = 'Built-in Presets';
-      for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
-        if (!p.name) continue;
-        const opt = document.createElement('option');
-        opt.value = k;
-        opt.textContent = p.name;
-        if (host.activeBrush === k) opt.selected = true;
-        grpBuiltin.appendChild(opt);
-      }
-      sel.appendChild(grpBuiltin);
-
       const custom = host.customBrushPresets || {};
       if (Object.keys(custom).length > 0) {
         const grpCustom = document.createElement('optgroup');
-        grpCustom.label = 'Custom Presets';
+        grpCustom.label = '★ Custom Presets';
         for (const [k, p] of Object.entries(custom)) {
           const opt = document.createElement('option');
           opt.value = k;
@@ -5261,13 +5286,34 @@ async function main() {
         }
         sel.appendChild(grpCustom);
       }
+
+      const byCat = new Map();
+      for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
+        if (!p.name) continue;
+        const cat = p.category || 'paint';
+        if (!byCat.has(cat)) byCat.set(cat, []);
+        byCat.get(cat).push([k, p]);
+      }
+
+      for (const [cat, items] of byCat.entries()) {
+        const grp = document.createElement('optgroup');
+        grp.label = CATEGORY_LABELS[cat] || cat;
+        for (const [k, p] of items) {
+          const opt = document.createElement('option');
+          opt.value = k;
+          opt.textContent = p.size ? `${p.name} (${p.size}px)` : p.name;
+          if (host.activeBrush === k) opt.selected = true;
+          grp.appendChild(opt);
+        }
+        sel.appendChild(grp);
+      }
     };
 
     fillSelect(mainSel);
     fillSelect(dockSel);
 
     const isCustomActive = host.customBrushPresets && host.customBrushPresets[host.activeBrush];
-    if (delBtn) delBtn.style.display = isCustomActive ? 'inline-block' : 'none';
+    if (delBtn) delBtn.style.display = isCustomActive ? 'inline-flex' : 'none';
   }
 
   const mainPresetSel = document.getElementById('ui-select-brush-preset');
@@ -9019,8 +9065,7 @@ async function main() {
       btnConfig.className = 'menu-item';
       btnConfig.innerHTML = `<span>Adjust Parameters...</span>`;
       btnConfig.addEventListener('click', () => {
-        closeAllSheets();
-        document.getElementById('sheet-filters')?.classList.add('active');
+        openSheet('sheet-filters');
       });
       menuFiltersSubmenu.appendChild(btnConfig);
     }
@@ -10869,14 +10914,12 @@ async function main() {
 
     // Dropdown Action Bindings
     document.getElementById('btn-menu-new-project')?.addEventListener('click', () => {
-      closeAllSheets();
-      document.getElementById('sheet-new-proj')?.classList.add('active');
+      openSheet('sheet-new-proj');
     });
 
     document.getElementById('btn-open-recents-modal')?.addEventListener('click', () => {
-      closeAllSheets();
-      document.getElementById('sheet-recents')?.classList.add('active');
-      if (typeof loadPainterRecents === 'function') loadPainterRecents();
+      openSheet('sheet-recents');
+      if (typeof window.loadPainterRecents === 'function') window.loadPainterRecents();
     });
 
     const menuFileInput = document.getElementById('menu-file-input');
@@ -11017,7 +11060,7 @@ async function main() {
       btn.addEventListener('click', () => {
         const targetId = btn.dataset.panel;
         if (!targetId) return;
-        if (targetId === 'touch-color-modal') {
+        if (targetId === 'touch-color-modal' && !window.isDockviewPainter) {
           openTouchColorModal();
         } else {
           toggleSheet(targetId);
@@ -11458,15 +11501,15 @@ async function main() {
       const modal = document.getElementById('sheet-hud-customizer');
       if (!modal) return;
 
-      closeAllSheets('right');
       const tabs = document.querySelectorAll('#ip-hud-dock-tabs .ip-pill-btn');
       tabs.forEach(tab => {
         tab.classList.toggle('active', tab.dataset.docktab === currentCustomizingDock);
       });
 
       renderHudCustomizerOptions();
-      modal.classList.add('active');
+      openSheet('sheet-hud-customizer');
     };
+    window.renderHudCustomizerOptions = renderHudCustomizerOptions;
 
     // Dock switcher tabs inside Customizer
     document.querySelectorAll('#ip-hud-dock-tabs .ip-pill-btn').forEach(btn => {
@@ -11542,10 +11585,15 @@ async function main() {
       try {
         localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
       } catch (_) {}
-      document.getElementById('sheet-hud-customizer')?.classList.remove('active');
+      if (window.isDockviewPainter && typeof window.closePainterDockPanel === 'function') {
+        window.closePainterDockPanel('hud');
+      } else {
+        document.getElementById('sheet-hud-customizer')?.classList.remove('active');
+      }
     });
 
     renderAllHuds();
+    renderHudCustomizerOptions();
 
     // 4. Brush Shelf Grid Population
     const brushShelfGrid = document.getElementById('ip-brush-cards-grid');
@@ -12679,8 +12727,7 @@ async function main() {
     const btnIpNewProj = document.getElementById('btn-ip-new-proj');
     if (btnIpNewProj) {
       btnIpNewProj.addEventListener('click', () => {
-        closeAllSheets();
-        document.getElementById('sheet-new-proj')?.classList.add('active');
+        openSheet('sheet-new-proj');
       });
     }
 
@@ -12728,6 +12775,7 @@ async function main() {
         ipRecentsList.innerHTML = `<div style="padding: 24px; text-align: center; color: #fb4934; grid-column: 1/-1;">Error loading recents: ${e.message}</div>`;
       }
     }
+    window.loadPainterRecents = loadPainterRecents;
 
     window.painterInsertVectorLayer = async function(id) {
       if (!host.canvasActor || !host.canvasActor.exports) return;
@@ -12795,15 +12843,13 @@ async function main() {
 
     if (btnIpRecentProj) {
       btnIpRecentProj.addEventListener('click', () => {
-        closeAllSheets();
-        sheetRecents?.classList.add('active');
+        openSheet('sheet-recents');
         loadPainterRecents();
       });
     }
 
     document.getElementById('btn-ip-recents-new')?.addEventListener('click', () => {
-      closeAllSheets();
-      document.getElementById('sheet-new-proj')?.classList.add('active');
+      openSheet('sheet-new-proj');
     });
 
     async function handleClearAllStorage() {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>esenho — Painter Studio</title>
+  <title>esenho</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#1d2021">
@@ -502,9 +502,10 @@
     }
 
     .dock-panel-content .ip-sheet-header,
-    .dock-panel-content .touch-color-header {
-      cursor: default !important;
-      flex-shrink: 0;
+    .dock-panel-content .touch-color-header,
+    .dock-panel-content #raster-btn-close,
+    .dock-panel-content #raster-btn-collapse {
+      display: none !important;
     }
 
     .dock-panel-content .ip-sheet-content {
@@ -2111,7 +2112,6 @@
       <div class="menu-container">
         <button type="button" id="btn-menu-logo" class="brand-btn" title="Main Menu">
           <div class="brand-icon">E</div>
-          <span style="font-size: 10.5px; font-weight: 700; color: var(--text-bright);">Painter Studio</span>
           <span style="font-size: 8px; color: var(--text-muted); margin-left: -2px;">▼</span>
         </button>
 
@@ -2274,51 +2274,79 @@
 
           <div class="menu-divider"></div>
 
-          <!-- Panels & HUD Configuration -->
+          <!-- View (Tabs & HUD Configuration) -->
           <div class="menu-item-submenu-wrap">
             <button type="button" id="btn-menu-panels" class="menu-item">
-              <span>Dock Panels</span>
+              <span>View</span>
               <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
             </button>
             <div class="menu-submenu">
-              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-brushes">
-                <span>Brush Library</span>
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-lab">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span data-dock-check="lab" style="width: 12px; font-size: 10px; color: var(--primary);">✓</span>
+                  <span>Brush Lab</span>
+                </span>
                 <span class="shortcut">B</span>
               </button>
               <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="touch-color-modal">
-                <span>Color Studio</span>
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span data-dock-check="color" style="width: 12px; font-size: 10px; color: var(--primary);">✓</span>
+                  <span>Color Studio</span>
+                </span>
                 <span class="shortcut">C</span>
               </button>
               <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-layers">
-                <span>Layers Stack</span>
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span data-dock-check="layers" style="width: 12px; font-size: 10px; color: var(--primary);">✓</span>
+                  <span>Layers Stack</span>
+                </span>
                 <span class="shortcut">L</span>
               </button>
               <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-tools">
-                <span>Modes &amp; Drawing Tools</span>
-              </button>
-              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-lab">
-                <span>Brush Lab</span>
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span data-dock-check="tools" style="width: 12px; font-size: 10px; color: var(--primary);"></span>
+                  <span>Tools &amp; Modes</span>
+                </span>
               </button>
               <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-pixelart">
-                <span>Pixel Art Studio</span>
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span data-dock-check="pixelart" style="width: 12px; font-size: 10px; color: var(--primary);"></span>
+                  <span>Pixel Art Studio</span>
+                </span>
+              </button>
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-filters">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span data-dock-check="filters" style="width: 12px; font-size: 10px; color: var(--primary);"></span>
+                  <span>Filters</span>
+                </span>
               </button>
               <button type="button" class="menu-item" id="btn-menu-toggle-anim">
-                <span>Animation Timeline</span>
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span data-dock-check="timeline" style="width: 12px; font-size: 10px; color: var(--primary);"></span>
+                  <span>Animation Timeline</span>
+                </span>
+              </button>
+              <div class="menu-divider"></div>
+              <button type="button" id="btn-menu-configure-panels" class="menu-item">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span data-dock-check="hud" style="width: 12px; font-size: 10px; color: var(--primary);"></span>
+                  <span>Customize Canvas HUD</span>
+                </span>
+              </button>
+              <button type="button" id="btn-menu-open-settings" class="menu-item">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span data-dock-check="settings" style="width: 12px; font-size: 10px; color: var(--primary);"></span>
+                  <span>Project &amp; Preferences</span>
+                </span>
+                <span class="shortcut">Ctrl+B</span>
               </button>
               <div class="menu-divider"></div>
               <button type="button" class="menu-item" onclick="window.resetPainterDockLayout && window.resetPainterDockLayout()">
-                <span>Reset Dock Layout to Default</span>
+                <span>Reset Layout to Default</span>
               </button>
             </div>
           </div>
 
-          <button type="button" id="btn-menu-configure-panels" class="menu-item" style="color: var(--primary); font-weight: 600;">
-            <span>Configure Canvas HUD...</span>
-          </button>
-          <button type="button" id="btn-menu-open-settings" class="menu-item">
-            <span>Project &amp; Preferences...</span>
-            <span class="shortcut">Ctrl+B</span>
-          </button>
           <div class="menu-divider"></div>
           <button type="button" class="menu-item" onclick="window.location.href='painter.html'" style="color: #83a598; font-weight: 700;">
             <span>◆ Open Floating / Touch Painter...</span>
@@ -2330,22 +2358,8 @@
       </div>
     </div>
 
-    <!-- Dockview Quick-Toggle Strip -->
-    <div class="dock-tab-toggle-bar" id="painter-dock-toggle-bar">
-      <button type="button" class="dock-top-btn" data-dock-panel="brushes" onclick="window.togglePainterDockPanel('brushes')" title="Toggle Brushes Dock Tab">Brushes</button>
-      <button type="button" class="dock-top-btn" data-dock-panel="color" onclick="window.togglePainterDockPanel('color')" title="Toggle Color Studio Dock Tab">Color</button>
-      <button type="button" class="dock-top-btn" data-dock-panel="tools" onclick="window.togglePainterDockPanel('tools')" title="Toggle Tools & Modes Dock Tab">Tools</button>
-      <button type="button" class="dock-top-btn" data-dock-panel="lab" onclick="window.togglePainterDockPanel('lab')" title="Toggle Brush Lab Dock Tab">Brush Lab</button>
-      <button type="button" class="dock-top-btn" data-dock-panel="pixelart" onclick="window.togglePainterDockPanel('pixelart')" title="Toggle Pixel Art Dock Tab">Pixel Art</button>
-      <button type="button" class="dock-top-btn" data-dock-panel="layers" onclick="window.togglePainterDockPanel('layers')" title="Toggle Layers Dock Tab">Layers</button>
-      <button type="button" class="dock-top-btn" data-dock-panel="timeline" onclick="window.togglePainterDockPanel('timeline')" title="Toggle Animation Timeline Dock Tab">Timeline</button>
-      <button type="button" class="dock-top-btn" data-dock-panel="settings" onclick="window.togglePainterDockPanel('settings')" title="Toggle Project & Settings Dock Tab">Settings</button>
-      <div style="width: 1px; height: 18px; background: var(--border); margin: 0 3px;"></div>
-      <button type="button" class="dock-top-btn" onclick="window.resetPainterDockLayout()" title="Reset Dockview Layout to Default">↺ Layout</button>
-    </div>
-
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.14 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.16 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -2376,10 +2390,6 @@
     <div id="dock-panel-brushes" class="dock-panel-content">
       <div id="sheet-brushes" class="ip-sheet-modal">
         <div class="ip-sheet">
-          <div class="ip-sheet-header">
-            <span>BRUSH LIBRARY</span>
-            <button type="button" class="ip-sheet-close" data-close-dock="brushes" title="Close Tab">✕</button>
-          </div>
           <div class="ip-sheet-content">
             <div class="ip-pills-row" id="ip-brush-cat-pills">
               <button type="button" class="ip-pill-btn active" data-bcat="all">All</button>
@@ -2409,22 +2419,17 @@
     <div id="dock-panel-color" class="dock-panel-content">
       <div id="touch-color-modal">
         <div class="touch-color-box">
-          <div class="touch-color-header">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span>COLOR STUDIO</span>
-              <div class="touch-color-preview-duo" title="Previous / Active Color">
-                <div id="touch-color-prev-chip" class="touch-preview-chip" title="Previous Color"></div>
-                <div id="touch-color-curr-chip" class="touch-preview-chip" title="Current Color"></div>
-              </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div class="touch-color-preview-duo" title="Previous / Active Color" style="height: 24px; width: 46px; flex-shrink: 0;">
+              <div id="touch-color-prev-chip" class="touch-preview-chip" title="Previous Color"></div>
+              <div id="touch-color-curr-chip" class="touch-preview-chip" title="Current Color"></div>
             </div>
-            <button type="button" class="dock-strip-btn" id="btn-close-touch-color" data-close-dock="color" style="min-width: 22px; height: 22px; padding: 0 5px;" title="Close Tab">✕</button>
-          </div>
-
-          <div class="touch-color-mode-tabs">
-            <button type="button" class="touch-color-tab-btn active" data-touchmode="wheel">Wheel</button>
-            <button type="button" class="touch-color-tab-btn" data-touchmode="box">SV Box</button>
-            <button type="button" class="touch-color-tab-btn" data-touchmode="sliders">Sliders</button>
-            <button type="button" class="touch-color-tab-btn" data-touchmode="palettes">Palettes</button>
+            <div class="touch-color-mode-tabs" style="flex: 1;">
+              <button type="button" class="touch-color-tab-btn active" data-touchmode="wheel">Wheel</button>
+              <button type="button" class="touch-color-tab-btn" data-touchmode="box">SV Box</button>
+              <button type="button" class="touch-color-tab-btn" data-touchmode="sliders">Sliders</button>
+              <button type="button" class="touch-color-tab-btn" data-touchmode="palettes">Palettes</button>
+            </div>
           </div>
 
           <!-- TAB 1: WHEEL -->
@@ -2528,10 +2533,6 @@
     <div id="dock-panel-layers" class="dock-panel-content">
       <div id="sheet-layers" class="ip-sheet-modal">
         <div class="ip-sheet">
-          <div class="ip-sheet-header">
-            <span>LAYERS STACK</span>
-            <button type="button" class="ip-sheet-close" data-close-dock="layers" title="Close Tab">✕</button>
-          </div>
           <div class="ip-sheet-content">
             <div class="ip-touch-control" style="flex-shrink: 0;">
               <div class="ip-touch-label-row">
@@ -2556,11 +2557,6 @@
     <div id="dock-panel-tools" class="dock-panel-content">
       <div id="sheet-tools" class="ip-sheet-modal">
         <div class="ip-sheet">
-          <div class="ip-sheet-header">
-            <span>TOOLS &amp; WORKSPACE MODES</span>
-            <button type="button" class="ip-sheet-close" data-close-dock="tools" title="Close Tab">✕</button>
-          </div>
-
           <div class="ip-pills-row" id="ip-tools-tab-pills" style="padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-input); width: 100%; box-sizing: border-box;">
             <button type="button" class="ip-pill-btn active" data-toolstab="draw">Draw &amp; Shapes</button>
             <button type="button" class="ip-pill-btn" data-toolstab="select">Selection</button>
@@ -2803,16 +2799,12 @@
     <div id="dock-panel-lab" class="dock-panel-content">
       <div id="sheet-lab" class="ip-sheet-modal">
         <div class="ip-sheet">
-          <div class="ip-sheet-header">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span>BRUSH LAB</span>
-              <span id="ip-lab-brush-name" style="font-size: 9px; color: var(--text-muted); text-transform: none; font-weight: normal;">(Inker)</span>
-            </div>
-            <div style="display: flex; gap: 4px; align-items: center;">
-              <button type="button" id="btn-ip-lab-reset" class="ip-btn ip-mini-btn" title="Reset Brush Parameters">Reset</button>
-              <button type="button" id="btn-ip-lab-save" class="ip-btn ip-mini-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;" title="Save Custom Preset">+ Save</button>
-              <button type="button" class="ip-sheet-close" data-close-dock="lab" title="Close Tab">✕</button>
-            </div>
+          <div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-panel-sub); flex-shrink: 0;">
+            <select id="ui-select-brush-preset" class="ui-select" style="flex: 1; height: 28px; font-size: 11px; font-weight: 700; color: var(--primary);" title="Select Brush Preset from Library"></select>
+            <button type="button" id="btn-ip-lab-reset" class="ip-btn ip-mini-btn" style="height: 28px; padding: 0 8px;" title="Reset Brush Parameters">Reset</button>
+            <button type="button" id="btn-ip-lab-save" class="ip-btn ip-mini-btn" style="height: 28px; padding: 0 8px; background: var(--primary); color: var(--bg-dark); font-weight: bold;" title="Save Custom Preset">+ Save</button>
+            <button type="button" id="ui-btn-del-preset" class="ip-btn ip-mini-btn" style="display: none; height: 28px; padding: 0 6px; color: var(--danger); border-color: var(--danger);" title="Delete Custom Preset">Del</button>
+            <span id="ip-lab-brush-name" style="display: none;">(Inker)</span>
           </div>
 
           <div class="ip-pills-row" id="ip-lab-tabs" style="padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-input); width: 100%; box-sizing: border-box;">
@@ -3140,10 +3132,6 @@
     <div id="dock-panel-pixelart" class="dock-panel-content">
       <div id="sheet-pixelart" class="ip-sheet-modal">
         <div class="ip-sheet">
-          <div class="ip-sheet-header">
-            <span>PIXEL ART STUDIO</span>
-            <button type="button" class="ip-sheet-close" data-close-dock="pixelart" title="Close Tab">✕</button>
-          </div>
           <div class="ip-sheet-content">
             <div class="ip-pixel-grid">
               <div class="ip-pixel-card" id="card-ip-pixel-1px">
@@ -3194,10 +3182,6 @@
     <div id="dock-panel-settings" class="dock-panel-content">
       <div id="sheet-menu" class="ip-sheet-modal">
         <div class="ip-sheet">
-          <div class="ip-sheet-header">
-            <span>PROJECT &amp; SETTINGS</span>
-            <button type="button" class="ip-sheet-close" data-close-dock="settings" title="Close Tab">✕</button>
-          </div>
           <div class="ip-sheet-content">
             <div class="ip-hide-embedded" style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
               <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -3306,111 +3290,140 @@
       <div id="raster-anim-timeline-dock"></div>
     </div>
 
-  </div>
-
-  <!-- ── FLOATING OVERLAY MODALS (HUD Customizer, Recents, New Project, Arc Dial) ── -->
-  <div id="sheet-hud-customizer" class="ip-sheet-modal">
-    <div class="ip-sheet">
-      <div class="ip-sheet-header">
-        <span>CUSTOMIZE HUD BARS</span>
-        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-hud-customizer').classList.remove('active')">✕</button>
-      </div>
-      <div class="ip-pills-row" id="ip-hud-dock-tabs" style="padding: 6px 8px 0; border-bottom: 1px solid var(--border); background: var(--bg-input);">
-        <button type="button" class="ip-pill-btn active" data-docktab="left">Left Bar</button>
-        <button type="button" class="ip-pill-btn" data-docktab="right">Right Bar</button>
-        <button type="button" class="ip-pill-btn" data-docktab="bottom">Bottom Bar</button>
-      </div>
-      <div class="ip-sheet-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px; max-height: calc(85vh - 100px); overflow-y: auto;">
-        <div id="ip-hud-customizer-dock-label" style="color: var(--text-muted); font-size: 11px;">
-          Choose which sliders and quick action buttons appear on the Left Dock:
-        </div>
-        <div style="font-size: 11px; font-weight: bold; color: var(--primary);">Vertical Sliders</div>
-        <div id="ip-hud-sliders-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
-        <div style="font-size: 11px; font-weight: bold; color: var(--primary); margin-top: 4px;">Quick Action Buttons</div>
-        <div id="ip-hud-actions-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
-        <div style="font-size: 11px; font-weight: bold; color: var(--primary); margin-top: 4px;">Presets</div>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
-          <button type="button" class="ip-btn" id="btn-ip-hud-preset-default">Default</button>
-          <button type="button" class="ip-btn" id="btn-ip-hud-preset-pro">Painter Pro</button>
-          <button type="button" class="ip-btn" id="btn-ip-hud-preset-full">Full Deck</button>
-        </div>
-        <button type="button" class="ip-btn" id="btn-ip-hud-save-close" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; padding: 9px; margin-top: 4px;">Apply &amp; Close</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="sheet-recents" class="ip-sheet-modal">
-    <div class="ip-sheet">
-      <div class="ip-sheet-header">
-        <span>RECENT PROJECTS</span>
-        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-recents').classList.remove('active')">✕</button>
-      </div>
-      <div class="ip-sheet-content">
-        <div id="ip-recents-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 400px; overflow-y: auto;">
-          <div style="padding: 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
-        </div>
-        <div style="display: flex; gap: 6px; margin-top: 10px;">
-          <button type="button" id="btn-ip-recents-new" class="ip-btn" style="flex: 1; background: var(--primary); color: var(--bg-dark); font-weight: bold;">+ New Project</button>
-          <button type="button" id="btn-ip-recents-clear" class="ip-btn" style="border-color: var(--danger); color: var(--danger);">Clear Storage</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="sheet-new-proj" class="ip-sheet-modal">
-    <div class="ip-sheet">
-      <div class="ip-sheet-header">
-        <span>NEW PROJECT</span>
-        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-new-proj').classList.remove('active')">✕</button>
-      </div>
-      <div class="ip-sheet-content" style="display: flex; flex-direction: column; gap: 10px;">
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-          <span style="font-size: 10px; color: var(--text-muted);">Title</span>
-          <input type="text" id="inp-ip-new-title" class="ui-input-text" value="Untitled Artwork" style="width: 100%; height: 32px;">
-        </div>
-        <div style="display: flex; gap: 6px; align-items: center;">
-          <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-            <span style="font-size: 10px; color: var(--text-muted);">Width (px)</span>
-            <input type="number" id="inp-ip-new-w" class="ui-input-num" value="1280" min="16" max="16384" style="width: 100%; height: 32px; text-align: center;">
+    <!-- 10. HUD CUSTOMIZER PANEL -->
+    <div id="dock-panel-hud" class="dock-panel-content">
+      <div id="sheet-hud-customizer" class="ip-sheet-modal">
+        <div class="ip-sheet">
+          <div class="ip-pills-row" id="ip-hud-dock-tabs" style="padding: 6px 8px 0; border-bottom: 1px solid var(--border); background: var(--bg-input);">
+            <button type="button" class="ip-pill-btn active" data-docktab="left">Left Bar</button>
+            <button type="button" class="ip-pill-btn" data-docktab="right">Right Bar</button>
+            <button type="button" class="ip-pill-btn" data-docktab="bottom">Bottom Bar</button>
           </div>
-          <span style="color: var(--text-muted); margin-top: 16px;">×</span>
-          <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-            <span style="font-size: 10px; color: var(--text-muted);">Height (px)</span>
-            <input type="number" id="inp-ip-new-h" class="ui-input-num" value="720" min="16" max="16384" style="width: 100%; height: 32px; text-align: center;">
+          <div class="ip-sheet-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+            <div id="ip-hud-customizer-dock-label" style="color: var(--text-muted); font-size: 11px;">
+              Choose which sliders and quick action buttons appear on the Left Dock:
+            </div>
+            <div style="font-size: 11px; font-weight: bold; color: var(--primary);">Vertical Sliders</div>
+            <div id="ip-hud-sliders-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
+            <div style="font-size: 11px; font-weight: bold; color: var(--primary); margin-top: 4px;">Quick Action Buttons</div>
+            <div id="ip-hud-actions-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
+            <div style="font-size: 11px; font-weight: bold; color: var(--primary); margin-top: 4px;">Presets</div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+              <button type="button" class="ip-btn" id="btn-ip-hud-preset-default">Default</button>
+              <button type="button" class="ip-btn" id="btn-ip-hud-preset-pro">Painter Pro</button>
+              <button type="button" class="ip-btn" id="btn-ip-hud-preset-full">Full Deck</button>
+            </div>
+            <button type="button" class="ip-btn" id="btn-ip-hud-save-close" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; padding: 9px; margin-top: 4px;">Apply</button>
           </div>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
-          <button type="button" class="ip-btn ip-btn-new-res" data-w="640" data-h="480">640×480</button>
-          <button type="button" class="ip-btn ip-btn-new-res" data-w="1280" data-h="720">720p</button>
-          <button type="button" class="ip-btn ip-btn-new-res" data-w="1920" data-h="1080">1080p</button>
-          <button type="button" class="ip-btn ip-btn-new-res" data-w="1080" data-h="1080">1:1 Square</button>
-        </div>
-        <button type="button" id="btn-ip-confirm-new-proj" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; height: 34px; margin-top: 6px;">Create Canvas</button>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ── Arc Dial Controller Modal ── -->
-<div id="arc-dial-modal">
-  <div class="arc-dial-box">
-    <div class="arc-dial-header">
-      <span id="arc-dial-title">Brush Parameter</span>
-      <button type="button" class="ui-mini-btn" id="btn-close-arc-dial">✕</button>
-    </div>
-    <div class="arc-dial-stage" id="arc-dial-stage">
-      <svg id="arc-dial-svg" viewBox="0 0 200 200">
-        <path id="arc-track-bg" class="arc-track-bg" />
-        <path id="arc-track-fill" class="arc-track-fill" />
-        <circle id="arc-dial-thumb" class="arc-dial-thumb" r="9" />
-      </svg>
-      <div class="arc-dial-center">
-        <div id="arc-dial-preview" class="arc-dial-preview"></div>
-        <div id="arc-dial-value-text" class="arc-dial-value-text">24</div>
-        <div id="arc-dial-unit-text" class="arc-dial-unit-text">px</div>
+    <!-- 11. RECENT PROJECTS PANEL -->
+    <div id="dock-panel-recents" class="dock-panel-content">
+      <div id="sheet-recents" class="ip-sheet-modal">
+        <div class="ip-sheet">
+          <div class="ip-sheet-content">
+            <div id="ip-recents-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
+              <div style="padding: 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 10px;">
+              <button type="button" id="btn-ip-recents-new" class="ip-btn" style="flex: 1; background: var(--primary); color: var(--bg-dark); font-weight: bold;">+ New Project</button>
+              <button type="button" id="btn-ip-recents-clear" class="ip-btn" style="border-color: var(--danger); color: var(--danger);">Clear Storage</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="arc-dial-chips" id="arc-dial-chips"></div>
+
+    <!-- 12. NEW PROJECT PANEL -->
+    <div id="dock-panel-newproj" class="dock-panel-content">
+      <div id="sheet-new-proj" class="ip-sheet-modal">
+        <div class="ip-sheet">
+          <div class="ip-sheet-content" style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-size: 10px; color: var(--text-muted);">Title</span>
+              <input type="text" id="inp-ip-new-title" class="ui-input-text" value="Untitled Artwork" style="width: 100%; height: 32px;">
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                <span style="font-size: 10px; color: var(--text-muted);">Width (px)</span>
+                <input type="number" id="inp-ip-new-w" class="ui-input-num" value="1280" min="16" max="16384" style="width: 100%; height: 32px; text-align: center;">
+              </div>
+              <span style="color: var(--text-muted); margin-top: 16px;">×</span>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                <span style="font-size: 10px; color: var(--text-muted);">Height (px)</span>
+                <input type="number" id="inp-ip-new-h" class="ui-input-num" value="720" min="16" max="16384" style="width: 100%; height: 32px; text-align: center;">
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
+              <button type="button" class="ip-btn ip-btn-new-res" data-w="640" data-h="480">640×480</button>
+              <button type="button" class="ip-btn ip-btn-new-res" data-w="1280" data-h="720">720p</button>
+              <button type="button" class="ip-btn ip-btn-new-res" data-w="1920" data-h="1080">1080p</button>
+              <button type="button" class="ip-btn ip-btn-new-res" data-w="1080" data-h="1080">1:1 Square</button>
+            </div>
+            <button type="button" id="btn-ip-confirm-new-proj" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; height: 34px; margin-top: 6px;">Create Canvas</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 13. FILTERS PANEL -->
+    <div id="dock-panel-filters" class="dock-panel-content">
+      <div id="sheet-filters" class="ip-sheet-modal">
+        <div class="ip-sheet">
+          <div class="ip-sheet-content">
+            <div class="ip-ctrl-group" style="margin-bottom: 10px;">
+              <div class="ip-ctrl-row">
+                <span class="ip-ctrl-label">Filter</span>
+                <select id="ui-select-filter" class="ui-select" style="flex: 1;">
+                  <option value="none">Select Filter...</option>
+                  <optgroup label="Color Adjustments">
+                    <option value="brightness">Brightness / Contrast</option>
+                    <option value="hsl">HSL / Saturation</option>
+                    <option value="color_balance">Color Balance</option>
+                    <option value="levels">Levels</option>
+                    <option value="curves">Tone Curve</option>
+                    <option value="gradient_map">Gradient Map</option>
+                    <option value="posterize">Posterize</option>
+                    <option value="threshold">Threshold (B&amp;W)</option>
+                    <option value="invert">Invert Colors</option>
+                    <option value="sepia">Sepia</option>
+                  </optgroup>
+                  <optgroup label="Blur &amp; Sharpen">
+                    <option value="blur">Gaussian Blur</option>
+                    <option value="box_blur">Box Blur</option>
+                    <option value="motion_blur">Motion Blur</option>
+                    <option value="radial_blur">Radial Blur</option>
+                    <option value="sharpen">Sharpen</option>
+                    <option value="unsharp_mask">Unsharp Mask</option>
+                  </optgroup>
+                  <optgroup label="Stylize &amp; Artistic">
+                    <option value="pixelate">Pixelate / Mosaic</option>
+                    <option value="halftone">Halftone Dots</option>
+                    <option value="bloom">Glow / Bloom</option>
+                    <option value="vignette">Vignette</option>
+                    <option value="chromatic">Chromatic Aberration</option>
+                    <option value="noise">Add Noise / Grain</option>
+                    <option value="emboss">Emboss</option>
+                    <option value="edge">Sobel Edge Detect</option>
+                    <option value="oil_paint">Oil Paint</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div id="ui-ctrl-filter-params" style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;"></div>
+              <button type="button" id="ui-btn-apply-filter" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; width: 100%; margin-top: 6px;">Apply Filter to Layer</button>
+            </div>
+            <div class="ip-ctrl-group">
+              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Custom JS Plugin Filter</div>
+              <input type="file" id="ui-plugin-input" accept=".js" style="display: none;">
+              <button type="button" id="ui-btn-load-plugin" class="ip-btn" style="width: 100%;">Load Plugin (.js)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -3420,18 +3433,21 @@
 <script src="vendor/dockview-core.js"></script>
 <script>
   (function () {
-    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v1';
-    const ALL_PANEL_IDS = ['canvas', 'brushes', 'color', 'tools', 'lab', 'pixelart', 'layers', 'timeline', 'settings'];
+    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v3';
+    const ALL_PANEL_IDS = ['canvas', 'lab', 'color', 'tools', 'pixelart', 'layers', 'timeline', 'settings', 'hud', 'recents', 'newproj', 'filters'];
     const PANEL_TITLES = {
       canvas: 'Canvas',
-      brushes: 'Brushes',
+      lab: 'Brush Lab',
       color: 'Color',
       tools: 'Tools & Modes',
-      lab: 'Brush Lab',
       pixelart: 'Pixel Art',
       layers: 'Layers',
       timeline: 'Timeline',
-      settings: 'Settings'
+      settings: 'Settings',
+      hud: 'Customize HUD',
+      recents: 'Recent Projects',
+      newproj: 'New Project',
+      filters: 'Filters'
     };
 
     const panelElements = new Map();
@@ -3439,7 +3455,12 @@
     let dockviewApi = null;
     let saveLayoutTimer = null;
 
+    function normalizePanelId(id) {
+      return id === 'brushes' ? 'lab' : id;
+    }
+
     function getPanelElement(id) {
+      id = normalizePanelId(id);
       if (panelElements.has(id)) return panelElements.get(id);
       const el = document.getElementById('dock-panel-' + id);
       if (el) panelElements.set(id, el);
@@ -3447,6 +3468,7 @@
     }
 
     function returnPanelElementToPool(id) {
+      id = normalizePanelId(id);
       const el = getPanelElement(id);
       if (el && poolEl && el.parentElement !== poolEl) {
         poolEl.appendChild(el);
@@ -3456,8 +3478,12 @@
     function updatePainterDockButtons() {
       if (!dockviewApi) return;
       document.querySelectorAll('[data-dock-panel]').forEach(btn => {
-        const id = btn.getAttribute('data-dock-panel');
+        const id = normalizePanelId(btn.getAttribute('data-dock-panel'));
         btn.classList.toggle('active', !!dockviewApi.getPanel(id));
+      });
+      document.querySelectorAll('[data-dock-check]').forEach(span => {
+        const id = normalizePanelId(span.getAttribute('data-dock-check'));
+        span.textContent = dockviewApi.getPanel(id) ? '✓' : '';
       });
     }
 
@@ -3477,12 +3503,19 @@
     }
 
     function openPainterDockPanel(id, fromAnimator = false) {
+      id = normalizePanelId(id);
       if (!dockviewApi || !ALL_PANEL_IDS.includes(id)) return null;
       const existing = dockviewApi.getPanel(id);
       if (existing) {
         existing.api.setActive();
         if (id === 'color' && typeof window.refreshTouchColorStudio === 'function') {
           window.refreshTouchColorStudio();
+        }
+        if (id === 'recents' && typeof window.loadPainterRecents === 'function') {
+          window.loadPainterRecents();
+        }
+        if (id === 'hud' && typeof window.renderHudCustomizerOptions === 'function') {
+          window.renderHudCustomizerOptions();
         }
         if (id === 'timeline' && !fromAnimator && window.host?.rasterAnimatorUI && !window.host.rasterAnimatorUI.visible) {
           window.host.rasterAnimatorUI.show();
@@ -3493,16 +3526,16 @@
 
       const title = PANEL_TITLES[id] || id;
       try {
-        if (['brushes', 'color', 'tools', 'pixelart'].includes(id)) {
-          const leftGroup = ['brushes', 'color', 'tools', 'pixelart'];
+        if (['lab', 'color', 'tools', 'pixelart', 'filters'].includes(id)) {
+          const leftGroup = ['lab', 'color', 'tools', 'pixelart', 'filters'];
           const ref = leftGroup.find(other => other !== id && !!dockviewApi.getPanel(other));
           if (ref) {
             dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: ref } });
           } else {
-            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 290 });
+            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 295 });
           }
-        } else if (['layers', 'lab', 'settings'].includes(id)) {
-          const rightGroup = ['layers', 'lab', 'settings'];
+        } else if (['layers', 'settings', 'hud', 'recents', 'newproj'].includes(id)) {
+          const rightGroup = ['layers', 'settings', 'hud', 'recents', 'newproj'];
           const ref = rightGroup.find(other => other !== id && !!dockviewApi.getPanel(other));
           if (ref) {
             dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: ref } });
@@ -3528,6 +3561,12 @@
       if (id === 'color' && typeof window.refreshTouchColorStudio === 'function') {
         requestAnimationFrame(() => window.refreshTouchColorStudio());
       }
+      if (id === 'recents' && typeof window.loadPainterRecents === 'function') {
+        requestAnimationFrame(() => window.loadPainterRecents());
+      }
+      if (id === 'hud' && typeof window.renderHudCustomizerOptions === 'function') {
+        requestAnimationFrame(() => window.renderHudCustomizerOptions());
+      }
       if (id === 'timeline' && !fromAnimator && window.host?.rasterAnimatorUI) {
         window.host.rasterAnimatorUI.visible = true;
         window.host.rasterAnimatorUI.container.style.display = 'flex';
@@ -3541,6 +3580,7 @@
     }
 
     function closePainterDockPanel(id, fromAnimator = false) {
+      id = normalizePanelId(id);
       if (!dockviewApi || id === 'canvas') return;
       const panel = dockviewApi.getPanel(id);
       if (panel) {
@@ -3556,6 +3596,7 @@
     }
 
     function togglePainterDockPanel(id) {
+      id = normalizePanelId(id);
       if (!dockviewApi) return;
       if (dockviewApi.getPanel(id)) {
         closePainterDockPanel(id);
@@ -3579,19 +3620,19 @@
           title: PANEL_TITLES.canvas
         });
 
-        // 2. Left Dock: Brushes & Color tabbed together
+        // 2. Left Dock: Brush Lab (with Brush Library dropdown) & Color tabbed together
         dockviewApi.addPanel({
-          id: 'brushes',
-          component: 'brushes',
-          title: PANEL_TITLES.brushes,
+          id: 'lab',
+          component: 'lab',
+          title: PANEL_TITLES.lab,
           position: { direction: 'left', referencePanel: 'canvas' },
-          initialWidth: 290
+          initialWidth: 295
         });
         dockviewApi.addPanel({
           id: 'color',
           component: 'color',
           title: PANEL_TITLES.color,
-          position: { referencePanel: 'brushes' }
+          position: { referencePanel: 'lab' }
         });
 
         // 3. Right Dock: Layers Stack
@@ -3603,7 +3644,7 @@
           initialWidth: 300
         });
 
-        dockviewApi.getPanel('brushes')?.api?.setActive();
+        dockviewApi.getPanel('lab')?.api?.setActive();
         dockviewApi.getPanel('layers')?.api?.setActive();
         dockviewApi.getPanel('canvas')?.api?.setActive();
       } catch (err) {
@@ -3697,6 +3738,12 @@
           if (id === 'color' && typeof window.refreshTouchColorStudio === 'function') {
             window.refreshTouchColorStudio();
           }
+          if (id === 'recents' && typeof window.loadPainterRecents === 'function') {
+            window.loadPainterRecents();
+          }
+          if (id === 'hud' && typeof window.renderHudCustomizerOptions === 'function') {
+            window.renderHudCustomizerOptions();
+          }
           updatePainterDockButtons();
           scheduleSavePainterDockLayout();
         });
@@ -3709,15 +3756,6 @@
           requestAnimationFrame(() => window.host?.resize?.());
         });
       }
-
-      // Wire close buttons inside docked sheets to close their Dockview tab
-      document.querySelectorAll('[data-close-dock]').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const dockId = btn.getAttribute('data-close-dock');
-          if (dockId) closePainterDockPanel(dockId);
-        });
-      });
 
       // Observe canvas panel resize so sash dragging immediately updates canvas resolution/viewport
       const cvsWrap = document.getElementById('cvswrap');
