@@ -823,9 +823,9 @@
 
     .ui-row-between { display: flex; justify-content: space-between; align-items: center; }
     .ui-row-gap { display: flex; align-items: center; gap: 6px; }
-    .ui-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-    .ui-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-    .ui-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .ui-grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 4px; }
+    .ui-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 4px; }
+    .ui-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 4px; }
 
     .ui-btn {
       background: var(--bg-panel);
@@ -2396,10 +2396,7 @@
     }
 
     /* ── Non-Timeline Panels: No Horizontal Scroll & Automatic Vertical Reflow ── */
-    .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) {
-      container-type: inline-size;
-      overflow-x: hidden !important;
-    }
+    .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas),
     .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ip-sheet,
     .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ip-sheet-content,
     .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .touch-color-box,
@@ -2437,19 +2434,9 @@
     .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .touch-color-svbox-wrap {
       width: 100% !important;
       max-width: 100% !important;
-      height: min(170px, 85cqw) !important;
-      min-height: 64px;
     }
     .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .touch-color-swatches {
       grid-template-columns: repeat(auto-fill, minmax(22px, 1fr)) !important;
-    }
-    .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) input[type="text"],
-    .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) input[type="number"],
-    .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) select,
-    .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ui-btn,
-    .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) button {
-      max-width: 100%;
-      box-sizing: border-box;
     }
     .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ui-layer-row {
       height: auto !important;
@@ -2462,60 +2449,15 @@
     .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .layer-cell-name {
       min-width: 48px;
     }
-
-    /* Medium-narrow panel container (<= 220px): collapse 3/4/5-col inline grids to 2 columns */
-    @container (max-width: 220px) {
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) div[style*="grid-template-columns: repeat(5"],
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) div[style*="grid-template-columns: repeat(4"],
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) div[style*="grid-template-columns: repeat(3"],
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ip-tools-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-      }
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) div[style*="display: flex"],
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) div[style*="display:flex"] {
-        flex-wrap: wrap !important;
-        min-width: 0 !important;
-      }
+    #ip-top-bar, #wstatus {
+      contain: layout style;
     }
-
-    /* Tiny panel container (<= 145px): stack all grids & controls vertically in 1 column */
-    @container (max-width: 145px) {
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) div[style*="grid-template-columns"],
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ip-tools-grid,
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ip-brush-grid,
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ip-pixel-grid {
-        grid-template-columns: minmax(0, 1fr) !important;
-      }
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .touch-color-swatches {
-        grid-template-columns: repeat(auto-fill, minmax(18px, 1fr)) !important;
-      }
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ip-tool-card,
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ip-actionmode-card,
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ip-selmode-card,
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ip-pill-btn,
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .touch-color-mode-btn,
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .ui-btn {
-        width: 100% !important;
-        min-width: 0 !important;
-        white-space: normal !important;
-        word-break: break-word;
-        height: auto !important;
-        min-height: 22px;
-      }
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) #touch-color-hex-input {
-        width: 100% !important;
-        min-width: 0 !important;
-      }
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .layer-cell-toggles,
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .layer-cell-actions {
-        flex-wrap: wrap !important;
-        width: 100%;
-        justify-content: flex-start;
-      }
-      .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .layer-cell-name {
-        width: 100%;
-        flex: 1 1 100%;
-      }
+    .dock-panel-content {
+      contain: layout style paint;
+    }
+    #dockview-container .dv-render-overlay[style*="visibility: hidden"] {
+      content-visibility: hidden;
+      contain: strict;
     }
   </style>
 </head>
@@ -2684,6 +2626,14 @@
                   <span>Nearest (Crisp / Pixel Art)</span>
                 </span>
               </button>
+              <div class="menu-divider"></div>
+              <div style="padding: 4px 8px; font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Performance</div>
+              <button type="button" class="menu-item" id="btn-menu-power-save">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span id="check-power-save" style="width: 12px; font-size: 10px; color: var(--primary); opacity: 0;">✓</span>
+                  <span>Power Saving Mode (Eco)</span>
+                </span>
+              </button>
             </div>
           </div>
 
@@ -2774,7 +2724,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.35 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.39 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -2957,7 +2907,7 @@
               <input type="range" id="ip-active-layer-op-slider" min="0" max="100" value="100" class="ip-touch-slider">
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 2px 0; flex-shrink: 0;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 4px; padding: 2px 0; flex-shrink: 0;">
               <button type="button" id="btn-ip-add-layer" class="ip-mini-btn" style="height: 26px; font-size: 10.5px; background: var(--primary); color: var(--bg-dark); font-weight: bold; border-radius: var(--radius-sm); padding: 0;" title="New Raster Layer">+ Layer</button>
               <button type="button" id="btn-ip-add-folder" class="ip-mini-btn" style="height: 26px; font-size: 10.5px; border-radius: var(--radius-sm); padding: 0;" title="New Folder / Group">+ Group</button>
             </div>
@@ -2980,7 +2930,7 @@
                 <span style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Mode</span>
                 <span id="ip-tools-sel-badge" style="font-size: 9px; color: var(--text-muted);"></span>
               </div>
-              <div id="ip-actionmode-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px;">
+              <div id="ip-actionmode-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); gap: 3px;">
                 <div class="ip-actionmode-card active" data-actionmode="draw"><span>Draw</span></div>
                 <div class="ip-actionmode-card" data-actionmode="erase"><span>Erase</span></div>
                 <div class="ip-actionmode-card" data-actionmode="smudge"><span>Smudge</span></div>
@@ -3006,7 +2956,7 @@
             <!-- 3. SYMMETRY -->
             <div style="display: flex; flex-direction: column; gap: 3px;">
               <span style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Symmetry</span>
-              <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); gap: 3px;">
                 <button type="button" class="ip-btn ip-mini-btn ip-sym-btn active" data-sym="0" style="height: 22px; padding: 0; font-size: 9.5px;">Off</button>
                 <button type="button" class="ip-btn ip-mini-btn ip-sym-btn" data-sym="1" style="height: 22px; padding: 0; font-size: 9.5px;">X</button>
                 <button type="button" class="ip-btn ip-mini-btn ip-sym-btn" data-sym="2" style="height: 22px; padding: 0; font-size: 9.5px;">Y</button>
@@ -3034,7 +2984,7 @@
                 <div class="ip-tool-card" data-tool="brush_select">Mask Brush</div>
               </div>
 
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 3px;">
                 <div class="ip-selmode-card active" data-selmode="replace" title="New Selection"><span>New</span></div>
                 <div class="ip-selmode-card" data-selmode="add" title="Add (+)"><span>Add +</span></div>
                 <div class="ip-selmode-card" data-selmode="sub" title="Subtract (-)"><span>Sub −</span></div>
@@ -3049,19 +2999,19 @@
                 </label>
               </div>
 
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 3px;">
                 <button type="button" id="btn-ip-select-all" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">All</button>
                 <button type="button" id="btn-ip-invert-sel" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Invert</button>
                 <button type="button" id="btn-ip-deselect" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Deselect</button>
                 <button type="button" id="btn-ip-sel-clear-pixels" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px; color: var(--danger);">Clear</button>
               </div>
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 3px;">
                 <button type="button" id="btn-ip-copy" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Copy</button>
                 <button type="button" id="btn-ip-cut" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Cut</button>
                 <button type="button" id="btn-ip-paste" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Paste</button>
                 <button type="button" id="btn-ip-crop-sel" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Crop</button>
               </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 3px;">
                 <button type="button" id="btn-ip-sel-capture-tip" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Capture Brush Tip</button>
                 <button type="button" id="btn-ip-sel-capture-grain" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Capture Grain</button>
               </div>
@@ -3080,26 +3030,26 @@
                 </div>
               </div>
 
-              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 3px;">
                 <button type="button" class="ip-btn ip-mini-btn ip-xbar-mode active" data-xmode="scale" style="height: 22px; padding: 0; font-size: 9px;">Scale</button>
                 <button type="button" class="ip-btn ip-mini-btn ip-xbar-mode" data-xmode="distort" style="height: 22px; padding: 0; font-size: 9px;">Distort</button>
                 <button type="button" class="ip-btn ip-mini-btn ip-xbar-mode" data-xmode="skew" style="height: 22px; padding: 0; font-size: 9px;">Skew</button>
               </div>
 
-              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 3px;">
                 <button type="button" id="btn-ip-sheet-xform-lock" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Lock Ratio</button>
                 <button type="button" class="ip-btn ip-mini-btn ip-sheet-xform-interp active" data-xinterp="nearest" style="height: 22px; padding: 0; font-size: 9px;">Crisp</button>
                 <button type="button" class="ip-btn ip-mini-btn ip-sheet-xform-interp" data-xinterp="bilinear" style="height: 22px; padding: 0; font-size: 9px;">Smooth</button>
               </div>
 
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 3px;">
                 <button type="button" id="btn-sheet-xform-ccw" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">↶ 90°</button>
                 <button type="button" id="btn-sheet-xform-cw" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">↷ 90°</button>
                 <button type="button" id="btn-sheet-xform-fliph" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">⇄ Flip H</button>
                 <button type="button" id="btn-sheet-xform-flipv" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">⇅ Flip V</button>
               </div>
 
-              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 3px;">
                 <button type="button" id="btn-sheet-xform-center" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Center</button>
                 <button type="button" id="btn-sheet-xform-fit" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Fit</button>
                 <button type="button" id="btn-sheet-xform-reset" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Reset</button>
@@ -3159,7 +3109,7 @@
                 <optgroup id="ip-optgroup-shape-layers" label="Custom & Project Layers as Tip"></optgroup>
               </select>
 
-              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 3px;">
                 <div class="ip-touch-control">
                   <div class="ip-touch-label-row"><span>Hardness</span><span id="ip-val-hardness" class="ip-touch-val">100%</span></div>
                   <input type="range" id="ip-slider-hardness" min="0" max="100" value="100" class="ip-touch-slider">
@@ -3179,7 +3129,7 @@
               </div>
 
               <!-- Compact 3x2 Toggles for Tip & Stylus -->
-              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 3px;">
                 <button type="button" id="btn-ip-lab-press-size" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
                   <input type="checkbox" id="chk-ip-lab-press-size" checked style="margin-right: 3px; pointer-events: none;"> Press Size
                 </button>
@@ -3211,7 +3161,7 @@
                 </select>
               </div>
 
-              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 3px;">
                 <div class="ip-touch-control">
                   <div class="ip-touch-label-row"><span id="ip-lbl-stabilization">Stabilization</span><span id="ip-val-smoothing" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-smoothing" min="0" max="100" value="0" class="ip-touch-slider">
@@ -3265,7 +3215,7 @@
                 </div>
               </div>
 
-              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 3px;">
                 <div class="ip-touch-control">
                   <div class="ip-touch-label-row"><span>Wetness</span><span id="ip-val-wetness" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-wetness" min="0" max="100" value="0" class="ip-touch-slider">
@@ -3304,7 +3254,7 @@
                 </div>
               </div>
 
-              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 3px;">
                 <div class="ip-touch-control">
                   <div class="ip-touch-label-row"><span>Size Jitter</span><span id="ip-val-jitter-size" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-jitter-size" min="0" max="100" value="0" class="ip-touch-slider">
@@ -3430,7 +3380,7 @@
                 </select>
               </div>
 
-              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 3px;">
                 <div class="ip-touch-control">
                   <div class="ip-touch-label-row"><span>Grain Depth</span><span id="ip-val-grain" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-grain" min="0" max="100" value="0" class="ip-touch-slider">
@@ -3480,11 +3430,11 @@
 
             <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
               <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Pixel Helpers</span>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 6px;">
                 <button type="button" id="btn-ip-pixel-grid-toggle" class="ip-btn">Pixel Grid (4x+)</button>
                 <button type="button" id="btn-ip-pixel-zoom-100" class="ip-btn">100% 1:1 Pixel</button>
               </div>
-              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 6px;">
                 <button type="button" id="btn-ip-pixel-sym-x" class="ip-btn">Sym Vertical</button>
                 <button type="button" id="btn-ip-pixel-sym-y" class="ip-btn">Sym Horiz</button>
                 <button type="button" id="btn-ip-pixel-sym-quad" class="ip-btn">Sym Quad</button>
@@ -3514,12 +3464,12 @@
                 <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Project File</span>
                 <span id="ip-menu-autosave-badge" style="font-size: 10px; color: var(--success); font-weight: bold;">Autosaved</span>
               </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 6px;">
                 <button type="button" id="btn-ip-new-proj" class="ip-btn" style="background: var(--border); color: var(--primary); font-weight: bold;">+ New Project</button>
                 <button type="button" id="btn-ip-recent-proj" class="ip-btn" style="background: var(--border); color: #83a598; font-weight: bold;">Recents</button>
               </div>
               <button type="button" id="btn-ip-save-proj" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; width: 100%;">Save Project</button>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 6px;">
                 <button type="button" id="btn-ip-export-png" class="ip-btn">Export PNG</button>
                 <button type="button" id="btn-ip-export-esen" class="ip-btn">Export .esen</button>
               </div>
@@ -3535,7 +3485,7 @@
                 <input type="number" id="ip-inp-ch" class="ui-input-num" value="720" min="16" max="16384" style="width: 70px; height: 30px; font-size: 12px; text-align: center;">
                 <button type="button" id="btn-ip-apply-resize" class="ip-btn" style="flex: 1; height: 30px; background: var(--primary); color: var(--bg-dark); font-weight: bold;">Resize</button>
               </div>
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 4px;">
                 <button type="button" class="ip-btn ip-btn-quick-res" data-w="640" data-h="480">640×480</button>
                 <button type="button" class="ip-btn ip-btn-quick-res" data-w="1280" data-h="720">720p</button>
                 <button type="button" class="ip-btn ip-btn-quick-res" data-w="1920" data-h="1080">1080p</button>
@@ -3545,7 +3495,7 @@
 
             <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
               <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Viewport Navigation</span>
-              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 6px;">
                 <button type="button" id="btn-ip-zoom-fit" class="ip-btn">Fit View</button>
                 <button type="button" id="btn-ip-zoom-100" class="ip-btn">100% (1:1)</button>
                 <button type="button" id="btn-ip-rot-zero" class="ip-btn">0° Rotate</button>
@@ -3574,6 +3524,9 @@
 
             <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
               <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Preferences &amp; Gestures</span>
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none; color: var(--primary); font-weight: 600;">
+                <input type="checkbox" id="ip-chk-power-save"> Power Saving Mode (30 FPS &amp; Idle Sleep)
+              </label>
               <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
                 <input type="checkbox" id="ip-chk-pixel-grid"> Pixel Grid (zoomed &ge; 4x)
               </label>
@@ -3624,14 +3577,14 @@
             <div id="ip-hud-customizer-dock-label" style="color: var(--text-muted); font-size: 11px;">
               Select which sliders appear directly in the right-click context menu:
             </div>
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 5px;">
               <button type="button" class="ip-btn" id="btn-ip-hud-preset-default" style="font-size: 10.5px;">Minimal (Size/Opac/Stab)</button>
               <button type="button" class="ip-btn" id="btn-ip-hud-preset-pro" style="font-size: 10.5px;">Painting Pro</button>
               <button type="button" class="ip-btn" id="btn-ip-hud-preset-ink" style="font-size: 10.5px;">Inking &amp; Taper</button>
               <button type="button" class="ip-btn" id="btn-ip-hud-preset-full" style="font-size: 10.5px;">All Sliders</button>
             </div>
             <div style="font-size: 11px; font-weight: bold; color: var(--primary);">Context Menu Sliders</div>
-            <div id="ip-hud-sliders-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
+            <div id="ip-hud-sliders-toggle-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 6px;"></div>
           </div>
         </div>
       </div>
@@ -3674,7 +3627,7 @@
                 <input type="number" id="inp-ip-new-h" class="ui-input-num" value="720" min="16" max="16384" style="width: 100%; height: 32px; text-align: center;">
               </div>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 4px;">
               <button type="button" class="ip-btn ip-btn-new-res" data-w="640" data-h="480">640×480</button>
               <button type="button" class="ip-btn ip-btn-new-res" data-w="1280" data-h="720">720p</button>
               <button type="button" class="ip-btn ip-btn-new-res" data-w="1920" data-h="1080">1080p</button>
@@ -4115,7 +4068,20 @@
       }, true);
 
       if (typeof MutationObserver !== 'undefined') {
-        const mo = new MutationObserver(() => ensureSashHandles(container));
+        let sashRaf = 0;
+        const mo = new MutationObserver((mutations) => {
+          const relevant = mutations.some(m => {
+            const t = m.target;
+            return !(t instanceof Element) || !t.closest('.dock-panel-content');
+          });
+          if (!relevant) return;
+          if (!sashRaf) {
+            sashRaf = requestAnimationFrame(() => {
+              sashRaf = 0;
+              ensureSashHandles(container);
+            });
+          }
+        });
         mo.observe(container, { childList: true, subtree: true });
       }
       ensureSashHandles(container);

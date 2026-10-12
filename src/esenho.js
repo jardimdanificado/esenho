@@ -9858,11 +9858,12 @@ class EsenhoScreenHost {
 
     const isPulledString = (this.brushParams.stabilizer_mode === 1 || this.brushParams.stabilizer_mode === 'pulled' || this.brushParams.stabilizer_mode === 'string');
 
-    // Instant direct execution when smoothing is 0 (and not pulled string) or when using fill/lasso/shape modes
-    if ((smooth === 0 && !isPulledString) || this.brushParams.mode === 3 || this.brushParams.mode === 4 || this.brushParams.mode === 6 || this.brushParams.mode === 7 || this.brushParams.mode === 8) {
+    // Direct execution for non-freehand modes (fill, lasso, geometric shapes)
+    if (this.brushParams.mode === 3 || this.brushParams.mode === 4 || this.brushParams.mode === 6 || this.brushParams.mode === 7 || this.brushParams.mode === 8) {
       this.strokeSmoothX = x;
       this.strokeSmoothY = y;
       this.strokeHistory = null;
+      this.strokeLastMid = null;
       this.pulledAnchor = null;
       this.pulledCursor = null;
       invokeStroke(state, x, y, prev_x, prev_y);
@@ -9914,11 +9915,14 @@ class EsenhoScreenHost {
       }
     }
 
-    // Configurable stroke stabilizer / smoothing (EMA + Bézier)
+    // Continuous Quadratic Midpoint Bézier curve interpolation + optional EMA stabilizer:
+    // Even when smooth === 0 (factor = 1.0, zero lag), fitting a quadratic curve through segment
+    // midpoints eliminates polygonal/segmented straight lines ("traços quadradões") on fast curves.
     if (state === 0) { // STROKE_START
       this.strokeSmoothX = x;
       this.strokeSmoothY = y;
       this.strokeHistory = [{ x, y }];
+      this.strokeLastMid = { x, y };
       invokeStroke(0, x, y, x, y);
       return;
     }
@@ -9932,10 +9936,9 @@ class EsenhoScreenHost {
         this.strokeHistory = [{ x: prev_x, y: prev_y }];
       }
 
-      // Responsive Exponential Moving Average with progressive power curve:
-      // smooth 1..100 maps factor smoothly from 0.95 down to 0.015 (subtle jitter removal at 10-25%, solid stabilization at 35-60%, heavy streamline at 70-100%)
+      // Responsive Exponential Moving Average when smooth > 0; direct 1.0 tracking when smooth === 0
       const s = smooth / 100;
-      const factor = Math.max(0.015, Math.pow(1.0 - s * 0.96, 2.2));
+      const factor = smooth > 0 ? Math.max(0.015, Math.pow(1.0 - s * 0.96, 2.2)) : 1.0;
       const targetX = this.strokeSmoothX + (x - this.strokeSmoothX) * factor;
       const targetY = this.strokeSmoothY + (y - this.strokeSmoothY) * factor;
 
@@ -9946,7 +9949,7 @@ class EsenhoScreenHost {
       // Quadratic Bézier curve through midpoints for smooth corner rounding
       const midpoint = (this.brushParams.midpoint !== undefined) ? this.brushParams.midpoint : 50;
       const ratio = Math.max(0, Math.min(100, midpoint)) / 100;
-      const midPrev = {
+      const midPrev = this.strokeLastMid || {
         x: pOld.x + (pPrev.x - pOld.x) * ratio,
         y: pOld.y + (pPrev.y - pOld.y) * ratio
       };
@@ -9955,13 +9958,14 @@ class EsenhoScreenHost {
         y: pPrev.y + (pCurr.y - pPrev.y) * ratio
       };
 
-      const dist = Math.hypot(pCurr.x - pPrev.x, pCurr.y - pPrev.y);
-      const steps = Math.max(1, Math.min(4, Math.floor(dist / 3)));
+      const curveLen = Math.hypot(pPrev.x - midPrev.x, pPrev.y - midPrev.y) +
+                       Math.hypot(midCurr.x - pPrev.x, midCurr.y - pPrev.y);
+      const steps = Math.max(1, Math.min(24, Math.ceil(curveLen / 2.0)));
       let lastX = midPrev.x;
       let lastY = midPrev.y;
 
-      for (let s = 1; s <= steps; s++) {
-        const t = s / steps;
+      for (let step = 1; step <= steps; step++) {
+        const t = step / steps;
         const invT = 1 - t;
         const bx = invT * invT * midPrev.x + 2 * invT * t * pPrev.x + t * t * midCurr.x;
         const by = invT * invT * midPrev.y + 2 * invT * t * pPrev.y + t * t * midCurr.y;
@@ -9973,6 +9977,7 @@ class EsenhoScreenHost {
 
       this.strokeSmoothX = targetX;
       this.strokeSmoothY = targetY;
+      this.strokeLastMid = midCurr;
       this.strokeHistory.unshift(pPrev);
       if (this.strokeHistory.length > 4) this.strokeHistory.pop();
       return;
@@ -9982,10 +9987,14 @@ class EsenhoScreenHost {
       // Finalize cleanly at the smoothed position without airborne snap jitter
       const finalX = (this.strokeSmoothX !== null && this.strokeSmoothX !== undefined) ? this.strokeSmoothX : x;
       const finalY = (this.strokeSmoothY !== null && this.strokeSmoothY !== undefined) ? this.strokeSmoothY : y;
+      if (smooth === 0 && this.strokeLastMid && (Math.hypot(finalX - this.strokeLastMid.x, finalY - this.strokeLastMid.y) > 0.5)) {
+        invokeStroke(1, finalX, finalY, this.strokeLastMid.x, this.strokeLastMid.y);
+      }
       invokeStroke(2, finalX, finalY, finalX, finalY);
       this.strokeSmoothX = null;
       this.strokeSmoothY = null;
       this.strokeHistory = null;
+      this.strokeLastMid = null;
       return;
     }
   }

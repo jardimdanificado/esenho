@@ -3037,6 +3037,14 @@
                   <span>Nearest (Crisp / Pixel Art)</span>
                 </span>
               </button>
+              <div class="menu-divider"></div>
+              <div style="padding: 4px 8px; font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Performance</div>
+              <button type="button" class="menu-item" id="btn-menu-power-save">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span id="check-power-save" style="width: 12px; font-size: 10px; color: var(--primary); opacity: 0;">✓</span>
+                  <span>Power Saving Mode (Eco)</span>
+                </span>
+              </button>
             </div>
           </div>
 
@@ -3095,7 +3103,7 @@
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.35 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.39 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
@@ -3574,6 +3582,9 @@
         <!-- Preferences & Gestures -->
         <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
           <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Preferences &amp; Gestures</span>
+          <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none; color: var(--primary); font-weight: 600;">
+            <input type="checkbox" id="ip-chk-power-save"> Power Saving Mode (30 FPS &amp; Idle Sleep)
+          </label>
           <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
             <input type="checkbox" id="ip-chk-pixel-grid"> Pixel Grid (zoomed &ge; 4x)
           </label>

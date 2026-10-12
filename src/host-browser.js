@@ -55,6 +55,7 @@ let _lastStatusUpdate = 0;
 let _cachedStatusText = '';
 
 function updateStatus(host, docX, docY, force = false) {
+  if (!force && host && (host.isDrawingOnCanvas || host.isPanning)) return;
   const now = performance.now();
   if (!force && now - _lastStatusUpdate < 80) return; // Max 12 updates/sec
   _lastStatusUpdate = now;
@@ -145,10 +146,13 @@ async function main() {
   if (uiCanvasEl) uiCanvasEl.style.imageRendering = host.viewportFiltering ? 'auto' : 'pixelated';
   if (gpuRenderer) gpuRenderer.setFilterMode(host.viewportFiltering);
   host.renderMode = localStorage.getItem('esenho_render_mode') || 'gpu';
+  host.powerSaveMode = localStorage.getItem('esenho_power_save_v2') === '1';
+  host._forceNextFrame = true;
   host.render = () => {
     if (host.canvasActor && host.canvasActor.exports && typeof host.canvasActor.exports.w_render === 'function') {
       host.canvasActor.exports.w_render();
     }
+    host._forceNextFrame = true;
   };
   host.sendConsoleLog = (text, color = 0xFF00FF88) =>
     log(text, color === 0xFFFF5555 ? 'err' : 'ok');
@@ -368,8 +372,12 @@ async function main() {
 
   let isCanvasDirty = false;
   let autosaveDebounceTimer = null;
+  let _lastAutosaveBadgeText = '';
+  let _cachedCanvasRect = null;
 
   function setAutosaveBadges(text, color) {
+    if (_lastAutosaveBadgeText === text) return;
+    _lastAutosaveBadgeText = text;
     ['ui-autosave-badge', 'ip-menu-autosave-badge'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
@@ -390,8 +398,9 @@ async function main() {
 
   function markCanvasDirty() {
     isCanvasDirty = true;
+    host._forceNextFrame = true;
+    if (typeof host.requestRender === 'function') host.requestRender();
     setAutosaveBadges('Unsaved', '#fabd2f');
-    saveUserPreferences();
     scheduleAutosave(1500);
   }
 
@@ -433,6 +442,10 @@ async function main() {
   async function performAutosave(force = false) {
     if (isEmbeddedMode) return;
     if (!force && !isCanvasDirty) return;
+    if (!force && (host.isDrawingOnCanvas || host.isPanning || (typeof touch !== 'undefined' && touch.drawing))) {
+      scheduleAutosave(1500);
+      return;
+    }
     if (typeof EsenhoStore === 'undefined' || typeof host.exportProject !== 'function') return;
 
     saveUserPreferences();
@@ -473,6 +486,7 @@ async function main() {
     const parent = canvasEl.parentElement;
     if (!parent) return;
     const r = canvasEl.getBoundingClientRect();
+    _cachedCanvasRect = r;
     const parentW = Math.round(parent.clientWidth || r.width || window.innerWidth);
     const parentH = Math.round(parent.clientHeight || r.height || window.innerHeight);
     if (parentW <= 0 || parentH <= 0) return;
@@ -489,6 +503,7 @@ async function main() {
       }
       host.windowWidth  = parentW;
       host.windowHeight = parentH;
+      _cachedCanvasRect = canvasEl.getBoundingClientRect();
     }
 
     const cw = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : 0;
@@ -1904,8 +1919,63 @@ async function main() {
     }
   }
 
-  function frame() {
-    if (canvasEl.parentElement) {
+  let _lastEcoRenderTime = 0;
+  let _lastSizeCheckTime = 0;
+  let _lastEcoEpoch = -1;
+  let _lastEcoPanX = NaN;
+  let _lastEcoPanY = NaN;
+  let _lastEcoZoom = NaN;
+  let _lastEcoRot = NaN;
+
+  function frame(now = performance.now()) {
+    if (host.powerSaveMode) {
+      if (document.visibilityState === 'hidden') {
+        requestAnimationFrame(frame);
+        return;
+      }
+      if (now - _lastEcoRenderTime < 32) {
+        requestAnimationFrame(frame);
+        return;
+      }
+      const isBusy = Boolean(
+        host.isDrawingOnCanvas ||
+        host.isPanning ||
+        isDraggingShape ||
+        isSelecting ||
+        isLassoSelecting ||
+        (typeof lassoPoints !== 'undefined' && lassoPoints.length > 1) ||
+        ftDragging ||
+        vecDragging ||
+        vecWidthDragging ||
+        selectScratchLayerId >= 0 ||
+        (host.rasterAnimator && host.rasterAnimator.isPlaying)
+      );
+      const curEpoch = (typeof host.canvasActor.exports.w_get_layer_epoch === 'function')
+        ? host.canvasActor.exports.w_get_layer_epoch()
+        : -2;
+      if (
+        !isBusy &&
+        !host._forceNextFrame &&
+        curEpoch === _lastEcoEpoch &&
+        host.panX === _lastEcoPanX &&
+        host.panY === _lastEcoPanY &&
+        host.zoom === _lastEcoZoom &&
+        (host.canvasRotation || 0) === _lastEcoRot
+      ) {
+        requestAnimationFrame(frame);
+        return;
+      }
+      host._forceNextFrame = false;
+      _lastEcoRenderTime = now;
+      _lastEcoEpoch = curEpoch;
+      _lastEcoPanX = host.panX;
+      _lastEcoPanY = host.panY;
+      _lastEcoZoom = host.zoom;
+      _lastEcoRot = host.canvasRotation || 0;
+    }
+
+    if (!host.isDrawingOnCanvas && (!touch || !touch.drawing) && now - _lastSizeCheckTime > 500 && canvasEl.parentElement) {
+      _lastSizeCheckTime = now;
       const pw = canvasEl.parentElement.clientWidth;
       const ph = canvasEl.parentElement.clientHeight;
       if (pw > 0 && ph > 0 && (canvasEl.width !== pw || canvasEl.height !== ph)) {
@@ -2868,7 +2938,7 @@ async function main() {
   }
 
   function clientPos(e) {
-    const r = canvasEl.getBoundingClientRect();
+    const r = _cachedCanvasRect || (_cachedCanvasRect = canvasEl.getBoundingClientRect());
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
     const doc = screenToDoc(sx, sy);
     _scratchPoint.sx = sx;
@@ -4123,8 +4193,10 @@ async function main() {
         type: 'submenu',
         label: 'Renderer & Viewport Filter',
         items: [
-          { type: 'item', label: (!host.useSoftwareRenderer ? '✓ ' : '') + 'WebGL 2 (GPU)', action: () => document.querySelector('.render-engine-opt[data-engine="gpu"]')?.click() },
-          { type: 'item', label: (host.useSoftwareRenderer ? '✓ ' : '') + 'Software (2D CPU)', action: () => document.querySelector('.render-engine-opt[data-engine="software"]')?.click() },
+          { type: 'item', label: (host.powerSaveMode ? '✓ ' : '') + 'Power Saving Mode (Battery & Thermal Saver)', action: () => host.setPowerSaveMode?.(!host.powerSaveMode) },
+          { type: 'sep' },
+          { type: 'item', label: (host.renderMode !== 'cpu' ? '✓ ' : '') + 'WebGL 2 (GPU)', action: () => document.querySelector('.render-engine-opt[data-engine="gpu"]')?.click() },
+          { type: 'item', label: (host.renderMode === 'cpu' ? '✓ ' : '') + 'Software (2D CPU)', action: () => document.querySelector('.render-engine-opt[data-engine="software"]')?.click() },
           { type: 'sep' },
           { type: 'item', label: (!host.viewportFiltering ? '✓ ' : '') + 'Nearest (Crisp / Pixel Art)', action: () => document.querySelector('.view-filter-opt[data-vfilter="nearest"]')?.click() },
           { type: 'item', label: (host.viewportFiltering ? '✓ ' : '') + 'Bilinear (Smooth)', action: () => document.querySelector('.view-filter-opt[data-vfilter="bilinear"]')?.click() }
@@ -4405,6 +4477,7 @@ async function main() {
   });
 
   canvasEl.addEventListener('pointerdown', e => {
+    _cachedCanvasRect = canvasEl.getBoundingClientRect();
     if (e.pointerType === 'touch') return; // Handled by touch events (gestures/taps)
     if (e.button === 2) return; // Right-click strictly opens context menu, never draws/erases
     if (e.pointerType === 'pen') penActive = true;
@@ -4432,6 +4505,7 @@ async function main() {
           const cy = (oc[0].y + oc[1].y + oc[2].y + oc[3].y) / 4;
           ftDragOrigin = {
             corners: oc,
+            cornersOrig: oc,
             cx,
             cy,
             startAngle: Math.atan2(y - cy, x - cx)
@@ -4553,7 +4627,17 @@ async function main() {
   });
 
   const handlePointerMove = e => {
-    if (e.pointerType === 'touch') return;
+    if (e.pointerType === 'touch') {
+      if (touch && touch.drawing && !touch.tapGesture && typeof e.getCoalescedEvents === 'function') {
+        const coal = e.getCoalescedEvents();
+        if (coal && coal.length > 1) {
+          for (let i = 0; i < coal.length; i++) {
+            touch.coalescedQueue.push({ clientX: coal[i].clientX, clientY: coal[i].clientY });
+          }
+        }
+      }
+      return;
+    }
     const { sx, sy, x, y } = clientPos(e);
     host.mouseHover = { x, y, sx, sy, inside: true };
     host.mouseState.x = sx; host.mouseState.y = sy;
@@ -4601,11 +4685,7 @@ async function main() {
     updateStatus(host, x, y);
   };
 
-  if (typeof window !== 'undefined' && 'onpointerrawupdate' in window) {
-    canvasEl.addEventListener('pointerrawupdate', handlePointerMove, { passive: false });
-  } else {
-    canvasEl.addEventListener('pointermove', handlePointerMove, { passive: false });
-  }
+  canvasEl.addEventListener('pointermove', handlePointerMove, { passive: false });
 
   const handlePointerUp = e => {
     if (e.pointerType === 'touch') return;
@@ -4746,13 +4826,15 @@ async function main() {
     timer: null,
     longPressTimer: null,
     longPressTriggered: false,
-    tapGesture: null     /* Multi-finger tap: { time, maxFingers, moved, startPositions } */
+    tapGesture: null,    /* Multi-finger tap: { time, maxFingers, moved, startPositions } */
+    coalescedQueue: []
   };
 
   function commitPendingTouch() {
     if (touch.pending && !touch.drawing) {
       const p = touch.pending;
       touch.drawing = true;
+      touch.coalescedQueue.length = 0;
       host.strokePrevX = p.x; host.strokePrevY = p.y;
       const curMode = host.brushParams ? host.brushParams.mode : 0;
       if (host.actionMode === 'select') {
@@ -4790,11 +4872,12 @@ async function main() {
       touch.longPressTimer = null;
     }
     touch.pending = null;
+    touch.coalescedQueue.length = 0;
   }
 
   const _scratchTouch = { sx: 0, sy: 0, x: 0, y: 0 };
   function touchDocPos(t) {
-    const r = canvasEl.getBoundingClientRect();
+    const r = _cachedCanvasRect || (_cachedCanvasRect = canvasEl.getBoundingClientRect());
     const sx = t.clientX - r.left, sy = t.clientY - r.top;
     const doc = screenToDoc(sx, sy);
     _scratchTouch.sx = sx;
@@ -4805,7 +4888,7 @@ async function main() {
   }
 
   function touchMidpoint(a, b) {
-    const r = canvasEl.getBoundingClientRect();
+    const r = _cachedCanvasRect || (_cachedCanvasRect = canvasEl.getBoundingClientRect());
     return {
       sx: (a.clientX + b.clientX) / 2 - r.left,
       sy: (a.clientY + b.clientY) / 2 - r.top
@@ -4828,6 +4911,8 @@ async function main() {
 
   canvasEl.addEventListener('touchstart', e => {
     e.preventDefault();
+    _cachedCanvasRect = canvasEl.getBoundingClientRect();
+    touch.coalescedQueue.length = 0;
 
     if (e.touches.length === 1) {
       const t = e.touches[0];
@@ -5121,22 +5206,26 @@ async function main() {
       if (touch.drawing) {
         const isVecLayer = host.isVectorLayer && host.isVectorLayer() && host.actionMode !== 'select';
         const curMode = host.brushParams ? host.brushParams.mode : 0;
-        if (isVecLayer && host.strokeIsEraser) {
-          host.eraseVectorAtPoint(x, y, Math.max(6, (host.brushParams?.size || 10)));
-          host.strokePrevX = x; host.strokePrevY = y;
-          return;
-        }
-        if (host.brushParams && host.brushParams.mode === 4) {
-          lassoPoints.push({ x, y });
-        }
-        if (isVecLayer && curMode <= 2) {
-          vectorRawStrokePoints.push({ x, y, pressure: estimatedFingerPressure || 0.8, widthScale: 1.0, tiltX: 0, tiltY: 0 });
-        }
         const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
-        host.sendStroke(x, y, host.strokePrevX, host.strokePrevY,
-                        1, host.strokeIsEraser, strokeCol);
-        host.strokePrevX = x; host.strokePrevY = y;
-        updateStatus(host, x, y);
+        const samples = touch.coalescedQueue.length > 0 ? touch.coalescedQueue : [t0];
+        for (let i = 0; i < samples.length; i++) {
+          const pt = (samples[i] === t0) ? { x, y } : touchDocPos(samples[i]);
+          if (isVecLayer && host.strokeIsEraser) {
+            host.eraseVectorAtPoint(pt.x, pt.y, Math.max(6, (host.brushParams?.size || 10)));
+            host.strokePrevX = pt.x; host.strokePrevY = pt.y;
+            continue;
+          }
+          if (host.brushParams && host.brushParams.mode === 4) {
+            lassoPoints.push({ x: pt.x, y: pt.y });
+          }
+          if (isVecLayer && curMode <= 2) {
+            vectorRawStrokePoints.push({ x: pt.x, y: pt.y, pressure: estimatedFingerPressure || 0.8, widthScale: 1.0, tiltX: 0, tiltY: 0 });
+          }
+          host.sendStroke(pt.x, pt.y, host.strokePrevX, host.strokePrevY,
+                          1, host.strokeIsEraser, strokeCol);
+          host.strokePrevX = pt.x; host.strokePrevY = pt.y;
+        }
+        touch.coalescedQueue.length = 0;
       }
 
     } else if (e.touches.length >= 2) {
@@ -9946,11 +10035,52 @@ async function main() {
     ipSliderMaxUndo.addEventListener('input', () => syncMaxUndo(parseInt(ipSliderMaxUndo.value, 10)));
   }
 
-  // Renderer Selection (GPU vs Software/CPU)
+  // Renderer Selection (GPU vs Software/CPU) & Power Saving Mode
   const selRenderer = document.getElementById('ui-select-renderer');
   const ipSelRenderer = document.getElementById('ip-select-renderer');
+  const chkPowerSave = document.getElementById('ui-chk-power-save');
+  const ipChkPowerSave = document.getElementById('ip-chk-power-save');
+  const btnMenuPowerSave = document.getElementById('btn-menu-power-save');
+  const checkPowerSave = document.getElementById('check-power-save');
   const initialRenderMode = (host.renderMode === 'cpu' || host.renderMode === 'software') ? 'cpu' : 'gpu';
   host.renderMode = initialRenderMode;
+
+  const updateRendererBadge = () => {
+    const label = document.getElementById('menu-current-renderer-label');
+    if (label) {
+      const base = host.renderMode === 'gpu' ? 'GPU' : 'CPU';
+      label.textContent = host.powerSaveMode ? `${base} · ECO` : (host.renderMode === 'gpu' ? 'WEBGL 2 (GPU)' : 'SOFTWARE (CPU)');
+    }
+  };
+
+  const syncPowerSaveMode = (enabled) => {
+    host.powerSaveMode = !!enabled;
+    host._forceNextFrame = true;
+    if (chkPowerSave) chkPowerSave.checked = host.powerSaveMode;
+    if (ipChkPowerSave) ipChkPowerSave.checked = host.powerSaveMode;
+    if (checkPowerSave) checkPowerSave.style.opacity = host.powerSaveMode ? '1' : '0';
+    updateRendererBadge();
+    try {
+      localStorage.setItem('esenho_power_save_v2', host.powerSaveMode ? '1' : '0');
+    } catch (_) {}
+    host.render();
+  };
+  host.setPowerSaveMode = syncPowerSaveMode;
+
+  if (chkPowerSave) {
+    chkPowerSave.checked = !!host.powerSaveMode;
+    chkPowerSave.addEventListener('change', () => syncPowerSaveMode(chkPowerSave.checked));
+  }
+  if (ipChkPowerSave) {
+    ipChkPowerSave.checked = !!host.powerSaveMode;
+    ipChkPowerSave.addEventListener('change', () => syncPowerSaveMode(ipChkPowerSave.checked));
+  }
+  if (btnMenuPowerSave) {
+    btnMenuPowerSave.addEventListener('click', () => syncPowerSaveMode(!host.powerSaveMode));
+  }
+  if (checkPowerSave) {
+    checkPowerSave.style.opacity = host.powerSaveMode ? '1' : '0';
+  }
 
   const syncRenderer = (mode) => {
     const cleanMode = (mode === 'cpu' || mode === 'software' || mode === 'canvas2d' || mode === '2d') ? 'cpu' : 'gpu';
@@ -9961,8 +10091,7 @@ async function main() {
     const checkSoftware = document.getElementById('check-engine-software');
     if (checkGpu) checkGpu.style.opacity = cleanMode === 'gpu' ? '1' : '0';
     if (checkSoftware) checkSoftware.style.opacity = cleanMode === 'cpu' ? '1' : '0';
-    const label = document.getElementById('menu-current-renderer-label');
-    if (label) label.textContent = cleanMode === 'gpu' ? 'WEBGL 2 (GPU)' : 'SOFTWARE (CPU)';
+    updateRendererBadge();
     try {
       localStorage.setItem('esenho_render_mode', cleanMode);
     } catch (_) {}
