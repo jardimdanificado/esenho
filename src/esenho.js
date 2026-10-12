@@ -6192,6 +6192,9 @@ class EsenhoScreenHost {
       selectedNodeIdx: -1,
       selectedNodeIndices: new Set()
     });
+    if (typeof this.canvasActor.exports.w_layer_select === 'function') {
+      this.canvasActor.exports.w_layer_select(idx);
+    }
     this.ensureTreeIntegrity();
     return idx;
   }
@@ -6430,6 +6433,45 @@ class EsenhoScreenHost {
     this.selectVectorPath(path.id, -1, lid);
     this.renderVectorLayer(lid);
     return path;
+  }
+
+  /**
+   * Exports all visible vector paths on the specified (or active) Vector Layer as a standalone SVG document string.
+   */
+  exportSVG(layerId) {
+    const cw = this.canvasActor?.exports?.get_canvas_width ? this.canvasActor.exports.get_canvas_width() : 1280;
+    const ch = this.canvasActor?.exports?.get_canvas_height ? this.canvasActor.exports.get_canvas_height() : 720;
+    const lid = (layerId !== undefined && layerId !== null)
+      ? layerId
+      : (this.canvasActor?.exports?.get_active_layer ? this.canvasActor.exports.get_active_layer() : 3);
+    const layersToExport = [];
+    if (this.isVectorLayer(lid)) {
+      layersToExport.push(this.getVectorLayer(lid));
+    } else if (this.vectorLayers && this.vectorLayers.size > 0) {
+      for (const vl of this.vectorLayers.values()) layersToExport.push(vl);
+    }
+    const lines = [
+      `<?xml version="1.0" encoding="UTF-8"?>`,
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${cw}" height="${ch}" viewBox="0 0 ${cw} ${ch}">`
+    ];
+    for (const vl of layersToExport) {
+      if (!vl || !Array.isArray(vl.paths)) continue;
+      const lName = (this.layerNames && this.layerNames.get(vl.id)) || `Vector Layer ${vl.id}`;
+      lines.push(`  <g id="layer-${vl.id}" data-name="${String(lName).replace(/"/g, '&quot;')}">`);
+      for (const p of vl.paths) {
+        if (!p || p.visible === false) continue;
+        const d = typeof p.toSVGPathData === 'function' ? p.toSVGPathData() : '';
+        if (!d) continue;
+        const stroke = p.stroke || '#000000';
+        const fill = p.fill || 'none';
+        const sw = p.strokeWidth || 2;
+        const op = p.opacity !== undefined ? p.opacity : 1;
+        lines.push(`    <path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}" />`);
+      }
+      lines.push(`  </g>`);
+    }
+    lines.push(`</svg>`);
+    return lines.join('\n');
   }
 
   /**

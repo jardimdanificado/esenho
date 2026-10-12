@@ -2868,6 +2868,39 @@
       accent-color: var(--primary);
       cursor: pointer;
     }
+
+    /* ── VECTOR LAYER MODE (Dedicated UI Mode when a Vector Layer is Active) ── */
+    .vector-only-ui {
+      display: none !important;
+    }
+    body.is-vector-layer-mode .vector-only-ui {
+      display: inline-flex !important;
+    }
+    body.is-vector-layer-mode .raster-only-ui,
+    body.is-vector-layer-mode #ip-selection-bar,
+    body.is-vector-layer-mode #ip-transform-bar,
+    body.is-vector-layer-mode #btn-ip-vecbar-close,
+    body.is-vector-layer-mode #sheet-tools [data-toolstab="select"],
+    body.is-vector-layer-mode #sheet-tools [data-toolstab="transform"],
+    body.is-vector-layer-mode #sheet-tools .ip-actionmode-card[data-actionmode="smudge"],
+    body.is-vector-layer-mode #sheet-tools .ip-actionmode-card[data-actionmode="select"],
+    body.is-vector-layer-mode #sheet-tools .ip-tool-card[data-tool="fill"],
+    body.is-vector-layer-mode #sheet-tools .ip-tool-card[data-tool="lasso_fill"],
+    body.is-vector-layer-mode #sheet-brushes .ip-pill-btn[data-bcat="blend"],
+    body.is-vector-layer-mode #sheet-brushes .ip-pill-btn[data-bcat="fx"],
+    body.is-vector-layer-mode #sheet-lab .ip-pill-btn[data-labtab="wet"],
+    body.is-vector-layer-mode #btn-menu-crop-selection,
+    body.is-vector-layer-mode #btn-menu-invert-layer,
+    body.is-vector-layer-mode .btn-menu-toggle-panel[data-panel="sheet-pixelart"] {
+      display: none !important;
+    }
+    body.is-vector-layer-mode #ip-top-bar {
+      border-bottom: 1px solid #8ec07c !important;
+      box-shadow: 0 2px 12px rgba(142, 192, 124, 0.16);
+    }
+    body.is-vector-layer-mode #ip-actionmode-grid {
+      grid-template-columns: repeat(3, 1fr) !important;
+    }
   </style>
 </head>
 <body>
@@ -2917,6 +2950,9 @@
               <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
             </button>
             <div id="menu-export-flyout" class="menu-submenu">
+              <button type="button" class="menu-item" id="btn-quick-export-svg" style="color: #8ec07c; font-weight: 700;">
+                <span>Export Vector SVG (.svg)</span>
+              </button>
               <button type="button" class="menu-item" id="btn-quick-export-png">
                 <span>Export PNG (.png)</span>
               </button>
@@ -2963,14 +2999,14 @@
               <button type="button" class="menu-item" id="btn-menu-resize-canvas">
                 <span>Resize Canvas...</span>
               </button>
-              <button type="button" class="menu-item" id="btn-menu-crop-selection">
+              <button type="button" class="menu-item raster-only-ui" id="btn-menu-crop-selection">
                 <span>Crop to Selection</span>
               </button>
               <button type="button" class="menu-item" id="btn-menu-clear-layer">
                 <span>Clear Active Layer</span>
                 <span class="shortcut">Delete</span>
               </button>
-              <button type="button" class="menu-item" id="btn-menu-invert-layer">
+              <button type="button" class="menu-item raster-only-ui" id="btn-menu-invert-layer">
                 <span>Invert Active Layer</span>
               </button>
               <div class="menu-divider"></div>
@@ -2990,7 +3026,7 @@
           </div>
 
           <!-- Filters -->
-          <div class="menu-item-submenu-wrap">
+          <div class="menu-item-submenu-wrap raster-only-ui" id="menu-filters-wrap">
             <button type="button" id="btn-menu-filters" class="menu-item">
               <span>Filters</span>
               <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
@@ -3067,7 +3103,7 @@
                 <span>Color Studio</span>
                 <span class="shortcut">C</span>
               </button>
-              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-pixelart">
+              <button type="button" class="menu-item btn-menu-toggle-panel raster-only-ui" data-panel="sheet-pixelart">
                 <span>Pixel Art Studio</span>
               </button>
               <button type="button" class="menu-item" id="btn-menu-toggle-anim">
@@ -3085,10 +3121,18 @@
           </button>
         </div>
       </div>
+
+      <!-- Dedicated Vector Layer Mode Top Pill (Shown automatically when a Vector Layer is selected) -->
+      <div id="ip-vector-mode-badge" class="vector-only-ui" style="align-items: center; gap: 6px; background: rgba(142, 192, 124, 0.14); border: 1px solid #8ec07c; border-radius: var(--radius-md); padding: 2px 8px; margin-left: 4px; flex-shrink: 0;">
+        <span style="color: #8ec07c; font-size: 10px; font-weight: 800; letter-spacing: 0.4px; white-space: nowrap;">◆ VECTOR LAYER</span>
+        <span id="ip-top-vec-layer-info" style="color: var(--text); font-size: 9.5px; font-family: var(--font-mono); white-space: nowrap;">0 paths</span>
+        <button type="button" id="btn-top-vec-export-svg" class="ip-btn ip-mini-btn" title="Export Vector Layer as SVG (.svg)" style="height: 20px; padding: 0 6px; font-size: 9.5px; background: var(--bg-dark); color: #8ec07c; border: 1px solid #8ec07c; font-weight: 700;">SVG</button>
+        <button type="button" id="btn-top-vec-bake" class="ip-btn ip-mini-btn" title="Convert Vector Layer to Raster Pixel Layer" style="height: 20px; padding: 0 6px; font-size: 9.5px; background: var(--bg-dark); color: var(--text-muted); border: 1px solid var(--border);">Bake to Pixels</button>
+      </div>
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.7 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.8 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
@@ -3203,26 +3247,30 @@
 
     <!-- ── REORGANIZED NODES & VECTOR BAR (Aba de Nós) ── -->
     <div id="ip-vector-bar" style="display: none; flex-direction: column; position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 101; background: var(--bg-panel); border: 1px solid #8ec07c; border-radius: var(--radius-lg); padding: 6px 10px; gap: 5px; box-shadow: 0 8px 24px rgba(0,0,0,0.62); pointer-events: auto; max-width: 96vw;">
-      <!-- Row 1: Sub-Tools (Pen, Nodes, Marquee, Width, Brush) & Path Actions -->
+      <!-- Row 1: Sub-Tools (Pen, Nodes, Marquee, Width, Brush, Shapes, Erase) & Path Actions -->
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; overflow-x: auto; scrollbar-width: none;">
         <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
           <span style="font-weight: 800; font-size: 10.5px; color: #8ec07c; display: flex; align-items: center; gap: 4px; padding-left: 2px; white-space: nowrap;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 17c3-6 6-6 9 0s6 6 9 0"/><circle cx="3" cy="17" r="2"/><circle cx="12" cy="17" r="2"/><circle cx="21" cy="17" r="2"/></svg>
-            NODES
+            VECTOR
           </span>
           <span id="ip-vecbar-status" style="font-size: 9.5px; font-family: var(--font-mono); font-weight: 700; color: #8ec07c; background: var(--bg-dark); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1px 6px; white-space: nowrap;">Ready</span>
         </div>
 
         <!-- Vector Sub-Tool Switcher -->
         <div style="display: flex; gap: 2px; background: var(--bg-dark); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border); flex-shrink: 0;">
-          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool" data-vecsub="pen" title="Pen Tool: Click to place corners, Drag to pull smooth Bézier curves" style="height: 23px; padding: 0 8px; font-size: 10px; font-weight: 800; display: flex; align-items: center; gap: 3px;">
+          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool" data-vecsub="pen" title="Pen Tool: Click to place corners, Drag to pull smooth Bézier curves" style="height: 23px; padding: 0 7px; font-size: 10px; font-weight: 800; display: flex; align-items: center; gap: 3px;">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><circle cx="11" cy="11" r="2"/></svg>
             <span>Pen</span>
           </button>
-          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool active" data-vecsub="nodes" title="Edit Nodes & Handles (Drag empty space for Marquee Box selection)" style="height: 23px; padding: 0 8px; font-size: 10px; font-weight: 800;">Nodes</button>
-          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool" data-vecsub="marquee" title="Marquee Box Multi-Node Selector (Drag box over multiple nodes)" style="height: 23px; padding: 0 8px; font-size: 10px; font-weight: 800;">Box Sel</button>
-          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool" data-vecsub="width" title="Per-Node Stroke Width / Pressure Tool" style="height: 23px; padding: 0 8px; font-size: 10px; font-weight: 800;">Width</button>
-          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool" data-vecsub="draw" title="Freehand Vector Brush Stroke" style="height: 23px; padding: 0 8px; font-size: 10px; font-weight: 800;">Brush</button>
+          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool active" data-vecsub="nodes" title="Edit Nodes & Handles (Drag empty space for Marquee Box selection)" style="height: 23px; padding: 0 7px; font-size: 10px; font-weight: 800;">Nodes</button>
+          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool" data-vecsub="marquee" title="Marquee Box Multi-Node Selector (Drag box over multiple nodes)" style="height: 23px; padding: 0 7px; font-size: 10px; font-weight: 800;">Box Sel</button>
+          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool" data-vecsub="width" title="Per-Node Stroke Width / Pressure Tool" style="height: 23px; padding: 0 7px; font-size: 10px; font-weight: 800;">Width</button>
+          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool" data-vecsub="draw" title="Freehand Vector Brush Stroke" style="height: 23px; padding: 0 7px; font-size: 10px; font-weight: 800;">Brush</button>
+          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool" data-vecsub="line" title="Vector Line Shape" style="height: 23px; padding: 0 6px; font-size: 10px; font-weight: 800;">Line</button>
+          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool" data-vecsub="rect" title="Vector Rectangle Shape" style="height: 23px; padding: 0 6px; font-size: 10px; font-weight: 800;">Rect</button>
+          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool" data-vecsub="ellipse" title="Vector Ellipse Shape" style="height: 23px; padding: 0 6px; font-size: 10px; font-weight: 800;">Ellipse</button>
+          <button type="button" class="ip-btn ip-mini-btn ip-vecbar-sub ip-vecbar-subtool" data-vecsub="erase" title="Vector Stroke Eraser (Touch any path to erase it)" style="height: 23px; padding: 0 6px; font-size: 10px; font-weight: 800;">Erase</button>
         </div>
 
         <!-- Global Path Actions -->
@@ -3230,6 +3278,7 @@
           <button type="button" id="btn-ip-vecbar-pen-done" class="ip-btn ip-mini-btn" title="Finish Current Pen Path (Enter)" style="display: none; height: 23px; padding: 0 8px; font-size: 10px; font-weight: 800; background: #8ec07c; color: var(--bg-dark);">✓ Done</button>
           <button type="button" id="btn-ip-vecbar-close-loop" class="ip-btn ip-mini-btn" title="Toggle Closed Loop Path" style="height: 23px; padding: 0 6px; font-size: 10px;">Loop</button>
           <button type="button" id="btn-ip-vecbar-simplify" class="ip-btn ip-mini-btn" title="Simplify & Refit Selected Path to Smooth Bézier" style="height: 23px; padding: 0 6px; font-size: 10px;">Fit</button>
+          <button type="button" id="btn-ip-vecbar-export-svg" class="ip-btn ip-mini-btn" title="Export Vector Layer as SVG (.svg)" style="height: 23px; padding: 0 6px; font-size: 10px; color: #8ec07c; font-weight: 700;">SVG</button>
           <button type="button" id="btn-ip-vecbar-rasterize" class="ip-btn ip-mini-btn" title="Bake / Rasterize Vector Layer to Pixels" style="height: 23px; padding: 0 6px; font-size: 10px;">Bake</button>
           <button type="button" id="btn-ip-vecbar-del-path" class="ip-btn ip-mini-btn" title="Delete Selected Vector Path" style="height: 23px; padding: 0 6px; font-size: 10px; color: var(--danger);">Del Path</button>
           <button type="button" id="btn-ip-vecbar-close" class="ip-btn ip-mini-btn" title="Exit Vector Mode" style="background: var(--border); color: var(--danger); height: 23px; width: 23px; padding: 0; font-size: 11px; font-weight: bold;">✕</button>
@@ -3264,7 +3313,7 @@
         </div>
       </div>
 
-      <!-- Row 2B: Freehand Brush Curve Conversion Options (Shown when Brush sub-tool is active) -->
+      <!-- Row 2B: Freehand Brush Curve Conversion Options (Shown when Brush/Shape sub-tool is active) -->
       <div id="ip-vecbar-row-brush" style="display: none; align-items: center; justify-content: space-between; gap: 6px; padding-top: 4px; border-top: 1px solid var(--border);">
         <div style="display: flex; align-items: center; gap: 4px;">
           <span style="font-size: 9.5px; color: var(--text-muted); font-weight: 700;">Stroke Capture:</span>
@@ -3357,9 +3406,9 @@
       <!-- Dedicated Tab Bar for Tools, Selection, Nodes, Transform, and Animation -->
       <div class="ip-pills-row" id="ip-tools-tab-pills" style="padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-input); width: 100%; box-sizing: border-box;">
         <button type="button" class="ip-pill-btn active" data-toolstab="draw">Draw &amp; Shapes</button>
-        <button type="button" class="ip-pill-btn" data-toolstab="select">Selection</button>
+        <button type="button" class="ip-pill-btn raster-only-ui" data-toolstab="select">Selection</button>
         <button type="button" class="ip-pill-btn" data-toolstab="nodes">Nodes &amp; Pen</button>
-        <button type="button" class="ip-pill-btn" data-toolstab="transform">Transform</button>
+        <button type="button" class="ip-pill-btn raster-only-ui" data-toolstab="transform">Transform</button>
         <button type="button" class="ip-pill-btn" data-toolstab="anim">Animation</button>
       </div>
 
@@ -3370,7 +3419,7 @@
             <span style="font-size: 10.5px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.3px;">Active Mode</span>
             <span style="font-size: 9.5px; color: var(--text-muted);">Tap to switch mode &amp; tab</span>
           </div>
-          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
+          <div id="ip-actionmode-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
             <div class="ip-actionmode-card active" data-actionmode="draw" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
               <span style="font-size: 9.5px; font-weight: 700;">Draw</span>
@@ -3379,11 +3428,11 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/></svg>
               <span style="font-size: 9.5px; font-weight: 700;">Erase</span>
             </div>
-            <div class="ip-actionmode-card" data-actionmode="smudge" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
+            <div class="ip-actionmode-card raster-only-ui" data-actionmode="smudge" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 0 0-5 5c0 3 5 9 5 9s5-6 5-9a5 5 0 0 0-5-5z"/></svg>
               <span style="font-size: 9.5px; font-weight: 700;">Smudge</span>
             </div>
-            <div class="ip-actionmode-card" data-actionmode="select" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
+            <div class="ip-actionmode-card raster-only-ui" data-actionmode="select" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
               <span style="font-size: 9.5px; font-weight: 700;">Select</span>
             </div>
@@ -3397,13 +3446,13 @@
         <!-- ── TAB 1: DRAW & SHAPE TOOLS ── -->
         <div class="ip-tools-tab-panel" data-toolspanel="draw" style="display: flex; flex-direction: column; gap: 8px;">
           <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
-            <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Drawing, Fill &amp; Geometric Guides</span>
+            <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Drawing &amp; Geometric Shape Tools</span>
             <div class="ip-tools-grid">
               <div class="ip-tool-card active" data-tool="brush">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
                 <div class="ip-tool-card-info">
                   <span class="ip-tool-card-name">Freehand Brush</span>
-                  <span class="ip-tool-card-sub">Standard paint stroke</span>
+                  <span class="ip-tool-card-sub">Standard paint / vector stroke</span>
                 </div>
               </div>
 
@@ -3415,7 +3464,7 @@
                 </div>
               </div>
 
-              <div class="ip-tool-card" data-tool="fill">
+              <div class="ip-tool-card raster-only-ui" data-tool="fill">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11l-8-8-8.5 8.5a2.12 2.12 0 0 0 0 3l5 5a2.12 2.12 0 0 0 3 0L19 11z"/><path d="M5 2l5 5"/></svg>
                 <div class="ip-tool-card-info">
                   <span class="ip-tool-card-name">Flood Fill</span>
@@ -3423,7 +3472,7 @@
                 </div>
               </div>
 
-              <div class="ip-tool-card" data-tool="lasso_fill">
+              <div class="ip-tool-card raster-only-ui" data-tool="lasso_fill">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a8 8 0 0 1 13.5-5.5L20 11"/><path d="M11 20a8 8 0 0 1-5.5-13.5L8 4"/></svg>
                 <div class="ip-tool-card-info">
                   <span class="ip-tool-card-name">Lasso Fill</span>
@@ -3435,7 +3484,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
                 <div class="ip-tool-card-info">
                   <span class="ip-tool-card-name">Line Guide</span>
-                  <span class="ip-tool-card-sub">Straight rule</span>
+                  <span class="ip-tool-card-sub">Straight rule / vector line</span>
                 </div>
               </div>
 
@@ -3443,7 +3492,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
                 <div class="ip-tool-card-info">
                   <span class="ip-tool-card-name">Rectangle</span>
-                  <span class="ip-tool-card-sub">Box shape stroke</span>
+                  <span class="ip-tool-card-sub">Box shape / vector rect</span>
                 </div>
               </div>
 
@@ -3451,7 +3500,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
                 <div class="ip-tool-card-info">
                   <span class="ip-tool-card-name">Ellipse</span>
-                  <span class="ip-tool-card-sub">Circle / oval guide</span>
+                  <span class="ip-tool-card-sub">Circle / vector ellipse</span>
                 </div>
               </div>
 
@@ -3609,8 +3658,9 @@
               <button type="button" id="btn-sheet-vec-sel-all" class="ip-btn">Select All</button>
               <button type="button" id="btn-sheet-vec-close-loop" class="ip-btn">Close Loop</button>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
               <button type="button" id="btn-sheet-vec-new-layer" class="ip-btn" style="background: #8ec07c; color: var(--bg-dark); font-weight: bold;">+ Vector Layer</button>
+              <button type="button" id="btn-sheet-vec-export-svg" class="ip-btn" style="color: #8ec07c; font-weight: bold;">Export SVG</button>
               <button type="button" id="btn-sheet-vec-simplify" class="ip-btn">Simplify / Fit</button>
               <button type="button" id="btn-sheet-vec-bake" class="ip-btn">Bake to Pixels</button>
             </div>
