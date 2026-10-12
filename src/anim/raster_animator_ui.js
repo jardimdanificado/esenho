@@ -31,12 +31,19 @@ export class RasterAnimatorUI {
   show() {
     this.visible = true;
     this.container.style.display = 'flex';
+    if (typeof window !== 'undefined' && window.isDockviewPainter && typeof window.openPainterDockPanel === 'function') {
+      window.openPainterDockPanel('timeline', true);
+    }
     this.updateTimeline();
   }
 
   hide() {
     this.visible = false;
-    this.container.style.display = 'none';
+    if (typeof window !== 'undefined' && window.isDockviewPainter && typeof window.closePainterDockPanel === 'function') {
+      window.closePainterDockPanel('timeline', true);
+    } else {
+      this.container.style.display = 'none';
+    }
     if (this.animator.isPlaying) {
       this.animator.stop();
     }

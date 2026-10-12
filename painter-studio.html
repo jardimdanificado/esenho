@@ -1,0 +1,3759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>esenho — Painter Studio</title>
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#1d2021">
+  <meta name="color-scheme" content="dark">
+  <script>
+    window.isDockviewPainter = true;
+    if (new URLSearchParams(window.location.search).get('embedded') === 'true') {
+      document.documentElement.classList.add('is-embedded');
+    }
+    const savedTheme = localStorage.getItem('esenho_theme');
+    if (savedTheme) {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      window.addEventListener('DOMContentLoaded', () => {
+        document.body.setAttribute('data-theme', savedTheme);
+        document.body.classList.add('theme-' + savedTheme);
+      });
+    }
+  </script>
+  <style>
+    :root {
+      --ui-scale: 1;
+      color-scheme: dark;
+      --bg-dark: #161819;
+      --bg-canvas: #161819;
+      --bg-panel: #202223;
+      --bg-panel-sub: #27292a;
+      --bg-input: #131415;
+      --bg-input-focus: #1c1e1f;
+      --border: #303233;
+      --border-bright: #444748;
+      --border-focus: #fabd2f;
+      --text: #ebdbb2;
+      --text-bright: #fbf1c7;
+      --text-muted: #857d73;
+      --text-dim: #d5c4a1;
+      --primary: #fabd2f;
+      --primary-hover: #fe8019;
+      --primary-dim: rgba(250, 189, 47, 0.14);
+      --accent: #83a598;
+      --danger: #fb4934;
+      --danger-dark: #cc241d;
+      --success: #b8bb26;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Text', sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      --radius-sm: 3px;
+      --radius-md: 5px;
+      --radius-lg: 8px;
+    }
+
+    [data-theme="gray"], body.theme-gray {
+      --bg-dark: #222528;
+      --bg-canvas: #1a1c1e;
+      --bg-panel: #2e3236;
+      --bg-panel-sub: #383d42;
+      --bg-input: #1e2124;
+      --bg-input-focus: #282c31;
+      --border: #444b52;
+      --border-bright: #646e78;
+      --border-focus: #ff9f1c;
+      --text: #e2e8f0;
+      --text-bright: #ffffff;
+      --text-dim: #cbd5e1;
+      --text-muted: #94a3b8;
+      --primary: #ff9f1c;
+      --primary-hover: #ffa933;
+      --primary-dim: rgba(255, 159, 28, 0.18);
+      --accent: #38bdf8;
+      --danger: #f87171;
+      --danger-dark: #dc2626;
+      --success: #4ade80;
+      color-scheme: dark;
+    }
+
+    [data-theme="skeuo"], body.theme-skeuo,
+    [data-theme="skeuomorphic"], body.theme-skeuomorphic {
+      --bg-dark: #191c20;
+      --bg-canvas: #121417;
+      --bg-panel: #292d33;
+      --bg-panel-sub: #212429;
+      --bg-input: #101215;
+      --bg-input-focus: #15181c;
+      --border: #16181b;
+      --border-bright: #444b54;
+      --border-focus: #f59e0b;
+      --text: #e2e8f0;
+      --text-bright: #ffffff;
+      --text-muted: #8893a2;
+      --text-dim: #cbd5e1;
+      --primary: #f59e0b;
+      --primary-hover: #fbbf24;
+      --primary-dim: rgba(245, 158, 11, 0.22);
+      --accent: #38bdf8;
+      --danger: #ef4444;
+      --danger-dark: #b91c1c;
+      --success: #10b981;
+      color-scheme: dark;
+    }
+
+    [data-theme="skeuo"] button:not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip),
+    body.theme-skeuo button:not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip) {
+      background: linear-gradient(180deg, #3c424a 0%, #2b3036 60%, #22262a 100%);
+      border: 1px solid #141618;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(0, 0, 0, 0.4);
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+    }
+    [data-theme="skeuo"] button:not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip):hover,
+    body.theme-skeuo button:not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip):hover {
+      background: linear-gradient(180deg, #484f58 0%, #343a41 60%, #282c31 100%);
+      color: #ffffff;
+    }
+    [data-theme="skeuo"] button:not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip):active,
+    body.theme-skeuo button:not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip):active {
+      background: linear-gradient(180deg, #181a1d 0%, #23272c 100%);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+      transform: translateY(1px);
+    }
+    [data-theme="skeuo"] input,
+    [data-theme="skeuo"] select,
+    [data-theme="skeuo"] textarea,
+    body.theme-skeuo input,
+    body.theme-skeuo select,
+    body.theme-skeuo textarea {
+      background: linear-gradient(180deg, #101215 0%, #17191d 100%);
+      border: 1px solid #0c0e10;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.85), 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    ::selection {
+      background: rgba(250, 189, 47, 0.3);
+      color: var(--text-bright);
+    }
+
+    input, textarea, [contenteditable] {
+      caret-color: var(--primary);
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
+    }
+
+    .ui-val, .layer-idx, .layer-cell-op, .tb-val, .ip-top-status-text, #cvs-status-bar {
+      font-variant-numeric: tabular-nums;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-dark);
+      color: var(--text);
+      font: 12px/1.4 var(--font-sans);
+      overflow: hidden;
+    }
+
+    button, input, select, textarea {
+      font-family: var(--font-sans);
+      font-size: 11px;
+      color: var(--text);
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      box-sizing: border-box;
+      transition: background-color 0.1s, border-color 0.1s, color 0.1s;
+    }
+
+    button {
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 8px;
+    }
+    button:hover {
+      background-color: var(--bg-panel-sub);
+      border-color: var(--border-bright);
+      color: var(--text-bright);
+    }
+    button:active {
+      background-color: var(--border);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      border-color: var(--border) !important;
+      background-color: var(--bg-panel) !important;
+      color: #7c6f64 !important;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="search"],
+    input[type="password"],
+    input[type="url"],
+    input[type="email"],
+    .ui-input-text,
+    .ui-input-num {
+      background-color: var(--bg-input);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 4px 6px;
+      border-radius: 0;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="search"]:focus,
+    input[type="password"]:focus,
+    input[type="url"]:focus,
+    input[type="email"]:focus,
+    .ui-input-text:focus,
+    .ui-input-num:focus {
+      border-color: var(--primary);
+      background-color: var(--bg-input-focus);
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input::placeholder, textarea::placeholder {
+      color: #7c6f64;
+    }
+
+    select, .ui-select {
+      background-color: var(--bg-panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 4px 20px 4px 6px;
+      border-radius: 0;
+      cursor: pointer;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='6' viewBox='0 0 8 6'%3E%3Cpath fill='%23a89984' d='M0 0l4 5 4-5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 6px center;
+    }
+    select:focus, .ui-select:focus {
+      border-color: var(--primary);
+    }
+    select option, select optgroup {
+      background-color: var(--bg-panel);
+      color: var(--text);
+    }
+
+    input[type="checkbox"] {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-bright);
+      border-radius: 2px;
+      cursor: pointer;
+      display: inline-block;
+      vertical-align: middle;
+      position: relative;
+      margin: 0 4px 0 0;
+      flex-shrink: 0;
+    }
+    input[type="checkbox"]:checked {
+      background-color: var(--primary);
+      border-color: var(--primary);
+    }
+    input[type="checkbox"]:checked::after {
+      content: '✓';
+      display: block;
+      color: var(--bg-dark);
+      font-size: 10px;
+      font-weight: bold;
+      text-align: center;
+      line-height: 12px;
+    }
+
+    #layout {
+      display: flex;
+      flex-direction: column;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      position: relative;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    #workspace {
+      flex: 1 1 0%;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+      width: 100%;
+    }
+
+    /* ── Dockview Layout Engine & Gruvbox Dark / Gray / Skeuo Themes ── */
+    #dockview-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: var(--bg-dark);
+    }
+
+    .dockview-theme-dark,
+    #dockview-container {
+      --dv-drag-over-background-color: var(--primary-dim);
+      --dv-drag-over-border-color: var(--primary);
+      --dv-tabs-and-actions-container-background-color: var(--bg-panel-sub);
+      --dv-activegroup-visiblepanel-tab-background-color: var(--bg-panel);
+      --dv-activegroup-visiblepanel-tab-color: var(--primary);
+      --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+      --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
+      --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-panel);
+      --dv-inactivegroup-visiblepanel-tab-color: var(--text);
+      --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+      --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
+      --dv-tab-divider-color: var(--border);
+      --dv-separator-border: 1px solid var(--border);
+      --dv-paneview-active-outline-color: var(--primary);
+      --dv-defaulttab-hover-background-color: rgba(255, 255, 255, 0.04);
+      --dv-group-view-background-color: var(--bg-panel);
+      --dv-background-color: var(--bg-panel);
+      --dv-sash-hover-color: var(--primary);
+      --dv-sash-size: 4px;
+      --dv-tabs-and-actions-container-height: 26px;
+    }
+
+    #dockview-container .dv-sash {
+      z-index: 99 !important;
+    }
+
+    #dockview-container .dv-group-action-close,
+    #dockview-container .dv-right-actions-container,
+    #dockview-container .dv-tabs-overflow-dropdown-root,
+    #dockview-container .dv-tabs-overflow-dropdown-default,
+    #dockview-container .dv-tabs-overflow-container {
+      display: none !important;
+    }
+
+    #dockview-container .dv-tab {
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      padding: 0 10px;
+      height: 26px;
+      line-height: 26px;
+      cursor: pointer !important;
+      user-select: none;
+      transition: color 0.12s ease, background-color 0.12s ease;
+      color: var(--text-muted);
+      background: transparent;
+    }
+
+    #dockview-container .dv-tab.dv-active-tab {
+      color: var(--primary) !important;
+      box-shadow: inset 0 -2px 0 var(--primary);
+      background: var(--bg-panel) !important;
+    }
+
+    #dockview-container .dv-tab:hover:not(.dv-active-tab) {
+      color: var(--text-bright) !important;
+      background: var(--bg-panel-sub);
+    }
+
+    #dockview-container .dv-tab * {
+      cursor: pointer !important;
+    }
+
+    #dockview-container .dv-tabs-and-actions-container {
+      height: 26px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel-sub);
+    }
+
+    [data-theme="skeuo"] #dockview-container {
+      --dv-tabs-and-actions-container-background-color: #202428;
+      --dv-activegroup-visiblepanel-tab-background-color: #2d3238;
+      --dv-activegroup-visiblepanel-tab-color: #ffc848;
+      --dv-inactivegroup-visiblepanel-tab-background-color: #272b30;
+      --dv-inactivegroup-visiblepanel-tab-color: #cbd5e1;
+      --dv-group-view-background-color: #282c32;
+      --dv-background-color: #282c32;
+      --dv-tab-divider-color: #15171a;
+      --dv-separator-border: 1px solid #15171a;
+      --dv-sash-hover-color: #f59e0b;
+    }
+
+    [data-theme="skeuo"] .dock-panel-content {
+      background: linear-gradient(180deg, #2c3036 0%, #24282e 100%) !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    }
+
+    [data-theme="skeuo"] #dockview-container .dv-tabs-and-actions-container {
+      background: linear-gradient(180deg, #22262b 0%, #1a1d21 100%) !important;
+      border-bottom: 1px solid #131518 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 -1px 3px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] #dockview-container .dv-tab {
+      background: linear-gradient(180deg, #2d3238 0%, #212429 100%) !important;
+      border: 1px solid #15171a !important;
+      border-bottom: none !important;
+      border-radius: 4px 4px 0 0 !important;
+      margin-right: 2px !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        0 -1px 2px rgba(0, 0, 0, 0.25) !important;
+      color: #94a3b8 !important;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
+    }
+
+    [data-theme="skeuo"] #dockview-container .dv-tab.dv-active-tab {
+      background: linear-gradient(180deg, #3d434c 0%, #2d3238 100%) !important;
+      color: #ffc848 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -2px 0 #f59e0b,
+        0 -2px 6px rgba(0, 0, 0, 0.45) !important;
+      text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.9),
+        0 0 8px rgba(245, 158, 11, 0.4) !important;
+    }
+
+    .dock-panel-content {
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      box-sizing: border-box;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      overscroll-behavior: contain;
+    }
+
+    #dock-panel-canvas {
+      padding: 0 !important;
+      overflow: hidden !important;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: var(--bg-canvas);
+    }
+
+    /* ── Docked Sheet Overrides (Convert Floating Sheets to Full-Height Dockview Panels) ── */
+    .dock-panel-content .ip-sheet-modal,
+    .dock-panel-content #touch-color-modal {
+      display: flex !important;
+      flex-direction: column;
+      position: static !important;
+      inset: auto !important;
+      width: 100% !important;
+      height: 100% !important;
+      background: transparent !important;
+      pointer-events: auto !important;
+      z-index: auto !important;
+    }
+
+    .dock-panel-content .ip-sheet,
+    .dock-panel-content .touch-color-box {
+      position: static !important;
+      top: auto !important;
+      left: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      width: 100% !important;
+      max-width: none !important;
+      height: 100% !important;
+      max-height: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      background: var(--bg-panel) !important;
+      flex: 1 1 0%;
+      min-height: 0;
+      animation: none !important;
+    }
+
+    .dock-panel-content .ip-sheet-header,
+    .dock-panel-content .touch-color-header {
+      cursor: default !important;
+      flex-shrink: 0;
+    }
+
+    .dock-panel-content .ip-sheet-content {
+      max-height: none !important;
+      flex: 1 1 0%;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    .dock-panel-content #ip-sheet-layers-list {
+      max-height: none !important;
+      flex: 1 1 0%;
+      min-height: 120px;
+    }
+
+    .dock-panel-content #raster-anim-timeline-dock {
+      display: flex !important;
+      flex-direction: column;
+      position: static !important;
+      bottom: auto !important;
+      left: auto !important;
+      transform: none !important;
+      width: 100% !important;
+      max-width: none !important;
+      height: 100% !important;
+      box-shadow: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      overflow: hidden !important;
+      pointer-events: auto !important;
+    }
+
+    .dock-panel-content #raster-anim-timeline-dock .raster-anim-dock {
+      height: 100%;
+      border-radius: 0 !important;
+      overflow-y: auto;
+    }
+
+    /* ── Canvas area ── */
+    #cvswrap {
+      flex: 1 1 0%;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+      background: var(--bg-dark);
+      min-width: 0;
+      min-height: 0;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    #wcanvas, #uicanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+      touch-action: none;
+      box-sizing: border-box;
+    }
+    .eyedropper-ring {
+      position: fixed;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      border: 3px solid var(--text-bright);
+      box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+      z-index: 10000;
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .eyedropper-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: var(--text);
+      border: 3px solid var(--bg-panel);
+    }
+
+    .ui-row-between { display: flex; justify-content: space-between; align-items: center; }
+    .ui-row-gap { display: flex; align-items: center; gap: 6px; }
+    .ui-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .ui-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+    .ui-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+
+    .ui-btn {
+      background: var(--bg-panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 4px 6px;
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      text-align: center;
+      user-select: none;
+      transition: background 0.1s, border-color 0.1s;
+    }
+    .ui-btn:hover {
+      background: var(--border);
+      color: var(--primary);
+      border-color: var(--border-bright);
+    }
+    .ui-btn.active {
+      background: var(--border);
+      color: var(--primary);
+      border-color: var(--primary);
+      font-weight: bold;
+    }
+    .ui-mini-btn {
+      background: var(--bg-panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font: inherit;
+      font-size: 10px;
+      padding: 2px 6px;
+      cursor: pointer;
+    }
+    .ui-mini-btn:hover {
+      background: var(--border);
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+    .ui-mini-btn.active {
+      background: var(--primary);
+      color: var(--bg-dark);
+      font-weight: bold;
+    }
+
+    .ui-control {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 10px;
+    }
+    .ui-label-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+    }
+    .ui-val {
+      color: var(--primary);
+      font-weight: bold;
+    }
+    input[type=range] {
+      accent-color: var(--primary-hover);
+      cursor: pointer;
+      height: 4px;
+      background: var(--bg-panel);
+      width: 100%;
+      border-radius: 2px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--primary-hover);
+      cursor: pointer;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--primary-hover);
+      border: none;
+      cursor: pointer;
+    }
+    .ui-select {
+      background: var(--bg-panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 3px 5px;
+      font: inherit;
+      font-size: 11px;
+      width: 100%;
+    }
+
+    /* Layers */
+    .ui-layer-row {
+      min-height: 28px;
+      height: 28px;
+      padding: 0 4px;
+      gap: 4px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      background: var(--bg-panel-sub);
+      border: 1px solid transparent;
+      border-bottom: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      font-size: 11px;
+      transition: all 0.08s ease;
+      position: relative;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+    .ui-layer-row:active { cursor: grabbing; }
+    .ui-layer-row:hover { background: var(--bg-panel-sub); }
+    .ui-layer-row.active-draw {
+      background: var(--border-bright);
+      border-color: var(--border-bright);
+    }
+    .ui-layer-row.ui-layer-in-group { background: var(--bg-canvas); }
+    .ui-layer-row.is-dragging, .ui-layer-group-header.is-dragging {
+      opacity: 0.4;
+      background: var(--border) !important;
+    }
+    .ui-layer-row.touch-reordering, .ui-layer-group-header.touch-reordering {
+      outline: 2px solid var(--primary) !important;
+      background: var(--border) !important;
+      opacity: 0.9 !important;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+      z-index: 10;
+      pointer-events: none !important;
+    }
+    .drop-indicator-top { border-top: 2px solid var(--primary) !important; }
+    .drop-indicator-bottom { border-bottom: 2px solid var(--primary) !important; }
+    .drop-target-group {
+      outline: 2px dashed var(--success) !important;
+      background: rgba(184, 187, 38, 0.15) !important;
+    }
+    .layer-cell-controls {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+    .ui-layer-group-header {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 26px;
+      padding: 2px 6px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--success);
+      font-weight: 600;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: grab;
+      box-sizing: border-box;
+      position: relative;
+    }
+    .ui-layer-group-header:active { cursor: grabbing; }
+    .ui-layer-group-header .group-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .group-btn-collapse {
+      background: transparent;
+      border: none;
+      color: var(--success);
+      font-size: 10px;
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .layer-cell-vis {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .layer-btn-vis {
+      background: transparent;
+      border: none;
+      color: var(--primary);
+      width: 24px;
+      height: 24px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 1;
+      opacity: 1;
+      touch-action: manipulation;
+    }
+    .layer-btn-vis:hover {
+      opacity: 1;
+      color: var(--primary-hover, var(--primary));
+    }
+    .layer-btn-vis.hidden {
+      opacity: 0.25;
+      color: var(--text-muted);
+    }
+    .layer-cell-info {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .layer-idx {
+      font-size: 10px;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+    .layer-name-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 500;
+      font-size: 11px;
+      color: var(--text);
+    }
+    .ui-layer-row.active-draw .layer-name-text {
+      color: var(--primary);
+      font-weight: bold;
+    }
+    .layer-dims-text {
+      font-size: 9px;
+      color: #7c6f64;
+      flex-shrink: 0;
+    }
+    .layer-cell-toggles {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .layer-pill {
+      background: var(--bg-dark);
+      color: #7c6f64;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      font: inherit;
+      font-size: 9px;
+      font-weight: 600;
+      padding: 0 5px;
+      height: 20px;
+      line-height: 18px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      user-select: none;
+      touch-action: manipulation;
+    }
+    .layer-pill:hover {
+      color: var(--text);
+      border-color: var(--border-bright);
+    }
+    .layer-pill.active-layer-pill {
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
+      font-weight: bold;
+    }
+    .layer-pill.active-shape {
+      background: #d65d0e;
+      color: var(--text-bright);
+      border-color: var(--primary-hover);
+      font-weight: bold;
+    }
+    .layer-pill.active-tex {
+      background: #458588;
+      color: var(--text-bright);
+      border-color: #83a598;
+      font-weight: bold;
+    }
+    .layer-pill.active-lock {
+      background: #b16286;
+      color: var(--text-bright);
+      border-color: #d3869b;
+      font-weight: bold;
+    }
+    .layer-pill.active-clip {
+      background: #689d6a;
+      color: var(--text-bright);
+      border-color: #8ec07c;
+      font-weight: bold;
+    }
+    .layer-select-blend {
+      background: var(--bg-dark);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      font: inherit;
+      font-size: 9px;
+      height: 20px;
+      padding: 0 2px;
+      cursor: pointer;
+    }
+    .ui-layer-row.clipped-layer {
+      padding-left: 12px;
+      border-left: 2px solid #8ec07c;
+    }
+    .touch-guard { pointer-events: none !important; }
+    .layer-cell-op {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .ui-layer-row.active-draw .layer-cell-op {
+      color: var(--primary);
+      font-weight: bold;
+    }
+    .layer-cell-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .layer-btn-action {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      width: 22px;
+      height: 22px;
+      font-size: 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 1;
+      border-radius: 2px;
+      touch-action: manipulation;
+    }
+    .layer-btn-action:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+    .layer-swipe-actions {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      transform: translateX(100%);
+      transition: transform 0.2s ease;
+      z-index: 2;
+    }
+    .layer-swipe-actions.revealed { transform: translateX(0); }
+    .layer-swipe-btn {
+      height: 100%;
+      width: 56px;
+      border: none;
+      font: inherit;
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--text-bright);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .layer-swipe-btn.swipe-del { background: #cc241d; }
+    .layer-swipe-btn.swipe-merge { background: #458588; }
+    .layer-swipe-btn.swipe-dup { background: #d65d0e; }
+
+    .dock-strip-btn {
+      flex-shrink: 0;
+      min-width: 38px;
+      height: 28px;
+      padding: 0 8px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 0;
+      color: var(--text);
+      font: inherit;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      touch-action: manipulation;
+      white-space: nowrap;
+    }
+    .dock-strip-btn:hover {
+      background: var(--border);
+      color: var(--primary);
+      border-color: var(--border-bright);
+    }
+    .dock-strip-btn.active {
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
+      font-weight: bold;
+    }
+
+    /* ── Arc Dial Modal & HUD Controls ── */
+    #arc-dial-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 10002;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #arc-dial-modal.active { display: flex; }
+    .arc-dial-box {
+      background: var(--bg-dark);
+      border: 1px solid var(--border-bright);
+      padding: 14px 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .arc-dial-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--primary);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+    .arc-dial-stage {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    #arc-dial-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+    .arc-track-bg {
+      fill: none;
+      stroke: var(--border);
+      stroke-width: 12;
+      stroke-linecap: round;
+    }
+    .arc-track-fill {
+      fill: none;
+      stroke: var(--primary);
+      stroke-width: 12;
+      stroke-linecap: round;
+    }
+    .arc-dial-thumb {
+      fill: var(--primary);
+      stroke: var(--bg-dark);
+      stroke-width: 3;
+      cursor: pointer;
+    }
+    .arc-dial-center {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .arc-dial-preview {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 2px;
+    }
+    .arc-dial-preview-circle {
+      border-radius: 50%;
+      background: var(--primary);
+      max-width: 42px;
+      max-height: 42px;
+    }
+    .arc-dial-value-text {
+      font-size: 20px;
+      font-weight: bold;
+      color: var(--text);
+      line-height: 1.1;
+      font-family: monospace, sans-serif;
+    }
+    .arc-dial-unit-text {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: bold;
+    }
+    .arc-dial-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      justify-content: center;
+      width: 100%;
+      margin-top: 2px;
+    }
+    .arc-chip-btn {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 10px;
+      font-weight: bold;
+      padding: 3px 8px;
+      cursor: pointer;
+      border-radius: 0;
+    }
+    .arc-chip-btn:hover, .arc-chip-btn:active {
+      background: var(--border);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .arc-chip-btn.active {
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
+    }
+
+    /* ── Color Studio Controls ── */
+    .touch-color-box {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+    }
+    .touch-color-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: bold;
+      color: var(--primary);
+      font-size: 12px;
+    }
+    .touch-color-preview-duo {
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--border-bright);
+      height: 20px;
+      width: 44px;
+      overflow: hidden;
+      border-radius: 2px;
+    }
+    .touch-preview-chip {
+      flex: 1;
+      height: 100%;
+      forced-color-adjust: none;
+    }
+    .touch-swatch-slot,
+    .ip-color-chip,
+    .ip-color-chip-wrap,
+    .color-preview-box,
+    #touch-color-canvas,
+    #touch-svbox-canvas {
+      forced-color-adjust: none;
+    }
+    .touch-color-mode-tabs {
+      display: flex;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 0;
+    }
+    .touch-color-tab-btn {
+      flex: 1;
+      padding: 5px 2px;
+      font: inherit;
+      font-size: 10px;
+      font-weight: bold;
+      background: var(--bg-input);
+      color: var(--text-muted);
+      border: none;
+      border-right: 1px solid var(--bg-panel);
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.1s, color 0.1s;
+    }
+    .touch-color-tab-btn:last-child { border-right: none; }
+    .touch-color-tab-btn:hover {
+      background: var(--bg-panel);
+      color: var(--text);
+    }
+    .touch-color-tab-btn.active {
+      background: var(--border);
+      color: var(--primary);
+      font-weight: bold;
+    }
+    .touch-color-panel { width: 100%; }
+    .touch-color-wheel-wrap {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #touch-color-canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .hue-rainbow-slider {
+      appearance: none;
+      -webkit-appearance: none;
+      height: 12px !important;
+      border-radius: 2px;
+      background: linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%) !important;
+      cursor: pointer;
+    }
+    .hue-rainbow-slider::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px;
+      height: 18px;
+      background: var(--text-bright);
+      border: 2px solid var(--bg-dark);
+      border-radius: 2px;
+      cursor: pointer;
+      box-shadow: 0 0 3px rgba(0,0,0,0.8);
+    }
+    .hue-rainbow-slider::-moz-range-thumb {
+      width: 14px;
+      height: 18px;
+      background: var(--text-bright);
+      border: 2px solid var(--bg-dark);
+      border-radius: 2px;
+      cursor: pointer;
+      box-shadow: 0 0 3px rgba(0,0,0,0.8);
+    }
+    .touch-color-swatches {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 4px;
+    }
+    .touch-swatch-slot {
+      height: 26px;
+      border: 1px solid var(--border-bright);
+      cursor: pointer;
+      touch-action: manipulation;
+      position: relative;
+    }
+    .touch-swatch-slot:hover {
+      border-color: var(--primary);
+      z-index: 2;
+    }
+    .touch-swatch-slot.del-mode::after {
+      content: '✕';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(251, 73, 52, 0.65);
+      color: #fff;
+      font-weight: bold;
+      font-size: 11px;
+    }
+
+    /* ── Top Header Bar ── */
+    #ip-top-bar {
+      position: relative;
+      height: 38px;
+      flex-shrink: 0;
+      background: var(--bg-dark);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      z-index: 2000;
+      user-select: none;
+      -webkit-user-select: none;
+      box-sizing: border-box;
+      gap: 8px;
+      overflow: visible;
+    }
+    .ip-bar-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .dock-tab-toggle-bar {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .dock-tab-toggle-bar::-webkit-scrollbar { display: none; }
+
+    .dock-top-btn {
+      height: 26px;
+      padding: 0 8px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+      font-size: 10.5px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .dock-top-btn:hover {
+      background: var(--bg-panel-sub);
+      border-color: var(--border-bright);
+      color: var(--text-bright);
+    }
+    .dock-top-btn.active {
+      background: var(--primary-dim);
+      color: var(--primary);
+      border-color: var(--primary);
+      font-weight: 700;
+    }
+
+    /* ── Gruvbox Dropdown Menu System ── */
+    .menu-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .brand-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 3px 5px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text);
+      height: 28px;
+    }
+
+    .brand-btn:hover, .brand-btn.active {
+      background: var(--bg-panel-sub);
+      border-color: var(--border);
+    }
+
+    .brand-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--primary-dim);
+      border: 1.5px solid var(--primary);
+      border-radius: var(--radius-sm);
+      color: var(--primary);
+      font-weight: 900;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0;
+      min-width: 240px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-md);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+      padding: 4px;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 99999;
+    }
+
+    .dropdown-menu.active { display: flex; }
+
+    .menu-item-submenu-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    .menu-item-submenu-wrap:hover > .menu-submenu,
+    .menu-item-submenu-wrap:focus-within > .menu-submenu,
+    .menu-item-submenu-wrap.open > .menu-submenu {
+      display: flex;
+    }
+
+    .menu-submenu {
+      display: none;
+      position: absolute;
+      left: calc(100% - 2px);
+      top: -4px;
+      min-width: 230px;
+      max-width: 300px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-md);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+      padding: 4px;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 100000;
+    }
+
+    .menu-submenu::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      bottom: -10px;
+      left: -14px;
+      width: 16px;
+      background: transparent;
+      pointer-events: auto;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 9px;
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+    }
+
+    .menu-item:hover {
+      background: var(--primary-dim);
+      color: var(--primary);
+    }
+
+    .menu-item span.shortcut {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      margin-left: 14px;
+    }
+
+    .menu-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 3px 0;
+    }
+    .ip-top-status-text {
+      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      user-select: none;
+      -webkit-user-select: none;
+      pointer-events: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-right: 4px;
+    }
+    .ip-hud-btn-col {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      justify-content: center;
+      align-items: center;
+    }
+    .ip-btn, .ip-btn-icon {
+      height: 30px;
+      min-width: 30px;
+      padding: 0 6px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.12s ease;
+      flex-shrink: 0;
+    }
+    .ip-btn-icon {
+      padding: 0;
+      width: 30px;
+    }
+    .ip-btn:hover, .ip-btn-icon:hover {
+      background: #32302f;
+      border-color: var(--border-bright);
+      color: var(--text-bright);
+    }
+    .ip-btn:active, .ip-btn-icon:active {
+      background: var(--border);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .ip-btn.active, .ip-btn-icon.active {
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
+    }
+    .ip-btn.active svg, .ip-btn-icon.active svg {
+      stroke: var(--bg-dark);
+    }
+    .ip-badge {
+      background: var(--primary);
+      color: var(--bg-dark);
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 4px;
+      border-radius: var(--radius-sm);
+      margin-left: 1px;
+    }
+
+    /* ── Multi-Dock HUDs Inside Canvas Viewport (Left, Right, Bottom) ── */
+    .ip-dock-container {
+      position: absolute;
+      z-index: 55;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-dark);
+      border: 1px solid rgba(80, 73, 69, 0.7);
+      contain: layout style paint;
+      will-change: transform;
+      border-radius: var(--radius-lg);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    .ip-dock-left {
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      flex-direction: column;
+      padding: 8px 5px;
+    }
+    .ip-dock-right {
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      flex-direction: column;
+      padding: 8px 5px;
+    }
+    .ip-dock-bottom {
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      flex-direction: row;
+      padding: 6px 10px;
+    }
+    .ip-hud-control {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      position: relative;
+      touch-action: none;
+      cursor: ns-resize;
+    }
+    .ip-hud-pill {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 2px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 32px;
+      touch-action: none;
+      cursor: ns-resize;
+    }
+    .ip-hud-lbl {
+      font-size: 7px;
+      font-weight: bold;
+      color: var(--text-muted);
+      line-height: 1;
+    }
+    .ip-hud-val {
+      font-size: 9px;
+      font-weight: 800;
+      color: var(--primary);
+      line-height: 1.2;
+    }
+    .ip-vslider-track {
+      width: 20px;
+      height: 90px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      position: relative;
+      overflow: hidden;
+      cursor: ns-resize;
+      touch-action: none;
+    }
+    .ip-vslider-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--primary);
+      border-radius: var(--radius-sm);
+      pointer-events: none;
+    }
+    .ip-vslider-thumb {
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      height: 8px;
+      background: var(--text-bright);
+      border-radius: 3px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.8);
+      pointer-events: none;
+      transform: translateY(50%);
+    }
+    .ip-hud-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.12s ease;
+      position: relative;
+    }
+    .ip-hud-btn:hover {
+      background: var(--border);
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+    .ip-hud-btn:active {
+      background: var(--primary);
+      color: var(--bg-dark);
+    }
+    .ip-hud-btn.is-eraser {
+      background: #cc241d;
+      border-color: var(--danger);
+      color: #fff;
+    }
+    .ip-color-chip-wrap {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--text);
+      box-shadow: 0 0 4px rgba(0,0,0,0.6);
+      overflow: hidden;
+      flex-shrink: 0;
+      background: var(--text);
+    }
+
+    /* ── Overlay Modals (Recents, New Project, HUD Customizer) ── */
+    .ip-sheet-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      pointer-events: auto;
+      z-index: 3000;
+      user-select: none;
+      -webkit-user-select: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .ip-sheet-modal.active {
+      display: flex;
+    }
+    .ip-sheet {
+      position: relative;
+      pointer-events: auto;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-lg);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.65);
+      overflow: hidden;
+      z-index: 100;
+      width: 92vw;
+      max-width: 420px;
+      max-height: 85vh;
+    }
+
+    /* ── Studio-grade Contextual Menu (.monaco-menu) ── */
+    #monaco-context-view, .monaco-context-view {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000000;
+    }
+    .monaco-menu-container {
+      position: absolute;
+      pointer-events: auto;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-md);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
+      padding: 3px 0;
+      min-width: 190px;
+      max-width: 320px;
+      font-size: 11.5px;
+      color: var(--text);
+      user-select: none;
+      -webkit-user-select: none;
+      outline: none;
+    }
+    .monaco-menu {
+      display: flex;
+      flex-direction: column;
+      outline: none;
+    }
+    .monaco-menu .actions-container {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .monaco-menu .action-item {
+      display: flex;
+      align-items: center;
+      position: relative;
+      cursor: pointer;
+      outline: none;
+      padding: 0 3px;
+    }
+    .monaco-menu .action-menu-item {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      height: 24px;
+      padding: 0 8px 0 4px;
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      text-decoration: none;
+      gap: 6px;
+      font-size: 11.5px;
+      transition: background 0.06s ease, color 0.06s ease;
+    }
+    .monaco-menu .action-item.focused > .action-menu-item,
+    .monaco-menu .action-item:hover > .action-menu-item {
+      background: var(--primary);
+      color: var(--bg-dark);
+      font-weight: 600;
+    }
+    .monaco-menu .action-item.focused > .action-menu-item .keybinding,
+    .monaco-menu .action-item:hover > .action-menu-item .keybinding,
+    .monaco-menu .action-item.focused > .action-menu-item .submenu-indicator,
+    .monaco-menu .action-item:hover > .action-menu-item .submenu-indicator,
+    .monaco-menu .action-item.focused > .action-menu-item .menu-item-check,
+    .monaco-menu .action-item:hover > .action-menu-item .menu-item-check {
+      color: var(--bg-dark);
+    }
+    .monaco-menu .action-item.danger.focused > .action-menu-item,
+    .monaco-menu .action-item.danger:hover > .action-menu-item {
+      background: var(--danger);
+      color: #ffffff;
+    }
+    .monaco-menu .action-item.disabled {
+      opacity: 0.38;
+      cursor: default;
+      pointer-events: none;
+    }
+    .monaco-menu .menu-item-check {
+      width: 14px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--primary);
+      flex-shrink: 0;
+    }
+    .monaco-menu .action-label {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .monaco-menu .keybinding {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-left: 12px;
+    }
+    .monaco-menu .submenu-indicator {
+      font-size: 8.5px;
+      color: var(--text-muted);
+      margin-left: 10px;
+    }
+    .monaco-menu .action-item.separator {
+      height: 1px;
+      margin: 3px 6px;
+      padding: 0;
+      background: var(--border);
+      pointer-events: none;
+    }
+    .monaco-menu .action-item.header {
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      padding: 4px 10px 2px;
+      pointer-events: none;
+    }
+
+    .is-embedded #btn-ip-home,
+    body.is-embedded #btn-ip-home,
+    .is-embedded .ip-hide-embedded,
+    body.is-embedded .ip-hide-embedded {
+      display: none !important;
+    }
+
+    .ip-sheet-handle-row { display: none; }
+    .ip-sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 10.5px;
+      font-weight: bold;
+      color: var(--primary);
+      flex-shrink: 0;
+    }
+    .ip-sheet-close {
+      width: 20px;
+      height: 20px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 10px;
+    }
+    .ip-sheet-close:hover {
+      background: var(--border);
+      color: var(--text);
+      border-color: var(--primary);
+    }
+    .ip-sheet-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-bright) var(--bg-dark);
+    }
+
+    /* ── Category Pill Tabs ── */
+    .ip-pills-row {
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+      padding: 4px 2px 6px;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .ip-pills-row::-webkit-scrollbar { display: none; }
+    .ip-pill-btn {
+      padding: 4px 8px;
+      border-radius: var(--radius-md);
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 10.5px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      touch-action: manipulation;
+      flex-shrink: 0;
+    }
+    .ip-pill-btn:hover {
+      color: var(--text);
+      border-color: var(--border-bright);
+    }
+    .ip-pill-btn.active {
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
+      font-weight: 800;
+    }
+
+    /* ── Brush Shelf Cards Grid ── */
+    .ip-brush-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+    .ip-brush-card {
+      background: var(--bg-panel-sub);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.12s ease;
+    }
+    .ip-brush-card:hover {
+      background: var(--bg-panel-sub);
+      border-color: var(--border-bright);
+    }
+    .ip-brush-card.active {
+      background: var(--bg-panel-sub);
+      border-color: var(--primary);
+    }
+    .ip-brush-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ip-brush-card-title {
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--text);
+    }
+    .ip-brush-card.active .ip-brush-card-title {
+      color: var(--primary);
+    }
+    .ip-brush-card-desc {
+      font-size: 9.5px;
+      color: var(--text-muted);
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ── Tools / Shapes Grid ── */
+    .ip-tools-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+    .ip-tool-card {
+      background: var(--bg-panel-sub);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.12s ease;
+    }
+    .ip-tool-card:hover {
+      background: var(--bg-panel-sub);
+      border-color: var(--border-bright);
+    }
+    .ip-tool-card.active {
+      background: var(--bg-panel-sub);
+      border-color: var(--primary);
+    }
+    .ip-tool-card.active svg { stroke: var(--primary); }
+    .ip-tool-card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .ip-tool-card-name {
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--text);
+    }
+    .ip-tool-card.active .ip-tool-card-name { color: var(--primary); }
+    .ip-tool-card-sub {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    /* ── Action Modes & Selection Modes Cards ── */
+    .ip-actionmode-card, .ip-selmode-card {
+      transition: all 0.12s ease;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .ip-actionmode-card:hover, .ip-selmode-card:hover {
+      background: #32302f !important;
+      border-color: var(--border-bright) !important;
+    }
+    .ip-actionmode-card.active, .ip-selmode-card.active {
+      background: var(--border) !important;
+      border-color: var(--primary) !important;
+      color: var(--primary) !important;
+    }
+    .ip-actionmode-card.active svg, .ip-selmode-card.active svg {
+      stroke: var(--primary) !important;
+    }
+    .ip-actionmode-card.active span, .ip-selmode-card.active span {
+      color: var(--primary) !important;
+      font-weight: 800 !important;
+    }
+
+    /* ── Pixel Art Action Grid ── */
+    .ip-pixel-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+    .ip-pixel-card {
+      background: var(--bg-panel-sub);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .ip-pixel-card:hover { border-color: var(--border-bright); }
+    .ip-pixel-card.active { border-color: var(--primary); }
+    .ip-pixel-card-title {
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--text);
+    }
+    .ip-pixel-card.active .ip-pixel-card-title { color: var(--primary); }
+    .ip-pixel-card-sub {
+      font-size: 9.5px;
+      color: var(--text-muted);
+    }
+
+    /* ── Slider Control ── */
+    .ip-touch-control {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: var(--bg-panel-sub);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 6px 8px;
+    }
+    .ip-touch-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10.5px;
+      font-weight: bold;
+      color: var(--text-muted);
+    }
+    .ip-touch-val {
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .ip-touch-slider {
+      width: 100%;
+      height: 6px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div id="layout">
+  <!-- ── Top Header Bar ── -->
+  <header id="ip-top-bar">
+    <div class="ip-bar-group" id="ip-top-fixed-group">
+      <div class="menu-container">
+        <button type="button" id="btn-menu-logo" class="brand-btn" title="Main Menu">
+          <div class="brand-icon">E</div>
+          <span style="font-size: 10.5px; font-weight: 700; color: var(--text-bright);">Painter Studio</span>
+          <span style="font-size: 8px; color: var(--text-muted); margin-left: -2px;">▼</span>
+        </button>
+
+        <!-- App Dropdown Menu -->
+        <div id="app-menu-dropdown" class="dropdown-menu">
+          <button type="button" id="btn-menu-new-project" class="menu-item">
+            <span>New Project</span>
+            <span class="shortcut">Ctrl+N</span>
+          </button>
+          <div class="menu-item-submenu-wrap">
+            <button type="button" id="btn-menu-recent-projects" class="menu-item">
+              <span>Recent Projects</span>
+              <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
+            </button>
+            <div id="menu-recent-projects-flyout" class="menu-submenu">
+              <div id="menu-recents-list" style="display: flex; flex-direction: column; gap: 2px;">
+                <div style="padding: 10px; font-size: 10px; color: var(--text-muted); text-align: center;">Loading...</div>
+              </div>
+              <div class="menu-divider"></div>
+              <button type="button" id="btn-open-recents-modal" class="menu-item" style="font-size: 10px; color: var(--primary);">
+                <span>All Projects &amp; Storage...</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="menu-divider"></div>
+
+          <button type="button" id="btn-menu-import-file" class="menu-item">
+            <span>Open / Import (.esen, Image)...</span>
+            <span class="shortcut">Ctrl+O</span>
+          </button>
+          <input type="file" id="menu-file-input" accept=".esen,image/*" style="display: none;">
+
+          <div class="menu-item-submenu-wrap">
+            <button type="button" id="btn-menu-export" class="menu-item">
+              <span>Export</span>
+              <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
+            </button>
+            <div id="menu-export-flyout" class="menu-submenu">
+              <button type="button" class="menu-item" id="btn-quick-export-png">
+                <span>Export PNG (.png)</span>
+              </button>
+              <button type="button" class="menu-item" id="btn-quick-export-jpg">
+                <span>Export JPEG (.jpg)</span>
+              </button>
+              <button type="button" class="menu-item" id="btn-quick-export-gif">
+                <span>Export Animated GIF (.gif)</span>
+              </button>
+              <button type="button" class="menu-item" id="btn-quick-export-webm">
+                <span>Export WebM Video (.webm)</span>
+              </button>
+              <button type="button" class="menu-item" id="btn-quick-export-esen">
+                <span>Export Project (.esen)</span>
+                <span class="shortcut">Ctrl+S</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="menu-divider"></div>
+
+          <button type="button" id="btn-menu-undo" class="menu-item">
+            <span>Undo</span>
+            <span class="shortcut">Ctrl+Z</span>
+          </button>
+          <button type="button" id="btn-menu-redo" class="menu-item">
+            <span>Redo</span>
+            <span class="shortcut">Ctrl+Y</span>
+          </button>
+          <button type="button" id="btn-menu-zoom-fit" class="menu-item">
+            <span>Zoom to Fit</span>
+            <span class="shortcut">0</span>
+          </button>
+
+          <div class="menu-divider"></div>
+
+          <!-- Canvas & Image Transformations -->
+          <div class="menu-item-submenu-wrap">
+            <button type="button" id="btn-menu-canvas-ops" class="menu-item">
+              <span>Canvas &amp; Image</span>
+              <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
+            </button>
+            <div class="menu-submenu">
+              <button type="button" class="menu-item" id="btn-menu-resize-canvas">
+                <span>Resize Canvas...</span>
+              </button>
+              <button type="button" class="menu-item" id="btn-menu-crop-selection">
+                <span>Crop to Selection</span>
+              </button>
+              <button type="button" class="menu-item" id="btn-menu-clear-layer">
+                <span>Clear Active Layer</span>
+                <span class="shortcut">Delete</span>
+              </button>
+              <button type="button" class="menu-item" id="btn-menu-invert-layer">
+                <span>Invert Active Layer</span>
+              </button>
+              <div class="menu-divider"></div>
+              <button type="button" class="menu-item" id="btn-menu-rot-cw">
+                <span>Rotate 90° CW</span>
+              </button>
+              <button type="button" class="menu-item" id="btn-menu-rot-ccw">
+                <span>Rotate 90° CCW</span>
+              </button>
+              <button type="button" class="menu-item" id="btn-menu-flip-h">
+                <span>Flip Horizontal</span>
+              </button>
+              <button type="button" class="menu-item" id="btn-menu-flip-v">
+                <span>Flip Vertical</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Filters -->
+          <div class="menu-item-submenu-wrap" id="menu-filters-wrap">
+            <button type="button" id="btn-menu-filters" class="menu-item">
+              <span>Filters</span>
+              <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
+            </button>
+            <div class="menu-submenu" id="menu-filters-submenu" style="max-height: 380px; overflow-y: auto;"></div>
+          </div>
+
+          <!-- Renderer Settings -->
+          <div class="menu-item-submenu-wrap">
+            <button type="button" id="btn-menu-renderer" class="menu-item">
+              <span>Renderer &amp; Filter</span>
+              <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
+                <span id="menu-current-renderer-label" style="font-size: 9px; color: var(--primary); font-family: var(--font-mono);">GPU</span>
+                <span style="font-size: 8px; color: var(--text-muted);">▸</span>
+              </div>
+            </button>
+            <div class="menu-submenu">
+              <div style="padding: 4px 8px; font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Engine</div>
+              <button type="button" class="menu-item render-engine-opt" data-engine="gpu">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span class="engine-check" id="check-engine-gpu" style="width: 12px; font-size: 10px; color: var(--primary);">✓</span>
+                  <span>WebGL 2 (GPU)</span>
+                </span>
+              </button>
+              <button type="button" class="menu-item render-engine-opt" data-engine="software">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span class="engine-check" id="check-engine-software" style="width: 12px; font-size: 10px; color: var(--primary); opacity: 0;">✓</span>
+                  <span>Software (2D CPU)</span>
+                </span>
+              </button>
+              <div class="menu-divider"></div>
+              <div style="padding: 4px 8px; font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Viewport Filter</div>
+              <button type="button" class="menu-item view-filter-opt" data-vfilter="bilinear">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span class="vfilter-check" id="check-vfilter-bilinear" style="width: 12px; font-size: 10px; color: var(--primary); opacity: 0;">✓</span>
+                  <span>Bilinear (Smooth)</span>
+                </span>
+              </button>
+              <button type="button" class="menu-item view-filter-opt" data-vfilter="nearest">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span class="vfilter-check" id="check-vfilter-nearest" style="width: 12px; font-size: 10px; color: var(--primary); opacity: 1;">✓</span>
+                  <span>Nearest (Crisp / Pixel Art)</span>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div class="menu-divider"></div>
+
+          <!-- Panels & HUD Configuration -->
+          <div class="menu-item-submenu-wrap">
+            <button type="button" id="btn-menu-panels" class="menu-item">
+              <span>Dock Panels</span>
+              <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
+            </button>
+            <div class="menu-submenu">
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-brushes">
+                <span>Brush Library</span>
+                <span class="shortcut">B</span>
+              </button>
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="touch-color-modal">
+                <span>Color Studio</span>
+                <span class="shortcut">C</span>
+              </button>
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-layers">
+                <span>Layers Stack</span>
+                <span class="shortcut">L</span>
+              </button>
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-tools">
+                <span>Modes &amp; Drawing Tools</span>
+              </button>
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-lab">
+                <span>Brush Lab</span>
+              </button>
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-pixelart">
+                <span>Pixel Art Studio</span>
+              </button>
+              <button type="button" class="menu-item" id="btn-menu-toggle-anim">
+                <span>Animation Timeline</span>
+              </button>
+              <div class="menu-divider"></div>
+              <button type="button" class="menu-item" onclick="window.resetPainterDockLayout && window.resetPainterDockLayout()">
+                <span>Reset Dock Layout to Default</span>
+              </button>
+            </div>
+          </div>
+
+          <button type="button" id="btn-menu-configure-panels" class="menu-item" style="color: var(--primary); font-weight: 600;">
+            <span>Configure Canvas HUD...</span>
+          </button>
+          <button type="button" id="btn-menu-open-settings" class="menu-item">
+            <span>Project &amp; Preferences...</span>
+            <span class="shortcut">Ctrl+B</span>
+          </button>
+          <div class="menu-divider"></div>
+          <button type="button" class="menu-item" onclick="window.location.href='painter.html'" style="color: #83a598; font-weight: 700;">
+            <span>◆ Open Floating / Touch Painter...</span>
+          </button>
+          <button type="button" class="menu-item" onclick="window.location.href='index.html'" style="color: #fabd2f; font-weight: 700;">
+            <span>◆ Open Vector Studio...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dockview Quick-Toggle Strip -->
+    <div class="dock-tab-toggle-bar" id="painter-dock-toggle-bar">
+      <button type="button" class="dock-top-btn" data-dock-panel="brushes" onclick="window.togglePainterDockPanel('brushes')" title="Toggle Brushes Dock Tab">Brushes</button>
+      <button type="button" class="dock-top-btn" data-dock-panel="color" onclick="window.togglePainterDockPanel('color')" title="Toggle Color Studio Dock Tab">Color</button>
+      <button type="button" class="dock-top-btn" data-dock-panel="tools" onclick="window.togglePainterDockPanel('tools')" title="Toggle Tools & Modes Dock Tab">Tools</button>
+      <button type="button" class="dock-top-btn" data-dock-panel="lab" onclick="window.togglePainterDockPanel('lab')" title="Toggle Brush Lab Dock Tab">Brush Lab</button>
+      <button type="button" class="dock-top-btn" data-dock-panel="pixelart" onclick="window.togglePainterDockPanel('pixelart')" title="Toggle Pixel Art Dock Tab">Pixel Art</button>
+      <button type="button" class="dock-top-btn" data-dock-panel="layers" onclick="window.togglePainterDockPanel('layers')" title="Toggle Layers Dock Tab">Layers</button>
+      <button type="button" class="dock-top-btn" data-dock-panel="timeline" onclick="window.togglePainterDockPanel('timeline')" title="Toggle Animation Timeline Dock Tab">Timeline</button>
+      <button type="button" class="dock-top-btn" data-dock-panel="settings" onclick="window.togglePainterDockPanel('settings')" title="Toggle Project & Settings Dock Tab">Settings</button>
+      <div style="width: 1px; height: 18px; background: var(--border); margin: 0 3px;"></div>
+      <button type="button" class="dock-top-btn" onclick="window.resetPainterDockLayout()" title="Reset Dockview Layout to Default">↺ Layout</button>
+    </div>
+
+    <!-- Status Information on Top Bar -->
+    <span id="wstatus" class="ip-top-status-text">v0.13.14 ready</span>
+  </header>
+
+  <!-- ── Main Dockview Workspace ── -->
+  <div id="workspace">
+    <div id="dockview-container" class="dockview-theme-dark"></div>
+  </div>
+
+  <!-- ── Hidden Pool of Dockview Panel Elements (Kept in DOM so host-browser.js always finds IDs) ── -->
+  <div id="dock-panel-pool" style="display: none;">
+
+    <!-- 1. CENTER CANVAS PANEL -->
+    <div id="dock-panel-canvas" class="dock-panel-content">
+      <div id="ip-left-hud" class="ip-dock-container ip-dock-left"></div>
+      <div id="ip-right-hud" class="ip-dock-container ip-dock-right" style="display: none;"></div>
+      <div id="ip-bottom-hud" class="ip-dock-container ip-dock-bottom" style="display: none;"></div>
+
+      <div id="cvswrap">
+        <canvas id="wcanvas"></canvas>
+        <canvas id="uicanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+
+        <div id="eyedropper-ring" class="eyedropper-ring" style="display: none;">
+          <div class="eyedropper-inner" id="eyedropper-inner"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. BRUSHES PANEL -->
+    <div id="dock-panel-brushes" class="dock-panel-content">
+      <div id="sheet-brushes" class="ip-sheet-modal">
+        <div class="ip-sheet">
+          <div class="ip-sheet-header">
+            <span>BRUSH LIBRARY</span>
+            <button type="button" class="ip-sheet-close" data-close-dock="brushes" title="Close Tab">✕</button>
+          </div>
+          <div class="ip-sheet-content">
+            <div class="ip-pills-row" id="ip-brush-cat-pills">
+              <button type="button" class="ip-pill-btn active" data-bcat="all">All</button>
+              <button type="button" class="ip-pill-btn" data-bcat="sketch">Sketch</button>
+              <button type="button" class="ip-pill-btn" data-bcat="ink">Inking</button>
+              <button type="button" class="ip-pill-btn" data-bcat="paint">Painting</button>
+              <button type="button" class="ip-pill-btn" data-bcat="marker">Markers</button>
+              <button type="button" class="ip-pill-btn" data-bcat="charcoal">Charcoal</button>
+              <button type="button" class="ip-pill-btn" data-bcat="airbrush">Airbrush</button>
+              <button type="button" class="ip-pill-btn" data-bcat="texture">Textured</button>
+              <button type="button" class="ip-pill-btn" data-bcat="blend">Blenders</button>
+              <button type="button" class="ip-pill-btn" data-bcat="eraser">Erasers</button>
+              <button type="button" class="ip-pill-btn" data-bcat="fx">FX &amp; Pixel</button>
+              <button type="button" class="ip-pill-btn" data-bcat="custom">Custom</button>
+            </div>
+            <div id="ip-brush-cards-grid" class="ip-brush-grid"></div>
+            <div style="display: flex; gap: 6px; margin-top: 4px; flex-shrink: 0;">
+              <button type="button" id="btn-ip-save-brush-preset" class="ip-btn" style="flex: 1; background: var(--primary); color: var(--bg-dark); font-weight: bold;">+ Save Brush</button>
+              <button type="button" id="btn-ip-open-lab-from-shelf" class="ip-btn" style="flex: 1;">Brush Lab</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. COLOR STUDIO PANEL -->
+    <div id="dock-panel-color" class="dock-panel-content">
+      <div id="touch-color-modal">
+        <div class="touch-color-box">
+          <div class="touch-color-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span>COLOR STUDIO</span>
+              <div class="touch-color-preview-duo" title="Previous / Active Color">
+                <div id="touch-color-prev-chip" class="touch-preview-chip" title="Previous Color"></div>
+                <div id="touch-color-curr-chip" class="touch-preview-chip" title="Current Color"></div>
+              </div>
+            </div>
+            <button type="button" class="dock-strip-btn" id="btn-close-touch-color" data-close-dock="color" style="min-width: 22px; height: 22px; padding: 0 5px;" title="Close Tab">✕</button>
+          </div>
+
+          <div class="touch-color-mode-tabs">
+            <button type="button" class="touch-color-tab-btn active" data-touchmode="wheel">Wheel</button>
+            <button type="button" class="touch-color-tab-btn" data-touchmode="box">SV Box</button>
+            <button type="button" class="touch-color-tab-btn" data-touchmode="sliders">Sliders</button>
+            <button type="button" class="touch-color-tab-btn" data-touchmode="palettes">Palettes</button>
+          </div>
+
+          <!-- TAB 1: WHEEL -->
+          <div id="touch-panel-wheel" class="touch-color-panel" style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
+            <div class="touch-color-wheel-wrap">
+              <canvas id="touch-color-canvas" width="200" height="200"></canvas>
+            </div>
+            <div style="width: 100%; display: flex; flex-direction: column; gap: 2px;">
+              <div class="ui-label-row"><span style="font-size: 10px; color: var(--text-muted);">Brightness / Value:</span><span id="touch-val-readout" class="ui-val">100%</span></div>
+              <input type="range" id="touch-wheel-val-slider" min="0" max="100" value="100" class="ui-slider" style="width: 100%;">
+            </div>
+          </div>
+
+          <!-- TAB 2: SV BOX -->
+          <div id="touch-panel-box" class="touch-color-panel" style="display: none; flex-direction: column; gap: 6px; align-items: center;">
+            <div class="touch-color-svbox-wrap" style="position: relative; width: 100%; max-width: 260px; height: 160px;">
+              <canvas id="touch-svbox-canvas" width="260" height="160" style="width: 100%; height: 100%; touch-action: none; cursor: crosshair; border: 1px solid var(--border-bright);"></canvas>
+              <div id="touch-svbox-cursor" style="position: absolute; width: 12px; height: 12px; border: 2px solid #fff; box-shadow: 0 0 2px #000; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); left: 100%; top: 0;"></div>
+            </div>
+            <div style="width: 100%; display: flex; flex-direction: column; gap: 2px;">
+              <div class="ui-label-row"><span style="font-size: 10px; color: var(--text-muted);">Hue Spectrum:</span><span id="touch-box-hue-readout" class="ui-val">0°</span></div>
+              <input type="range" id="touch-box-hue-slider" min="0" max="359" value="0" class="hue-rainbow-slider" style="width: 100%;">
+            </div>
+          </div>
+
+          <!-- TAB 3: SLIDERS (RGB & HSL) -->
+          <div id="touch-panel-sliders" class="touch-color-panel" style="display: none; flex-direction: column; gap: 6px;">
+            <div style="font-size: 10px; font-weight: bold; color: var(--primary);">RGB Channels</div>
+            <div class="ui-row-gap" style="gap: 4px;">
+              <span style="font-size: 10px; width: 14px; color: var(--danger); font-weight: bold;">R</span>
+              <input type="range" id="touch-slider-r" min="0" max="255" value="235" class="ui-slider" style="flex: 1;">
+              <input type="number" id="touch-num-r" min="0" max="255" value="235" class="ui-input-num" style="width: 44px; text-align: center;">
+            </div>
+            <div class="ui-row-gap" style="gap: 4px;">
+              <span style="font-size: 10px; width: 14px; color: var(--success); font-weight: bold;">G</span>
+              <input type="range" id="touch-slider-g" min="0" max="255" value="219" class="ui-slider" style="flex: 1;">
+              <input type="number" id="touch-num-g" min="0" max="255" value="219" class="ui-input-num" style="width: 44px; text-align: center;">
+            </div>
+            <div class="ui-row-gap" style="gap: 4px;">
+              <span style="font-size: 10px; width: 14px; color: #83a598; font-weight: bold;">B</span>
+              <input type="range" id="touch-slider-b" min="0" max="255" value="178" class="ui-slider" style="flex: 1;">
+              <input type="number" id="touch-num-b" min="0" max="255" value="178" class="ui-input-num" style="width: 44px; text-align: center;">
+            </div>
+
+            <div style="font-size: 10px; font-weight: bold; color: #8ec07c; margin-top: 4px;">HSV / HSL</div>
+            <div class="ui-row-gap" style="gap: 4px;">
+              <span style="font-size: 10px; width: 14px; color: #d3869b; font-weight: bold;">H</span>
+              <input type="range" id="touch-slider-h" min="0" max="359" value="43" class="ui-slider" style="flex: 1;">
+              <span id="touch-val-h" style="font-size: 10px; width: 44px; text-align: right; color: var(--text);">43°</span>
+            </div>
+            <div class="ui-row-gap" style="gap: 4px;">
+              <span style="font-size: 10px; width: 14px; color: var(--primary-hover); font-weight: bold;">S</span>
+              <input type="range" id="touch-slider-s" min="0" max="100" value="60" class="ui-slider" style="flex: 1;">
+              <span id="touch-val-s" style="font-size: 10px; width: 44px; text-align: right; color: var(--text);">60%</span>
+            </div>
+            <div class="ui-row-gap" style="gap: 4px;">
+              <span style="font-size: 10px; width: 14px; color: var(--primary); font-weight: bold;">V</span>
+              <input type="range" id="touch-slider-v" min="0" max="100" value="92" class="ui-slider" style="flex: 1;">
+              <span id="touch-val-v" style="font-size: 10px; width: 44px; text-align: right; color: var(--text);">92%</span>
+            </div>
+          </div>
+
+          <!-- TAB 4: PALETTES & SWATCHES -->
+          <div id="touch-panel-palettes" class="touch-color-panel" style="display: none; flex-direction: column; gap: 6px;">
+            <div class="ui-row-gap" style="align-items: center;">
+              <label style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Palette:</label>
+              <select id="touch-palette-select" class="ui-select" style="flex: 1; height: 26px;">
+                <option value="custom">My Custom Swatches</option>
+                <option value="gruvbox">Gruvbox Dark</option>
+                <option value="vibrant">Vibrant Digital</option>
+                <option value="pastels">Soft Pastels</option>
+                <option value="shades">Monochrome &amp; Shades</option>
+                <option value="cyberpunk">Neon Cyberpunk</option>
+                <option value="retro_gameboy">4-Color Retro GameBoy</option>
+              </select>
+            </div>
+            <div id="touch-modal-swatches" class="touch-color-swatches" style="max-height: 180px; overflow-y: auto;"></div>
+          </div>
+
+          <!-- DIRECT HEX & ACTION BAR -->
+          <div style="background: var(--bg-input); border: 1px solid var(--border); padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; margin-top: 2px;">
+            <div class="ui-row-between" style="align-items: center;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">HEX:</span>
+                <input type="text" id="touch-color-hex-input" value="#ebdbb2" maxlength="7" spellcheck="false" class="ui-input-text" style="width: 78px; font-weight: bold; text-transform: uppercase; padding: 2px 4px; font-size: 11px; text-align: center;">
+                <button type="button" class="dock-strip-btn" id="btn-touch-copy-hex" title="Copy Hex Code" style="padding: 0 6px; height: 24px;">Copy</button>
+              </div>
+              <div style="display: flex; gap: 4px;">
+                <button type="button" class="dock-strip-btn" id="btn-touch-add-swatch" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; height: 24px; padding: 0 8px;" title="Save current color to custom swatches">+ Swatch</button>
+                <button type="button" class="dock-strip-btn" id="btn-touch-del-swatch" style="height: 24px; padding: 0 6px; color: var(--danger);" title="Toggle Swatch Delete Mode">Del</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="touch-quick-swatches-row" style="display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. LAYERS STACK PANEL -->
+    <div id="dock-panel-layers" class="dock-panel-content">
+      <div id="sheet-layers" class="ip-sheet-modal">
+        <div class="ip-sheet">
+          <div class="ip-sheet-header">
+            <span>LAYERS STACK</span>
+            <button type="button" class="ip-sheet-close" data-close-dock="layers" title="Close Tab">✕</button>
+          </div>
+          <div class="ip-sheet-content">
+            <div class="ip-touch-control" style="flex-shrink: 0;">
+              <div class="ip-touch-label-row">
+                <span>Layer Opacity</span>
+                <span id="ip-active-layer-op-val" class="ip-touch-val">100%</span>
+              </div>
+              <input type="range" id="ip-active-layer-op-slider" min="0" max="100" value="100" class="ip-touch-slider">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 2px 0; flex-shrink: 0;">
+              <button type="button" id="btn-ip-add-layer" class="ip-mini-btn" style="height: 26px; font-size: 10.5px; background: var(--primary); color: var(--bg-dark); font-weight: bold; border-radius: var(--radius-sm); padding: 0;" title="New Raster Layer">+ Layer</button>
+              <button type="button" id="btn-ip-add-folder" class="ip-mini-btn" style="height: 26px; font-size: 10.5px; border-radius: var(--radius-sm); padding: 0;" title="New Folder / Group">+ Group</button>
+            </div>
+
+            <div id="ip-sheet-layers-list" style="display: flex; flex-direction: column; gap: 4px; overflow-y: auto;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. STUDIO MODES & TOOLS PANEL -->
+    <div id="dock-panel-tools" class="dock-panel-content">
+      <div id="sheet-tools" class="ip-sheet-modal">
+        <div class="ip-sheet">
+          <div class="ip-sheet-header">
+            <span>TOOLS &amp; WORKSPACE MODES</span>
+            <button type="button" class="ip-sheet-close" data-close-dock="tools" title="Close Tab">✕</button>
+          </div>
+
+          <div class="ip-pills-row" id="ip-tools-tab-pills" style="padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-input); width: 100%; box-sizing: border-box;">
+            <button type="button" class="ip-pill-btn active" data-toolstab="draw">Draw &amp; Shapes</button>
+            <button type="button" class="ip-pill-btn" data-toolstab="select">Selection</button>
+            <button type="button" class="ip-pill-btn" data-toolstab="transform">Transform</button>
+            <button type="button" class="ip-pill-btn" data-toolstab="anim">Animation</button>
+          </div>
+
+          <div class="ip-sheet-content">
+            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 10.5px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.3px;">Active Mode</span>
+                <span style="font-size: 9.5px; color: var(--text-muted);">Click to switch mode</span>
+              </div>
+              <div id="ip-actionmode-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
+                <div class="ip-actionmode-card active" data-actionmode="draw" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+                  <span style="font-size: 9.5px; font-weight: 700;">Draw</span>
+                </div>
+                <div class="ip-actionmode-card" data-actionmode="erase" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/></svg>
+                  <span style="font-size: 9.5px; font-weight: 700;">Erase</span>
+                </div>
+                <div class="ip-actionmode-card" data-actionmode="smudge" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 0 0-5 5c0 3 5 9 5 9s5-6 5-9a5 5 0 0 0-5-5z"/></svg>
+                  <span style="font-size: 9.5px; font-weight: 700;">Smudge</span>
+                </div>
+                <div class="ip-actionmode-card" data-actionmode="select" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                  <span style="font-size: 9.5px; font-weight: 700;">Select</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 1: DRAW & SHAPE TOOLS -->
+            <div class="ip-tools-tab-panel" data-toolspanel="draw" style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
+                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Drawing &amp; Geometric Shape Tools</span>
+                <div class="ip-tools-grid">
+                  <div class="ip-tool-card active" data-tool="brush">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+                    <div class="ip-tool-card-info">
+                      <span class="ip-tool-card-name">Freehand Brush</span>
+                      <span class="ip-tool-card-sub">Standard paint stroke</span>
+                    </div>
+                  </div>
+                  <div class="ip-tool-card" data-tool="fill">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11l-8-8-8.5 8.5a2.12 2.12 0 0 0 0 3l5 5a2.12 2.12 0 0 0 3 0L19 11z"/><path d="M5 2l5 5"/></svg>
+                    <div class="ip-tool-card-info">
+                      <span class="ip-tool-card-name">Flood Fill</span>
+                      <span class="ip-tool-card-sub">Paint bucket</span>
+                    </div>
+                  </div>
+                  <div class="ip-tool-card" data-tool="lasso_fill">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a8 8 0 0 1 13.5-5.5L20 11"/><path d="M11 20a8 8 0 0 1-5.5-13.5L8 4"/></svg>
+                    <div class="ip-tool-card-info">
+                      <span class="ip-tool-card-name">Lasso Fill</span>
+                      <span class="ip-tool-card-sub">Filled freehand shape</span>
+                    </div>
+                  </div>
+                  <div class="ip-tool-card" data-tool="line">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
+                    <div class="ip-tool-card-info">
+                      <span class="ip-tool-card-name">Line Guide</span>
+                      <span class="ip-tool-card-sub">Straight line guide</span>
+                    </div>
+                  </div>
+                  <div class="ip-tool-card" data-tool="rect">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                    <div class="ip-tool-card-info">
+                      <span class="ip-tool-card-name">Rectangle</span>
+                      <span class="ip-tool-card-sub">Box shape</span>
+                    </div>
+                  </div>
+                  <div class="ip-tool-card" data-tool="ellipse">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                    <div class="ip-tool-card-info">
+                      <span class="ip-tool-card-name">Ellipse</span>
+                      <span class="ip-tool-card-sub">Circle / ellipse shape</span>
+                    </div>
+                  </div>
+                  <div class="ip-tool-card" data-tool="picker">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2l4 4-8 8-4-4 8-8z"/><path d="M6 14l-2 6 6-2"/></svg>
+                    <div class="ip-tool-card-info">
+                      <span class="ip-tool-card-name">Eyedropper</span>
+                      <span class="ip-tool-card-sub">Sample canvas color</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 2: SELECTION -->
+            <div class="ip-tools-tab-panel" data-toolspanel="select" style="display: none; flex-direction: column; gap: 8px;">
+              <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
+                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">1. Selection Tools</span>
+                <div class="ip-tools-grid">
+                  <div class="ip-tool-card" data-tool="select_rect">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                    <div class="ip-tool-card-info">
+                      <span class="ip-tool-card-name">Marquee Box</span>
+                      <span class="ip-tool-card-sub">Rectangular area</span>
+                    </div>
+                  </div>
+                  <div class="ip-tool-card" data-tool="lasso_select">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a8 8 0 0 1 13.5-5.5L20 11"/><path d="M11 20a8 8 0 0 1-5.5-13.5L8 4"/></svg>
+                    <div class="ip-tool-card-info">
+                      <span class="ip-tool-card-name">Lasso Select</span>
+                      <span class="ip-tool-card-sub">Freehand polygon</span>
+                    </div>
+                  </div>
+                  <div class="ip-tool-card" data-tool="magic_wand">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4l5 5L7 22H2v-5L15 4z"/><line x1="18.5" y1="2.5" x2="21.5" y2="5.5"/><line x1="12" y1="7" x2="17" y2="12"/></svg>
+                    <div class="ip-tool-card-info">
+                      <span class="ip-tool-card-name">Magic Wand</span>
+                      <span class="ip-tool-card-sub">Flood color match</span>
+                    </div>
+                  </div>
+                  <div class="ip-tool-card" data-tool="brush_select">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><circle cx="12" cy="12" r="9" stroke-dasharray="2 2"/></svg>
+                    <div class="ip-tool-card-info">
+                      <span class="ip-tool-card-name">Brush Mask</span>
+                      <span class="ip-tool-card-sub">Paint selection mask</span>
+                    </div>
+                  </div>
+                </div>
+
+                <span style="font-size: 10.5px; font-weight: bold; color: var(--text-muted); margin-top: 2px;">Boolean Combine Mode</span>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+                  <div class="ip-selmode-card active" data-selmode="replace" title="New Selection" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer;">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+                    <span style="font-size: 9.5px; font-weight: 700;">New</span>
+                  </div>
+                  <div class="ip-selmode-card" data-selmode="add" title="Add to Selection (+)" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer;">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="11" height="11" rx="1.5"/><rect x="10" y="10" width="11" height="11" rx="1.5" stroke-dasharray="2 2"/><line x1="15.5" y1="12" x2="15.5" y2="19"/><line x1="12" y1="15.5" x2="19" y2="15.5"/></svg>
+                    <span style="font-size: 9.5px; font-weight: 700;">Add (+)</span>
+                  </div>
+                  <div class="ip-selmode-card" data-selmode="sub" title="Subtract from Selection (-)" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer;">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="11" height="11" rx="1.5"/><rect x="10" y="10" width="11" height="11" rx="1.5" stroke-dasharray="2 2"/><line x1="12" y1="15.5" x2="19" y2="15.5"/></svg>
+                    <span style="font-size: 9.5px; font-weight: 700;">Sub (-)</span>
+                  </div>
+                  <div class="ip-selmode-card" data-selmode="intersect" title="Intersect Selection (∩)" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer;">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="12" height="12" rx="1.5"/><rect x="9" y="9" width="12" height="12" rx="1.5"/><rect x="9" y="9" width="6" height="6" fill="currentColor" fill-opacity="0.35"/></svg>
+                    <span style="font-size: 9.5px; font-weight: 700;">Intersect</span>
+                  </div>
+                </div>
+
+                <div style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px; display: flex; flex-direction: column; gap: 5px; margin-top: 2px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 10px; font-weight: bold; color: var(--text);">Magic Wand Tolerance: <span id="ip-sheet-wand-tol-val" style="color: var(--primary);">30</span></span>
+                    <label style="display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted); cursor: pointer;">
+                      <input type="checkbox" id="ip-sheet-wand-adj" checked> Contiguous Only
+                    </label>
+                  </div>
+                  <input type="range" id="ip-sheet-slider-wand-tol" class="ip-slider" min="0" max="255" value="30">
+                </div>
+              </div>
+
+              <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
+                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">2. Selection Mask &amp; Clipboard Actions</span>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
+                  <button type="button" id="btn-ip-select-all" class="ip-btn">Select All</button>
+                  <button type="button" id="btn-ip-invert-sel" class="ip-btn">Invert</button>
+                  <button type="button" id="btn-ip-deselect" class="ip-btn">Deselect</button>
+                  <button type="button" id="btn-ip-transform" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;">Transform</button>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
+                  <button type="button" id="btn-ip-copy" class="ip-btn">Copy</button>
+                  <button type="button" id="btn-ip-cut" class="ip-btn">Cut</button>
+                  <button type="button" id="btn-ip-paste" class="ip-btn">Paste</button>
+                  <button type="button" id="btn-ip-crop-sel" class="ip-btn">Crop Canvas</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 3: TRANSFORM -->
+            <div class="ip-tools-tab-panel" data-toolspanel="transform" style="display: none; flex-direction: column; gap: 8px;">
+              <div style="background: var(--bg-panel-sub); border: 1px solid var(--primary); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-size: 11px; font-weight: bold; color: var(--primary);">1. Free Transform &amp; Perspective Quad</span>
+                  <button type="button" id="btn-ip-tool-transform" data-tool="transform" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: 800; padding: 4px 10px;">Start Transform (Ctrl+T)</button>
+                </div>
+
+                <span style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Deform Mode</span>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
+                  <button type="button" class="ip-btn ip-xbar-mode active" data-xmode="scale">Free Scale</button>
+                  <button type="button" class="ip-btn ip-xbar-mode" data-xmode="distort">Perspective Distort</button>
+                  <button type="button" class="ip-btn ip-xbar-mode" data-xmode="skew">Skew / Shear</button>
+                </div>
+
+                <span style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Rotate, Flip &amp; Alignment</span>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
+                  <button type="button" id="btn-sheet-xform-ccw" class="ip-btn">↶ 90° CCW</button>
+                  <button type="button" id="btn-sheet-xform-cw" class="ip-btn">↷ 90° CW</button>
+                  <button type="button" id="btn-sheet-xform-fliph" class="ip-btn">⇄ Flip H</button>
+                  <button type="button" id="btn-sheet-xform-flipv" class="ip-btn">⇅ Flip V</button>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
+                  <button type="button" id="btn-sheet-xform-center" class="ip-btn">Center Canvas</button>
+                  <button type="button" id="btn-sheet-xform-fit" class="ip-btn">Fit to Canvas</button>
+                  <button type="button" id="btn-sheet-xform-reset" class="ip-btn">↺ Reset Quad</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 2px;">
+                  <button type="button" id="btn-ip-xform-apply" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;">✓ Apply Transform</button>
+                  <button type="button" id="btn-ip-xform-cancel" class="ip-btn" style="color: var(--danger); font-weight: bold;">✕ Cancel Transform</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 4: ANIMATION -->
+            <div class="ip-tools-tab-panel" data-toolspanel="anim" style="display: none; flex-direction: column; gap: 8px;">
+              <div style="background: var(--bg-panel-sub); border: 1px solid var(--primary); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Frame-by-Frame Animation Studio</span>
+                  <button type="button" id="btn-sheet-anim-toggle-dock" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: 800; padding: 4px 10px;">Toggle Timeline Dock</button>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
+                  <button type="button" id="btn-sheet-anim-prev" class="ip-btn">◀ Prev</button>
+                  <button type="button" id="btn-sheet-anim-play" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;">▶ Play / Pause</button>
+                  <button type="button" id="btn-sheet-anim-next" class="ip-btn">Next ▶</button>
+                  <button type="button" id="btn-sheet-anim-onion" class="ip-btn">Onion Skin</button>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
+                  <button type="button" id="btn-sheet-anim-add" class="ip-btn">+ Blank Frame</button>
+                  <button type="button" id="btn-sheet-anim-dup" class="ip-btn">⎘ Duplicate</button>
+                  <button type="button" id="btn-sheet-anim-del" class="ip-btn" style="color: var(--danger);">🗑 Delete Frame</button>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                  <button type="button" id="btn-sheet-anim-gif" class="ip-btn">Export Animated GIF</button>
+                  <button type="button" id="btn-sheet-anim-webm" class="ip-btn">Export WebM Video</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. BRUSH LAB PANEL -->
+    <div id="dock-panel-lab" class="dock-panel-content">
+      <div id="sheet-lab" class="ip-sheet-modal">
+        <div class="ip-sheet">
+          <div class="ip-sheet-header">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span>BRUSH LAB</span>
+              <span id="ip-lab-brush-name" style="font-size: 9px; color: var(--text-muted); text-transform: none; font-weight: normal;">(Inker)</span>
+            </div>
+            <div style="display: flex; gap: 4px; align-items: center;">
+              <button type="button" id="btn-ip-lab-reset" class="ip-btn ip-mini-btn" title="Reset Brush Parameters">Reset</button>
+              <button type="button" id="btn-ip-lab-save" class="ip-btn ip-mini-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;" title="Save Custom Preset">+ Save</button>
+              <button type="button" class="ip-sheet-close" data-close-dock="lab" title="Close Tab">✕</button>
+            </div>
+          </div>
+
+          <div class="ip-pills-row" id="ip-lab-tabs" style="padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-input); width: 100%; box-sizing: border-box;">
+            <button type="button" class="ip-pill-btn active" data-labtab="tip">Tip &amp; Shape</button>
+            <button type="button" class="ip-pill-btn" data-labtab="dynamics">Dynamics</button>
+            <button type="button" class="ip-pill-btn" data-labtab="stylus">Stylus</button>
+            <button type="button" class="ip-pill-btn" data-labtab="wet">Wet &amp; Mix</button>
+            <button type="button" class="ip-pill-btn" data-labtab="jitter">Jitter &amp; Dual</button>
+            <button type="button" class="ip-pill-btn" data-labtab="texture">Texture</button>
+          </div>
+
+          <div class="ip-sheet-content">
+            <!-- TAB 1: TIP & SHAPE -->
+            <div class="ip-lab-tab-panel" data-labpanel="tip" style="display: flex; flex-direction: column; gap: 8px;">
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Tip Shape / Source Layer</span></div>
+                <select id="ip-sel-brush-shape" class="ui-select" style="height: 30px; font-size: 11px;">
+                  <optgroup label="Builtin Tip Shapes (18)">
+                    <option value="0">Circle / Round (Default)</option>
+                    <option value="1">Square Block</option>
+                    <option value="2">Chisel Flat</option>
+                    <option value="bristle">3-Strand Bristle</option>
+                    <option value="rake">5-Strand Rake Fan</option>
+                    <option value="charcoal">Charcoal Grit</option>
+                    <option value="dagger">Dagger / Teardrop</option>
+                    <option value="stipple">Stipple Multi-Point</option>
+                    <option value="splatter">Splatter Drops</option>
+                    <option value="cloud">Cloud / Foliage Cluster</option>
+                    <option value="soft_round">Soft Radial Airbrush</option>
+                    <option value="oval">Oval / Calligraphy 45°</option>
+                    <option value="triangle">Sharp Triangle</option>
+                    <option value="diamond">Diamond / Rhombus</option>
+                    <option value="fan">Fan Brush Arc</option>
+                    <option value="dry_brush">Streaky Dry Brush</option>
+                    <option value="star">5-Point Star</option>
+                    <option value="pixel">Pixel Block</option>
+                  </optgroup>
+                  <optgroup id="ip-optgroup-shape-layers" label="Custom & Project Layers as Tip"></optgroup>
+                </select>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" id="btn-ip-tip-from-layer" class="ip-btn ip-mini-btn" style="flex: 1; font-size: 10px; height: 26px; background: var(--border); color: var(--primary); font-weight: bold;">+ Tip from Layer</button>
+                <button type="button" id="btn-ip-tip-from-selection" class="ip-btn ip-mini-btn" style="flex: 1; font-size: 10px; height: 26px; background: var(--border); color: var(--primary); font-weight: bold;">+ Tip from Selection</button>
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Hardness</span><span id="ip-val-hardness" class="ip-touch-val">100%</span></div>
+                <input type="range" id="ip-slider-hardness" min="0" max="100" value="100" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Roundness (Aspect)</span><span id="ip-val-roundness" class="ip-touch-val">100%</span></div>
+                <input type="range" id="ip-slider-roundness" min="1" max="100" value="100" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Angle / Rotation</span><span id="ip-val-angle" class="ip-touch-val">0°</span></div>
+                <input type="range" id="ip-slider-angle" min="0" max="360" value="0" class="ip-touch-slider">
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                <button type="button" id="btn-ip-lab-autorotate" class="ip-btn" style="justify-content: flex-start; padding: 6px 8px;">
+                  <input type="checkbox" id="chk-ip-lab-autorotate" style="margin-right: 4px; pointer-events: none;"> Follow Stroke
+                </button>
+                <button type="button" id="btn-ip-lab-subpixel" class="ip-btn" style="justify-content: flex-start; padding: 6px 8px;">
+                  <input type="checkbox" id="chk-ip-lab-subpixel" style="margin-right: 4px; pointer-events: none;"> Subpixel
+                </button>
+              </div>
+            </div>
+
+            <!-- TAB 2: DYNAMICS & SPEED -->
+            <div class="ip-lab-tab-panel" data-labpanel="dynamics" style="display: none; flex-direction: column; gap: 8px;">
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Spacing</span><span id="ip-val-spacing" class="ip-touch-val">5%</span></div>
+                <input type="range" id="ip-slider-spacing" min="1" max="200" value="5" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Stabilizer Mode</span></div>
+                <select id="ip-select-stabilizer-mode" class="ip-select" style="width: 100%; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border-bright); border-radius: var(--radius-md); padding: 6px 8px; font-size: 11px;">
+                  <option value="0">Streamline (EMA Inertia + Bézier)</option>
+                  <option value="1">Pulled String / Leash (Guide String)</option>
+                </select>
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span id="ip-lbl-stabilization">Stabilization</span><span id="ip-val-smoothing" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-smoothing" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control" id="ip-ctrl-string-length" style="display: none;">
+                <div class="ip-touch-label-row"><span>String Length</span><span id="ip-val-string-length" class="ip-touch-val">30px</span></div>
+                <input type="range" id="ip-slider-string-length" min="5" max="250" value="30" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control" id="ip-ctrl-midpoint">
+                <div class="ip-touch-label-row"><span>Streamline Midpoint</span><span id="ip-val-midpoint" class="ip-touch-val">50%</span></div>
+                <input type="range" id="ip-slider-midpoint" min="0" max="100" value="50" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Velocity Dynamic Scaling</span><span id="ip-val-velocity" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-velocity" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Taper Start Pinch</span><span id="ip-val-taper-in" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-taper-in" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Taper End Release</span><span id="ip-val-taper-out" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-taper-out" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Fade Decay</span><span id="ip-val-fade" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-fade" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+            </div>
+
+            <!-- TAB 3: STYLUS & PEN -->
+            <div class="ip-lab-tab-panel" data-labpanel="stylus" style="display: none; flex-direction: column; gap: 8px;">
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <button type="button" id="btn-ip-lab-press-size" class="ip-btn" style="justify-content: flex-start; padding: 8px 10px; width: 100%;">
+                  <input type="checkbox" id="chk-ip-lab-press-size" checked style="margin-right: 6px; pointer-events: none;"> Pressure Controls Size
+                </button>
+                <button type="button" id="btn-ip-lab-press-flow" class="ip-btn" style="justify-content: flex-start; padding: 8px 10px; width: 100%;">
+                  <input type="checkbox" id="chk-ip-lab-press-flow" checked style="margin-right: 6px; pointer-events: none;"> Pressure Controls Flow
+                </button>
+                <button type="button" id="btn-ip-lab-tilt-angle" class="ip-btn" style="justify-content: flex-start; padding: 8px 10px; width: 100%;">
+                  <input type="checkbox" id="chk-ip-lab-tilt-angle" checked style="margin-right: 6px; pointer-events: none;"> Stylus Tilt Angle
+                </button>
+                <button type="button" id="btn-ip-lab-buildup" class="ip-btn" style="justify-content: flex-start; padding: 8px 10px; width: 100%;">
+                  <input type="checkbox" id="chk-ip-lab-buildup" style="margin-right: 6px; pointer-events: none;"> Airbrush Continuous Buildup
+                </button>
+              </div>
+            </div>
+
+            <!-- TAB 4: WET & MIX -->
+            <div class="ip-lab-tab-panel" data-labpanel="wet" style="display: none; flex-direction: column; gap: 8px;">
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Wetness (Paint Mix)</span><span id="ip-val-wetness" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-wetness" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Smudge Drag Strength</span><span id="ip-val-smudge" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-smudge" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Color Pickup</span><span id="ip-val-pickup" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-pickup" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Paint Depletion (Drying)</span><span id="ip-val-depletion" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-depletion" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Dab Blend Mode</span></div>
+                <select id="ip-sel-dab-blend" class="ui-select" style="height: 30px; font-size: 11px;">
+                  <option value="0">Normal</option>
+                  <option value="1">Multiply</option>
+                  <option value="2">Screen</option>
+                  <option value="3">Overlay</option>
+                  <option value="4">Darken</option>
+                  <option value="5">Lighten</option>
+                  <option value="6">Color Dodge</option>
+                  <option value="7">Color Burn</option>
+                  <option value="8">Hard Light</option>
+                  <option value="9">Soft Light</option>
+                  <option value="10">Difference</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- TAB 5: JITTER & DUAL BRUSH -->
+            <div class="ip-lab-tab-panel" data-labpanel="jitter" style="display: none; flex-direction: column; gap: 8px;">
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Size Jitter</span><span id="ip-val-jitter-size" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-jitter-size" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Angle Jitter</span><span id="ip-val-jitter-angle" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-jitter-angle" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Opacity Jitter</span><span id="ip-val-jitter-op" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-jitter-op" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Color Jitter</span><span id="ip-val-jitter-color" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-jitter-color" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Scatter</span><span id="ip-val-scatter" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-scatter" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Dual Brush Shape</span></div>
+                <select id="ip-sel-dual-shape" class="ui-select" style="height: 30px; font-size: 11px;">
+                  <option value="-1">None (Disabled)</option>
+                  <option value="0">Circle</option>
+                  <option value="1">Square</option>
+                  <option value="2">Diamond</option>
+                  <option value="3">Soft</option>
+                  <option value="4">Chisel</option>
+                  <option value="5">Star</option>
+                  <option value="6">Callig</option>
+                </select>
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Dual Brush Size</span><span id="ip-val-dual-size" class="ip-touch-val">100%</span></div>
+                <input type="range" id="ip-slider-dual-size" min="10" max="300" value="100" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Dual Brush Spacing</span><span id="ip-val-dual-spacing" class="ip-touch-val">10%</span></div>
+                <input type="range" id="ip-slider-dual-spacing" min="1" max="100" value="10" class="ip-touch-slider">
+              </div>
+            </div>
+
+            <!-- TAB 6: TEXTURE & GRAIN -->
+            <div class="ip-lab-tab-panel" data-labpanel="texture" style="display: none; flex-direction: column; gap: 8px;">
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Active Texture Pattern / Source Layer</span></div>
+                <select id="ip-sel-texture" class="ui-select" style="height: 30px; font-size: 11px;">
+                  <optgroup label="Builtin Textures (70)">
+                    <option value="none">None (Smooth)</option>
+                    <option value="paper">Paper Grain</option>
+                    <option value="canvas">Canvas Weave</option>
+                    <option value="noise">Fine Noise</option>
+                    <option value="dots">Halftone Dots</option>
+                    <option value="grid">Pixel Grid</option>
+                    <option value="grunge">Rough Grunge</option>
+                    <option value="hatch">Cross Hatch</option>
+                    <option value="watercolor">Watercolor Paper</option>
+                    <option value="charcoal_tooth">Charcoal Tooth</option>
+                    <option value="wood">Wood Grain</option>
+                    <option value="leather">Leather Pores</option>
+                    <option value="linen">Dense Linen</option>
+                    <option value="marble">Marble Veins</option>
+                    <option value="cloud_grain">Cloudy Perlin Noise</option>
+                    <option value="weave">Basket Weave</option>
+                    <option value="sandpaper">Sandpaper Grit</option>
+                    <option value="halftone">Radial Halftone</option>
+                    <option value="crackle">Crackle Fissures</option>
+                    <option value="washi">Washi Fiber Paper</option>
+                    <option value="concrete">Concrete Pavement</option>
+                    <option value="parchment">Antique Parchment</option>
+                    <option value="stipple_noise">Stipple Noise Dense</option>
+                    <option value="spatter_drops">Ink Spatter Drops</option>
+                    <option value="fiber_pulp">Raw Fiber Pulp</option>
+                    <option value="halftone_coarse">Halftone Coarse Print</option>
+                    <option value="crosshatch_fine">Fine Crosshatch</option>
+                    <option value="rust_distress">Distressed Rust</option>
+                    <option value="dry_scrape">Dry Bristle Scrape</option>
+                    <option value="pastel_board">Pastel Board (Honeycomb)</option>
+                    <option value="bark">Tree Bark Grain</option>
+                    <option value="manga_dots">Manga 60L Screen Dots</option>
+                    <option value="manga_sand">Manga Sand Tone</option>
+                    <option value="sponge">Natural Sea Sponge</option>
+                    <option value="rough_plaster">Stucco Plaster Wall</option>
+                    <option value="denim">Denim Twill Weave</option>
+                    <option value="oil_impasto">Oil Impasto Knife Peaks</option>
+                    <option value="dry_chalk">Dusty Chalk Tooth</option>
+                    <option value="engraving_lines">Vintage Engraving Lines</option>
+                    <option value="granite">Granite Mineral Flecks</option>
+                    <option value="salt_bloom">Watercolor Salt Bloom</option>
+                    <option value="burlap">Coarse Jute Burlap</option>
+                    <option value="cracked_earth">Drying Mud Cracked Earth</option>
+                    <option value="circuit_board">Cyber PCB Circuit Board</option>
+                    <option value="foliage_leaves">Foliage &amp; Leaves</option>
+                    <option value="grass_blades">Grass Blades Lawn</option>
+                    <option value="butterfly_motif">Butterfly Wings Motif</option>
+                    <option value="mystic_eyes">Mystic Surreal Eyes</option>
+                    <option value="steampunk_gears">Steampunk Gears &amp; Cogs</option>
+                    <option value="kitty_paws">Kitty Paw Prints</option>
+                    <option value="dragon_scales">Dragon Armor Scales</option>
+                    <option value="starry_cosmos">Starry Cosmos &amp; Galaxies</option>
+                    <option value="hex_tech">Sci-Fi Hex Tech</option>
+                    <option value="bubble_foam">Bubble Soap Foam</option>
+                    <option value="celtic_knot">Celtic Knot Braids</option>
+                    <option value="skulls_bones">Skulls &amp; Crossbones</option>
+                    <option value="hearts_cupid">Sweet Hearts Motif</option>
+                    <option value="seigaiha_waves">Seigaiha Ocean Waves</option>
+                    <option value="music_notes">Musical Staff &amp; Notes</option>
+                    <option value="houndstooth">Classic Houndstooth</option>
+                    <option value="feathers_plumage">Bird Feathers Plumage</option>
+                    <option value="chainmail">Chainmail Ringmesh</option>
+                    <option value="damask_paisley">Damask Floral Paisley</option>
+                    <option value="argyle_diamonds">Argyle Diamond Plaid</option>
+                    <option value="brick_wall">Masonry Brick Wall</option>
+                    <option value="lava_magma">Molten Magma Lava</option>
+                    <option value="labyrinth_maze">Labyrinth Geometric Maze</option>
+                    <option value="lightning_arcs">Lightning Electric Arcs</option>
+                    <option value="spider_web">Radial Spiderweb</option>
+                    <option value="voronoi_crystals">Crystal Gemstone Facets</option>
+                    <option value="pixel_invaders">8-Bit Space Invaders</option>
+                  </optgroup>
+                  <optgroup id="ip-optgroup-tex-layers" label="Custom & Project Layers as Texture"></optgroup>
+                </select>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" id="btn-ip-grain-from-layer" class="ip-btn ip-mini-btn" style="flex: 1; font-size: 10px; height: 26px; background: var(--border); color: var(--primary); font-weight: bold;">+ Grain from Layer</button>
+                <button type="button" id="btn-ip-grain-from-selection" class="ip-btn ip-mini-btn" style="flex: 1; font-size: 10px; height: 26px; background: var(--border); color: var(--primary); font-weight: bold;">+ Grain from Selection</button>
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Texture Mode</span></div>
+                <select id="ip-sel-tex-mode" class="ui-select" style="height: 30px; font-size: 11px;">
+                  <option value="0">Multiply (Standard)</option>
+                  <option value="1">Subtract (Etched)</option>
+                  <option value="2">Overlay (Vibrant)</option>
+                </select>
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Grain Depth</span><span id="ip-val-grain" class="ip-touch-val">0%</span></div>
+                <input type="range" id="ip-slider-grain" min="0" max="100" value="0" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Texture Scale</span><span id="ip-val-tex-scale" class="ip-touch-val">100%</span></div>
+                <input type="range" id="ip-slider-tex-scale" min="10" max="400" value="100" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Texture Contrast</span><span id="ip-val-tex-contrast" class="ip-touch-val">100%</span></div>
+                <input type="range" id="ip-slider-tex-contrast" min="0" max="200" value="100" class="ip-touch-slider">
+              </div>
+              <div class="ip-touch-control">
+                <div class="ip-touch-label-row"><span>Texture Rotation</span><span id="ip-val-tex-rotate" class="ip-touch-val">0°</span></div>
+                <input type="range" id="ip-slider-tex-rotate" min="0" max="360" value="0" class="ip-touch-slider">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. PIXEL ART STUDIO PANEL -->
+    <div id="dock-panel-pixelart" class="dock-panel-content">
+      <div id="sheet-pixelart" class="ip-sheet-modal">
+        <div class="ip-sheet">
+          <div class="ip-sheet-header">
+            <span>PIXEL ART STUDIO</span>
+            <button type="button" class="ip-sheet-close" data-close-dock="pixelart" title="Close Tab">✕</button>
+          </div>
+          <div class="ip-sheet-content">
+            <div class="ip-pixel-grid">
+              <div class="ip-pixel-card" id="card-ip-pixel-1px">
+                <span class="ip-pixel-card-title">1px Pixel Pencil</span>
+                <span class="ip-pixel-card-sub">Exact 1-pixel hard square tip</span>
+              </div>
+              <div class="ip-pixel-card" id="card-ip-pixel-2px">
+                <span class="ip-pixel-card-title">2px Block Brush</span>
+                <span class="ip-pixel-card-sub">2x2 chunky pixel block</span>
+              </div>
+              <div class="ip-pixel-card" id="card-ip-pixel-4px">
+                <span class="ip-pixel-card-title">4px Chunky Brush</span>
+                <span class="ip-pixel-card-sub">4x4 retro pixel block</span>
+              </div>
+              <div class="ip-pixel-card" id="card-ip-pixel-dither">
+                <span class="ip-pixel-card-title">Dither Screentone</span>
+                <span class="ip-pixel-card-sub">Checkerboard shading brush</span>
+              </div>
+            </div>
+
+            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Pixel Helpers</span>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                <button type="button" id="btn-ip-pixel-grid-toggle" class="ip-btn">Pixel Grid (4x+)</button>
+                <button type="button" id="btn-ip-pixel-zoom-100" class="ip-btn">100% 1:1 Pixel</button>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                <button type="button" id="btn-ip-pixel-sym-x" class="ip-btn">Sym Vertical</button>
+                <button type="button" id="btn-ip-pixel-sym-y" class="ip-btn">Sym Horiz</button>
+                <button type="button" id="btn-ip-pixel-sym-quad" class="ip-btn">Sym Quad</button>
+              </div>
+            </div>
+
+            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Retro Color Palettes</span>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" id="btn-ip-pal-gameboy" class="ip-btn" style="flex: 1;">GameBoy 4-Color</button>
+                <button type="button" id="btn-ip-pal-gruvbox" class="ip-btn" style="flex: 1;">Gruvbox Dark</button>
+                <button type="button" id="btn-ip-pal-cyber" class="ip-btn" style="flex: 1;">Cyberpunk</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. PROJECT & SETTINGS PANEL -->
+    <div id="dock-panel-settings" class="dock-panel-content">
+      <div id="sheet-menu" class="ip-sheet-modal">
+        <div class="ip-sheet">
+          <div class="ip-sheet-header">
+            <span>PROJECT &amp; SETTINGS</span>
+            <button type="button" class="ip-sheet-close" data-close-dock="settings" title="Close Tab">✕</button>
+          </div>
+          <div class="ip-sheet-content">
+            <div class="ip-hide-embedded" style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Project File</span>
+                <span id="ip-menu-autosave-badge" style="font-size: 10px; color: var(--success); font-weight: bold;">Autosaved</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                <button type="button" id="btn-ip-new-proj" class="ip-btn" style="background: var(--border); color: var(--primary); font-weight: bold;">+ New Project</button>
+                <button type="button" id="btn-ip-recent-proj" class="ip-btn" style="background: var(--border); color: #83a598; font-weight: bold;">Recents</button>
+              </div>
+              <button type="button" id="btn-ip-save-proj" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; width: 100%;">Save Project</button>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                <button type="button" id="btn-ip-export-png" class="ip-btn">Export PNG</button>
+                <button type="button" id="btn-ip-export-esen" class="ip-btn">Export .esen</button>
+              </div>
+              <button type="button" id="btn-ip-import-file" class="ip-btn" style="width: 100%; border-color: var(--border-bright);">Import (.esen / Image)</button>
+              <button type="button" id="btn-ip-clear-storage" class="ip-btn" style="width: 100%; border-color: var(--danger); color: var(--danger);">Clear Storage</button>
+            </div>
+
+            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Canvas Resolution</span>
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <input type="number" id="ip-inp-cw" class="ui-input-num" value="1280" min="16" max="16384" style="width: 70px; height: 30px; font-size: 12px; text-align: center;">
+                <span style="color: var(--text-muted); font-weight: bold;">×</span>
+                <input type="number" id="ip-inp-ch" class="ui-input-num" value="720" min="16" max="16384" style="width: 70px; height: 30px; font-size: 12px; text-align: center;">
+                <button type="button" id="btn-ip-apply-resize" class="ip-btn" style="flex: 1; height: 30px; background: var(--primary); color: var(--bg-dark); font-weight: bold;">Resize</button>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
+                <button type="button" class="ip-btn ip-btn-quick-res" data-w="640" data-h="480">640×480</button>
+                <button type="button" class="ip-btn ip-btn-quick-res" data-w="1280" data-h="720">720p</button>
+                <button type="button" class="ip-btn ip-btn-quick-res" data-w="1920" data-h="1080">1080p</button>
+                <button type="button" class="ip-btn ip-btn-quick-res" data-w="1080" data-h="1080">1:1 Square</button>
+              </div>
+            </div>
+
+            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Viewport Navigation</span>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                <button type="button" id="btn-ip-zoom-fit" class="ip-btn">Fit View</button>
+                <button type="button" id="btn-ip-zoom-100" class="ip-btn">100% (1:1)</button>
+                <button type="button" id="btn-ip-rot-zero" class="ip-btn">0° Rotate</button>
+                <button type="button" id="btn-ip-flip-h" class="ip-btn">Flip Horiz</button>
+                <button type="button" id="btn-ip-flip-v" class="ip-btn">Flip Vert</button>
+                <button type="button" id="btn-ip-center" class="ip-btn">Center</button>
+              </div>
+            </div>
+
+            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-size: 11px; font-weight: bold; color: var(--primary);">UI &amp; Customization</span>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <span style="font-size: 11px; color: var(--text-muted);">UI Scale</span>
+                <select id="ip-select-ui-scale" class="ui-select" style="height: 28px; width: 120px; font-size: 11px;">
+                  <option value="auto">Auto (Responsive)</option>
+                  <option value="0.75">75% (Small)</option>
+                  <option value="0.85">85%</option>
+                  <option value="1.0" selected>100% (Default)</option>
+                  <option value="1.15">115%</option>
+                  <option value="1.25">125%</option>
+                  <option value="1.5">150% (Large)</option>
+                </select>
+              </div>
+              <button type="button" id="btn-ip-open-hud-customizer" class="ip-btn" style="border-color: var(--primary); color: var(--primary);">⚙ Customize Canvas HUD</button>
+            </div>
+
+            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Preferences &amp; Gestures</span>
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ip-chk-pixel-grid"> Pixel Grid (zoomed &ge; 4x)
+              </label>
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ip-chk-viewport-filter"> Bilinear Viewport Filtering (Smooth)
+              </label>
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ip-chk-brush-outline" checked> Brush Cursor Outline
+              </label>
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ip-chk-touch-undo-redo" checked> Touch Gestures (2-finger tap undo / 3-finger redo)
+              </label>
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ip-chk-touch-eyedropper" checked> Touch Long-Press Eyedropper
+              </label>
+              <div style="margin-top: 4px;">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text); margin-bottom: 2px;">
+                  <span>Undo History Limit</span>
+                  <span id="ip-val-max-undo" style="color: var(--primary); font-weight: bold;">25 steps</span>
+                </div>
+                <input type="range" id="ip-slider-max-undo" class="ui-slider" min="0" max="100" step="5" value="25" style="width: 100%;">
+              </div>
+              <div style="margin-top: 4px;">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text); margin-bottom: 2px;">
+                  <span>Renderer</span>
+                </div>
+                <select id="ip-select-renderer" class="ip-select" style="width: 100%; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border-bright); border-radius: var(--radius-md); padding: 4px 8px; font-size: 11px;">
+                  <option value="gpu">GPU (WebGL 2)</option>
+                  <option value="cpu">Software (2D Canvas CPU)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9. ANIMATION TIMELINE PANEL -->
+    <div id="dock-panel-timeline" class="dock-panel-content" style="padding: 0 !important; overflow: hidden !important;">
+      <div id="raster-anim-timeline-dock"></div>
+    </div>
+
+  </div>
+
+  <!-- ── FLOATING OVERLAY MODALS (HUD Customizer, Recents, New Project, Arc Dial) ── -->
+  <div id="sheet-hud-customizer" class="ip-sheet-modal">
+    <div class="ip-sheet">
+      <div class="ip-sheet-header">
+        <span>CUSTOMIZE HUD BARS</span>
+        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-hud-customizer').classList.remove('active')">✕</button>
+      </div>
+      <div class="ip-pills-row" id="ip-hud-dock-tabs" style="padding: 6px 8px 0; border-bottom: 1px solid var(--border); background: var(--bg-input);">
+        <button type="button" class="ip-pill-btn active" data-docktab="left">Left Bar</button>
+        <button type="button" class="ip-pill-btn" data-docktab="right">Right Bar</button>
+        <button type="button" class="ip-pill-btn" data-docktab="bottom">Bottom Bar</button>
+      </div>
+      <div class="ip-sheet-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px; max-height: calc(85vh - 100px); overflow-y: auto;">
+        <div id="ip-hud-customizer-dock-label" style="color: var(--text-muted); font-size: 11px;">
+          Choose which sliders and quick action buttons appear on the Left Dock:
+        </div>
+        <div style="font-size: 11px; font-weight: bold; color: var(--primary);">Vertical Sliders</div>
+        <div id="ip-hud-sliders-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
+        <div style="font-size: 11px; font-weight: bold; color: var(--primary); margin-top: 4px;">Quick Action Buttons</div>
+        <div id="ip-hud-actions-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
+        <div style="font-size: 11px; font-weight: bold; color: var(--primary); margin-top: 4px;">Presets</div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+          <button type="button" class="ip-btn" id="btn-ip-hud-preset-default">Default</button>
+          <button type="button" class="ip-btn" id="btn-ip-hud-preset-pro">Painter Pro</button>
+          <button type="button" class="ip-btn" id="btn-ip-hud-preset-full">Full Deck</button>
+        </div>
+        <button type="button" class="ip-btn" id="btn-ip-hud-save-close" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; padding: 9px; margin-top: 4px;">Apply &amp; Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="sheet-recents" class="ip-sheet-modal">
+    <div class="ip-sheet">
+      <div class="ip-sheet-header">
+        <span>RECENT PROJECTS</span>
+        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-recents').classList.remove('active')">✕</button>
+      </div>
+      <div class="ip-sheet-content">
+        <div id="ip-recents-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 400px; overflow-y: auto;">
+          <div style="padding: 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
+        </div>
+        <div style="display: flex; gap: 6px; margin-top: 10px;">
+          <button type="button" id="btn-ip-recents-new" class="ip-btn" style="flex: 1; background: var(--primary); color: var(--bg-dark); font-weight: bold;">+ New Project</button>
+          <button type="button" id="btn-ip-recents-clear" class="ip-btn" style="border-color: var(--danger); color: var(--danger);">Clear Storage</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sheet-new-proj" class="ip-sheet-modal">
+    <div class="ip-sheet">
+      <div class="ip-sheet-header">
+        <span>NEW PROJECT</span>
+        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-new-proj').classList.remove('active')">✕</button>
+      </div>
+      <div class="ip-sheet-content" style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 10px; color: var(--text-muted);">Title</span>
+          <input type="text" id="inp-ip-new-title" class="ui-input-text" value="Untitled Artwork" style="width: 100%; height: 32px;">
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 10px; color: var(--text-muted);">Width (px)</span>
+            <input type="number" id="inp-ip-new-w" class="ui-input-num" value="1280" min="16" max="16384" style="width: 100%; height: 32px; text-align: center;">
+          </div>
+          <span style="color: var(--text-muted); margin-top: 16px;">×</span>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 10px; color: var(--text-muted);">Height (px)</span>
+            <input type="number" id="inp-ip-new-h" class="ui-input-num" value="720" min="16" max="16384" style="width: 100%; height: 32px; text-align: center;">
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
+          <button type="button" class="ip-btn ip-btn-new-res" data-w="640" data-h="480">640×480</button>
+          <button type="button" class="ip-btn ip-btn-new-res" data-w="1280" data-h="720">720p</button>
+          <button type="button" class="ip-btn ip-btn-new-res" data-w="1920" data-h="1080">1080p</button>
+          <button type="button" class="ip-btn ip-btn-new-res" data-w="1080" data-h="1080">1:1 Square</button>
+        </div>
+        <button type="button" id="btn-ip-confirm-new-proj" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; height: 34px; margin-top: 6px;">Create Canvas</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Arc Dial Controller Modal ── -->
+<div id="arc-dial-modal">
+  <div class="arc-dial-box">
+    <div class="arc-dial-header">
+      <span id="arc-dial-title">Brush Parameter</span>
+      <button type="button" class="ui-mini-btn" id="btn-close-arc-dial">✕</button>
+    </div>
+    <div class="arc-dial-stage" id="arc-dial-stage">
+      <svg id="arc-dial-svg" viewBox="0 0 200 200">
+        <path id="arc-track-bg" class="arc-track-bg" />
+        <path id="arc-track-fill" class="arc-track-fill" />
+        <circle id="arc-dial-thumb" class="arc-dial-thumb" r="9" />
+      </svg>
+      <div class="arc-dial-center">
+        <div id="arc-dial-preview" class="arc-dial-preview"></div>
+        <div id="arc-dial-value-text" class="arc-dial-value-text">24</div>
+        <div id="arc-dial-unit-text" class="arc-dial-unit-text">px</div>
+      </div>
+    </div>
+    <div class="arc-dial-chips" id="arc-dial-chips"></div>
+  </div>
+</div>
+
+<input type="file" id="ui-file-input" accept=".esen,.json,image/*" style="display: none;">
+
+<!-- ── Dockview Core & Painter Workspace Layout Controller ── -->
+<script src="vendor/dockview-core.js"></script>
+<script>
+  (function () {
+    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v1';
+    const ALL_PANEL_IDS = ['canvas', 'brushes', 'color', 'tools', 'lab', 'pixelart', 'layers', 'timeline', 'settings'];
+    const PANEL_TITLES = {
+      canvas: 'Canvas',
+      brushes: 'Brushes',
+      color: 'Color',
+      tools: 'Tools & Modes',
+      lab: 'Brush Lab',
+      pixelart: 'Pixel Art',
+      layers: 'Layers',
+      timeline: 'Timeline',
+      settings: 'Settings'
+    };
+
+    const panelElements = new Map();
+    const poolEl = document.getElementById('dock-panel-pool');
+    let dockviewApi = null;
+    let saveLayoutTimer = null;
+
+    function getPanelElement(id) {
+      if (panelElements.has(id)) return panelElements.get(id);
+      const el = document.getElementById('dock-panel-' + id);
+      if (el) panelElements.set(id, el);
+      return el;
+    }
+
+    function returnPanelElementToPool(id) {
+      const el = getPanelElement(id);
+      if (el && poolEl && el.parentElement !== poolEl) {
+        poolEl.appendChild(el);
+      }
+    }
+
+    function updatePainterDockButtons() {
+      if (!dockviewApi) return;
+      document.querySelectorAll('[data-dock-panel]').forEach(btn => {
+        const id = btn.getAttribute('data-dock-panel');
+        btn.classList.toggle('active', !!dockviewApi.getPanel(id));
+      });
+    }
+
+    function scheduleSavePainterDockLayout() {
+      if (!dockviewApi) return;
+      if (saveLayoutTimer) clearTimeout(saveLayoutTimer);
+      saveLayoutTimer = setTimeout(() => {
+        try {
+          const data = dockviewApi.toJSON();
+          if (data && data.panels && data.panels['canvas']) {
+            localStorage.setItem(DOCKVIEW_STORAGE_KEY, JSON.stringify(data));
+          }
+        } catch (err) {
+          console.warn('Failed to save painter dockview layout:', err);
+        }
+      }, 250);
+    }
+
+    function openPainterDockPanel(id, fromAnimator = false) {
+      if (!dockviewApi || !ALL_PANEL_IDS.includes(id)) return null;
+      const existing = dockviewApi.getPanel(id);
+      if (existing) {
+        existing.api.setActive();
+        if (id === 'color' && typeof window.refreshTouchColorStudio === 'function') {
+          window.refreshTouchColorStudio();
+        }
+        if (id === 'timeline' && !fromAnimator && window.host?.rasterAnimatorUI && !window.host.rasterAnimatorUI.visible) {
+          window.host.rasterAnimatorUI.show();
+        }
+        updatePainterDockButtons();
+        return existing;
+      }
+
+      const title = PANEL_TITLES[id] || id;
+      try {
+        if (['brushes', 'color', 'tools', 'pixelart'].includes(id)) {
+          const leftGroup = ['brushes', 'color', 'tools', 'pixelart'];
+          const ref = leftGroup.find(other => other !== id && !!dockviewApi.getPanel(other));
+          if (ref) {
+            dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: ref } });
+          } else {
+            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 290 });
+          }
+        } else if (['layers', 'lab', 'settings'].includes(id)) {
+          const rightGroup = ['layers', 'lab', 'settings'];
+          const ref = rightGroup.find(other => other !== id && !!dockviewApi.getPanel(other));
+          if (ref) {
+            dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: ref } });
+          } else {
+            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'right', referencePanel: 'canvas' }, initialWidth: 300 });
+          }
+        } else if (id === 'timeline') {
+          dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 165 });
+        } else {
+          dockviewApi.addPanel({ id, component: id, title });
+        }
+      } catch (err) {
+        try {
+          dockviewApi.addPanel({ id, component: id, title });
+        } catch (e2) {
+          console.error('Failed to add painter dock panel:', e2);
+        }
+      }
+
+      const panel = dockviewApi.getPanel(id);
+      panel?.api?.setActive();
+
+      if (id === 'color' && typeof window.refreshTouchColorStudio === 'function') {
+        requestAnimationFrame(() => window.refreshTouchColorStudio());
+      }
+      if (id === 'timeline' && !fromAnimator && window.host?.rasterAnimatorUI) {
+        window.host.rasterAnimatorUI.visible = true;
+        window.host.rasterAnimatorUI.container.style.display = 'flex';
+        window.host.rasterAnimatorUI.updateTimeline();
+      }
+
+      scheduleSavePainterDockLayout();
+      updatePainterDockButtons();
+      requestAnimationFrame(() => window.host?.resize?.());
+      return panel;
+    }
+
+    function closePainterDockPanel(id, fromAnimator = false) {
+      if (!dockviewApi || id === 'canvas') return;
+      const panel = dockviewApi.getPanel(id);
+      if (panel) {
+        panel.api.close();
+      }
+      returnPanelElementToPool(id);
+      if (id === 'timeline' && !fromAnimator && window.host?.rasterAnimatorUI && window.host.rasterAnimatorUI.visible) {
+        window.host.rasterAnimatorUI.hide();
+      }
+      scheduleSavePainterDockLayout();
+      updatePainterDockButtons();
+      requestAnimationFrame(() => window.host?.resize?.());
+    }
+
+    function togglePainterDockPanel(id) {
+      if (!dockviewApi) return;
+      if (dockviewApi.getPanel(id)) {
+        closePainterDockPanel(id);
+      } else {
+        openPainterDockPanel(id);
+      }
+    }
+
+    function createDefaultPainterDockPanels() {
+      if (!dockviewApi) return;
+      try {
+        dockviewApi.clear();
+      } catch (_) {}
+      ALL_PANEL_IDS.forEach(returnPanelElementToPool);
+
+      try {
+        // 1. Center Canvas
+        dockviewApi.addPanel({
+          id: 'canvas',
+          component: 'canvas',
+          title: PANEL_TITLES.canvas
+        });
+
+        // 2. Left Dock: Brushes & Color tabbed together
+        dockviewApi.addPanel({
+          id: 'brushes',
+          component: 'brushes',
+          title: PANEL_TITLES.brushes,
+          position: { direction: 'left', referencePanel: 'canvas' },
+          initialWidth: 290
+        });
+        dockviewApi.addPanel({
+          id: 'color',
+          component: 'color',
+          title: PANEL_TITLES.color,
+          position: { referencePanel: 'brushes' }
+        });
+
+        // 3. Right Dock: Layers Stack
+        dockviewApi.addPanel({
+          id: 'layers',
+          component: 'layers',
+          title: PANEL_TITLES.layers,
+          position: { direction: 'right', referencePanel: 'canvas' },
+          initialWidth: 300
+        });
+
+        dockviewApi.getPanel('brushes')?.api?.setActive();
+        dockviewApi.getPanel('layers')?.api?.setActive();
+        dockviewApi.getPanel('canvas')?.api?.setActive();
+      } catch (err) {
+        console.error('Error building default painter dock layout:', err);
+      }
+
+      updatePainterDockButtons();
+      requestAnimationFrame(() => window.host?.resize?.());
+    }
+
+    function resetPainterDockLayout() {
+      try {
+        localStorage.removeItem(DOCKVIEW_STORAGE_KEY);
+      } catch (_) {}
+      createDefaultPainterDockPanels();
+      scheduleSavePainterDockLayout();
+    }
+
+    function initPainterDockview() {
+      const container = document.getElementById('dockview-container');
+      if (!container || typeof window['dockview-core'] === 'undefined') return;
+
+      ALL_PANEL_IDS.forEach(getPanelElement);
+
+      dockviewApi = window['dockview-core'].createDockview(container, {
+        className: 'dockview-theme-dark',
+        defaultRenderer: 'always',
+        createComponent: (options) => {
+          const panelId = options.id || options.name;
+          const el = getPanelElement(panelId);
+          return {
+            element: el || document.createElement('div'),
+            init: () => {},
+            update: () => {},
+            dispose: () => {
+              returnPanelElementToPool(panelId);
+            }
+          };
+        }
+      });
+
+      window.painterDockviewApi = dockviewApi;
+      window.openPainterDockPanel = openPainterDockPanel;
+      window.closePainterDockPanel = closePainterDockPanel;
+      window.togglePainterDockPanel = togglePainterDockPanel;
+      window.resetPainterDockLayout = resetPainterDockLayout;
+
+      let restored = false;
+      try {
+        const raw = localStorage.getItem(DOCKVIEW_STORAGE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved && saved.grid && saved.panels && saved.panels['canvas']) {
+            dockviewApi.fromJSON(saved);
+            if (dockviewApi.getPanel('canvas')) {
+              restored = true;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to restore painter dock layout:', err);
+        try { localStorage.removeItem(DOCKVIEW_STORAGE_KEY); } catch (_) {}
+        try { dockviewApi.clear(); } catch (_) {}
+      }
+
+      if (!restored) {
+        createDefaultPainterDockPanels();
+      }
+
+      if (dockviewApi.onWillClosePanel) {
+        dockviewApi.onWillClosePanel((e) => {
+          if (e?.panel?.id === 'canvas' && e.preventDefault) {
+            e.preventDefault();
+          }
+        });
+      }
+
+      if (dockviewApi.onDidRemovePanel) {
+        dockviewApi.onDidRemovePanel((panel) => {
+          const id = panel?.id;
+          if (id) returnPanelElementToPool(id);
+          updatePainterDockButtons();
+          scheduleSavePainterDockLayout();
+          requestAnimationFrame(() => window.host?.resize?.());
+        });
+      }
+
+      if (dockviewApi.onDidActivePanelChange) {
+        dockviewApi.onDidActivePanelChange((e) => {
+          const id = e?.panel?.id;
+          if (id === 'color' && typeof window.refreshTouchColorStudio === 'function') {
+            window.refreshTouchColorStudio();
+          }
+          updatePainterDockButtons();
+          scheduleSavePainterDockLayout();
+        });
+      }
+
+      if (dockviewApi.onDidLayoutChange) {
+        dockviewApi.onDidLayoutChange(() => {
+          updatePainterDockButtons();
+          scheduleSavePainterDockLayout();
+          requestAnimationFrame(() => window.host?.resize?.());
+        });
+      }
+
+      // Wire close buttons inside docked sheets to close their Dockview tab
+      document.querySelectorAll('[data-close-dock]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const dockId = btn.getAttribute('data-close-dock');
+          if (dockId) closePainterDockPanel(dockId);
+        });
+      });
+
+      // Observe canvas panel resize so sash dragging immediately updates canvas resolution/viewport
+      const cvsWrap = document.getElementById('cvswrap');
+      if (cvsWrap && typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => {
+          if (window.host && typeof window.host.resize === 'function') {
+            window.host.resize();
+          }
+        });
+        ro.observe(cvsWrap);
+      }
+
+      updatePainterDockButtons();
+    }
+
+    initPainterDockview();
+  })();
+</script>
+
+<script type="module" src="src/version.js"></script>
+<script type="module" src="src/script/esenho_sdk.js"></script>
+<script src="src/project_store.js"></script>
+<script src="src/resource_registry.js"></script>
+<script src="src/asset_bundle.js"></script>
+<script src="src/gpu/shaders.js"></script>
+<script src="src/gpu/gpu_renderer.js"></script>
+<script src="src/esenho.js"></script>
+<script src="src/host-browser.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch((err) => {
+        console.warn('Service worker registration failed:', err);
+      });
+    });
+  }
+</script>
+</body>
+</html>

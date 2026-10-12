@@ -41,16 +41,18 @@ if (fs.existsSync(indexPath)) {
   console.log(`[sync-version] Updated index.html badge (-> v${version})`);
 }
 
-// 3. Update painter.html status
-const painterPath = path.join(rootDir, "painter.html");
-if (fs.existsSync(painterPath)) {
-  let painterContent = fs.readFileSync(painterPath, "utf8");
-  painterContent = painterContent.replace(
-    /<span id="wstatus" class="ip-top-status-text">v[0-9.]+ ready<\/span>/,
-    `<span id="wstatus" class="ip-top-status-text">v${version} ready</span>`
-  );
-  fs.writeFileSync(painterPath, painterContent, "utf8");
-  console.log(`[sync-version] Updated painter.html status (-> v${version} ready)`);
+// 3. Update painter.html and painter-studio.html status
+for (const htmlFile of ["painter.html", "painter-studio.html"]) {
+  const filePath = path.join(rootDir, htmlFile);
+  if (fs.existsSync(filePath)) {
+    let content = fs.readFileSync(filePath, "utf8");
+    content = content.replace(
+      /<span id="wstatus" class="ip-top-status-text">v[0-9.]+ ready<\/span>/,
+      `<span id="wstatus" class="ip-top-status-text">v${version} ready</span>`
+    );
+    fs.writeFileSync(filePath, content, "utf8");
+    console.log(`[sync-version] Updated ${htmlFile} status (-> v${version} ready)`);
+  }
 }
 
 // 4. Generate src/version.js (Universal Node + Browser script + Module compatible)

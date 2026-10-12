@@ -1,4 +1,4 @@
-const CACHE_NAME = 'esenho-v0.13.12';
+const CACHE_NAME = 'esenho-v0.13.14';
 
 const PRECACHE_ASSETS = [
   './',
@@ -6,6 +6,7 @@ const PRECACHE_ASSETS = [
   './studio.html',
   './mobile.html',
   './painter.html',
+  './painter-studio.html',
   './manifest.webmanifest',
   './mobile.webmanifest',
   './src/mobile/mobile_studio.css',

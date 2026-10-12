@@ -503,7 +503,9 @@ async function main() {
       host.panY += (canvasEl.height - prevH) / 2;
     }
 
-    
+    if ((canvasEl.width !== prevW || canvasEl.height !== prevH) && typeof host.render === 'function') {
+      host.render();
+    }
   }
   host.resize = resize;
   resize();
@@ -843,9 +845,19 @@ async function main() {
   const RIGHT_SIDE_SHEETS = new Set([
     'sheet-layers', 'sheet-lab', 'sheet-hud-customizer'
   ]);
+  const DOCKVIEW_SHEET_MAP = {
+    'sheet-brushes': 'brushes',
+    'sheet-layers': 'layers',
+    'sheet-tools': 'tools',
+    'sheet-lab': 'lab',
+    'sheet-pixelart': 'pixelart',
+    'sheet-menu': 'settings',
+    'touch-color-modal': 'color'
+  };
 
   function closeAllSheets(onlySide = null) {
     document.querySelectorAll('.ip-sheet-modal, #touch-color-modal').forEach(m => {
+      if (m.closest('.dock-panel-content')) return;
       if (!onlySide) {
         m.classList.remove('active');
         return;
@@ -858,6 +870,15 @@ async function main() {
   }
 
   function toggleSheet(id) {
+    if (window.isDockviewPainter && DOCKVIEW_SHEET_MAP[id] && typeof window.togglePainterDockPanel === 'function') {
+      window.togglePainterDockPanel(DOCKVIEW_SHEET_MAP[id]);
+      if (id === 'sheet-layers' && typeof lastLayerTreeSig !== 'undefined') {
+        lastLayerTreeSig = '';
+      }
+      if (typeof syncUiFromHost === 'function') syncUiFromHost();
+      if (typeof triggerHaptic === 'function') triggerHaptic(12);
+      return;
+    }
     const el = document.getElementById(id);
     if (!el) return;
     const wasActive = el.classList.contains('active');
@@ -904,6 +925,7 @@ async function main() {
     };
 
     document.querySelectorAll('.ip-sheet, .touch-color-box').forEach((panel, idx) => {
+      if (panel.closest('.dock-panel-content')) return;
       if (panel.dataset.dragBound === 'true') return;
       panel.dataset.dragBound = 'true';
       const panelKey = getPanelKey(panel, idx);
@@ -1081,12 +1103,12 @@ async function main() {
       }
       let closedSomething = false;
       const activeSheet = document.querySelector('.ip-sheet-modal.active');
-      if (activeSheet) {
+      if (activeSheet && !activeSheet.closest('.dock-panel-content')) {
         activeSheet.classList.remove('active');
         closedSomething = true;
       }
       const touchModal = document.getElementById('touch-color-modal');
-      if (touchModal && touchModal.classList.contains('active')) {
+      if (touchModal && touchModal.classList.contains('active') && !touchModal.closest('.dock-panel-content')) {
         touchModal.classList.remove('active');
         closedSomething = true;
       }
@@ -3524,25 +3546,37 @@ async function main() {
     }
 
     // 6. Panels & HUD Submenu
+    const isSheetOrDockOpen = (sheetId) => {
+      if (window.isDockviewPainter && DOCKVIEW_SHEET_MAP[sheetId] && window.painterDockviewApi) {
+        return !!window.painterDockviewApi.getPanel(DOCKVIEW_SHEET_MAP[sheetId]);
+      }
+      return !!document.getElementById(sheetId)?.classList.contains('active');
+    };
     const panelItems = [
-      { type: 'item', label: (document.getElementById('sheet-brushes')?.classList.contains('active') ? '✓ ' : '') + 'Brush Presets (Vector Stroke Styles)', action: () => toggleSheet('sheet-brushes') },
-      { type: 'item', label: (document.getElementById('sheet-layers')?.classList.contains('active') ? '✓ ' : '') + 'Layers Panel', action: () => toggleSheet('sheet-layers') },
-      { type: 'item', label: (document.getElementById('sheet-tools')?.classList.contains('active') ? '✓ ' : '') + (isVecLayer ? 'Vector Tools & Nodes' : 'Tools & Modes'), action: () => toggleSheet('sheet-tools') },
-      { type: 'item', label: (document.getElementById('sheet-lab')?.classList.contains('active') ? '✓ ' : '') + 'Brush Studio Lab', action: () => toggleSheet('sheet-lab') },
-      { type: 'item', label: (document.getElementById('touch-color-modal')?.classList.contains('active') ? '✓ ' : '') + 'Color Studio', action: () => {
+      { type: 'item', label: (isSheetOrDockOpen('sheet-brushes') ? '✓ ' : '') + 'Brush Presets (Vector Stroke Styles)', action: () => toggleSheet('sheet-brushes') },
+      { type: 'item', label: (isSheetOrDockOpen('sheet-layers') ? '✓ ' : '') + 'Layers Panel', action: () => toggleSheet('sheet-layers') },
+      { type: 'item', label: (isSheetOrDockOpen('sheet-tools') ? '✓ ' : '') + (isVecLayer ? 'Vector Tools & Nodes' : 'Tools & Modes'), action: () => toggleSheet('sheet-tools') },
+      { type: 'item', label: (isSheetOrDockOpen('sheet-lab') ? '✓ ' : '') + 'Brush Studio Lab', action: () => toggleSheet('sheet-lab') },
+      { type: 'item', label: (isSheetOrDockOpen('touch-color-modal') ? '✓ ' : '') + 'Color Studio', action: () => {
+        if (window.isDockviewPainter && typeof window.togglePainterDockPanel === 'function') {
+          window.togglePainterDockPanel('color');
+          return;
+        }
         const cm = document.getElementById('touch-color-modal');
         if (cm?.classList.contains('active')) closeTouchColorModal();
         else openTouchColorModal();
       }}
     ];
     if (!isVecLayer) {
-      panelItems.push({ type: 'item', label: (document.getElementById('sheet-pixelart')?.classList.contains('active') ? '✓ ' : '') + 'Pixel Art Suite', action: () => toggleSheet('sheet-pixelart') });
+      panelItems.push({ type: 'item', label: (isSheetOrDockOpen('sheet-pixelart') ? '✓ ' : '') + 'Pixel Art Suite', action: () => toggleSheet('sheet-pixelart') });
     }
     panelItems.push(
       { type: 'item', label: 'Toggle Animation Timeline', action: () => document.getElementById('btn-menu-toggle-anim')?.click() },
       { type: 'sep' },
       { type: 'item', label: 'Configure Panels & HUD...', action: () => document.getElementById('btn-menu-configure-panels')?.click() },
-      { type: 'item', label: 'Close All Open Panels', action: () => closeAllSheets() }
+      window.isDockviewPainter
+        ? { type: 'item', label: 'Reset Dock Layout to Default', action: () => window.resetPainterDockLayout?.() }
+        : { type: 'item', label: 'Close All Open Panels', action: () => closeAllSheets() }
     );
     addSubmenu('Panels & HUD', panelItems);
 
@@ -6463,17 +6497,8 @@ async function main() {
     });
   }
 
-  function openTouchColorModal(forceMode) {
+  function refreshTouchColorStudio(forceMode) {
     if (!touchColorModal) return;
-    const wasActive = touchColorModal.classList.contains('active');
-    if (wasActive && typeof forceMode !== 'string') {
-      touchColorModal.classList.remove('active');
-      triggerHaptic(10);
-      return;
-    }
-    closeAllSheets('left');
-    touchColorModal.classList.add('active');
-
     if (host.currentColor !== undefined) {
       const c = host.currentColor;
       studioPrevHex = rgbToHex(c & 0xFF, (c >> 8) & 0xFF, (c >> 16) & 0xFF).toUpperCase();
@@ -6486,10 +6511,34 @@ async function main() {
     switchStudioMode((typeof forceMode === 'string' && forceMode) ? forceMode : (studioActiveMode || 'wheel'));
     renderTouchModalSwatches();
     renderTouchQuickSwatches();
+  }
+  window.refreshTouchColorStudio = refreshTouchColorStudio;
+
+  function openTouchColorModal(forceMode) {
+    if (!touchColorModal) return;
+    if (window.isDockviewPainter && typeof window.openPainterDockPanel === 'function') {
+      window.openPainterDockPanel('color');
+      refreshTouchColorStudio(forceMode);
+      triggerHaptic(10);
+      return;
+    }
+    const wasActive = touchColorModal.classList.contains('active');
+    if (wasActive && typeof forceMode !== 'string') {
+      touchColorModal.classList.remove('active');
+      triggerHaptic(10);
+      return;
+    }
+    closeAllSheets('left');
+    touchColorModal.classList.add('active');
+    refreshTouchColorStudio(forceMode);
     triggerHaptic(10);
   }
 
   function closeTouchColorModal() {
+    if (window.isDockviewPainter && typeof window.closePainterDockPanel === 'function') {
+      window.closePainterDockPanel('color');
+      return;
+    }
     if (touchColorModal) touchColorModal.classList.remove('active');
   }
 
@@ -9664,11 +9713,9 @@ async function main() {
       btn.classList.toggle('active', btn.dataset.actionmode === curActionMode);
     });
 
-    // Transform Action Bar
+    // Transform Action Bar (disabled; controls live in Tools & Modes panel)
     const xbar = document.getElementById('ip-transform-bar');
-    if (xbar) {
-      xbar.style.display = (host.floatingTransform && host.floatingTransform.corners) ? 'flex' : 'none';
-    }
+    if (xbar) xbar.style.display = 'none';
 
     // A. Tools & Selection Cards
     const mode = host.brushParams ? host.brushParams.mode : 0;
@@ -11574,7 +11621,11 @@ async function main() {
     const btnOpenLabFromShelf = document.getElementById('btn-ip-open-lab-from-shelf');
     if (btnOpenLabFromShelf) {
       btnOpenLabFromShelf.addEventListener('click', () => {
-        toggleSheet('sheet-lab');
+        if (window.isDockviewPainter && typeof window.openPainterDockPanel === 'function') {
+          window.openPainterDockPanel('lab');
+        } else {
+          toggleSheet('sheet-lab');
+        }
       });
     }
 
@@ -12732,7 +12783,8 @@ async function main() {
         window.location.href = `studio.html?project=${id}`;
         return;
       }
-      window.location.href = `painter.html?project=${id}`;
+      const targetPage = window.isDockviewPainter ? 'painter-studio.html' : 'painter.html';
+      window.location.href = `${targetPage}?project=${id}`;
     };
 
     window.painterDeleteRecent = async function(id) {
@@ -12779,7 +12831,8 @@ async function main() {
       const title = encodeURIComponent(document.getElementById('inp-ip-new-title')?.value.trim() || 'Untitled Artwork');
       const w = parseInt(document.getElementById('inp-ip-new-w')?.value, 10) || 1280;
       const h = parseInt(document.getElementById('inp-ip-new-h')?.value, 10) || 720;
-      window.location.href = `painter.html?new=1&name=${title}&w=${w}&h=${h}`;
+      const targetPage = window.isDockviewPainter ? 'painter-studio.html' : 'painter.html';
+      window.location.href = `${targetPage}?new=1&name=${title}&w=${w}&h=${h}`;
     });
 
     const btnIpExportPng = document.getElementById('btn-ip-export-png');
@@ -13051,6 +13104,9 @@ async function main() {
     document.querySelectorAll('.ip-color-chip, #ip-color-chip').forEach(el => {
       el.style.backgroundColor = hex;
     });
+    if (window.isDockviewPainter && typeof applyColorFromStudio === 'function' && touchColorHexInput && touchColorHexInput.value.toUpperCase() !== hex.toUpperCase()) {
+      applyColorFromStudio(hex, true);
+    }
 
     // 2. Active Brush Name
     const activeKey = host.activeBrush;
@@ -13193,23 +13249,12 @@ async function main() {
     }
     host._lastVecLayerModeUi = isVecLayerActive;
 
-    // Selection UI & Floating Bar Synchronization
-    const isFloatTransforming = !!(host.floatingTransform && host.floatingTransform.corners);
+    // Selection UI Synchronization (controls live in Tools & Modes panel)
     const ipSelBar = document.getElementById('ip-selection-bar');
-    if (ipSelBar) {
-      const showSelBar = !isVecLayerActive && (isSelectMode || (host.selection && host.selection.active)) && !isFloatTransforming;
-      ipSelBar.style.display = showSelBar ? 'flex' : 'none';
-      document.querySelectorAll('.ip-selmode-card, .ip-selbar-mode, .sel-mode-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.selmode === curSelMode);
-      });
-      document.querySelectorAll('.ip-selbar-tool').forEach(btn => {
-        btn.classList.toggle('active', isSelectMode && btn.dataset.seltool === host.currentTool);
-      });
-      const wandRow = document.getElementById('ip-selbar-wand-row');
-      if (wandRow) {
-        wandRow.style.display = (isSelectMode && host.currentTool === 'magic_wand') ? 'flex' : 'none';
-      }
-    }
+    if (ipSelBar) ipSelBar.style.display = 'none';
+    document.querySelectorAll('.ip-selmode-card, .ip-selbar-mode, .sel-mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.selmode === curSelMode);
+    });
 
     // Transform Bar & Sheet Synchronization
     const curXMode = host.transformMode || 'scale';
@@ -13638,6 +13683,9 @@ async function main() {
   }
   renderSwatches();
   initInfinitePainterUI();
+  if (window.isDockviewPainter) {
+    refreshTouchColorStudio();
+  }
   syncUiFromHost();
   window.host = host;
   window.W = host.canvasActor;
