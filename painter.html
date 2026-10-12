@@ -2370,14 +2370,6 @@
     }
 
     /* Left-Side Anchored Panels (Beside Left HUD, off the canvas center) */
-    #sheet-menu .ip-sheet {
-      top: 52px;
-      left: 56px;
-      width: calc(100vw - 68px);
-      max-width: 285px;
-      max-height: calc(100vh - 64px);
-      animation: ipFadeIn 0.12s ease;
-    }
     #sheet-brushes .ip-sheet {
       top: 52px;
       left: 56px;
@@ -3085,11 +3077,7 @@
           </div>
 
           <button type="button" id="btn-menu-configure-panels" class="menu-item" style="color: var(--primary); font-weight: 600;">
-            <span>Configure Panels &amp; HUD...</span>
-          </button>
-          <button type="button" id="btn-menu-open-settings" class="menu-item">
-            <span>Project &amp; Preferences...</span>
-            <span class="shortcut">Ctrl+B</span>
+            <span>Configure Panels, HUD &amp; UI...</span>
           </button>
           <div class="menu-divider"></div>
           <button type="button" class="menu-item" onclick="window.location.href='painter-studio.html'" style="color: #8ec07c; font-weight: 700;">
@@ -3103,7 +3091,7 @@
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.39 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.40 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
@@ -3417,6 +3405,30 @@
               <button type="button" id="btn-ip-xform-cancel" class="ip-btn" style="color: var(--danger); font-weight: bold;">✕ Cancel Transform</button>
             </div>
           </div>
+
+          <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 11px; font-weight: bold; color: var(--primary);">2. Canvas Resolution &amp; Viewport</span>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <input type="number" id="ip-inp-cw" class="ui-input-num" value="1280" min="16" max="16384" style="width: 70px; height: 30px; font-size: 12px; text-align: center;">
+              <span style="color: var(--text-muted); font-weight: bold;">×</span>
+              <input type="number" id="ip-inp-ch" class="ui-input-num" value="720" min="16" max="16384" style="width: 70px; height: 30px; font-size: 12px; text-align: center;">
+              <button type="button" id="btn-ip-apply-resize" class="ip-btn" style="flex: 1; height: 30px; background: var(--primary); color: var(--bg-dark); font-weight: bold;">Resize</button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
+              <button type="button" class="ip-btn ip-btn-quick-res" data-w="640" data-h="480">640×480</button>
+              <button type="button" class="ip-btn ip-btn-quick-res" data-w="1280" data-h="720">720p</button>
+              <button type="button" class="ip-btn ip-btn-quick-res" data-w="1920" data-h="1080">1080p</button>
+              <button type="button" class="ip-btn ip-btn-quick-res" data-w="1080" data-h="1080">1:1 Square</button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 2px;">
+              <button type="button" id="btn-ip-zoom-fit" class="ip-btn">Fit View</button>
+              <button type="button" id="btn-ip-zoom-100" class="ip-btn">100% (1:1)</button>
+              <button type="button" id="btn-ip-rot-zero" class="ip-btn">0° Rotate</button>
+              <button type="button" id="btn-ip-flip-h" class="ip-btn">Flip Horiz</button>
+              <button type="button" id="btn-ip-flip-v" class="ip-btn">Flip Vert</button>
+              <button type="button" id="btn-ip-center" class="ip-btn">Center</button>
+            </div>
+          </div>
         </div>
 
         <!-- ── TAB 5: ABA DE ANIMAÇÃO (Animation Quick Controls & Timeline Launcher) ── -->
@@ -3503,133 +3515,27 @@
     </div>
   </div>
 
-  <!-- ── SHEET 5: MAIN PROJECT / MENU / SETTINGS ── -->
-  <div id="sheet-menu" class="ip-sheet-modal">
-    <div class="ip-sheet">
-      <div class="ip-sheet-handle-row" onclick="document.getElementById('sheet-menu').classList.remove('active')"><div class="ip-sheet-handle"></div></div>
-      <div class="ip-sheet-header">
-        <span>PROJECT &amp; SETTINGS</span>
-        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-menu').classList.remove('active')">✕</button>
-      </div>
-      <div class="ip-sheet-content">
-        <!-- Project storage -->
-        <div class="ip-hide-embedded" style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Project File</span>
-            <span id="ip-menu-autosave-badge" style="font-size: 10px; color: var(--success); font-weight: bold;">Autosaved</span>
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-            <button type="button" id="btn-ip-new-proj" class="ip-btn" style="background: var(--border); color: var(--primary); font-weight: bold;">+ New Project</button>
-            <button type="button" id="btn-ip-recent-proj" class="ip-btn" style="background: var(--border); color: #83a598; font-weight: bold;">Recents</button>
-          </div>
-          <button type="button" id="btn-ip-save-proj" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; width: 100%;">Save Project</button>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-            <button type="button" id="btn-ip-export-png" class="ip-btn">Export PNG</button>
-            <button type="button" id="btn-ip-export-esen" class="ip-btn">Export .esen</button>
-          </div>
-          <button type="button" id="btn-ip-import-file" class="ip-btn" style="width: 100%; border-color: var(--border-bright);">Import (.esen / Image)</button>
-          <button type="button" id="btn-ip-clear-storage" class="ip-btn" style="width: 100%; border-color: var(--danger); color: var(--danger);">Clear Storage</button>
-        </div>
-
-        <!-- Canvas Dimensions -->
-        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Canvas Resolution</span>
-          <div style="display: flex; gap: 6px; align-items: center;">
-            <input type="number" id="ip-inp-cw" class="ui-input-num" value="1280" min="16" max="16384" style="width: 70px; height: 32px; font-size: 12px; text-align: center;">
-            <span style="color: var(--text-muted); font-weight: bold;">×</span>
-            <input type="number" id="ip-inp-ch" class="ui-input-num" value="720" min="16" max="16384" style="width: 70px; height: 32px; font-size: 12px; text-align: center;">
-            <button type="button" id="btn-ip-apply-resize" class="ip-btn" style="flex: 1; height: 32px; background: var(--primary); color: var(--bg-dark); font-weight: bold;">Resize</button>
-          </div>
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
-            <button type="button" class="ip-btn ip-btn-quick-res" data-w="640" data-h="480">640×480</button>
-            <button type="button" class="ip-btn ip-btn-quick-res" data-w="1280" data-h="720">720p</button>
-            <button type="button" class="ip-btn ip-btn-quick-res" data-w="1920" data-h="1080">1080p</button>
-            <button type="button" class="ip-btn ip-btn-quick-res" data-w="1080" data-h="1080">1:1 Square</button>
-          </div>
-        </div>
-
-        <!-- View Controls -->
-        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Viewport Navigation</span>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
-            <button type="button" id="btn-ip-zoom-fit" class="ip-btn">Fit View</button>
-            <button type="button" id="btn-ip-zoom-100" class="ip-btn">100% (1:1)</button>
-            <button type="button" id="btn-ip-rot-zero" class="ip-btn">0° Rotate</button>
-            <button type="button" id="btn-ip-flip-h" class="ip-btn">Flip Horiz</button>
-            <button type="button" id="btn-ip-flip-v" class="ip-btn">Flip Vert</button>
-            <button type="button" id="btn-ip-center" class="ip-btn">Center</button>
-          </div>
-        </div>
-
-        <!-- UI & HUD Customization -->
-        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">UI &amp; Customization</span>
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <span style="font-size: 11px; color: var(--text-muted);">UI Scale</span>
-            <select id="ip-select-ui-scale" class="ui-select" style="height: 28px; width: 120px; font-size: 11px;">
-              <option value="auto">Auto (Responsive)</option>
-              <option value="0.75">75% (Small)</option>
-              <option value="0.85">85%</option>
-              <option value="1.0" selected>100% (Default)</option>
-              <option value="1.15">115%</option>
-              <option value="1.25">125%</option>
-              <option value="1.5">150% (Large)</option>
-            </select>
-          </div>
-          <button type="button" id="btn-ip-open-hud-customizer" class="ip-btn" style="border-color: var(--primary); color: var(--primary);">⚙ Customize Side Thumb HUD</button>
-        </div>
-
-        <!-- Preferences & Gestures -->
-        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Preferences &amp; Gestures</span>
-          <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none; color: var(--primary); font-weight: 600;">
-            <input type="checkbox" id="ip-chk-power-save"> Power Saving Mode (30 FPS &amp; Idle Sleep)
-          </label>
-          <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="ip-chk-pixel-grid"> Pixel Grid (zoomed &ge; 4x)
-          </label>
-          <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="ip-chk-viewport-filter"> Bilinear Viewport Filtering (Smooth)
-          </label>
-          <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="ip-chk-brush-outline" checked> Brush Cursor Outline
-          </label>
-          <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="ip-chk-touch-undo-redo" checked> Touch Gestures (2-finger tap undo / 3-finger redo)
-          </label>
-          <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="ip-chk-touch-eyedropper" checked> Touch Long-Press Eyedropper
-          </label>
-          <div style="margin-top: 4px;">
-            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text); margin-bottom: 2px;">
-              <span>Undo History Limit</span>
-              <span id="ip-val-max-undo" style="color: var(--primary); font-weight: bold;">25 steps</span>
-            </div>
-            <input type="range" id="ip-slider-max-undo" class="ui-slider" min="0" max="100" step="5" value="25" style="width: 100%;">
-          </div>
-          <div style="margin-top: 4px;">
-            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text); margin-bottom: 2px;">
-              <span>Renderer</span>
-            </div>
-            <select id="ip-select-renderer" class="ip-select" style="width: 100%; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border-bright); border-radius: var(--radius-md); padding: 4px 8px; font-size: 11px;">
-              <option value="gpu">GPU (WebGL 2)</option>
-              <option value="cpu">Software (2D Canvas CPU)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── SHEET: RECENT PROJECTS ── -->
+  <!-- ── SHEET: RECENT PROJECTS & STORAGE ── -->
   <div id="sheet-recents" class="ip-sheet-modal">
     <div class="ip-sheet">
       <div class="ip-sheet-handle-row" onclick="document.getElementById('sheet-recents').classList.remove('active')"><div class="ip-sheet-handle"></div></div>
       <div class="ip-sheet-header">
-        <span>RECENT PROJECTS</span>
+        <span>PROJECTS &amp; STORAGE</span>
         <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-recents').classList.remove('active')">✕</button>
       </div>
       <div class="ip-sheet-content">
+        <div class="ip-hide-embedded" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Project Storage</span>
+            <span id="ip-menu-autosave-badge" style="font-size: 10px; color: var(--success); font-weight: bold;">Autosaved</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
+            <button type="button" id="btn-ip-save-proj" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;">Save Snapshot</button>
+            <button type="button" id="btn-ip-import-file" class="ip-btn">Import File</button>
+            <button type="button" id="btn-ip-export-png" class="ip-btn">Export PNG</button>
+            <button type="button" id="btn-ip-export-esen" class="ip-btn">Export .esen</button>
+          </div>
+        </div>
         <div id="ip-recents-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 400px; overflow-y: auto;">
           <div style="padding: 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
         </div>
@@ -4020,7 +3926,7 @@
     <div class="ip-sheet" style="max-height: 85vh;">
       <div class="ip-sheet-handle-row" onclick="document.getElementById('sheet-hud-customizer').classList.remove('active')"><div class="ip-sheet-handle"></div></div>
       <div class="ip-sheet-header">
-        <span>CUSTOMIZE HUD BARS</span>
+        <span>HUD, INPUT &amp; DISPLAY</span>
         <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-hud-customizer').classList.remove('active')">✕</button>
       </div>
       <div class="ip-pills-row" id="ip-hud-dock-tabs" style="padding: 6px 8px 0; border-bottom: 1px solid var(--border); background: var(--bg-input);">
@@ -4044,6 +3950,62 @@
           <button type="button" class="ip-btn" id="btn-ip-hud-preset-default">Default</button>
           <button type="button" class="ip-btn" id="btn-ip-hud-preset-pro">Painter Pro</button>
           <button type="button" class="ip-btn" id="btn-ip-hud-preset-full">Full Deck</button>
+        </div>
+
+        <div style="border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px;">
+          <div style="font-size: 11px; font-weight: bold; color: var(--primary); margin-bottom: 6px;">UI, Cursor &amp; Input Gestures</div>
+          <div style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 0px; padding: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+              <span>UI Scale (HUD &amp; Sheets)</span>
+              <select id="ip-select-ui-scale" style="background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border); border-radius: 0px; padding: 4px 6px; font-size: 11px;">
+                <option value="0.85">Compact (85%)</option>
+                <option value="1" selected>Standard (100%)</option>
+                <option value="1.15">Large (115%)</option>
+                <option value="1.3">Extra Large (130%)</option>
+              </select>
+            </div>
+            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; cursor: pointer;">
+              <span>Brush Cursor Outline</span>
+              <input type="checkbox" id="ip-chk-brush-outline" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+            </label>
+            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; cursor: pointer;">
+              <span>Touch Gestures (2/3-Finger Undo/Redo)</span>
+              <input type="checkbox" id="ip-chk-touch-undo-redo" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+            </label>
+            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; cursor: pointer;">
+              <span>Touch Long-Press Eyedropper</span>
+              <input type="checkbox" id="ip-chk-touch-eyedropper" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+            </label>
+            <div class="ip-touch-control" style="padding: 4px 0 0; border-top: 1px solid var(--border);">
+              <div class="ip-touch-label-row"><span>Undo History Limit</span><span id="ip-val-max-undo" class="ip-touch-val">35 steps</span></div>
+              <input type="range" id="ip-slider-max-undo" min="0" max="100" step="5" value="35" class="ip-touch-slider">
+            </div>
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid var(--border); padding-top: 10px;">
+          <div style="font-size: 11px; font-weight: bold; color: var(--primary); margin-bottom: 6px;">Display &amp; Engine</div>
+          <div style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 0px; padding: 8px;">
+            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; cursor: pointer;">
+              <span>Power Save Mode (30 FPS / Coalesced)</span>
+              <input type="checkbox" id="ip-chk-power-save" style="width: 18px; height: 18px; accent-color: var(--primary);">
+            </label>
+            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; cursor: pointer;">
+              <span>High-Zoom Pixel Grid (&ge;800%)</span>
+              <input type="checkbox" id="ip-chk-pixel-grid" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+            </label>
+            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; cursor: pointer;">
+              <span>Nearest-Neighbor Viewport (Crisp Pixels)</span>
+              <input type="checkbox" id="ip-chk-viewport-filter" style="width: 18px; height: 18px; accent-color: var(--primary);">
+            </label>
+            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+              <span>Graphics Backend</span>
+              <select id="ip-select-renderer" style="background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border); border-radius: 0px; padding: 4px 6px; font-size: 11px;">
+                <option value="webgl2">WebGL2 GPU (Default)</option>
+                <option value="canvas2d">Canvas2D CPU</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <button type="button" class="ip-btn" id="btn-ip-hud-save-close" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; padding: 9px; margin-top: 4px;">Apply &amp; Close</button>

@@ -2501,6 +2501,10 @@
             <span class="shortcut">Ctrl+O</span>
           </button>
           <input type="file" id="menu-file-input" accept=".esen,image/*" style="display: none;">
+          <button type="button" id="btn-menu-save-project" class="menu-item">
+            <span>Save Project Snapshot</span>
+            <span class="shortcut">Ctrl+S</span>
+          </button>
 
           <div class="menu-item-submenu-wrap">
             <button type="button" id="btn-menu-export" class="menu-item">
@@ -2695,15 +2699,8 @@
               <button type="button" id="btn-menu-configure-panels" class="menu-item">
                 <span style="display: flex; align-items: center; gap: 6px;">
                   <span data-dock-check="hud" style="width: 12px; font-size: 10px; color: var(--primary);"></span>
-                  <span>Customize Canvas HUD</span>
+                  <span>Menu Sliders &amp; UI</span>
                 </span>
-              </button>
-              <button type="button" id="btn-menu-open-settings" class="menu-item">
-                <span style="display: flex; align-items: center; gap: 6px;">
-                  <span data-dock-check="settings" style="width: 12px; font-size: 10px; color: var(--primary);"></span>
-                  <span>Project &amp; Preferences</span>
-                </span>
-                <span class="shortcut">Ctrl+B</span>
               </button>
               <div class="menu-divider"></div>
               <button type="button" class="menu-item" onclick="window.resetPainterDockLayout && window.resetPainterDockLayout()">
@@ -2724,7 +2721,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.39 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.40 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -3053,6 +3050,33 @@
                 <button type="button" id="btn-sheet-xform-center" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Center</button>
                 <button type="button" id="btn-sheet-xform-fit" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Fit</button>
                 <button type="button" id="btn-sheet-xform-reset" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Reset</button>
+              </div>
+            </div>
+
+            <div style="height: 1px; background: var(--border);"></div>
+
+            <!-- 6. CANVAS SIZE & VIEWPORT -->
+            <div style="display: flex; flex-direction: column; gap: 3px;">
+              <span style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Canvas Size &amp; View</span>
+              <div style="display: flex; flex-wrap: wrap; gap: 3px; align-items: center;">
+                <input type="number" id="ip-inp-cw" class="ui-input-num" value="1280" min="16" max="16384" style="flex: 1 1 52px; min-width: 48px; height: 22px; font-size: 10px; text-align: center;">
+                <span style="color: var(--text-muted); font-size: 10px; font-weight: bold;">×</span>
+                <input type="number" id="ip-inp-ch" class="ui-input-num" value="720" min="16" max="16384" style="flex: 1 1 52px; min-width: 48px; height: 22px; font-size: 10px; text-align: center;">
+                <button type="button" id="btn-ip-apply-resize" class="ip-btn ip-mini-btn" style="flex: 1 1 54px; height: 22px; padding: 0 6px; font-size: 9.5px; background: var(--primary); color: var(--bg-dark); font-weight: 800;">Resize</button>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); gap: 3px;">
+                <button type="button" class="ip-btn ip-mini-btn ip-btn-quick-res" data-w="640" data-h="480" style="height: 20px; padding: 0; font-size: 8.5px;">640×480</button>
+                <button type="button" class="ip-btn ip-mini-btn ip-btn-quick-res" data-w="1280" data-h="720" style="height: 20px; padding: 0; font-size: 8.5px;">720p</button>
+                <button type="button" class="ip-btn ip-mini-btn ip-btn-quick-res" data-w="1920" data-h="1080" style="height: 20px; padding: 0; font-size: 8.5px;">1080p</button>
+                <button type="button" class="ip-btn ip-mini-btn ip-btn-quick-res" data-w="1080" data-h="1080" style="height: 20px; padding: 0; font-size: 8.5px;">1:1</button>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 3px; margin-top: 1px;">
+                <button type="button" id="btn-ip-zoom-fit" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Fit View</button>
+                <button type="button" id="btn-ip-zoom-100" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">100%</button>
+                <button type="button" id="btn-ip-rot-zero" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">0° Rot</button>
+                <button type="button" id="btn-ip-flip-h" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Flip H</button>
+                <button type="button" id="btn-ip-flip-v" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Flip V</button>
+                <button type="button" id="btn-ip-center" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Center</button>
               </div>
             </div>
 
@@ -3454,62 +3478,35 @@
       </div>
     </div>
 
-    <!-- 8. PROJECT & SETTINGS PANEL -->
-    <div id="dock-panel-settings" class="dock-panel-content">
-      <div id="sheet-menu" class="ip-sheet-modal">
+    <!-- 9. ANIMATION TIMELINE PANEL -->
+    <div id="dock-panel-timeline" class="dock-panel-content" style="padding: 0 !important; overflow: hidden !important;">
+      <div id="raster-anim-timeline-dock"></div>
+    </div>
+
+    <!-- 10. CONTEXT MENU SLIDERS & UI CUSTOMIZATION PANEL -->
+    <div id="dock-panel-hud" class="dock-panel-content">
+      <div id="sheet-hud-customizer" class="ip-sheet-modal">
         <div class="ip-sheet">
-          <div class="ip-sheet-content">
-            <div class="ip-hide-embedded" style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Project File</span>
-                <span id="ip-menu-autosave-badge" style="font-size: 10px; color: var(--success); font-weight: bold;">Autosaved</span>
-              </div>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 6px;">
-                <button type="button" id="btn-ip-new-proj" class="ip-btn" style="background: var(--border); color: var(--primary); font-weight: bold;">+ New Project</button>
-                <button type="button" id="btn-ip-recent-proj" class="ip-btn" style="background: var(--border); color: #83a598; font-weight: bold;">Recents</button>
-              </div>
-              <button type="button" id="btn-ip-save-proj" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; width: 100%;">Save Project</button>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 6px;">
-                <button type="button" id="btn-ip-export-png" class="ip-btn">Export PNG</button>
-                <button type="button" id="btn-ip-export-esen" class="ip-btn">Export .esen</button>
-              </div>
-              <button type="button" id="btn-ip-import-file" class="ip-btn" style="width: 100%; border-color: var(--border-bright);">Import (.esen / Image)</button>
-              <button type="button" id="btn-ip-clear-storage" class="ip-btn" style="width: 100%; border-color: var(--danger); color: var(--danger);">Clear Storage</button>
+          <div class="ip-sheet-content" style="padding: 8px 10px; display: flex; flex-direction: column; gap: 8px;">
+            <div id="ip-hud-customizer-dock-label" style="color: var(--text-muted); font-size: 10.5px;">
+              Select which sliders appear directly in the right-click context menu:
             </div>
-
-            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-              <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Canvas Resolution</span>
-              <div style="display: flex; gap: 6px; align-items: center;">
-                <input type="number" id="ip-inp-cw" class="ui-input-num" value="1280" min="16" max="16384" style="width: 70px; height: 30px; font-size: 12px; text-align: center;">
-                <span style="color: var(--text-muted); font-weight: bold;">×</span>
-                <input type="number" id="ip-inp-ch" class="ui-input-num" value="720" min="16" max="16384" style="width: 70px; height: 30px; font-size: 12px; text-align: center;">
-                <button type="button" id="btn-ip-apply-resize" class="ip-btn" style="flex: 1; height: 30px; background: var(--primary); color: var(--bg-dark); font-weight: bold;">Resize</button>
-              </div>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 4px;">
-                <button type="button" class="ip-btn ip-btn-quick-res" data-w="640" data-h="480">640×480</button>
-                <button type="button" class="ip-btn ip-btn-quick-res" data-w="1280" data-h="720">720p</button>
-                <button type="button" class="ip-btn ip-btn-quick-res" data-w="1920" data-h="1080">1080p</button>
-                <button type="button" class="ip-btn ip-btn-quick-res" data-w="1080" data-h="1080">1:1 Square</button>
-              </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 4px;">
+              <button type="button" class="ip-btn" id="btn-ip-hud-preset-default" style="font-size: 10px;">Minimal (Size/Opac/Stab)</button>
+              <button type="button" class="ip-btn" id="btn-ip-hud-preset-pro" style="font-size: 10px;">Painting Pro</button>
+              <button type="button" class="ip-btn" id="btn-ip-hud-preset-ink" style="font-size: 10px;">Inking &amp; Taper</button>
+              <button type="button" class="ip-btn" id="btn-ip-hud-preset-full" style="font-size: 10px;">All Sliders</button>
             </div>
+            <div style="font-size: 10.5px; font-weight: bold; color: var(--primary);">Context Menu Sliders</div>
+            <div id="ip-hud-sliders-toggle-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 5px;"></div>
 
-            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-              <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Viewport Navigation</span>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 6px;">
-                <button type="button" id="btn-ip-zoom-fit" class="ip-btn">Fit View</button>
-                <button type="button" id="btn-ip-zoom-100" class="ip-btn">100% (1:1)</button>
-                <button type="button" id="btn-ip-rot-zero" class="ip-btn">0° Rotate</button>
-                <button type="button" id="btn-ip-flip-h" class="ip-btn">Flip Horiz</button>
-                <button type="button" id="btn-ip-flip-v" class="ip-btn">Flip Vert</button>
-                <button type="button" id="btn-ip-center" class="ip-btn">Center</button>
-              </div>
-            </div>
+            <div style="height: 1px; background: var(--border); margin: 2px 0;"></div>
 
-            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-              <span style="font-size: 11px; font-weight: bold; color: var(--primary);">UI &amp; Customization</span>
-              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                <span style="font-size: 11px; color: var(--text-muted);">UI Scale</span>
-                <select id="ip-select-ui-scale" class="ui-select" style="height: 28px; width: 120px; font-size: 11px;">
+            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px; display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 10.5px; font-weight: bold; color: var(--primary);">UI, Cursor &amp; Input Gestures</span>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
+                <span style="font-size: 10.5px; color: var(--text-muted);">UI Scale</span>
+                <select id="ip-select-ui-scale" class="ui-select" style="height: 24px; width: 120px; font-size: 10.5px;">
                   <option value="auto">Auto (Responsive)</option>
                   <option value="0.75">75% (Small)</option>
                   <option value="0.85">85%</option>
@@ -3519,41 +3516,38 @@
                   <option value="1.5">150% (Large)</option>
                 </select>
               </div>
-              <button type="button" id="btn-ip-open-hud-customizer" class="ip-btn" style="border-color: var(--primary); color: var(--primary);">⚙ Customize Canvas HUD</button>
-            </div>
-
-            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-              <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Preferences &amp; Gestures</span>
-              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none; color: var(--primary); font-weight: 600;">
-                <input type="checkbox" id="ip-chk-power-save"> Power Saving Mode (30 FPS &amp; Idle Sleep)
-              </label>
-              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="ip-chk-pixel-grid"> Pixel Grid (zoomed &ge; 4x)
-              </label>
-              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="ip-chk-viewport-filter"> Bilinear Viewport Filtering (Smooth)
-              </label>
-              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; cursor: pointer; user-select: none;">
                 <input type="checkbox" id="ip-chk-brush-outline" checked> Brush Cursor Outline
               </label>
-              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="ip-chk-touch-undo-redo" checked> Touch Gestures (2-finger tap undo / 3-finger redo)
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ip-chk-touch-undo-redo" checked> Touch Gestures (2-finger undo / 3-finger redo)
               </label>
-              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; cursor: pointer; user-select: none;">
                 <input type="checkbox" id="ip-chk-touch-eyedropper" checked> Touch Long-Press Eyedropper
               </label>
-              <div style="margin-top: 4px;">
-                <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text); margin-bottom: 2px;">
+              <div>
+                <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text); margin-bottom: 2px;">
                   <span>Undo History Limit</span>
                   <span id="ip-val-max-undo" style="color: var(--primary); font-weight: bold;">25 steps</span>
                 </div>
                 <input type="range" id="ip-slider-max-undo" class="ui-slider" min="0" max="100" step="5" value="25" style="width: 100%;">
               </div>
-              <div style="margin-top: 4px;">
-                <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text); margin-bottom: 2px;">
-                  <span>Renderer</span>
-                </div>
-                <select id="ip-select-renderer" class="ip-select" style="width: 100%; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border-bright); border-radius: var(--radius-md); padding: 4px 8px; font-size: 11px;">
+            </div>
+
+            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px; display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 10.5px; font-weight: bold; color: var(--primary);">Display &amp; Engine</span>
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; cursor: pointer; user-select: none; color: var(--primary); font-weight: 600;">
+                <input type="checkbox" id="ip-chk-power-save"> Power Saving Mode (30 FPS &amp; Idle Sleep)
+              </label>
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ip-chk-pixel-grid"> Pixel Grid (zoomed &ge; 4x)
+              </label>
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ip-chk-viewport-filter"> Bilinear Viewport Filtering (Smooth)
+              </label>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
+                <span style="font-size: 10.5px; color: var(--text-muted);">Renderer</span>
+                <select id="ip-select-renderer" class="ui-select" style="height: 24px; flex: 1; min-width: 120px; font-size: 10.5px;">
                   <option value="gpu">GPU (WebGL 2)</option>
                   <option value="cpu">Software (2D Canvas CPU)</option>
                 </select>
@@ -3564,41 +3558,27 @@
       </div>
     </div>
 
-    <!-- 9. ANIMATION TIMELINE PANEL -->
-    <div id="dock-panel-timeline" class="dock-panel-content" style="padding: 0 !important; overflow: hidden !important;">
-      <div id="raster-anim-timeline-dock"></div>
-    </div>
-
-    <!-- 10. CONTEXT MENU SLIDERS SELECTOR PANEL -->
-    <div id="dock-panel-hud" class="dock-panel-content">
-      <div id="sheet-hud-customizer" class="ip-sheet-modal">
-        <div class="ip-sheet">
-          <div class="ip-sheet-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-            <div id="ip-hud-customizer-dock-label" style="color: var(--text-muted); font-size: 11px;">
-              Select which sliders appear directly in the right-click context menu:
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 5px;">
-              <button type="button" class="ip-btn" id="btn-ip-hud-preset-default" style="font-size: 10.5px;">Minimal (Size/Opac/Stab)</button>
-              <button type="button" class="ip-btn" id="btn-ip-hud-preset-pro" style="font-size: 10.5px;">Painting Pro</button>
-              <button type="button" class="ip-btn" id="btn-ip-hud-preset-ink" style="font-size: 10.5px;">Inking &amp; Taper</button>
-              <button type="button" class="ip-btn" id="btn-ip-hud-preset-full" style="font-size: 10.5px;">All Sliders</button>
-            </div>
-            <div style="font-size: 11px; font-weight: bold; color: var(--primary);">Context Menu Sliders</div>
-            <div id="ip-hud-sliders-toggle-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 6px;"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- 11. RECENT PROJECTS PANEL -->
     <div id="dock-panel-recents" class="dock-panel-content">
       <div id="sheet-recents" class="ip-sheet-modal">
         <div class="ip-sheet">
           <div class="ip-sheet-content">
+            <div class="ip-hide-embedded" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Project Storage</span>
+                <span id="ip-menu-autosave-badge" style="font-size: 10px; color: var(--success); font-weight: bold;">Autosaved</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 5px;">
+                <button type="button" id="btn-ip-save-proj" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;">Save Snapshot</button>
+                <button type="button" id="btn-ip-import-file" class="ip-btn">Import File</button>
+                <button type="button" id="btn-ip-export-png" class="ip-btn">Export PNG</button>
+                <button type="button" id="btn-ip-export-esen" class="ip-btn">Export .esen</button>
+              </div>
+            </div>
             <div id="ip-recents-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
               <div style="padding: 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
             </div>
-            <div style="display: flex; gap: 6px; margin-top: 10px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;">
               <button type="button" id="btn-ip-recents-new" class="ip-btn" style="flex: 1; background: var(--primary); color: var(--bg-dark); font-weight: bold;">+ New Project</button>
               <button type="button" id="btn-ip-recents-clear" class="ip-btn" style="border-color: var(--danger); color: var(--danger);">Clear Storage</button>
             </div>

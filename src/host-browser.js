@@ -854,7 +854,7 @@ async function main() {
   
   /* ── Sheet Modal Helpers (Non-blocking Side-Docked & Draggable Panels) ── */
   const LEFT_SIDE_SHEETS = new Set([
-    'sheet-brushes', 'sheet-tools', 'sheet-pixelart', 'sheet-menu',
+    'sheet-brushes', 'sheet-tools', 'sheet-pixelart',
     'sheet-recents', 'sheet-new-proj', 'touch-color-modal'
   ]);
   const RIGHT_SIDE_SHEETS = new Set([
@@ -866,7 +866,6 @@ async function main() {
     'sheet-tools': 'tools',
     'sheet-lab': 'lab',
     'sheet-pixelart': 'pixelart',
-    'sheet-menu': 'settings',
     'touch-color-modal': 'color',
     'sheet-hud-customizer': 'hud',
     'sheet-recents': 'recents',
@@ -1097,7 +1096,7 @@ async function main() {
 
   /* ── Mobile-First Unified Bottom Dock & Drawer ── */
   function toggleUi() {
-    toggleSheet('sheet-menu');
+    toggleSheet('sheet-hud-customizer');
   }
 
   resize();
@@ -4152,6 +4151,17 @@ async function main() {
     // 9. Canvas & View Submenu
     const dockApi = window.painterDockviewApi;
     const isTabOpen = (id) => !!(dockApi && dockApi.getPanel(id));
+    const curW = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : (host.docWidth || 1280);
+    const curH = host.canvasActor?.exports?.get_canvas_height ? host.canvasActor.exports.get_canvas_height() : (host.docHeight || 720);
+    const uiScaleOpts = [
+      { val: 'auto', label: 'Auto (Responsive)' },
+      { val: '0.75', label: '75% (Small)' },
+      { val: '0.85', label: '85%' },
+      { val: '1.0', label: '100% (Default)' },
+      { val: '1.15', label: '115%' },
+      { val: '1.25', label: '125%' },
+      { val: '1.5', label: '150% (Large)' }
+    ];
     addSubmenu('Canvas & View', [
       { type: 'item', label: 'Pick Color Here (Eyedropper)', hotkey: 'I / Alt', action: () => { sampleEyedropperColor(p.x, p.y, e.clientX, e.clientY); setTimeout(hideEyedropper, 650); } },
       { type: 'item', label: 'Undo', hotkey: 'Ctrl+Z', action: () => runCmd('undo') },
@@ -4160,6 +4170,8 @@ async function main() {
       { type: 'sep' },
       { type: 'item', label: 'Zoom to Fit (Reset View)', hotkey: 'Ctrl+0', action: () => { host.zoom = 1.0; host.panX = 0; host.panY = 0; host.canvasRotation = 0; host.render(); } },
       { type: 'item', label: '100% Zoom (1:1)', action: () => { if (host.zoomTo100) host.zoomTo100(); } },
+      { type: 'item', label: 'Reset Rotation (0°)', action: () => { if (host.resetRotation) host.resetRotation(); else { host.canvasRotation = 0; host.render(); } } },
+      { type: 'item', label: 'Center Canvas', action: () => { if (host.centerCanvas) host.centerCanvas(); else { host.panX = 0; host.panY = 0; host.render(); } } },
       { type: 'item', label: (host.flipH ? '✓ ' : '') + 'Flip View Horizontal', action: () => { host.flipH = !host.flipH; host.render(); syncUiFromHost(); } },
       { type: 'item', label: (host.flipV ? '✓ ' : '') + 'Flip View Vertical', action: () => { host.flipV = !host.flipV; host.render(); syncUiFromHost(); } },
       { type: 'item', label: (host.showPixelGrid ? '✓ ' : '') + 'Show Pixel Grid', action: () => { syncPixelGrid(!host.showPixelGrid); } },
@@ -4180,8 +4192,60 @@ async function main() {
       },
       {
         type: 'submenu',
-        label: 'Canvas Transformations',
+        label: `Canvas Size & Transform (${curW}×${curH})`,
         items: [
+          {
+            type: 'custom',
+            render: () => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;';
+              const wInp = document.createElement('input');
+              wInp.type = 'number';
+              wInp.className = 'ui-input-num';
+              wInp.value = String(curW);
+              wInp.min = '16';
+              wInp.max = '16384';
+              wInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
+              const sep = document.createElement('span');
+              sep.textContent = '×';
+              sep.style.cssText = 'color:var(--text-muted);font-weight:bold;';
+              const hInp = document.createElement('input');
+              hInp.type = 'number';
+              hInp.className = 'ui-input-num';
+              hInp.value = String(curH);
+              hInp.min = '16';
+              hInp.max = '16384';
+              hInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'ip-btn';
+              btn.textContent = 'Resize';
+              btn.style.cssText = 'flex:1;height:24px;padding:0 8px;font-size:10.5px;background:var(--primary);color:var(--bg-dark);font-weight:bold;';
+              btn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const nw = parseInt(wInp.value, 10);
+                const nh = parseInt(hInp.value, 10);
+                if (nw >= 16 && nh >= 16) {
+                  runCmd(`canvas resize ${nw} ${nh}`);
+                  window.contextMenuService?.hideContextMenu();
+                }
+              });
+              [wInp, hInp].forEach(inp => inp.addEventListener('keydown', (ke) => {
+                ke.stopPropagation();
+                if (ke.key === 'Enter') btn.click();
+              }));
+              row.appendChild(wInp);
+              row.appendChild(sep);
+              row.appendChild(hInp);
+              row.appendChild(btn);
+              return row;
+            }
+          },
+          { type: 'item', label: '640×480 (VGA)', action: () => runCmd('canvas resize 640 480') },
+          { type: 'item', label: '1280×720 (720p HD)', action: () => runCmd('canvas resize 1280 720') },
+          { type: 'item', label: '1920×1080 (1080p FHD)', action: () => runCmd('canvas resize 1920 1080') },
+          { type: 'item', label: '1080×1080 (1:1 Square)', action: () => runCmd('canvas resize 1080 1080') },
+          { type: 'sep' },
           { type: 'item', label: 'Rotate Canvas 90° CW', action: () => runCmd('canvas rotate 90') },
           { type: 'item', label: 'Rotate Canvas 90° CCW', action: () => runCmd('canvas rotate -90') },
           { type: 'item', label: 'Flip Canvas Horizontal', action: () => runCmd('canvas flip h') },
@@ -4191,7 +4255,7 @@ async function main() {
       },
       {
         type: 'submenu',
-        label: 'Renderer & Viewport Filter',
+        label: 'Renderer & Performance',
         items: [
           { type: 'item', label: (host.powerSaveMode ? '✓ ' : '') + 'Power Saving Mode (Battery & Thermal Saver)', action: () => host.setPowerSaveMode?.(!host.powerSaveMode) },
           { type: 'sep' },
@@ -4199,7 +4263,37 @@ async function main() {
           { type: 'item', label: (host.renderMode === 'cpu' ? '✓ ' : '') + 'Software (2D CPU)', action: () => document.querySelector('.render-engine-opt[data-engine="software"]')?.click() },
           { type: 'sep' },
           { type: 'item', label: (!host.viewportFiltering ? '✓ ' : '') + 'Nearest (Crisp / Pixel Art)', action: () => document.querySelector('.view-filter-opt[data-vfilter="nearest"]')?.click() },
-          { type: 'item', label: (host.viewportFiltering ? '✓ ' : '') + 'Bilinear (Smooth)', action: () => document.querySelector('.view-filter-opt[data-vfilter="bilinear"]')?.click() }
+          { type: 'item', label: (host.viewportFiltering ? '✓ ' : '') + 'Bilinear (Smooth)', action: () => document.querySelector('.view-filter-opt[data-vfilter="bilinear"]')?.click() },
+          { type: 'sep' },
+          {
+            type: 'slider',
+            label: 'Undo History Limit',
+            min: 0,
+            max: 100,
+            value: host.maxUndoSteps !== undefined ? host.maxUndoSteps : 25,
+            unit: ' steps',
+            onInput: (val) => { syncMaxUndo(Math.round(val / 5) * 5); }
+          }
+        ]
+      },
+      {
+        type: 'submenu',
+        label: 'Input, Cursor & UI',
+        items: [
+          { type: 'item', label: (host.showBrushOutline ? '✓ ' : '') + 'Brush Cursor Outline', action: () => syncBrushOutline(!host.showBrushOutline) },
+          { type: 'item', label: (host.enableTouchUndoRedo ? '✓ ' : '') + 'Touch Gestures (2-Finger Undo / 3-Finger Redo)', action: () => syncTouchUndoRedo(!host.enableTouchUndoRedo) },
+          { type: 'item', label: (host.enableTouchEyedropper ? '✓ ' : '') + 'Touch Long-Press Eyedropper', action: () => syncTouchEyedropper(!host.enableTouchEyedropper) },
+          { type: 'sep' },
+          {
+            type: 'submenu',
+            label: `UI Scale (${host.uiScale || 'auto'})`,
+            items: uiScaleOpts.map(o => ({
+              type: 'item',
+              label: (String(host.uiScale || 'auto') === o.val ? '✓ ' : '') + o.label,
+              action: () => host.setUiScale(o.val)
+            }))
+          },
+          { type: 'item', label: 'Customize Context Menu Sliders...', action: () => window.openPainterDockPanel ? window.openPainterDockPanel('hud') : openSheet('sheet-hud-customizer') }
         ]
       }
     ]);
@@ -4230,11 +4324,7 @@ async function main() {
         ]
       },
       { type: 'sep' },
-      {
-        type: 'submenu',
-        label: 'Preferences, Resize & Scripting',
-        items: [buildDomPanelAction('settings')]
-      }
+      { type: 'item', label: 'Clear Project Storage...', danger: true, action: () => document.getElementById('btn-ip-recents-clear')?.click() }
     ]);
 
     window.contextMenuService.showContextMenu({
@@ -11619,6 +11709,10 @@ async function main() {
       }
     });
 
+    document.getElementById('btn-menu-save-project')?.addEventListener('click', () => {
+      document.getElementById('btn-ip-save-proj')?.click();
+    });
+
     document.getElementById('btn-quick-export-png')?.addEventListener('click', () => {
       exportImage('image/png');
     });
@@ -11725,10 +11819,6 @@ async function main() {
     // Panel & HUD Configuration Menu Buttons
     document.getElementById('btn-menu-configure-panels')?.addEventListener('click', () => {
       openHudCustomizer();
-    });
-
-    document.getElementById('btn-menu-open-settings')?.addEventListener('click', () => {
-      toggleSheet('sheet-menu');
     });
 
     document.getElementById('btn-menu-toggle-anim')?.addEventListener('click', () => {
