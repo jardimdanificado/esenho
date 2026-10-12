@@ -468,14 +468,20 @@
     }
 
     #dockview-container .dv-tabs-container {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
       overflow-x: auto !important;
       overflow-y: hidden !important;
       -webkit-overflow-scrolling: touch;
-      touch-action: pan-x;
+      touch-action: pan-x !important;
       scrollbar-width: none;
     }
     #dockview-container .dv-tabs-container::-webkit-scrollbar {
       display: none;
+    }
+    #dockview-container .dv-void-container {
+      flex: 0 1 0px !important;
+      min-width: 0 !important;
     }
 
     #dockview-container .dv-tab {
@@ -487,13 +493,19 @@
       line-height: 26px;
       cursor: pointer !important;
       user-select: none;
-      touch-action: pan-x manipulation;
+      touch-action: pan-x !important;
       transition: color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
       color: var(--text-muted);
       background: transparent;
       display: inline-flex;
       align-items: center;
       gap: 2px;
+      flex-shrink: 0 !important;
+    }
+
+    #dockview-container .dv-tab .dv-default-tab,
+    #dockview-container .dv-tab .dv-default-tab-content {
+      touch-action: pan-x !important;
     }
 
     @media (pointer: coarse) {
@@ -2618,7 +2630,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.30 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.31 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -3777,8 +3789,8 @@
 
       // Capture-phase pointerdown gate:
       // 1. On split dividers (.dv-sash): allow resize ONLY when pointerdown is on .dv-sash-handle.
-      // 2. On tabs (.dv-tab): if pointerdown is NOT on .dv-tab-drag-handle, activate the tab
-      //    and stop immediate propagation so Dockview's PointerDragSource does not start a drag.
+      // 2. On tabs (.dv-tab): if pointerdown is NOT on .dv-tab-drag-handle, stop Dockview drag,
+      //    allow horizontal swipe-scrolling of .dv-tabs-container, and activate tab on tap release.
       // 3. On group header empty space (.dv-tabs-and-actions-container / .dv-void-container):
       //    prevent accidental whole-group drag when touching empty space in the tab header bar.
       container.addEventListener('pointerdown', (e) => {
@@ -3797,21 +3809,65 @@
         if (tabEl) {
           const onHandle = Boolean(target.closest('.dv-tab-drag-handle'));
           if (!onHandle) {
-            if (e.button === 0 || e.pointerType === 'touch' || e.pointerType === 'pen') {
-              const pid =
-                tabEl.querySelector('[data-panel-id]')?.getAttribute('data-panel-id') ||
-                tabEl.getAttribute('data-panel-id');
-              const titleText = tabEl.querySelector('.dv-default-tab-content')?.textContent?.trim();
-              if (dockviewApi) {
-                const panel =
-                  (pid && dockviewApi.getPanel(pid)) ||
-                  dockviewApi.panels.find((p) => p.title === titleText || p.id === titleText?.toLowerCase());
-                if (panel) {
-                  panel.api.setActive();
-                }
-              }
-            }
             e.stopImmediatePropagation();
+
+            if (e.button === 0 || e.pointerType === 'touch' || e.pointerType === 'pen') {
+              const tabsContainer = tabEl.closest('.dv-tabs-container');
+              const startX = e.clientX;
+              const startY = e.clientY;
+              const startScrollLeft = tabsContainer ? tabsContainer.scrollLeft : 0;
+              const pointerId = e.pointerId;
+              let didScroll = false;
+
+              const activateTab = () => {
+                const pid =
+                  tabEl.querySelector('[data-panel-id]')?.getAttribute('data-panel-id') ||
+                  tabEl.getAttribute('data-panel-id');
+                const titleText = tabEl.querySelector('.dv-default-tab-content')?.textContent?.trim();
+                if (dockviewApi) {
+                  const panel =
+                    (pid && dockviewApi.getPanel(pid)) ||
+                    dockviewApi.panels.find((p) => p.title === titleText || p.id === titleText?.toLowerCase());
+                  if (panel) {
+                    panel.api.setActive();
+                  }
+                }
+              };
+
+              // On mouse, activate immediately on click-down if strip doesn't overflow;
+              // on touch/overflowing strip, wait to distinguish tap vs horizontal scroll swipe.
+              const canOverflow = tabsContainer && tabsContainer.scrollWidth > tabsContainer.clientWidth + 2;
+              if (e.pointerType === 'mouse' && !canOverflow) {
+                activateTab();
+                return;
+              }
+
+              const onMove = (moveEvt) => {
+                if (moveEvt.pointerId !== pointerId) return;
+                const dx = moveEvt.clientX - startX;
+                const dy = moveEvt.clientY - startY;
+                if (!didScroll && Math.hypot(dx, dy) > 6) {
+                  didScroll = true;
+                }
+                if (didScroll && tabsContainer) {
+                  tabsContainer.scrollLeft = startScrollLeft - dx;
+                }
+              };
+
+              const onEnd = (endEvt) => {
+                if (endEvt.pointerId !== pointerId) return;
+                window.removeEventListener('pointermove', onMove, true);
+                window.removeEventListener('pointerup', onEnd, true);
+                window.removeEventListener('pointercancel', onEnd, true);
+                if (!didScroll && endEvt.type === 'pointerup') {
+                  activateTab();
+                }
+              };
+
+              window.addEventListener('pointermove', onMove, true);
+              window.addEventListener('pointerup', onEnd, true);
+              window.addEventListener('pointercancel', onEnd, true);
+            }
           }
           return;
         }
