@@ -4105,7 +4105,6 @@ async function main() {
           { type: 'item', label: (isTabOpen('hud') ? '✓ ' : '') + 'Menu Sliders Tab', action: () => window.togglePainterDockPanel?.('hud') },
           { type: 'item', label: (isTabOpen('timeline') ? '✓ ' : '') + 'Timeline Tab', action: () => window.togglePainterDockPanel?.('timeline') },
           { type: 'sep' },
-          { type: 'item', label: (window.painterLayoutEditController?.editing ? '✓ ' : '') + 'Edit Workspace Layout', action: () => window.painterLayoutEditController?.toggleEditMode() },
           { type: 'item', label: 'Reset Workspace Layout', action: () => window.resetPainterDockLayout?.() }
         ]
       },

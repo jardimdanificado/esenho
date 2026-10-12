@@ -421,42 +421,17 @@
       }
     }
 
-    /* Subtle handle indicator on dividers during Layout Editing mode */
-    #dockview-container.dv-layout-editing .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled)::after,
-    #dockview-container.dv-layout-editing .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled)::after {
-      content: none;
-    }
-
     #dockview-container .dv-group-action-close,
     #dockview-container .dv-default-tab-action,
     #dockview-container .dv-tabs-overflow-dropdown-root,
     #dockview-container .dv-tabs-overflow-dropdown-default,
     #dockview-container .dv-tabs-overflow-container,
+    #dockview-container .dv-right-actions-container,
     #ip-top-bar,
     #ip-left-hud,
     #ip-right-hud,
     #ip-bottom-hud {
       display: none !important;
-    }
-
-    #dockview-container .dv-right-actions-container {
-      display: none !important;
-      align-items: center;
-      gap: 3px;
-      padding: 0 4px;
-      height: 100%;
-      flex-shrink: 0;
-    }
-
-    #dockview-container.dv-mobile-mode .dv-right-actions-container,
-    #dockview-container.dv-layout-editing .dv-right-actions-container {
-      display: flex !important;
-    }
-
-    @media (pointer: coarse) and (hover: none) {
-      #dockview-container .dv-right-actions-container {
-        display: flex !important;
-      }
     }
 
     #dockview-container .dv-tabs-container {
@@ -526,7 +501,7 @@
       cursor: pointer;
     }
 
-    /* Custom Tab Elements: Dedicated Larger Drag Handle (always visible) & Menu Trigger */
+    /* Dedicated Larger Tab Drag Handle (always visible) */
     .dv-touch-tab-wrap {
       display: inline-flex;
       align-items: center;
@@ -566,283 +541,6 @@
         height: 26px;
         font-size: 14px;
       }
-    }
-
-    .dv-tab-menu-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 18px;
-      height: 18px;
-      margin-right: -3px;
-      border-radius: 3px;
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 11px;
-      line-height: 1;
-      padding: 0;
-      flex-shrink: 0;
-      touch-action: manipulation;
-    }
-
-    .dv-tab-menu-btn:hover,
-    .dv-tab-menu-btn:active {
-      color: var(--text-bright);
-      background: rgba(255, 255, 255, 0.08);
-      border-color: var(--border-bright);
-    }
-
-    /* Group Right Header Actions */
-    .dv-group-header-actions {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      height: 100%;
-    }
-
-    .dv-group-action-btn {
-      height: 20px;
-      min-width: 22px;
-      padding: 0 5px;
-      font-size: 10px;
-      font-weight: 700;
-      border-radius: 3px;
-      border: 1px solid var(--border);
-      background: var(--bg-panel);
-      color: var(--text-dim);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      touch-action: manipulation;
-    }
-
-    .dv-group-action-btn:hover {
-      border-color: var(--primary);
-      color: var(--text-bright);
-    }
-
-    .dv-group-action-btn.active {
-      background: var(--primary);
-      color: var(--bg-dark);
-      border-color: var(--primary);
-    }
-
-    .dv-group-drag-handle {
-      display: none;
-      cursor: grab !important;
-      touch-action: none !important;
-      color: var(--primary);
-      border-color: rgba(250, 189, 47, 0.45);
-      background: var(--primary-dim);
-    }
-
-    #dockview-container.dv-layout-editing .dv-group-drag-handle {
-      display: inline-flex;
-    }
-
-    /* Dedicated Layout Editing Mode Toolbar */
-    #dv-layout-edit-toolbar {
-      display: none;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-      padding: 4px 8px;
-      min-height: 36px;
-      background: var(--bg-panel-sub);
-      border-bottom: 1.5px solid var(--primary);
-      z-index: 250;
-      flex-shrink: 0;
-      overflow-x: auto;
-      scrollbar-width: none;
-    }
-    #dv-layout-edit-toolbar::-webkit-scrollbar {
-      display: none;
-    }
-
-    body.dv-layout-editing-active #dv-layout-edit-toolbar {
-      display: flex;
-    }
-
-    .dv-edit-tb-section {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      flex-shrink: 0;
-    }
-
-    .dv-edit-tb-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 10.5px;
-      font-weight: 800;
-      color: var(--primary);
-      padding: 2px 7px;
-      border-radius: 3px;
-      background: var(--primary-dim);
-      border: 1px solid rgba(250, 189, 47, 0.35);
-      white-space: nowrap;
-    }
-
-    .dv-edit-tb-btn {
-      height: 26px;
-      padding: 0 8px;
-      font-size: 10.5px;
-      font-weight: 700;
-      border-radius: 4px;
-      border: 1px solid var(--border-bright);
-      background: var(--bg-panel);
-      color: var(--text);
-      white-space: nowrap;
-      gap: 4px;
-      touch-action: manipulation;
-    }
-
-    .dv-edit-tb-btn.primary {
-      background: var(--primary);
-      color: var(--bg-dark);
-      border-color: var(--primary);
-      font-weight: 800;
-    }
-
-    .dv-edit-tb-btn.danger {
-      border-color: var(--danger);
-      color: var(--danger);
-    }
-
-    /* Touch Docking Compass Overlay */
-    #dv-touch-dock-compass {
-      position: fixed;
-      z-index: 9999;
-      pointer-events: none;
-      display: none;
-      width: 148px;
-      height: 148px;
-      transform: translate(-50%, -50%);
-      grid-template-columns: repeat(3, 44px);
-      grid-template-rows: repeat(3, 44px);
-      gap: 6px;
-      padding: 2px;
-      align-items: center;
-      justify-items: center;
-    }
-
-    #dv-touch-dock-compass.visible {
-      display: grid;
-    }
-
-    .dv-compass-cell {
-      width: 44px;
-      height: 44px;
-      border-radius: 8px;
-      background: rgba(22, 24, 25, 0.9);
-      border: 1.5px solid var(--border-bright);
-      color: var(--text-dim);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      font-weight: 800;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
-      transition: transform 0.08s ease, background-color 0.08s ease, border-color 0.08s ease;
-    }
-
-    .dv-compass-cell span {
-      font-size: 8px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-      margin-top: 1px;
-    }
-
-    .dv-compass-cell.active {
-      background: var(--primary);
-      color: var(--bg-dark);
-      border-color: var(--text-bright);
-      transform: scale(1.12);
-      box-shadow: 0 0 16px rgba(250, 189, 47, 0.65);
-    }
-
-    .dv-compass-cell.disabled {
-      opacity: 0.22;
-    }
-
-    /* Contextual Touch Modal / Action Sheet for Explicit Panel Operations */
-    #dv-touch-ops-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 10000;
-      background: rgba(0, 0, 0, 0.45);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 12px;
-    }
-
-    #dv-touch-ops-backdrop.visible {
-      display: flex;
-    }
-
-    .dv-touch-ops-menu {
-      width: min(340px, 94vw);
-      max-height: 86vh;
-      overflow-y: auto;
-      background: var(--bg-panel);
-      border: 1.5px solid var(--border-bright);
-      border-radius: var(--radius-lg);
-      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7);
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .dv-touch-ops-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-bottom: 6px;
-      border-bottom: 1px solid var(--border);
-      font-size: 11.5px;
-      font-weight: 800;
-      color: var(--primary);
-    }
-
-    .dv-touch-ops-section-title {
-      font-size: 9.5px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-
-    .dv-touch-ops-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 5px;
-    }
-
-    .dv-touch-ops-btn {
-      min-height: 34px;
-      padding: 6px 8px;
-      font-size: 11px;
-      font-weight: 600;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border);
-      background: var(--bg-panel-sub);
-      color: var(--text);
-      justify-content: flex-start;
-      gap: 6px;
-      text-align: left;
-    }
-
-    .dv-touch-ops-btn:hover:not(:disabled) {
-      border-color: var(--primary);
-      color: var(--text-bright);
     }
 
     #dockview-container .dv-tabs-and-actions-container {
@@ -2864,9 +2562,6 @@
                 <span class="shortcut">Ctrl+B</span>
               </button>
               <div class="menu-divider"></div>
-              <button type="button" class="menu-item" onclick="window.painterLayoutEditController && window.painterLayoutEditController.toggleEditMode()">
-                <span>Edit Workspace Layout...</span>
-              </button>
               <button type="button" class="menu-item" onclick="window.resetPainterDockLayout && window.resetPainterDockLayout()">
                 <span>Reset Layout to Default</span>
               </button>
@@ -2885,49 +2580,12 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.28 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.29 ready</span>
   </header>
-
-  <!-- ── Dedicated Dockview Touch Layout Editing Toolbar ── -->
-  <div id="dv-layout-edit-toolbar" role="toolbar" aria-label="Workspace Layout Editing Toolbar">
-    <div class="dv-edit-tb-section">
-      <span class="dv-edit-tb-badge" id="dv-edit-tb-status">⊞ Edit Layout</span>
-      <button type="button" class="dv-edit-tb-btn" id="btn-dv-split-left" title="Split Active Tab Left">◧ Left</button>
-      <button type="button" class="dv-edit-tb-btn" id="btn-dv-split-right" title="Split Active Tab Right">◨ Right</button>
-      <button type="button" class="dv-edit-tb-btn" id="btn-dv-split-above" title="Split Active Tab Above">⬒ Up</button>
-      <button type="button" class="dv-edit-tb-btn" id="btn-dv-split-below" title="Split Active Tab Below">⬓ Down</button>
-      <button type="button" class="dv-edit-tb-btn" id="btn-dv-open-ops" title="More Tab &amp; Group Layout Commands">⇄ Move / Resize...</button>
-    </div>
-    <div class="dv-edit-tb-section">
-      <button type="button" class="dv-edit-tb-btn" id="btn-dv-layout-undo" disabled title="Undo Layout Change">↶ Undo</button>
-      <button type="button" class="dv-edit-tb-btn" id="btn-dv-layout-redo" disabled title="Redo Layout Change">↷ Redo</button>
-      <button type="button" class="dv-edit-tb-btn" id="btn-dv-layout-reset" title="Reset to Default Workspace Layout">↺ Reset</button>
-      <button type="button" class="dv-edit-tb-btn danger" id="btn-dv-layout-cancel" title="Cancel and Restore Pre-Edit Layout">✕ Cancel</button>
-      <button type="button" class="dv-edit-tb-btn primary" id="btn-dv-layout-done" title="Save Layout Changes and Exit Edit Mode">✓ Done</button>
-    </div>
-  </div>
 
   <!-- ── Main Dockview Workspace ── -->
   <div id="workspace">
     <div id="dockview-container" class="dockview-theme-dark"></div>
-  </div>
-
-  <!-- ── Touch Docking Compass Overlay ── -->
-  <div id="dv-touch-dock-compass" aria-hidden="true">
-    <div></div>
-    <div class="dv-compass-cell" data-compass-pos="top">⬒<span>Top</span></div>
-    <div></div>
-    <div class="dv-compass-cell" data-compass-pos="left">◧<span>Left</span></div>
-    <div class="dv-compass-cell" data-compass-pos="center">⊞<span>Tabs</span></div>
-    <div class="dv-compass-cell" data-compass-pos="right">◨<span>Right</span></div>
-    <div></div>
-    <div class="dv-compass-cell" data-compass-pos="bottom">⬓<span>Bottom</span></div>
-    <div></div>
-  </div>
-
-  <!-- ── Contextual Touch Action Sheet for Tab & Group Layout Operations ── -->
-  <div id="dv-touch-ops-backdrop" role="dialog" aria-modal="true" aria-label="Panel Layout Operations">
-    <div class="dv-touch-ops-menu" id="dv-touch-ops-menu"></div>
   </div>
 
   <!-- ── Hidden Pool of Dockview Panel Elements (Kept in DOM so host-browser.js always finds IDs) ── -->
@@ -3899,7 +3557,7 @@
 <script src="vendor/dockview-core.js"></script>
 <script>
   (function () {
-    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v8';
+    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v9';
     const ALL_PANEL_IDS = ['canvas', 'layers', 'tools', 'timeline', 'color', 'lab', 'hud'];
     const PANEL_TITLES = {
       canvas: 'Canvas',
@@ -3914,6 +3572,7 @@
     const panelElements = new Map();
     const poolEl = document.getElementById('dock-panel-pool');
     let dockviewApi = null;
+    let saveLayoutTimer = null;
 
     function normalizePanelId(id) {
       return id === 'brushes' ? 'lab' : id;
@@ -3969,1317 +3628,176 @@
       }
     }
 
-    /* =========================================================================
-     * 1. LayoutPersistence
-     *    Saves valid layout changes, restores saved/pre-edit snapshots safely
-     *    using reuseExistingPanels so canvas & document state are preserved,
-     *    and avoids persisting intermediate drag states.
-     * ========================================================================= */
-    class LayoutPersistence {
-      constructor(storageKey) {
-        this.storageKey = storageKey;
-        this.saveTimer = null;
-        this.isRestoring = false;
-      }
-
-      captureSnapshot() {
-        if (!dockviewApi) return null;
+    function scheduleSaveDockLayout() {
+      if (!dockviewApi) return;
+      clearTimeout(saveLayoutTimer);
+      saveLayoutTimer = setTimeout(() => {
         try {
           const data = dockviewApi.toJSON();
           if (isValidSerializedLayout(data)) {
-            return JSON.parse(JSON.stringify(data));
+            localStorage.setItem(DOCKVIEW_STORAGE_KEY, JSON.stringify(data));
           }
         } catch (err) {
-          console.warn('LayoutPersistence: failed to capture snapshot:', err);
+          console.warn('Failed to save Dockview layout:', err);
         }
-        return null;
-      }
+      }, 150);
+    }
 
-      saveNow(snapshot) {
-        const data = snapshot || this.captureSnapshot();
-        if (!isValidSerializedLayout(data)) return false;
-        try {
-          localStorage.setItem(this.storageKey, JSON.stringify(data));
+    function restoreSavedDockLayout() {
+      if (!dockviewApi) return false;
+      try {
+        const raw = localStorage.getItem(DOCKVIEW_STORAGE_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (!isValidSerializedLayout(parsed)) return false;
+        dockviewApi.fromJSON(parsed);
+        const restoredOk = ALL_PANEL_IDS.every(id => Boolean(dockviewApi.getPanel(id)));
+        if (restoredOk) {
+          applyPanelMinimumConstraints();
+          updatePainterDockButtons();
+          requestAnimationFrame(() => window.host?.resize?.());
           return true;
-        } catch (err) {
-          console.warn('LayoutPersistence: failed to save layout:', err);
-          return false;
         }
+      } catch (err) {
+        console.warn('Failed to restore saved Dockview layout:', err);
       }
-
-      scheduleSave(canSavePredicate) {
-        if (!dockviewApi || this.isRestoring) return;
-        if (this.saveTimer) clearTimeout(this.saveTimer);
-        this.saveTimer = setTimeout(() => {
-          this.saveTimer = null;
-          if (this.isRestoring) return;
-          if (typeof canSavePredicate === 'function' && !canSavePredicate()) return;
-          this.saveNow();
-        }, 250);
-      }
-
-      loadSaved() {
-        try {
-          const raw = localStorage.getItem(this.storageKey);
-          if (!raw) return null;
-          const parsed = JSON.parse(raw);
-          return isValidSerializedLayout(parsed) ? parsed : null;
-        } catch (err) {
-          console.warn('LayoutPersistence: failed to read saved layout:', err);
-          return null;
-        }
-      }
-
-      restoreSnapshot(snapshot, options = { reuseExistingPanels: true }) {
-        if (!dockviewApi || !isValidSerializedLayout(snapshot)) return false;
-        this.isRestoring = true;
-        try {
-          const clone = JSON.parse(JSON.stringify(snapshot));
-          if (options && options.reuseExistingPanels && dockviewApi.panels && dockviewApi.panels.length > 0) {
-            dockviewApi.fromJSON(clone, { reuseExistingPanels: true });
-          } else {
-            dockviewApi.fromJSON(clone);
-          }
-          const ok = ALL_PANEL_IDS.every(k => !!dockviewApi.getPanel(k));
-          if (ok) {
-            applyPanelMinimumConstraints();
-            updatePainterDockButtons();
-            requestAnimationFrame(() => window.host?.resize?.());
-          }
-          return ok;
-        } catch (err) {
-          console.warn('LayoutPersistence: failed to restore snapshot with reuseExistingPanels, retrying full restore:', err);
-          try {
-            ALL_PANEL_IDS.forEach(returnPanelElementToPool);
-            dockviewApi.fromJSON(JSON.parse(JSON.stringify(snapshot)));
-            applyPanelMinimumConstraints();
-            updatePainterDockButtons();
-            requestAnimationFrame(() => window.host?.resize?.());
-            return ALL_PANEL_IDS.every(k => !!dockviewApi.getPanel(k));
-          } catch (err2) {
-            console.warn('LayoutPersistence: fallback restore failed:', err2);
-            return false;
-          }
-        } finally {
-          this.isRestoring = false;
-        }
-      }
-
-      clearSaved() {
-        try {
-          localStorage.removeItem(this.storageKey);
-        } catch (_) {}
-      }
+      return false;
     }
 
     /* =========================================================================
-     * 2. LayoutHistory
-     *    Integrates with Dockview's public module system (defineModule /
-     *    registerModules) so dockviewApi.undo(), redo(), canUndo, canRedo,
-     *    clearHistory(), and onDidChangeHistory work natively, while avoiding
-     *    recording canceled or invalid drag operations.
+     * Custom Tab Renderer with Dedicated Drag Handle (.dv-tab-drag-handle)
+     * - Repositioning / splitting tabs starts ONLY from .dv-tab-drag-handle (⠿)
+     * - Clicking or swiping the tab title selects the tab or scrolls the tab bar
      * ========================================================================= */
-    class LayoutHistory {
-      constructor(persistence) {
-        this.persistence = persistence;
-        this.undoStack = [];
-        this.redoStack = [];
-        this.maxDepth = 25;
-        this.isApplying = false;
-        this.inMutation = false;
-        this.preMutationRaw = null;
-        this.baselineRaw = null;
-        this.resizeDebounceTimer = null;
-        this.listeners = new Set();
-        this.dvEmitter = null;
-      }
+    function createTabWithHandleRenderer() {
+      const el = document.createElement('div');
+      el.className = 'dv-default-tab';
 
-      registerDockviewModule(dvCore) {
-        if (!dvCore || typeof dvCore.defineModule !== 'function' || typeof dvCore.registerModules !== 'function') return;
-        const self = this;
-        if (typeof dvCore.DockviewEmitter === 'function') {
-          this.dvEmitter = new dvCore.DockviewEmitter();
-        }
-        const LayoutHistoryModule = dvCore.defineModule({
-          name: 'LayoutHistory',
-          serviceKey: 'layoutHistoryService',
-          options: ['layoutHistory'],
-          create: () => ({
-            get canUndo() { return self.canUndo; },
-            get canRedo() { return self.canRedo; },
-            get onDidChangeHistory() {
-              return self.dvEmitter ? self.dvEmitter.event : () => ({ dispose: () => {} });
-            },
-            undo: () => self.undo(),
-            redo: () => self.redo(),
-            clear: () => self.clear(),
-            dispose: () => {}
-          })
-        });
-        dvCore.registerModules([LayoutHistoryModule]);
-      }
+      const handleEl = document.createElement('span');
+      handleEl.className = 'dv-tab-drag-handle';
+      handleEl.textContent = '⠿';
+      handleEl.title = 'Arraste aqui para mover ou dividir a aba';
+      handleEl.setAttribute('aria-label', 'Alça para mover aba');
 
-      attach(api, getGuardState) {
-        this.api = api;
-        this.getGuardState = getGuardState || (() => ({ dragging: false }));
-        this.syncBaseline();
+      const titleEl = document.createElement('div');
+      titleEl.className = 'dv-default-tab-content';
 
-        if (api.onWillMutateLayout) {
-          api.onWillMutateLayout((e) => {
-            if (this.isApplying || this.persistence.isRestoring) return;
-            if (e && (e.kind === 'load' || e.kind === 'clear')) return;
-            this.inMutation = true;
-            const snap = this.persistence.captureSnapshot();
-            this.preMutationRaw = snap ? JSON.stringify(snap) : this.baselineRaw;
-          });
-        }
+      el.appendChild(handleEl);
+      el.appendChild(titleEl);
 
-        if (api.onDidMutateLayout) {
-          api.onDidMutateLayout((e) => {
-            if (this.isApplying || this.persistence.isRestoring) {
-              this.inMutation = false;
-              this.preMutationRaw = null;
-              return;
-            }
-            if (e && (e.kind === 'load' || e.kind === 'clear')) {
-              this.inMutation = false;
-              this.preMutationRaw = null;
-              this.syncBaseline();
-              return;
-            }
-            const preRaw = this.preMutationRaw;
-            this.inMutation = false;
-            this.preMutationRaw = null;
-            const postSnap = this.persistence.captureSnapshot();
-            if (!postSnap) return;
-            const postRaw = JSON.stringify(postSnap);
-            if (preRaw && postRaw !== preRaw) {
-              this._pushUndoSnapshot(preRaw, e.kind || 'move');
-              this.baselineRaw = postRaw;
-            } else {
-              this.baselineRaw = postRaw;
-            }
-          });
-        }
+      let panelId = '';
+      let disposable = null;
 
-        if (api.onDidLayoutChange) {
-          api.onDidLayoutChange(() => {
-            if (this.isApplying || this.persistence.isRestoring || this.inMutation) return;
-            const guard = this.getGuardState();
-            if (guard && guard.dragging) return;
-            if (this.resizeDebounceTimer) clearTimeout(this.resizeDebounceTimer);
-            this.resizeDebounceTimer = setTimeout(() => {
-              this.resizeDebounceTimer = null;
-              if (this.isApplying || this.persistence.isRestoring || this.inMutation) return;
-              const currentSnap = this.persistence.captureSnapshot();
-              if (!currentSnap) return;
-              const currentRaw = JSON.stringify(currentSnap);
-              if (this.baselineRaw && currentRaw !== this.baselineRaw) {
-                this._pushUndoSnapshot(this.baselineRaw, 'resize');
-                this.baselineRaw = currentRaw;
-              } else if (!this.baselineRaw) {
-                this.baselineRaw = currentRaw;
-              }
-            }, 320);
-          });
-        }
-      }
-
-      syncBaseline() {
-        const snap = this.persistence.captureSnapshot();
-        this.baselineRaw = snap ? JSON.stringify(snap) : null;
-      }
-
-      _pushUndoSnapshot(rawSnapshot, kind = 'move') {
-        if (!rawSnapshot) return;
-        if (this.undoStack.length > 0 && this.undoStack[this.undoStack.length - 1] === rawSnapshot) {
-          return;
-        }
-        this.undoStack.push(rawSnapshot);
-        if (this.undoStack.length > this.maxDepth) {
-          this.undoStack.shift();
-        }
-        this.redoStack.length = 0;
-        this._emitChange(kind);
-      }
-
-      get canUndo() {
-        return this.undoStack.length > 0;
-      }
-
-      get canRedo() {
-        return this.redoStack.length > 0;
-      }
-
-      undo() {
-        if (!this.canUndo || !this.api) return false;
-        if (this.resizeDebounceTimer) {
-          clearTimeout(this.resizeDebounceTimer);
-          this.resizeDebounceTimer = null;
-        }
-        const currentSnap = this.persistence.captureSnapshot();
-        const currentRaw = currentSnap ? JSON.stringify(currentSnap) : this.baselineRaw;
-        const targetRaw = this.undoStack.pop();
-        if (!targetRaw) return false;
-
-        this.isApplying = true;
-        try {
-          const targetData = JSON.parse(targetRaw);
-          const restored = this.persistence.restoreSnapshot(targetData, { reuseExistingPanels: true });
-          if (restored) {
-            if (currentRaw) this.redoStack.push(currentRaw);
-            this.baselineRaw = targetRaw;
+      return {
+        element: el,
+        init(params) {
+          panelId = params.api?.id || '';
+          el.setAttribute('data-panel-id', panelId);
+          titleEl.textContent = params.title || PANEL_TITLES[panelId] || panelId;
+          if (params.api?.onDidTitleChange) {
+            disposable = params.api.onDidTitleChange((evt) => {
+              titleEl.textContent = evt.title;
+            });
           }
-          this._emitChange('undo');
-          return restored;
-        } catch (err) {
-          console.warn('LayoutHistory: undo failed:', err);
-          return false;
-        } finally {
-          this.isApplying = false;
-        }
-      }
-
-      redo() {
-        if (!this.canRedo || !this.api) return false;
-        if (this.resizeDebounceTimer) {
-          clearTimeout(this.resizeDebounceTimer);
-          this.resizeDebounceTimer = null;
-        }
-        const currentSnap = this.persistence.captureSnapshot();
-        const currentRaw = currentSnap ? JSON.stringify(currentSnap) : this.baselineRaw;
-        const targetRaw = this.redoStack.pop();
-        if (!targetRaw) return false;
-
-        this.isApplying = true;
-        try {
-          const targetData = JSON.parse(targetRaw);
-          const restored = this.persistence.restoreSnapshot(targetData, { reuseExistingPanels: true });
-          if (restored) {
-            if (currentRaw) this.undoStack.push(currentRaw);
-            this.baselineRaw = targetRaw;
+        },
+        update(event) {
+          if (event?.params?.title !== undefined) {
+            titleEl.textContent = event.params.title;
           }
-          this._emitChange('redo');
-          return restored;
-        } catch (err) {
-          console.warn('LayoutHistory: redo failed:', err);
-          return false;
-        } finally {
-          this.isApplying = false;
+        },
+        dispose() {
+          if (disposable && typeof disposable.dispose === 'function') {
+            disposable.dispose();
+          }
         }
-      }
-
-      clear() {
-        if (this.resizeDebounceTimer) {
-          clearTimeout(this.resizeDebounceTimer);
-          this.resizeDebounceTimer = null;
-        }
-        this.undoStack.length = 0;
-        this.redoStack.length = 0;
-        this.preMutationRaw = null;
-        this.syncBaseline();
-        this._emitChange('clear');
-      }
-
-      onChange(fn) {
-        this.listeners.add(fn);
-        return () => this.listeners.delete(fn);
-      }
-
-      _emitChange(kind = 'move') {
-        const evt = {
-          canUndo: this.canUndo,
-          canRedo: this.canRedo,
-          undoCount: this.undoStack.length,
-          redoCount: this.redoStack.length,
-          lastEntry: { kind, origin: 'user' }
-        };
-        if (this.dvEmitter) {
-          try { this.dvEmitter.fire(evt); } catch (_) {}
-        }
-        this.listeners.forEach(fn => {
-          try { fn(evt); } catch (_) {}
-        });
-      }
+      };
     }
 
     /* =========================================================================
-     * 3. DockingOverlay
-     *    Displays large finger-friendly docking compass targets during editing,
-     *    highlights the currently selected destination, and integrates with
-     *    Dockview's DndCompass / dropPositionResolver & dropOverlayModel seams.
+     * Dedicated Split Resize Handle (.dv-sash-handle) & Handle-Only Pointer Gate
+     * - Each active .dv-sash gets a centered .dv-sash-handle pill
+     * - .dv-sash itself has pointer-events: none in CSS so only the handle resizes
+     * - Tab drag initiation is restricted to .dv-tab-drag-handle
      * ========================================================================= */
-    class DockingOverlay {
-      constructor() {
-        this.compassEl = document.getElementById('dv-touch-dock-compass');
-        this.activeGroup = null;
-        this.activePosition = null;
-        this.enabled = false;
-      }
-
-      registerDockviewModule(dvCore) {
-        if (!dvCore || typeof dvCore.defineModule !== 'function' || typeof dvCore.registerModules !== 'function') return;
-        const self = this;
-        const DndCompassModule = dvCore.defineModule({
-          name: 'DndCompass',
-          serviceKey: 'dndCompassService',
-          options: ['dndCompass'],
-          create: () => ({
-            get resolver() {
-              return self.enabled ? self.getPositionResolver() : undefined;
-            },
-            dispose: () => self.hide()
-          })
-        });
-        dvCore.registerModules([DndCompassModule]);
-      }
-
-      setEnabled(enabled) {
-        this.enabled = !!enabled;
-        if (!this.enabled) {
-          this.hide();
+    function ensureSashHandles(container) {
+      if (!container) return;
+      const sashes = container.querySelectorAll('.dv-sash');
+      sashes.forEach((sash) => {
+        if (!sash.querySelector('.dv-sash-handle')) {
+          const handle = document.createElement('div');
+          handle.className = 'dv-sash-handle';
+          handle.title = 'Arraste para redimensionar divisão';
+          handle.setAttribute('aria-label', 'Redimensionar divisão');
+          sash.appendChild(handle);
         }
-      }
-
-      getDropOverlayModel({ location }) {
-        if (!this.enabled) return undefined;
-        if (location === 'content') {
-          return {
-            size: { value: 50, type: 'percentage' },
-            activationSize: { value: 30, type: 'percentage' },
-            smallWidthBoundary: 0,
-            smallHeightBoundary: 0
-          };
-        }
-        return undefined;
-      }
-
-      getPositionResolver() {
-        return {
-          resolve: (args) => {
-            if (!this.enabled) return null;
-            const { x, y, width, height, zones } = args;
-            if (!width || !height || !zones || zones.size === 0) return null;
-
-            const cx = width / 2;
-            const cy = height / 2;
-            const dx = x - cx;
-            const dy = y - cy;
-
-            // 1. Direct hit on the 148x148 center touch compass cells (44px cells + 6px gap)
-            const compassHalf = 74;
-            if (Math.abs(dx) <= compassHalf && Math.abs(dy) <= compassHalf) {
-              let pos = null;
-              if (Math.abs(dx) <= 24 && Math.abs(dy) <= 24) {
-                pos = 'center';
-              } else if (Math.abs(dx) > Math.abs(dy)) {
-                pos = dx < 0 ? 'left' : 'right';
-              } else {
-                pos = dy < 0 ? 'top' : 'bottom';
-              }
-              if (pos && zones.has(pos)) {
-                this.highlightPosition(pos);
-                return { position: pos, edge: false };
-              }
-            }
-
-            // 2. Outer quadrant bands (30% edge threshold)
-            const normX = x / width;
-            const normY = y / height;
-            const band = 0.28;
-            let candidate = 'center';
-            const distLeft = normX;
-            const distRight = 1 - normX;
-            const distTop = normY;
-            const distBottom = 1 - normY;
-            const minEdge = Math.min(distLeft, distRight, distTop, distBottom);
-
-            if (minEdge <= band) {
-              if (minEdge === distLeft) candidate = 'left';
-              else if (minEdge === distRight) candidate = 'right';
-              else if (minEdge === distTop) candidate = 'top';
-              else if (minEdge === distBottom) candidate = 'bottom';
-            }
-
-            if (zones.has(candidate)) {
-              this.highlightPosition(candidate);
-              return { position: candidate, edge: false };
-            }
-            if (zones.has('center')) {
-              this.highlightPosition('center');
-              return { position: 'center', edge: false };
-            }
-            return null;
-          }
-        };
-      }
-
-      showForGroup(group, position) {
-        if (!this.enabled || !this.compassEl || !group || !group.element) {
-          this.hide();
-          return;
-        }
-        const rect = group.element.getBoundingClientRect();
-        if (rect.width < 80 || rect.height < 60) {
-          this.hide();
-          return;
-        }
-        this.activeGroup = group;
-        this.compassEl.style.left = Math.round(rect.left + rect.width / 2) + 'px';
-        this.compassEl.style.top = Math.round(rect.top + (rect.height + 26) / 2) + 'px';
-        this.compassEl.classList.add('visible');
-
-        const singlePanelSelf = group.panels && group.panels.length <= 1;
-        this.compassEl.querySelectorAll('.dv-compass-cell').forEach(cell => {
-          const cellPos = cell.getAttribute('data-compass-pos');
-          cell.classList.toggle('active', cellPos === position);
-          cell.classList.toggle('disabled', false && singlePanelSelf);
-        });
-      }
-
-      highlightPosition(position) {
-        this.activePosition = position;
-        if (!this.compassEl) return;
-        this.compassEl.querySelectorAll('.dv-compass-cell').forEach(cell => {
-          cell.classList.toggle('active', cell.getAttribute('data-compass-pos') === position);
-        });
-      }
-
-      hide() {
-        this.activeGroup = null;
-        this.activePosition = null;
-        if (this.compassEl) {
-          this.compassEl.classList.remove('visible');
-          this.compassEl.querySelectorAll('.dv-compass-cell').forEach(cell => {
-            cell.classList.remove('active');
-          });
-        }
-      }
+      });
     }
 
-    /* =========================================================================
-     * 4. TouchDragController
-     *    Enforces handle-only tab repositioning (.dv-tab-drag-handle) and
-     *    handle-only split resizing (.dv-sash-handle) across mouse, pen, and touch.
-     * ========================================================================= */
-    class TouchDragController {
-      constructor(options = {}) {
-        this.longPressThreshold = options.longPressThreshold || 240;
-        this.moveTolerance = options.moveTolerance || 10;
-        this.mobileMode = false;
-        this.editing = false;
-        this.dragging = false;
-        this.sashResizing = false;
-        this.lastPointerType = 'mouse';
-        this.activePointerId = null;
-        this.startX = 0;
-        this.startY = 0;
-        this.touchArmed = false;
-        this.startedFromHandle = false;
-        this.swipeCanceled = false;
-        this.armedTabEl = null;
-        this.armTimer = null;
-        this.onDragStateChange = options.onDragStateChange || (() => {});
-      }
+    function bindHandleOnlyInteraction(container) {
+      if (!container || container._dvHandleOnlyBound) return;
+      container._dvHandleOnlyBound = true;
 
-      ensureSashHandles() {
-        if (!this.container) return;
-        this.container.querySelectorAll('.dv-sash').forEach((sash) => {
-          let handle = sash.querySelector('.dv-sash-handle');
-          if (!handle) {
-            handle = document.createElement('div');
-            handle.className = 'dv-sash-handle';
-            handle.setAttribute('data-dv-sash-handle', 'true');
-            handle.title = 'Drag Handle to Resize Split';
-            sash.appendChild(handle);
+      // Capture-phase pointerdown gate:
+      // 1. On split dividers (.dv-sash): allow resize ONLY when pointerdown is on .dv-sash-handle.
+      // 2. On tabs (.dv-tab): if pointerdown is NOT on .dv-tab-drag-handle, activate the tab
+      //    and stop immediate propagation so Dockview's PointerDragSource does not start a drag.
+      // 3. On group header empty space (.dv-tabs-and-actions-container / .dv-void-container):
+      //    prevent accidental whole-group drag when touching empty space in the tab header bar.
+      container.addEventListener('pointerdown', (e) => {
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+
+        const sashEl = target.closest('.dv-sash');
+        if (sashEl) {
+          if (!target.closest('.dv-sash-handle')) {
+            e.stopImmediatePropagation();
           }
-          const isHorizontalSplit = !!sash.closest('.dv-horizontal');
-          const desiredGlyph = isHorizontalSplit ? '⋮' : '⋯';
-          if (handle.textContent !== desiredGlyph) {
-            handle.textContent = desiredGlyph;
-          }
-        });
-      }
-
-      attach(container, api, dockingOverlay) {
-        this.container = container;
-        this.api = api;
-        this.dockingOverlay = dockingOverlay;
-
-        this.ensureSashHandles();
-        if (typeof MutationObserver !== 'undefined') {
-          this._sashObserver = new MutationObserver(() => this.ensureSashHandles());
-          this._sashObserver.observe(container, { childList: true, subtree: true });
+          return;
         }
 
-        // 1. Capture-phase pointerdown on container:
-        //    - Resize splits ONLY when grabbing .dv-sash-handle
-        //    - Reposition tabs ONLY when grabbing .dv-tab-drag-handle
-        //    - Clicking/swiping anywhere else on a tab selects the tab or scrolls the tab bar
-        container.addEventListener('pointerdown', (e) => {
-          this.lastPointerType = e.pointerType || 'mouse';
-
-          // A. Split divider (sash): only allow resize when grabbing .dv-sash-handle
-          const sashEl = e.target && e.target.closest ? e.target.closest('.dv-sash') : null;
-          if (sashEl) {
-            const onSashHandle = !!(e.target && e.target.closest && e.target.closest('.dv-sash-handle'));
-            if (!onSashHandle) {
-              e.stopPropagation();
-              return;
-            }
-            this.sashResizing = true;
-            this._clearPendingTouch();
-            return;
-          }
-
-          // B. Never let action/menu buttons inside tabs or headers start a drag
-          if (e.target && e.target.closest && e.target.closest('.dv-tab-menu-btn, .dv-group-action-btn:not(.dv-group-drag-handle)')) {
-            e.stopPropagation();
-            return;
-          }
-
-          // C. Tab interaction: only start a drag when grabbing .dv-tab-drag-handle
-          const tabEl = e.target && e.target.closest ? e.target.closest('.dv-tab') : null;
-          if (tabEl) {
+        const tabEl = target.closest('.dv-tab');
+        if (tabEl) {
+          const onHandle = Boolean(target.closest('.dv-tab-drag-handle'));
+          if (!onHandle) {
             if (e.button === 0 || e.pointerType === 'touch' || e.pointerType === 'pen') {
-              const panelId = tabEl.dataset.tabPanelId;
-              if (panelId && this.api) {
-                const panel = this.api.getPanel(panelId);
-                if (panel && panel.api && !panel.api.isActive) {
+              const pid =
+                tabEl.querySelector('[data-panel-id]')?.getAttribute('data-panel-id') ||
+                tabEl.getAttribute('data-panel-id');
+              const titleText = tabEl.querySelector('.dv-default-tab-content')?.textContent?.trim();
+              if (dockviewApi) {
+                const panel =
+                  (pid && dockviewApi.getPanel(pid)) ||
+                  dockviewApi.panels.find((p) => p.title === titleText || p.id === titleText?.toLowerCase());
+                if (panel) {
                   panel.api.setActive();
                 }
               }
             }
-
-            const onTabHandle = !!(e.target && e.target.closest && e.target.closest('.dv-tab-drag-handle'));
-            if (!onTabHandle) {
-              // Stop propagation to Dockview's PointerDragSource on .dv-tab so only the handle drags
-              e.stopPropagation();
-              return;
-            }
-
-            this._clearPendingTouch();
-            this.activePointerId = e.pointerId;
-            this.startX = e.clientX;
-            this.startY = e.clientY;
-            this.startedFromHandle = true;
-            this.touchArmed = true;
-            this.swipeCanceled = false;
-            this.armedTabEl = tabEl;
-            tabEl.classList.add('dv-tab--touch-armed');
-            this.dockingOverlay.setEnabled(true);
-            return;
+            e.stopImmediatePropagation();
           }
-
-          // D. Group header drag handle vs empty header void area
-          const groupHandleEl = e.target && e.target.closest ? e.target.closest('.dv-group-drag-handle') : null;
-          if (groupHandleEl) {
-            this._clearPendingTouch();
-            this.activePointerId = e.pointerId;
-            this.startX = e.clientX;
-            this.startY = e.clientY;
-            this.startedFromHandle = true;
-            this.touchArmed = true;
-            this.swipeCanceled = false;
-            this.dockingOverlay.setEnabled(true);
-            return;
-          }
-
-          if (e.target && e.target.closest && e.target.closest('.dv-void-container')) {
-            e.stopPropagation();
-            return;
-          }
-        }, true);
-
-        const endGesture = (e) => {
-          if (this.sashResizing) {
-            this.sashResizing = false;
-          }
-          if (this.activePointerId !== null && (!e || e.pointerId === this.activePointerId)) {
-            this._clearPendingTouch();
-          }
-          if (this.dragging) {
-            this.setDragging(false);
-          }
-          this.dockingOverlay.hide();
-          if (!this.editing) {
-            this.dockingOverlay.setEnabled(false);
-          }
-        };
-
-        window.addEventListener('pointerup', endGesture, true);
-        window.addEventListener('pointercancel', endGesture, true);
-        window.addEventListener('dragend', () => {
-          this._clearPendingTouch();
-          this.setDragging(false);
-          this.dockingOverlay.hide();
-        }, true);
-
-        // 2. Dockview drag lifecycle hooks
-        if (api.onWillDragPanel) {
-          api.onWillDragPanel((e) => {
-            if (this.sashResizing || !this.startedFromHandle) {
-              if (e.nativeEvent && e.nativeEvent.preventDefault) e.nativeEvent.preventDefault();
-              return;
-            }
-            this.setDragging(true);
-          });
+          return;
         }
 
-        if (api.onWillDragGroup) {
-          api.onWillDragGroup((e) => {
-            if (this.sashResizing || !this.startedFromHandle) {
-              if (e.nativeEvent && e.nativeEvent.preventDefault) e.nativeEvent.preventDefault();
-              return;
-            }
-            this.setDragging(true);
-          });
+        if (target.closest('.dv-tabs-and-actions-container') || target.closest('.dv-void-container')) {
+          e.stopImmediatePropagation();
         }
+      }, true);
 
-        if (api.onWillShowOverlay) {
-          api.onWillShowOverlay((e) => {
-            if (this.sashResizing) {
-              e.preventDefault();
-              this.dockingOverlay.hide();
-              return;
-            }
-            if (e.kind === 'edge') {
-              e.preventDefault();
-              return;
-            }
-            this.setDragging(true);
-            this.dockingOverlay.setEnabled(true);
-            if (e.group && e.kind === 'content') {
-              this.dockingOverlay.showForGroup(e.group, e.position);
-            } else {
-              this.dockingOverlay.hide();
-            }
-          });
+      // Safety fallback if native HTML5 dragstart is ever triggered outside the handle
+      container.addEventListener('dragstart', (e) => {
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+        if (target.closest('.dv-tab') && !target.closest('.dv-tab-drag-handle')) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
         }
+      }, true);
 
-        if (api.onWillDrop) {
-          api.onWillDrop((e) => {
-            this.dockingOverlay.hide();
-
-            // Validate pointer release coordinates are inside #dockview-container
-            const ev = e.nativeEvent;
-            if (ev && typeof ev.clientX === 'number' && typeof ev.clientY === 'number') {
-              const rect = this.container.getBoundingClientRect();
-              if (
-                ev.clientX < rect.left ||
-                ev.clientX > rect.right ||
-                ev.clientY < rect.top ||
-                ev.clientY > rect.bottom
-              ) {
-                e.preventDefault();
-                this.setDragging(false);
-                return;
-              }
-            }
-
-            // Prevent splitting a 1-tab group onto itself (which would be a no-op or invalid)
-            const data = typeof e.getData === 'function' ? e.getData() : null;
-            if (
-              data &&
-              e.group &&
-              data.groupId === e.group.id &&
-              e.group.panels &&
-              e.group.panels.length <= 1 &&
-              e.position !== 'center'
-            ) {
-              e.preventDefault();
-              this.setDragging(false);
-              return;
-            }
-
-            this.setDragging(false);
-          });
-        }
-
-        if (api.onDidDrop) {
-          api.onDidDrop(() => {
-            this.dockingOverlay.hide();
-            this.setDragging(false);
-            this.ensureSashHandles();
-          });
-        }
+      if (typeof MutationObserver !== 'undefined') {
+        const mo = new MutationObserver(() => ensureSashHandles(container));
+        mo.observe(container, { childList: true, subtree: true });
       }
-
-      setMobileMode(mobileMode) {
-        this.mobileMode = !!mobileMode;
-      }
-
-      setEditing(editing) {
-        this.editing = !!editing;
-        if (!this.editing) {
-          this._clearPendingTouch();
-          this.setDragging(false);
-        }
-      }
-
-      setDragging(dragging) {
-        const next = !!dragging;
-        if (this.dragging === next) return;
-        this.dragging = next;
-        this.onDragStateChange(this.dragging);
-      }
-
-      _clearPendingTouch() {
-        if (this.armTimer) {
-          clearTimeout(this.armTimer);
-          this.armTimer = null;
-        }
-        if (this.armedTabEl) {
-          this.armedTabEl.classList.remove('dv-tab--touch-armed');
-          this.armedTabEl = null;
-        }
-        this.activePointerId = null;
-        this.touchArmed = false;
-        this.startedFromHandle = false;
-        this.swipeCanceled = false;
-      }
-    }
-
-    /* =========================================================================
-     * 5. LayoutEditController
-     *    Maintains { editing, dragging, dirty, initialLayout } and coordinates
-     *    layout operations, history, and handle-based pointer DnD.
-     * ========================================================================= */
-    class LayoutEditController {
-      constructor({ persistence, history, dockingOverlay, touchDrag }) {
-        this.persistence = persistence;
-        this.history = history;
-        this.dockingOverlay = dockingOverlay;
-        this.touchDrag = touchDrag;
-
-        this.state = {
-          editing: false,
-          dragging: false,
-          dirty: false,
-          initialLayout: null
-        };
-
-        this.headerEditButtons = new Set();
-      }
-
-      isMobileEnvironment() {
-        if (!window.matchMedia) return false;
-        const coarse = window.matchMedia('(pointer: coarse)').matches;
-        const fine = window.matchMedia('(pointer: fine)').matches;
-        return coarse && !fine;
-      }
-
-      attach(container, api) {
-        this.container = container;
-        this.api = api;
-
-        this.touchDrag.onDragStateChange = (dragging) => {
-          this.state.dragging = dragging;
-          this.syncToolbarUI();
-        };
-
-        this.history.onChange(() => {
-          if (this.state.editing) {
-            const currentSnap = this.persistence.captureSnapshot();
-            const currentRaw = currentSnap ? JSON.stringify(currentSnap) : null;
-            const initialRaw = this.state.initialLayout ? JSON.stringify(this.state.initialLayout) : null;
-            this.state.dirty = !!(currentRaw && initialRaw && currentRaw !== initialRaw);
-          }
-          this.syncToolbarUI();
-        });
-
-        this._bindToolbarDom();
-        this.syncModeOptions();
-
-        // Keep desktop vs mobile mode in sync on viewport resize or pointer capability change
-        if (window.matchMedia) {
-          const mq = window.matchMedia('(pointer: coarse)');
-          if (mq.addEventListener) {
-            mq.addEventListener('change', () => this.syncModeOptions());
-          }
-        }
-        window.addEventListener('resize', () => {
-          const nowMobile = this.isMobileEnvironment();
-          if (nowMobile !== this._lastMobileState) {
-            this.syncModeOptions();
-          }
-        });
-      }
-
-      enterEditMode() {
-        if (!this.api || this.state.editing) return;
-        this.state.initialLayout = this.persistence.captureSnapshot();
-        this.state.editing = true;
-        this.state.dragging = false;
-        this.state.dirty = false;
-
-        this.history.clear();
-        this.syncModeOptions();
-        this.syncToolbarUI();
-        requestAnimationFrame(() => window.host?.resize?.());
-      }
-
-      doneEditMode() {
-        if (!this.api || !this.state.editing) return;
-        this.dockingOverlay.hide();
-        this.touchDrag.setEditing(false);
-
-        this.state.editing = false;
-        this.state.dragging = false;
-        this.state.dirty = false;
-        this.state.initialLayout = null;
-
-        this.syncModeOptions();
-        this.persistence.saveNow();
-        this.syncToolbarUI();
-        requestAnimationFrame(() => window.host?.resize?.());
-      }
-
-      cancelEditMode() {
-        if (!this.api || !this.state.editing) return;
-        this.dockingOverlay.hide();
-        this.touchDrag.setEditing(false);
-
-        const snapshotToRestore = this.state.initialLayout;
-        const wasDirty = this.state.dirty || this.history.canUndo;
-
-        this.state.editing = false;
-        this.state.dragging = false;
-        this.state.dirty = false;
-        this.state.initialLayout = null;
-
-        if (wasDirty && snapshotToRestore) {
-          this.persistence.restoreSnapshot(snapshotToRestore, { reuseExistingPanels: true });
-          this.persistence.saveNow(snapshotToRestore);
-        }
-
-        this.history.clear();
-        this.syncModeOptions();
-        this.syncToolbarUI();
-        requestAnimationFrame(() => window.host?.resize?.());
-      }
-
-      toggleEditMode() {
-        if (this.state.editing) {
-          this.doneEditMode();
-        } else {
-          this.enterEditMode();
-        }
-      }
-
-      syncModeOptions() {
-        if (!this.api || !this.container) return;
-        const isMobile = this.isMobileEnvironment();
-        this._lastMobileState = isMobile;
-        const editing = this.state.editing;
-
-        this.container.classList.toggle('dv-mobile-mode', isMobile);
-        this.container.classList.toggle('dv-layout-editing', editing);
-        document.body.classList.toggle('dv-layout-editing-active', editing);
-
-        this.dockingOverlay.setEnabled(editing);
-        this.touchDrag.setMobileMode(isMobile);
-        this.touchDrag.setEditing(editing);
-        this.touchDrag.ensureSashHandles();
-
-        // Always use dndStrategy: 'pointer' with disableDnd: false so dragging by
-        // .dv-tab-drag-handle works uniformly for mouse, pen, and touch.
-        this.api.updateOptions({
-          disableDnd: false,
-          dndStrategy: 'pointer',
-          dndEdges: false,
-          layoutHistory: { enabled: true }
-        });
-
-        this.headerEditButtons.forEach(btn => {
-          btn.classList.toggle('active', editing);
-          btn.textContent = editing ? '✓ Done' : '⊞ Layout';
-          btn.title = editing ? 'Finish Layout Editing' : 'Edit Workspace Layout';
-        });
-      }
-
-      syncToolbarUI() {
-        const undoBtn = document.getElementById('btn-dv-layout-undo');
-        const redoBtn = document.getElementById('btn-dv-layout-redo');
-        const statusBadge = document.getElementById('dv-edit-tb-status');
-        if (undoBtn) undoBtn.disabled = !this.history.canUndo;
-        if (redoBtn) redoBtn.disabled = !this.history.canRedo;
-        if (statusBadge) {
-          const activePanel = this.api?.activePanel;
-          const activeTitle = activePanel ? (PANEL_TITLES[activePanel.id] || activePanel.title || activePanel.id) : 'Workspace';
-          statusBadge.textContent = (this.state.dirty ? '⊞ Editing* · ' : '⊞ Editing · ') + activeTitle;
-        }
-      }
-
-      /* ── Explicit Tab & Group Layout Operations (Public Dockview API) ── */
-
-      moveTabToGroup(panelId, targetGroupId, index) {
-        if (!this.api) return false;
-        const panel = this.api.getPanel(normalizePanelId(panelId));
-        const targetGroup = this.api.getGroup(targetGroupId);
-        if (!panel || !targetGroup) return false;
-        if (panel.group && panel.group.id === targetGroup.id && index === undefined) {
-          panel.api.setActive();
-          return false;
-        }
-        panel.api.moveTo({
-          group: targetGroup,
-          position: 'center',
-          index
-        });
-        applyPanelMinimumConstraints();
-        this.persistence.scheduleSave(() => !this.state.dragging);
-        return true;
-      }
-
-      splitTab(panelId, position, referenceGroupId) {
-        if (!this.api) return false;
-        const panel = this.api.getPanel(normalizePanelId(panelId)) || this.api.activePanel;
-        if (!panel) return false;
-        const sourceGroup = panel.group;
-        let targetGroup = referenceGroupId ? this.api.getGroup(referenceGroupId) : sourceGroup;
-
-        // If splitting a 1-tab group, split relative to an adjacent group (e.g. canvas group) so a real split occurs
-        if (targetGroup && targetGroup.id === sourceGroup.id && sourceGroup.panels.length <= 1) {
-          const fallbackGroup =
-            this.api.groups.find(g => g.id !== sourceGroup.id && g.panels.some(p => p.id === 'canvas')) ||
-            this.api.groups.find(g => g.id !== sourceGroup.id);
-          if (!fallbackGroup) return false;
-          targetGroup = fallbackGroup;
-        }
-        if (!targetGroup) return false;
-
-        panel.api.moveTo({
-          group: targetGroup,
-          position // 'left' | 'right' | 'top' | 'bottom'
-        });
-        applyPanelMinimumConstraints();
-        this.persistence.scheduleSave(() => !this.state.dragging);
-        return true;
-      }
-
-      mergeGroupInto(sourceGroupId, targetGroupId) {
-        if (!this.api) return false;
-        const sourceGroup = this.api.getGroup(sourceGroupId);
-        const targetGroup = this.api.getGroup(targetGroupId);
-        if (!sourceGroup || !targetGroup || sourceGroup.id === targetGroup.id) return false;
-        sourceGroup.api.moveTo({
-          group: targetGroup,
-          position: 'center'
-        });
-        applyPanelMinimumConstraints();
-        this.persistence.scheduleSave(() => !this.state.dragging);
-        return true;
-      }
-
-      resizeGroupByFraction(groupId, axis, fraction) {
-        if (!this.api || !this.container) return false;
-        const group = (groupId && this.api.getGroup(groupId)) || this.api.activeGroup;
-        if (!group || !group.api || typeof group.api.setSize !== 'function') return false;
-        const rect = this.container.getBoundingClientRect();
-        if (axis === 'width') {
-          const targetW = Math.max(150, Math.min(rect.width - 160, Math.round(rect.width * fraction)));
-          group.api.setSize({ width: targetW });
-        } else {
-          const targetH = Math.max(80, Math.min(rect.height - 140, Math.round(rect.height * fraction)));
-          group.api.setSize({ height: targetH });
-        }
-        this.persistence.scheduleSave(() => !this.state.dragging);
-        requestAnimationFrame(() => window.host?.resize?.());
-        return true;
-      }
-
-      getGroupSummaryLabel(group) {
-        if (!group) return 'Group';
-        const names = (group.panels || []).map(p => PANEL_TITLES[p.id] || p.title || p.id);
-        if (names.length === 0) return 'Empty Group';
-        if (names.length <= 2) return names.join(' + ');
-        return names.slice(0, 2).join(', ') + ` (+${names.length - 2})`;
-      }
-
-      buildTabContextMenuItems({ panel, group }) {
-        if (!panel || !group || !this.api) return [];
-        const items = [];
-        const otherGroups = this.api.groups.filter(g => g.id !== group.id);
-        const canSplitSelf = group.panels.length > 1 || otherGroups.length > 0;
-
-        items.push({
-          label: this.state.editing ? '✓ Exit Layout Edit Mode' : '⊞ Enter Layout Edit Mode',
-          action: () => this.toggleEditMode()
-        });
-        items.push('separator');
-
-        if (canSplitSelf) {
-          items.push({
-            label: '◧ Split Left',
-            action: () => this.splitTab(panel.id, 'left')
-          });
-          items.push({
-            label: '◨ Split Right',
-            action: () => this.splitTab(panel.id, 'right')
-          });
-          items.push({
-            label: '⬒ Split Above',
-            action: () => this.splitTab(panel.id, 'top')
-          });
-          items.push({
-            label: '⬓ Split Below',
-            action: () => this.splitTab(panel.id, 'bottom')
-          });
-          items.push('separator');
-        }
-
-        for (const targetGroup of otherGroups) {
-          const summary = this.getGroupSummaryLabel(targetGroup);
-          items.push({
-            label: `⇄ Move Tab to [${summary}]`,
-            action: () => this.moveTabToGroup(panel.id, targetGroup.id)
-          });
-        }
-
-        if (otherGroups.length > 0 && group.panels.length > 1) {
-          const primaryTarget = otherGroups[0];
-          items.push({
-            label: `⊕ Merge Group into [${this.getGroupSummaryLabel(primaryTarget)}]`,
-            action: () => this.mergeGroupInto(group.id, primaryTarget.id)
-          });
-        }
-
-        items.push('separator');
-        items.push({
-          label: '⋯ More Layout & Resize Options...',
-          action: () => this.openTouchOperationsModal(panel, group)
-        });
-
-        return items;
-      }
-
-      openTouchOperationsModal(panel, group) {
-        const backdrop = document.getElementById('dv-touch-ops-backdrop');
-        const menuEl = document.getElementById('dv-touch-ops-menu');
-        if (!backdrop || !menuEl || !this.api) return;
-
-        const targetPanel = panel || this.api.activePanel || this.api.getPanel('canvas');
-        const targetGroup = group || (targetPanel ? targetPanel.group : this.api.activeGroup);
-        if (!targetPanel || !targetGroup) return;
-
-        const panelTitle = PANEL_TITLES[targetPanel.id] || targetPanel.title || targetPanel.id;
-        const otherGroups = this.api.groups.filter(g => g.id !== targetGroup.id);
-
-        menuEl.innerHTML = '';
-
-        const header = document.createElement('div');
-        header.className = 'dv-touch-ops-header';
-        header.innerHTML = `<span>⊞ Layout: ${panelTitle}</span>`;
-        const closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.className = 'dv-group-action-btn';
-        closeBtn.textContent = '✕';
-        closeBtn.onclick = () => this.closeTouchOperationsModal();
-        header.appendChild(closeBtn);
-        menuEl.appendChild(header);
-
-        const addSection = (title) => {
-          const s = document.createElement('div');
-          s.className = 'dv-touch-ops-section-title';
-          s.textContent = title;
-          menuEl.appendChild(s);
-          const grid = document.createElement('div');
-          grid.className = 'dv-touch-ops-grid';
-          menuEl.appendChild(grid);
-          return grid;
-        };
-
-        const addBtn = (parent, label, onClick, fullWidth = false) => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'dv-touch-ops-btn';
-          if (fullWidth) btn.style.gridColumn = 'span 2';
-          btn.textContent = label;
-          btn.onclick = () => {
-            this.closeTouchOperationsModal();
-            onClick();
-            this.syncToolbarUI();
-          };
-          parent.appendChild(btn);
-        };
-
-        // 1. Split Operations
-        const splitGrid = addSection('Split Active Tab (' + panelTitle + ')');
-        addBtn(splitGrid, '◧ Split Left', () => this.splitTab(targetPanel.id, 'left'));
-        addBtn(splitGrid, '◨ Split Right', () => this.splitTab(targetPanel.id, 'right'));
-        addBtn(splitGrid, '⬒ Split Above', () => this.splitTab(targetPanel.id, 'top'));
-        addBtn(splitGrid, '⬓ Split Below', () => this.splitTab(targetPanel.id, 'bottom'));
-
-        // 2. Move Tab / Merge Group Operations
-        if (otherGroups.length > 0) {
-          const moveGrid = addSection('Move Tab or Merge Group');
-          otherGroups.forEach(g => {
-            const summary = this.getGroupSummaryLabel(g);
-            addBtn(moveGrid, `⇄ Move "${panelTitle}" → [${summary}]`, () => {
-              this.moveTabToGroup(targetPanel.id, g.id);
-            }, true);
-          });
-          if (targetGroup.panels.length > 1) {
-            otherGroups.forEach(g => {
-              const summary = this.getGroupSummaryLabel(g);
-              addBtn(moveGrid, `⊕ Merge All ${targetGroup.panels.length} Tabs → [${summary}]`, () => {
-                this.mergeGroupInto(targetGroup.id, g.id);
-              }, true);
-            });
-          }
-        }
-
-        // 3. Resize Split Presets
-        const resizeGrid = addSection('Resize Current Panel Group');
-        addBtn(resizeGrid, '↔ Width 25%', () => this.resizeGroupByFraction(targetGroup.id, 'width', 0.25));
-        addBtn(resizeGrid, '↔ Width 35%', () => this.resizeGroupByFraction(targetGroup.id, 'width', 0.35));
-        addBtn(resizeGrid, '↔ Width 50%', () => this.resizeGroupByFraction(targetGroup.id, 'width', 0.50));
-        addBtn(resizeGrid, '↕ Height 22%', () => this.resizeGroupByFraction(targetGroup.id, 'height', 0.22));
-        addBtn(resizeGrid, '↕ Height 35%', () => this.resizeGroupByFraction(targetGroup.id, 'height', 0.35));
-        addBtn(resizeGrid, '↕ Height 50%', () => this.resizeGroupByFraction(targetGroup.id, 'height', 0.50));
-
-        // 4. Workspace Presets & Mode
-        const presetGrid = addSection('Workspace Presets & Mode');
-        addBtn(presetGrid, this.state.editing ? '✓ Done Editing Layout' : '⊞ Enter Layout Edit Mode', () => {
-          this.toggleEditMode();
-        }, true);
-        addBtn(presetGrid, '◫ Landscape Layout', () => resetPainterDockLayout('landscape'));
-        addBtn(presetGrid, '⬒ Portrait Layout', () => resetPainterDockLayout('portrait'));
-
-        backdrop.classList.add('visible');
-      }
-
-      closeTouchOperationsModal() {
-        const backdrop = document.getElementById('dv-touch-ops-backdrop');
-        if (backdrop) backdrop.classList.remove('visible');
-      }
-
-      _bindToolbarDom() {
-        const bind = (id, fn) => {
-          const el = document.getElementById(id);
-          if (el) el.addEventListener('click', fn);
-        };
-
-        bind('btn-dv-split-left', () => this.splitTab(null, 'left'));
-        bind('btn-dv-split-right', () => this.splitTab(null, 'right'));
-        bind('btn-dv-split-above', () => this.splitTab(null, 'top'));
-        bind('btn-dv-split-below', () => this.splitTab(null, 'bottom'));
-        bind('btn-dv-open-ops', () => this.openTouchOperationsModal());
-        bind('btn-dv-layout-undo', () => this.history.undo());
-        bind('btn-dv-layout-redo', () => this.history.redo());
-        bind('btn-dv-layout-reset', () => resetPainterDockLayout('auto'));
-        bind('btn-dv-layout-cancel', () => this.cancelEditMode());
-        bind('btn-dv-layout-done', () => this.doneEditMode());
-
-        const backdrop = document.getElementById('dv-touch-ops-backdrop');
-        if (backdrop) {
-          backdrop.addEventListener('click', (e) => {
-            if (e.target === backdrop) this.closeTouchOperationsModal();
-          });
-        }
-      }
-    }
-
-    /* =========================================================================
-     * Custom Tab & Group Header Action Renderers (Public Dockview Framework API)
-     * ========================================================================= */
-    function createTouchTabRenderer(layoutEditController) {
-      return {
-        element: document.createElement('div'),
-        init(params) {
-          this.element.className = 'dv-touch-tab-wrap';
-
-          // 1. Explicit drag handle (shown in Layout Editing mode)
-          const dragHandle = document.createElement('span');
-          dragHandle.className = 'dv-tab-drag-handle';
-          dragHandle.setAttribute('data-dv-drag-handle', 'true');
-          dragHandle.setAttribute('title', 'Drag Tab to Move or Split');
-          dragHandle.textContent = '⠿';
-
-          // 2. Tab title
-          const titleEl = document.createElement('span');
-          titleEl.className = 'dv-default-tab-content';
-          titleEl.textContent = params.title || PANEL_TITLES[params.api.id] || params.api.id;
-
-          // 3. Explicit tab operations button
-          const menuBtn = document.createElement('button');
-          menuBtn.type = 'button';
-          menuBtn.className = 'dv-tab-menu-btn';
-          menuBtn.setAttribute('title', 'Tab Layout Actions');
-          menuBtn.setAttribute('aria-label', 'Tab Layout Actions');
-          menuBtn.textContent = '▾';
-          menuBtn.addEventListener('pointerdown', (e) => {
-            e.stopPropagation();
-          });
-          menuBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const panel = dockviewApi?.getPanel(params.api.id);
-            layoutEditController.openTouchOperationsModal(panel, panel?.group);
-          });
-
-          this.element.appendChild(dragHandle);
-          this.element.appendChild(titleEl);
-          this.element.appendChild(menuBtn);
-
-          this._titleSub = params.api.onDidTitleChange((event) => {
-            titleEl.textContent = event.title;
-          });
-        },
-        update() {},
-        dispose() {
-          if (this._titleSub && typeof this._titleSub.dispose === 'function') {
-            this._titleSub.dispose();
-          }
-        }
-      };
-    }
-
-    function createGroupRightHeaderActions(group, layoutEditController) {
-      const el = document.createElement('div');
-      el.className = 'dv-group-header-actions';
-
-      // 1. Explicit group drag indicator in edit mode
-      const groupOpsBtn = document.createElement('button');
-      groupOpsBtn.type = 'button';
-      groupOpsBtn.className = 'dv-group-action-btn';
-      groupOpsBtn.textContent = '⋯';
-      groupOpsBtn.title = 'Panel & Split Actions';
-      groupOpsBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-      groupOpsBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        layoutEditController.openTouchOperationsModal(group.activePanel, group);
-      });
-
-      // 2. Toggle Layout Edit Mode button on group header
-      const editBtn = document.createElement('button');
-      editBtn.type = 'button';
-      editBtn.className = 'dv-group-action-btn dv-header-edit-btn';
-      const isEditing = layoutEditController.state.editing;
-      editBtn.classList.toggle('active', isEditing);
-      editBtn.textContent = isEditing ? '✓ Done' : '⊞ Layout';
-      editBtn.title = isEditing ? 'Finish Layout Editing' : 'Edit Workspace Layout';
-      editBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-      editBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        layoutEditController.toggleEditMode();
-      });
-
-      layoutEditController.headerEditButtons.add(editBtn);
-
-      el.appendChild(groupOpsBtn);
-      el.appendChild(editBtn);
-
-      return {
-        element: el,
-        init() {},
-        dispose() {
-          layoutEditController.headerEditButtons.delete(editBtn);
-        }
-      };
+      ensureSashHandles(container);
     }
 
     /* =========================================================================
@@ -5333,7 +3851,6 @@
         (orientationMode === 'auto' && window.innerWidth < 700 && window.innerHeight > window.innerWidth);
 
       try {
-        // 1. Center Canvas
         dockviewApi.addPanel({
           id: 'canvas',
           component: 'canvas',
@@ -5343,7 +3860,6 @@
         });
 
         if (isPortrait) {
-          // Portrait mobile layout: Canvas on top, all utility tabs + timeline docked below
           const bottomHeight = Math.max(180, Math.min(340, Math.round(window.innerHeight * 0.40)));
           dockviewApi.addPanel({
             id: 'layers',
@@ -5383,7 +3899,6 @@
             position: { direction: 'within', referencePanel: 'layers' }
           });
         } else {
-          // Landscape / Desktop layout: Canvas center, Timeline below, Tools/Layers on right
           dockviewApi.addPanel({
             id: 'timeline',
             component: 'timeline',
@@ -5443,32 +3958,12 @@
       requestAnimationFrame(() => window.host?.resize?.());
     }
 
-    const layoutPersistence = new LayoutPersistence(DOCKVIEW_STORAGE_KEY);
-    const layoutHistory = new LayoutHistory(layoutPersistence);
-    const dockingOverlay = new DockingOverlay();
-    const touchDragController = new TouchDragController({
-      longPressThreshold: 240,
-      moveTolerance: 10
-    });
-    const layoutEditController = new LayoutEditController({
-      persistence: layoutPersistence,
-      history: layoutHistory,
-      dockingOverlay,
-      touchDrag: touchDragController
-    });
-
     function resetPainterDockLayout(orientationMode = 'auto') {
-      const preSnap = layoutPersistence.captureSnapshot();
-      const preRaw = preSnap ? JSON.stringify(preSnap) : null;
-      layoutPersistence.clearSaved();
+      try {
+        localStorage.removeItem(DOCKVIEW_STORAGE_KEY);
+      } catch (_) {}
       createDefaultPainterDockPanels(orientationMode);
-      const postSnap = layoutPersistence.captureSnapshot();
-      const postRaw = postSnap ? JSON.stringify(postSnap) : null;
-      if (preRaw && postRaw && preRaw !== postRaw) {
-        layoutHistory._pushUndoSnapshot(preRaw, 'reset');
-        layoutHistory.baselineRaw = postRaw;
-      }
-      layoutPersistence.scheduleSave(() => !layoutEditController.state.dragging);
+      scheduleSaveDockLayout();
     }
 
     function initPainterDockview() {
@@ -5478,9 +3973,8 @@
 
       ALL_PANEL_IDS.forEach(getPanelElement);
 
-      // Register pluggable LayoutHistory and DndCompass modules before creating Dockview
-      layoutHistory.registerDockviewModule(dvCore);
-      dockingOverlay.registerDockviewModule(dvCore);
+      // Bind handle-only pointer interception BEFORE Dockview attaches its listeners
+      bindHandleOnlyInteraction(container);
 
       dockviewApi = dvCore.createDockview(container, {
         className: 'dockview-theme-dark',
@@ -5488,15 +3982,10 @@
         disableDnd: false,
         dndStrategy: 'pointer',
         dndEdges: false,
-        dndCompass: true,
         proportionalLayout: true,
         scrollbars: 'native',
-        layoutHistory: { enabled: true, depth: 25, recordResize: true },
-        defaultTabComponent: 'painter-touch-tab',
-        createTabComponent: () => createTouchTabRenderer(layoutEditController),
-        createRightHeaderActionComponent: (group) => createGroupRightHeaderActions(group, layoutEditController),
-        getTabContextMenuItems: (params) => layoutEditController.buildTabContextMenuItems(params),
-        dropOverlayModel: (params) => dockingOverlay.getDropOverlayModel(params),
+        defaultTabComponent: 'painter-handle-tab',
+        createTabComponent: () => createTabWithHandleRenderer(),
         createComponent: (options) => {
           const panelId = options.id || options.name;
           const el = getPanelElement(panelId);
@@ -5516,34 +4005,17 @@
       window.closePainterDockPanel = closePainterDockPanel;
       window.togglePainterDockPanel = togglePainterDockPanel;
       window.resetPainterDockLayout = resetPainterDockLayout;
-      window.painterLayoutEditController = layoutEditController;
-      window.painterLayoutModules = {
-        layoutEditController,
-        touchDragController,
-        dockingOverlay,
-        layoutHistory,
-        layoutPersistence
-      };
 
-      let restored = false;
-      const saved = layoutPersistence.loadSaved();
-      if (saved) {
-        restored = layoutPersistence.restoreSnapshot(saved, { reuseExistingPanels: false });
-        if (!restored) {
-          layoutPersistence.clearSaved();
-          try { dockviewApi.clear(); } catch (_) {}
-        }
-      }
-
-      if (!restored) {
+      if (!restoreSavedDockLayout()) {
+        try {
+          localStorage.removeItem(DOCKVIEW_STORAGE_KEY);
+          dockviewApi.clear();
+        } catch (_) {}
         createDefaultPainterDockPanels('auto');
       }
 
       applyPanelMinimumConstraints();
-      layoutHistory.attach(dockviewApi, () => layoutEditController.state);
-      touchDragController.attach(container, dockviewApi, dockingOverlay);
-      layoutEditController.attach(container, dockviewApi);
-      touchDragController.ensureSashHandles();
+      ensureSashHandles(container);
 
       if (dockviewApi.onWillClosePanel) {
         dockviewApi.onWillClosePanel((e) => {
@@ -5553,21 +4025,23 @@
         });
       }
 
-      if (dockviewApi.onDidActivePanelChange) {
-        dockviewApi.onDidActivePanelChange(() => {
-          layoutEditController.syncToolbarUI();
+      if (dockviewApi.onDidMovePanel) {
+        dockviewApi.onDidMovePanel(() => {
+          applyPanelMinimumConstraints();
+          ensureSashHandles(container);
+          scheduleSaveDockLayout();
+          requestAnimationFrame(() => window.host?.resize?.());
         });
       }
 
       if (dockviewApi.onDidLayoutChange) {
         dockviewApi.onDidLayoutChange(() => {
-          touchDragController.ensureSashHandles();
-          layoutPersistence.scheduleSave(() => !layoutEditController.state.dragging);
+          ensureSashHandles(container);
+          scheduleSaveDockLayout();
           requestAnimationFrame(() => window.host?.resize?.());
         });
       }
 
-      // Observe canvas panel resize so sash dragging immediately updates canvas resolution/viewport
       const cvsWrap = document.getElementById('cvswrap');
       if (cvsWrap && typeof ResizeObserver !== 'undefined') {
         const ro = new ResizeObserver(() => {
