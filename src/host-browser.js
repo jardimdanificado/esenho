@@ -4026,11 +4026,12 @@ async function main() {
       addSubmenu('Pixel Art Studio', [buildDomPanelAction('pixelart')]);
     }
     addSubmenu('Animation Timeline', [
-      { type: 'item', label: host.rasterAnimator?.isPlaying ? '⏸ Pause Playback' : '▶ Play Animation', action: () => { host.rasterAnimator?.togglePlay(); syncUiFromHost(); } },
-      { type: 'item', label: '+ Add Frame', action: () => { host.rasterAnimator?.addFrame(true); host.rasterAnimatorUI?.syncUI(); syncUiFromHost(); } },
-      { type: 'item', label: 'Duplicate Frame', action: () => { host.rasterAnimator?.duplicateFrame(); host.rasterAnimatorUI?.syncUI(); syncUiFromHost(); } },
+      { type: 'item', label: host.rasterAnimator?.isPlaying ? '⏸ Pause Playback' : '▶ Play Animation', hotkey: 'Space', action: () => { host.rasterAnimator?.togglePlay(); syncUiFromHost(); } },
+      { type: 'item', label: (host.rasterAnimator?.loop ? '✓ ' : '') + 'Loop Playback', action: () => { if (host.rasterAnimator) { host.rasterAnimator.loop = !host.rasterAnimator.loop; host.rasterAnimatorUI?.syncUI(); } } },
+      { type: 'item', label: '+ Add Blank Frame', action: () => { host.rasterAnimator?.addFrame(false); host.rasterAnimatorUI?.syncUI(); syncUiFromHost(); } },
+      { type: 'item', label: 'Duplicate Frame', action: () => { host.rasterAnimator?.addFrame(true); host.rasterAnimatorUI?.syncUI(); syncUiFromHost(); } },
       { type: 'item', label: 'Delete Frame', danger: true, action: () => { host.rasterAnimator?.deleteFrame(); host.rasterAnimatorUI?.syncUI(); syncUiFromHost(); } },
-      { type: 'item', label: (host.rasterAnimator?.onionSkin ? '✓ ' : '') + 'Onion Skin', action: () => { if (host.rasterAnimator) { host.rasterAnimator.onionSkin = !host.rasterAnimator.onionSkin; host.render(); } } },
+      { type: 'item', label: (host.rasterAnimator?.onionSkin?.enabled ? '✓ ' : '') + 'Onion Skin', hotkey: 'O', action: () => { host.rasterAnimator?.toggleOnionSkin(); host.render(); } },
       {
         type: 'slider',
         label: 'Frame Rate (FPS)',
@@ -4039,12 +4040,6 @@ async function main() {
         value: host.rasterAnimator?.fps || 12,
         unit: ' fps',
         onInput: (val) => { host.rasterAnimator?.setFps(val); host.rasterAnimatorUI?.syncUI(); }
-      },
-      { type: 'sep' },
-      {
-        type: 'submenu',
-        label: 'Timeline Tracks & Keyframes',
-        items: [buildDomPanelAction('timeline')]
       }
     ]);
 

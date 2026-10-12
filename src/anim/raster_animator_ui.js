@@ -15,17 +15,22 @@ export class RasterAnimatorUI {
     this.container = containerEl;
     this.animator = animator;
     this.options = options;
-    this.visible = false;
+    this.visible = !!(typeof window !== 'undefined' && (window.isDockviewPainter || containerEl?.closest?.('#dock-panel-timeline')));
     this.collapsed = false;
     this.onionSettingsOpen = false;
     this._thumbCache = new Map();
 
     this.render();
     this.bindEvents();
+    this.updateTimeline();
 
     this._unsub = this.animator.subscribe((event, data) => {
       this.handleAnimatorEvent(event, data);
     });
+  }
+
+  syncUI() {
+    this.updateTimeline();
   }
 
   show() {
@@ -38,12 +43,12 @@ export class RasterAnimatorUI {
   }
 
   hide() {
-    this.visible = false;
-    if (typeof window !== 'undefined' && window.isDockviewPainter && typeof window.closePainterDockPanel === 'function') {
-      window.closePainterDockPanel('timeline', true);
-    } else {
-      this.container.style.display = 'none';
+    if (typeof window !== 'undefined' && (window.isDockviewPainter || this.container?.closest?.('#dock-panel-timeline'))) {
+      if (this.animator.isPlaying) this.animator.stop();
+      return;
     }
+    this.visible = false;
+    this.container.style.display = 'none';
     if (this.animator.isPlaying) {
       this.animator.stop();
     }
@@ -371,6 +376,163 @@ export class RasterAnimatorUI {
         btnOnion?.classList.toggle('active', this.animator.onionSkin.enabled);
       }
     });
+
+    this.container.addEventListener('contextmenu', (e) => {
+      if (e.target.closest('.raster-frame-card')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.openTimelineContextMenu(e, this.animator.currentFrameIndex);
+    });
+  }
+
+  openTimelineContextMenu(e, frameIdx) {
+    if (typeof window === 'undefined' || !window.contextMenuService) return;
+    if (typeof frameIdx === 'number' && frameIdx >= 0 && frameIdx < this.animator.frames.length) {
+      this.animator.goToFrame(frameIdx);
+    }
+    const idx = this.animator.currentFrameIndex;
+    const total = this.animator.frames.length;
+    const curFrame = this.animator.frames[idx];
+    const curHold = curFrame?.duration || 1;
+    const onion = this.animator.onionSkin || { enabled: false, prevFrames: 2, nextFrames: 1, opacity: 0.35 };
+
+    const holdChildren = [1, 2, 3, 4, 6].map(h => ({
+      type: 'item',
+      label: (curHold === h ? '✓ ' : '') + `${h}x Hold`,
+      action: () => {
+        if (typeof this.animator.setFrameDuration === 'function') {
+          this.animator.setFrameDuration(h);
+        } else if (curFrame) {
+          curFrame.duration = h;
+          this.updateTimeline();
+        }
+      }
+    }));
+
+    const actions = [
+      { type: 'header', title: `Frame #${idx + 1} of ${total}` },
+      {
+        type: 'item',
+        label: this.animator.isPlaying ? '⏸ Pause Playback' : '▶ Play Animation',
+        hotkey: 'Space',
+        action: () => this.animator.togglePlay()
+      },
+      {
+        type: 'item',
+        label: (this.animator.loop ? '✓ ' : '') + 'Loop Playback',
+        action: () => {
+          this.animator.loop = !this.animator.loop;
+          this.container.querySelector('#raster-btn-loop')?.classList.toggle('active', this.animator.loop);
+        }
+      },
+      {
+        type: 'slider',
+        label: 'Frame Rate (FPS)',
+        min: 1,
+        max: 60,
+        step: 1,
+        value: this.animator.fps || 12,
+        unit: ' fps',
+        onInput: (val) => {
+          this.animator.setFps(val);
+        }
+      },
+      { type: 'sep' },
+      { type: 'item', label: '+ Add Blank Frame', action: () => this.animator.addFrame(false) },
+      { type: 'item', label: 'Duplicate Frame', action: () => this.animator.addFrame(true) },
+      {
+        type: 'item',
+        label: `Hold Duration: ${curHold}x`,
+        children: holdChildren
+      },
+      { type: 'item', label: '← Move Frame Left', action: () => { if (idx > 0) this.animator.moveFrame(idx, idx - 1); } },
+      { type: 'item', label: '→ Move Frame Right', action: () => { if (idx < total - 1) this.animator.moveFrame(idx, idx + 1); } },
+      { type: 'sep' },
+      {
+        type: 'item',
+        label: 'Onion Skin Settings',
+        children: [
+          {
+            type: 'item',
+            label: (onion.enabled ? '✓ ' : '') + 'Enable Onion Skin',
+            hotkey: 'O',
+            action: () => this.animator.toggleOnionSkin()
+          },
+          {
+            type: 'slider',
+            label: 'Past Frames',
+            min: 0,
+            max: 5,
+            step: 1,
+            value: onion.prevFrames ?? 2,
+            onInput: (v) => {
+              this.animator.onionSkin.prevFrames = v;
+              if (!this.animator.onionSkin.enabled && v > 0) this.animator.toggleOnionSkin(true);
+              this.animator.host?.render?.();
+            }
+          },
+          {
+            type: 'slider',
+            label: 'Future Frames',
+            min: 0,
+            max: 5,
+            step: 1,
+            value: onion.nextFrames ?? 1,
+            onInput: (v) => {
+              this.animator.onionSkin.nextFrames = v;
+              if (!this.animator.onionSkin.enabled && v > 0) this.animator.toggleOnionSkin(true);
+              this.animator.host?.render?.();
+            }
+          },
+          {
+            type: 'slider',
+            label: 'Ghost Opacity',
+            min: 10,
+            max: 85,
+            step: 1,
+            value: Math.round((onion.opacity ?? 0.35) * 100),
+            unit: '%',
+            onInput: (v) => {
+              this.animator.onionSkin.opacity = v / 100;
+              this.animator.host?.render?.();
+            }
+          }
+        ]
+      },
+      {
+        type: 'item',
+        label: 'Export Animation',
+        children: [
+          { type: 'item', label: 'Export Animated GIF (.gif)', action: () => this.container.querySelector('#raster-export-gif')?.click() },
+          { type: 'item', label: 'Export WebM Video (.webm)', action: () => this.container.querySelector('#raster-export-webm')?.click() }
+        ]
+      },
+      { type: 'sep' },
+      {
+        type: 'item',
+        label: 'Clear Frame Pixels',
+        danger: true,
+        action: () => {
+          this.animator.clearCurrentFrame();
+          this.updateTimeline();
+        }
+      },
+      {
+        type: 'item',
+        label: 'Delete Frame',
+        danger: true,
+        action: () => {
+          if (this.animator.frames.length <= 1 || confirm('Delete current frame?')) {
+            this.animator.deleteFrame();
+          }
+        }
+      }
+    ];
+
+    window.contextMenuService.showContextMenu({
+      getAnchor: () => ({ x: e.clientX || 160, y: e.clientY || 160 }),
+      getActions: () => actions
+    });
   }
 
   handleAnimatorEvent(event, data) {
@@ -440,6 +602,7 @@ export class RasterAnimatorUI {
       const card = document.createElement('div');
       card.className = `raster-frame-card ${isAct ? 'active' : ''}`;
       card.dataset.index = String(idx);
+      card.title = `Frame #${idx + 1} — Click to select, right-click for timeline actions`;
       card.style.cssText = `
         position: relative; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
         width: 64px; height: 60px; background: var(--bg-panel); border: 2px solid ${isAct ? 'var(--primary)' : 'var(--border)'};
@@ -474,6 +637,12 @@ export class RasterAnimatorUI {
 
       card.addEventListener('click', () => {
         this.animator.goToFrame(idx);
+      });
+
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.openTimelineContextMenu(e, idx);
       });
 
       strip.appendChild(card);

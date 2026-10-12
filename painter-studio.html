@@ -558,6 +558,11 @@
       overflow-y: auto;
     }
 
+    .dock-panel-content #raster-anim-timeline-dock #raster-btn-close,
+    .dock-panel-content #raster-anim-timeline-dock #raster-btn-collapse {
+      display: none !important;
+    }
+
     /* ── Canvas area ── */
     #cvswrap {
       flex: 1 1 0%;
@@ -2421,7 +2426,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.17 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.18 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -3495,11 +3500,12 @@
 <script src="vendor/dockview-core.js"></script>
 <script>
   (function () {
-    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v4';
-    const ALL_PANEL_IDS = ['canvas', 'layers'];
+    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v5';
+    const ALL_PANEL_IDS = ['canvas', 'layers', 'timeline'];
     const PANEL_TITLES = {
       canvas: 'Canvas',
-      layers: 'Layers'
+      layers: 'Layers',
+      timeline: 'Timeline'
     };
 
     const panelElements = new Map();
@@ -3541,7 +3547,7 @@
       saveLayoutTimer = setTimeout(() => {
         try {
           const data = dockviewApi.toJSON();
-          if (data && data.panels && data.panels['canvas'] && data.panels['layers']) {
+          if (data && data.panels && data.panels['canvas'] && data.panels['layers'] && data.panels['timeline']) {
             localStorage.setItem(DOCKVIEW_STORAGE_KEY, JSON.stringify(data));
           }
         } catch (err) {
@@ -3601,7 +3607,16 @@
           title: PANEL_TITLES.canvas
         });
 
-        // 2. Right Dock: Clean Layers List Only
+        // 2. Bottom Dock: Animation Timeline
+        dockviewApi.addPanel({
+          id: 'timeline',
+          component: 'timeline',
+          title: PANEL_TITLES.timeline,
+          position: { direction: 'below', referencePanel: 'canvas' },
+          initialHeight: 135
+        });
+
+        // 3. Right Dock: Clean Layers List Only
         dockviewApi.addPanel({
           id: 'layers',
           component: 'layers',
@@ -3610,6 +3625,7 @@
           initialWidth: 235
         });
 
+        dockviewApi.getPanel('timeline')?.api?.setActive();
         dockviewApi.getPanel('layers')?.api?.setActive();
         dockviewApi.getPanel('canvas')?.api?.setActive();
       } catch (err) {
@@ -3666,12 +3682,13 @@
           if (
             saved &&
             saved.grid &&
-            panelKeys.length === 2 &&
+            panelKeys.length === 3 &&
             saved.panels['canvas'] &&
-            saved.panels['layers']
+            saved.panels['layers'] &&
+            saved.panels['timeline']
           ) {
             dockviewApi.fromJSON(saved);
-            if (dockviewApi.getPanel('canvas') && dockviewApi.getPanel('layers')) {
+            if (dockviewApi.getPanel('canvas') && dockviewApi.getPanel('layers') && dockviewApi.getPanel('timeline')) {
               restored = true;
             }
           }
