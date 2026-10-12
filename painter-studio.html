@@ -2045,70 +2045,71 @@
       overflow: hidden;
     }
 
-    /* ── Tools / Shapes Grid ── */
+    /* ── Tools / Shapes Grid (Ultra-Compact) ── */
     .ip-tools-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 6px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 3px;
     }
     .ip-tool-card {
       background: var(--bg-panel-sub);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 3px 5px;
+      height: 24px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: center;
+      gap: 4px;
       cursor: pointer;
       touch-action: manipulation;
-      transition: all 0.12s ease;
+      font-size: 9.5px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .ip-tool-card:hover {
-      background: var(--bg-panel-sub);
       border-color: var(--border-bright);
     }
     .ip-tool-card.active {
-      background: var(--bg-panel-sub);
+      background: rgba(16, 185, 129, 0.14);
       border-color: var(--primary);
+      color: var(--primary);
+      font-weight: 800;
     }
     .ip-tool-card.active svg { stroke: var(--primary); }
-    .ip-tool-card-info {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .ip-tool-card-name {
-      font-size: 11px;
-      font-weight: bold;
-      color: var(--text);
-    }
-    .ip-tool-card.active .ip-tool-card-name { color: var(--primary); }
-    .ip-tool-card-sub {
-      font-size: 9px;
-      color: var(--text-muted);
-    }
 
-    /* ── Action Modes & Selection Modes Cards ── */
+    /* ── Action Modes & Selection Modes Cards (Ultra-Compact) ── */
     .ip-actionmode-card, .ip-selmode-card {
-      transition: all 0.12s ease;
+      background: var(--bg-panel-sub);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      height: 24px;
+      padding: 2px 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      font-size: 9.5px;
+      font-weight: 600;
+      color: var(--text);
       user-select: none;
       -webkit-user-select: none;
     }
     .ip-actionmode-card:hover, .ip-selmode-card:hover {
-      background: #32302f !important;
       border-color: var(--border-bright) !important;
     }
     .ip-actionmode-card.active, .ip-selmode-card.active {
-      background: var(--border) !important;
+      background: rgba(16, 185, 129, 0.14) !important;
       border-color: var(--primary) !important;
       color: var(--primary) !important;
+      font-weight: 800 !important;
     }
     .ip-actionmode-card.active svg, .ip-selmode-card.active svg {
       stroke: var(--primary) !important;
-    }
-    .ip-actionmode-card.active span, .ip-selmode-card.active span {
-      color: var(--primary) !important;
-      font-weight: 800 !important;
     }
 
     /* ── Pixel Art Action Grid ── */
@@ -2426,7 +2427,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.22 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.23 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -2620,286 +2621,144 @@
       </div>
     </div>
 
-    <!-- 5. STUDIO MODES & TOOLS PANEL -->
+    <!-- 5. STUDIO MODES & TOOLS PANEL (ULTRA-COMPACT) -->
     <div id="dock-panel-tools" class="dock-panel-content">
       <div id="sheet-tools" class="ip-sheet-modal">
         <div class="ip-sheet">
-          <div class="ip-pills-row" id="ip-tools-tab-pills" style="padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-input); width: 100%; box-sizing: border-box;">
-            <button type="button" class="ip-pill-btn active" data-toolstab="draw">Draw &amp; Shapes</button>
-            <button type="button" class="ip-pill-btn" data-toolstab="select">Selection</button>
-            <button type="button" class="ip-pill-btn" data-toolstab="transform">Transform</button>
-            <button type="button" class="ip-pill-btn" data-toolstab="anim">Animation</button>
-          </div>
+          <div class="ip-sheet-content" style="padding: 6px 8px; gap: 6px;">
 
-          <div class="ip-sheet-content">
-            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;">
+            <!-- 1. MODE -->
+            <div style="display: flex; flex-direction: column; gap: 3px;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 10.5px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.3px;">Active Mode</span>
-                <span id="ip-tools-sel-badge" style="font-size: 9.5px; color: var(--text-muted);">Click to switch mode (keeps active selection)</span>
+                <span style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Mode</span>
+                <span id="ip-tools-sel-badge" style="font-size: 9px; color: var(--text-muted);"></span>
               </div>
-              <div id="ip-actionmode-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
-                <div class="ip-actionmode-card active" data-actionmode="draw" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
-                  <span style="font-size: 9.5px; font-weight: 700;">Draw</span>
-                </div>
-                <div class="ip-actionmode-card" data-actionmode="erase" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/></svg>
-                  <span style="font-size: 9.5px; font-weight: 700;">Erase</span>
-                </div>
-                <div class="ip-actionmode-card" data-actionmode="smudge" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 0 0-5 5c0 3 5 9 5 9s5-6 5-9a5 5 0 0 0-5-5z"/></svg>
-                  <span style="font-size: 9.5px; font-weight: 700;">Smudge</span>
-                </div>
-                <div class="ip-actionmode-card" data-actionmode="blend" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>
-                  <span style="font-size: 9.5px; font-weight: 700;">Blend</span>
-                </div>
-                <div class="ip-actionmode-card" data-actionmode="select" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-                  <span style="font-size: 9.5px; font-weight: 700;">Select</span>
-                </div>
+              <div id="ip-actionmode-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px;">
+                <div class="ip-actionmode-card active" data-actionmode="draw"><span>Draw</span></div>
+                <div class="ip-actionmode-card" data-actionmode="erase"><span>Erase</span></div>
+                <div class="ip-actionmode-card" data-actionmode="smudge"><span>Smudge</span></div>
+                <div class="ip-actionmode-card" data-actionmode="blend"><span>Blend</span></div>
+                <div class="ip-actionmode-card" data-actionmode="select"><span>Select</span></div>
               </div>
             </div>
 
-            <!-- TAB 1: DRAW & SHAPE TOOLS -->
-            <div class="ip-tools-tab-panel" data-toolspanel="draw" style="display: flex; flex-direction: column; gap: 8px;">
-              <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
-                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Drawing &amp; Geometric Shape Tools</span>
-                <div class="ip-tools-grid">
-                  <div class="ip-tool-card active" data-tool="brush">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
-                    <div class="ip-tool-card-info">
-                      <span class="ip-tool-card-name">Freehand Brush</span>
-                      <span class="ip-tool-card-sub">Standard paint stroke</span>
-                    </div>
-                  </div>
-                  <div class="ip-tool-card" data-tool="fill">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11l-8-8-8.5 8.5a2.12 2.12 0 0 0 0 3l5 5a2.12 2.12 0 0 0 3 0L19 11z"/><path d="M5 2l5 5"/></svg>
-                    <div class="ip-tool-card-info">
-                      <span class="ip-tool-card-name">Flood Fill</span>
-                      <span class="ip-tool-card-sub">Paint bucket</span>
-                    </div>
-                  </div>
-                  <div class="ip-tool-card" data-tool="lasso_fill">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a8 8 0 0 1 13.5-5.5L20 11"/><path d="M11 20a8 8 0 0 1-5.5-13.5L8 4"/></svg>
-                    <div class="ip-tool-card-info">
-                      <span class="ip-tool-card-name">Lasso Fill</span>
-                      <span class="ip-tool-card-sub">Filled freehand shape</span>
-                    </div>
-                  </div>
-                  <div class="ip-tool-card" data-tool="line">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
-                    <div class="ip-tool-card-info">
-                      <span class="ip-tool-card-name">Line Guide</span>
-                      <span class="ip-tool-card-sub">Straight line guide</span>
-                    </div>
-                  </div>
-                  <div class="ip-tool-card" data-tool="rect">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-                    <div class="ip-tool-card-info">
-                      <span class="ip-tool-card-name">Rectangle</span>
-                      <span class="ip-tool-card-sub">Box shape</span>
-                    </div>
-                  </div>
-                  <div class="ip-tool-card" data-tool="ellipse">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
-                    <div class="ip-tool-card-info">
-                      <span class="ip-tool-card-name">Ellipse</span>
-                      <span class="ip-tool-card-sub">Circle / ellipse shape</span>
-                    </div>
-                  </div>
-                  <div class="ip-tool-card" data-tool="picker">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2l4 4-8 8-4-4 8-8z"/><path d="M6 14l-2 6 6-2"/></svg>
-                    <div class="ip-tool-card-info">
-                      <span class="ip-tool-card-name">Eyedropper</span>
-                      <span class="ip-tool-card-sub">Sample canvas color</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
-                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Symmetry Guides</span>
-                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
-                  <button type="button" class="ip-btn ip-sym-btn active" data-sym="0">Off</button>
-                  <button type="button" class="ip-btn ip-sym-btn" data-sym="1">Horiz X</button>
-                  <button type="button" class="ip-btn ip-sym-btn" data-sym="2">Vert Y</button>
-                  <button type="button" class="ip-btn ip-sym-btn" data-sym="3">Quad</button>
-                  <button type="button" class="ip-btn ip-sym-btn" data-sym="4">Radial</button>
-                </div>
+            <!-- 2. TOOLS & SHAPES -->
+            <div style="display: flex; flex-direction: column; gap: 3px;">
+              <span style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Tools &amp; Shapes</span>
+              <div class="ip-tools-grid">
+                <div class="ip-tool-card active" data-tool="brush">Brush</div>
+                <div class="ip-tool-card" data-tool="fill">Bucket</div>
+                <div class="ip-tool-card" data-tool="lasso_fill">Lasso Fill</div>
+                <div class="ip-tool-card" data-tool="picker">Picker</div>
+                <div class="ip-tool-card" data-tool="line">Line</div>
+                <div class="ip-tool-card" data-tool="rect">Rect</div>
+                <div class="ip-tool-card" data-tool="ellipse">Ellipse</div>
               </div>
             </div>
 
-            <!-- TAB 2: SELECTION -->
-            <div class="ip-tools-tab-panel" data-toolspanel="select" style="display: none; flex-direction: column; gap: 8px;">
-              <div style="background: var(--bg-panel-sub); border: 1px solid var(--primary); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
-                <span style="font-size: 10.5px; font-weight: bold; color: var(--primary);">Paint Inside Active Selection (Keep Mask)</span>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                  <button type="button" id="btn-ip-sel-paint-inside" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: 800;">🖌 Paint w/ Brush</button>
-                  <button type="button" id="btn-ip-sel-erase-inside" class="ip-btn" style="font-weight: 700;">🧹 Erase Inside</button>
-                </div>
-              </div>
-
-              <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
-                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">1. Selection Tools</span>
-                <div class="ip-tools-grid">
-                  <div class="ip-tool-card" data-tool="select_rect">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-                    <div class="ip-tool-card-info">
-                      <span class="ip-tool-card-name">Marquee Box</span>
-                      <span class="ip-tool-card-sub">Rectangular area</span>
-                    </div>
-                  </div>
-                  <div class="ip-tool-card" data-tool="lasso_select">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a8 8 0 0 1 13.5-5.5L20 11"/><path d="M11 20a8 8 0 0 1-5.5-13.5L8 4"/></svg>
-                    <div class="ip-tool-card-info">
-                      <span class="ip-tool-card-name">Lasso Select</span>
-                      <span class="ip-tool-card-sub">Freehand polygon</span>
-                    </div>
-                  </div>
-                  <div class="ip-tool-card" data-tool="magic_wand">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4l5 5L7 22H2v-5L15 4z"/><line x1="18.5" y1="2.5" x2="21.5" y2="5.5"/><line x1="12" y1="7" x2="17" y2="12"/></svg>
-                    <div class="ip-tool-card-info">
-                      <span class="ip-tool-card-name">Magic Wand</span>
-                      <span class="ip-tool-card-sub">Flood color match</span>
-                    </div>
-                  </div>
-                  <div class="ip-tool-card" data-tool="brush_select">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><circle cx="12" cy="12" r="9" stroke-dasharray="2 2"/></svg>
-                    <div class="ip-tool-card-info">
-                      <span class="ip-tool-card-name">Brush Mask</span>
-                      <span class="ip-tool-card-sub">Paint selection mask</span>
-                    </div>
-                  </div>
-                </div>
-
-                <span style="font-size: 10.5px; font-weight: bold; color: var(--text-muted); margin-top: 2px;">Boolean Combine Mode</span>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
-                  <div class="ip-selmode-card active" data-selmode="replace" title="New Selection" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer;">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-                    <span style="font-size: 9.5px; font-weight: 700;">New</span>
-                  </div>
-                  <div class="ip-selmode-card" data-selmode="add" title="Add to Selection (+)" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer;">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="11" height="11" rx="1.5"/><rect x="10" y="10" width="11" height="11" rx="1.5" stroke-dasharray="2 2"/><line x1="15.5" y1="12" x2="15.5" y2="19"/><line x1="12" y1="15.5" x2="19" y2="15.5"/></svg>
-                    <span style="font-size: 9.5px; font-weight: 700;">Add (+)</span>
-                  </div>
-                  <div class="ip-selmode-card" data-selmode="sub" title="Subtract from Selection (-)" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer;">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="11" height="11" rx="1.5"/><rect x="10" y="10" width="11" height="11" rx="1.5" stroke-dasharray="2 2"/><line x1="12" y1="15.5" x2="19" y2="15.5"/></svg>
-                    <span style="font-size: 9.5px; font-weight: 700;">Sub (-)</span>
-                  </div>
-                  <div class="ip-selmode-card" data-selmode="intersect" title="Intersect Selection (∩)" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer;">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="12" height="12" rx="1.5"/><rect x="9" y="9" width="12" height="12" rx="1.5"/><rect x="9" y="9" width="6" height="6" fill="currentColor" fill-opacity="0.35"/></svg>
-                    <span style="font-size: 9.5px; font-weight: 700;">Intersect</span>
-                  </div>
-                </div>
-
-                <div style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px; display: flex; flex-direction: column; gap: 5px; margin-top: 2px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 10px; font-weight: bold; color: var(--text);">Magic Wand Tolerance: <span id="ip-sheet-wand-tol-val" style="color: var(--primary);">30</span></span>
-                    <label style="display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted); cursor: pointer;">
-                      <input type="checkbox" id="ip-sheet-wand-adj" checked> Contiguous Only
-                    </label>
-                  </div>
-                  <input type="range" id="ip-sheet-slider-wand-tol" class="ip-slider" min="0" max="255" value="30">
-                </div>
-              </div>
-
-              <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
-                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">2. Selection Mask &amp; Clipboard Actions</span>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
-                  <button type="button" id="btn-ip-select-all" class="ip-btn">Select All</button>
-                  <button type="button" id="btn-ip-invert-sel" class="ip-btn">Invert</button>
-                  <button type="button" id="btn-ip-deselect" class="ip-btn">Deselect</button>
-                  <button type="button" id="btn-ip-transform" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;">Transform</button>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
-                  <button type="button" id="btn-ip-copy" class="ip-btn">Copy</button>
-                  <button type="button" id="btn-ip-cut" class="ip-btn">Cut</button>
-                  <button type="button" id="btn-ip-paste" class="ip-btn">Paste</button>
-                  <button type="button" id="btn-ip-crop-sel" class="ip-btn">Crop Canvas</button>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
-                  <button type="button" id="btn-ip-sel-clear-pixels" class="ip-btn" style="color: var(--danger);">Clear Pixels</button>
-                  <button type="button" id="btn-ip-sel-capture-tip" class="ip-btn">Capture Tip</button>
-                  <button type="button" id="btn-ip-sel-capture-grain" class="ip-btn">Capture Grain</button>
-                </div>
+            <!-- 3. SYMMETRY -->
+            <div style="display: flex; flex-direction: column; gap: 3px;">
+              <span style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Symmetry</span>
+              <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px;">
+                <button type="button" class="ip-btn ip-mini-btn ip-sym-btn active" data-sym="0" style="height: 22px; padding: 0; font-size: 9.5px;">Off</button>
+                <button type="button" class="ip-btn ip-mini-btn ip-sym-btn" data-sym="1" style="height: 22px; padding: 0; font-size: 9.5px;">X</button>
+                <button type="button" class="ip-btn ip-mini-btn ip-sym-btn" data-sym="2" style="height: 22px; padding: 0; font-size: 9.5px;">Y</button>
+                <button type="button" class="ip-btn ip-mini-btn ip-sym-btn" data-sym="3" style="height: 22px; padding: 0; font-size: 9.5px;">Quad</button>
+                <button type="button" class="ip-btn ip-mini-btn ip-sym-btn" data-sym="4" style="height: 22px; padding: 0; font-size: 9.5px;">Radial</button>
               </div>
             </div>
 
-            <!-- TAB 3: TRANSFORM -->
-            <div class="ip-tools-tab-panel" data-toolspanel="transform" style="display: none; flex-direction: column; gap: 8px;">
-              <div style="background: var(--bg-panel-sub); border: 1px solid var(--primary); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 8px;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <span style="font-size: 11px; font-weight: bold; color: var(--primary);">1. Free Transform &amp; Perspective Quad</span>
-                  <button type="button" id="btn-ip-tool-transform" data-tool="transform" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: 800; padding: 4px 10px;">Start Transform (Ctrl+T)</button>
-                </div>
+            <div style="height: 1px; background: var(--border);"></div>
 
-                <span style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Deform Mode</span>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
-                  <button type="button" class="ip-btn ip-xbar-mode active" data-xmode="scale">Free Scale</button>
-                  <button type="button" class="ip-btn ip-xbar-mode" data-xmode="distort">Perspective Distort</button>
-                  <button type="button" class="ip-btn ip-xbar-mode" data-xmode="skew">Skew / Shear</button>
+            <!-- 4. SELECTION -->
+            <div style="display: flex; flex-direction: column; gap: 3px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Selection</span>
+                <div style="display: flex; gap: 3px;">
+                  <button type="button" id="btn-ip-sel-paint-inside" class="ip-btn ip-mini-btn" style="height: 20px; padding: 0 6px; font-size: 9px; background: var(--primary); color: var(--bg-dark); font-weight: 800;" title="Switch to Brush keeping active selection mask">🖌 Paint Inside</button>
+                  <button type="button" id="btn-ip-sel-erase-inside" class="ip-btn ip-mini-btn" style="height: 20px; padding: 0 6px; font-size: 9px;" title="Switch to Eraser keeping active selection mask">🧹 Erase Inside</button>
                 </div>
+              </div>
 
-                <span style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Constraints &amp; Interpolation</span>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
-                  <button type="button" id="btn-ip-sheet-xform-lock" class="ip-btn">Lock Aspect</button>
-                  <button type="button" class="ip-btn ip-sheet-xform-interp active" data-xinterp="nearest">Crisp (Nearest)</button>
-                  <button type="button" class="ip-btn ip-sheet-xform-interp" data-xinterp="bilinear">Smooth (Bilinear)</button>
-                </div>
+              <div class="ip-tools-grid">
+                <div class="ip-tool-card" data-tool="select_rect">Marquee</div>
+                <div class="ip-tool-card" data-tool="lasso_select">Lasso</div>
+                <div class="ip-tool-card" data-tool="magic_wand">Wand</div>
+                <div class="ip-tool-card" data-tool="brush_select">Mask Brush</div>
+              </div>
 
-                <span style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Rotate, Flip &amp; Alignment</span>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
-                  <button type="button" id="btn-sheet-xform-ccw" class="ip-btn">↶ 90° CCW</button>
-                  <button type="button" id="btn-sheet-xform-cw" class="ip-btn">↷ 90° CW</button>
-                  <button type="button" id="btn-sheet-xform-fliph" class="ip-btn">⇄ Flip H</button>
-                  <button type="button" id="btn-sheet-xform-flipv" class="ip-btn">⇅ Flip V</button>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
-                  <button type="button" id="btn-sheet-xform-center" class="ip-btn">Center Canvas</button>
-                  <button type="button" id="btn-sheet-xform-fit" class="ip-btn">Fit to Canvas</button>
-                  <button type="button" id="btn-sheet-xform-reset" class="ip-btn">↺ Reset Quad</button>
-                </div>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+                <div class="ip-selmode-card active" data-selmode="replace" title="New Selection"><span>New</span></div>
+                <div class="ip-selmode-card" data-selmode="add" title="Add (+)"><span>Add +</span></div>
+                <div class="ip-selmode-card" data-selmode="sub" title="Subtract (-)"><span>Sub −</span></div>
+                <div class="ip-selmode-card" data-selmode="intersect" title="Intersect"><span>Intersect</span></div>
+              </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 2px;">
-                  <button type="button" id="btn-ip-xform-apply" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;">✓ Apply Transform</button>
-                  <button type="button" id="btn-ip-xform-cancel" class="ip-btn" style="color: var(--danger); font-weight: bold;">✕ Cancel Transform</button>
-                </div>
+              <div style="display: flex; align-items: center; gap: 6px; padding: 2px 0;">
+                <span style="font-size: 9px; color: var(--text-muted); white-space: nowrap;">Wand Tol <b id="ip-sheet-wand-tol-val" style="color: var(--primary);">30</b></span>
+                <input type="range" id="ip-sheet-slider-wand-tol" class="ip-slider" min="0" max="255" value="30" style="flex: 1; height: 4px;">
+                <label style="display: flex; align-items: center; gap: 3px; font-size: 9px; color: var(--text-muted); cursor: pointer; white-space: nowrap;">
+                  <input type="checkbox" id="ip-sheet-wand-adj" checked style="margin: 0;"> Contig.
+                </label>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+                <button type="button" id="btn-ip-select-all" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">All</button>
+                <button type="button" id="btn-ip-invert-sel" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Invert</button>
+                <button type="button" id="btn-ip-deselect" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Deselect</button>
+                <button type="button" id="btn-ip-sel-clear-pixels" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px; color: var(--danger);">Clear</button>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+                <button type="button" id="btn-ip-copy" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Copy</button>
+                <button type="button" id="btn-ip-cut" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Cut</button>
+                <button type="button" id="btn-ip-paste" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Paste</button>
+                <button type="button" id="btn-ip-crop-sel" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Crop</button>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px;">
+                <button type="button" id="btn-ip-sel-capture-tip" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Capture Brush Tip</button>
+                <button type="button" id="btn-ip-sel-capture-grain" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Capture Grain</button>
               </div>
             </div>
 
-            <!-- TAB 4: ANIMATION -->
-            <div class="ip-tools-tab-panel" data-toolspanel="anim" style="display: none; flex-direction: column; gap: 8px;">
-              <div style="background: var(--bg-panel-sub); border: 1px solid var(--primary); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Per-Layer Frame Animation Studio</span>
-                  <button type="button" id="btn-sheet-anim-toggle-dock" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: 800; padding: 4px 10px;">Focus Timeline Tab</button>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
-                  <button type="button" id="btn-sheet-anim-prev" class="ip-btn">◀ Prev</button>
-                  <button type="button" id="btn-sheet-anim-play" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;">▶ Play / Pause</button>
-                  <button type="button" id="btn-sheet-anim-next" class="ip-btn">Next ▶</button>
-                  <button type="button" id="btn-sheet-anim-onion" class="ip-btn">Onion Skin</button>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
-                  <button type="button" id="btn-sheet-anim-add" class="ip-btn">+ Blank Cel</button>
-                  <button type="button" id="btn-sheet-anim-dup" class="ip-btn">⎘ Duplicate Cel</button>
-                  <button type="button" id="btn-sheet-anim-del" class="ip-btn" style="color: var(--danger);">🗑 Delete Cel</button>
-                </div>
-                <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-dark); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px;">
-                  <span style="font-size: 10px; font-weight: bold; color: var(--text);">Active Cel Duration (Frames):</span>
-                  <div style="display: flex; align-items: center; gap: 4px;">
-                    <button type="button" id="btn-sheet-anim-dur-dec" class="ip-btn ip-mini-btn" style="padding: 2px 7px;">−</button>
-                    <input type="number" id="ip-sheet-anim-duration" min="1" step="1" value="1" style="width: 54px; height: 22px; background: var(--bg-panel); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; font-family: var(--font-mono); font-size: 11px; font-weight: 800; text-align: center;">
-                    <button type="button" id="btn-sheet-anim-dur-inc" class="ip-btn ip-mini-btn" style="padding: 2px 7px;">+</button>
-                  </div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                  <button type="button" id="btn-sheet-anim-gif" class="ip-btn">Export Animated GIF</button>
-                  <button type="button" id="btn-sheet-anim-webm" class="ip-btn">Export WebM Video</button>
+            <div style="height: 1px; background: var(--border);"></div>
+
+            <!-- 5. TRANSFORM -->
+            <div style="display: flex; flex-direction: column; gap: 3px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Transform</span>
+                <div style="display: flex; gap: 3px;">
+                  <button type="button" id="btn-ip-tool-transform" data-tool="transform" class="ip-btn ip-mini-btn" style="height: 20px; padding: 0 7px; font-size: 9px; background: var(--primary); color: var(--bg-dark); font-weight: 800;">Transform (Ctrl+T)</button>
+                  <button type="button" id="btn-ip-xform-apply" class="ip-btn ip-mini-btn" style="height: 20px; padding: 0 6px; font-size: 9px; font-weight: 800; color: var(--primary);">✓ Apply</button>
+                  <button type="button" id="btn-ip-xform-cancel" class="ip-btn ip-mini-btn" style="height: 20px; padding: 0 6px; font-size: 9px; font-weight: 800; color: var(--danger);">✕</button>
                 </div>
               </div>
+
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;">
+                <button type="button" class="ip-btn ip-mini-btn ip-xbar-mode active" data-xmode="scale" style="height: 22px; padding: 0; font-size: 9px;">Scale</button>
+                <button type="button" class="ip-btn ip-mini-btn ip-xbar-mode" data-xmode="distort" style="height: 22px; padding: 0; font-size: 9px;">Distort</button>
+                <button type="button" class="ip-btn ip-mini-btn ip-xbar-mode" data-xmode="skew" style="height: 22px; padding: 0; font-size: 9px;">Skew</button>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;">
+                <button type="button" id="btn-ip-sheet-xform-lock" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Lock Ratio</button>
+                <button type="button" class="ip-btn ip-mini-btn ip-sheet-xform-interp active" data-xinterp="nearest" style="height: 22px; padding: 0; font-size: 9px;">Crisp</button>
+                <button type="button" class="ip-btn ip-mini-btn ip-sheet-xform-interp" data-xinterp="bilinear" style="height: 22px; padding: 0; font-size: 9px;">Smooth</button>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+                <button type="button" id="btn-sheet-xform-ccw" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">↶ 90°</button>
+                <button type="button" id="btn-sheet-xform-cw" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">↷ 90°</button>
+                <button type="button" id="btn-sheet-xform-fliph" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">⇄ Flip H</button>
+                <button type="button" id="btn-sheet-xform-flipv" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">⇅ Flip V</button>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;">
+                <button type="button" id="btn-sheet-xform-center" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Center</button>
+                <button type="button" id="btn-sheet-xform-fit" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Fit</button>
+                <button type="button" id="btn-sheet-xform-reset" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0; font-size: 9px;">Reset</button>
+              </div>
             </div>
+
           </div>
         </div>
       </div>
