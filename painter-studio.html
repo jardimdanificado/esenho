@@ -360,27 +360,31 @@
       pointer-events: none !important;
     }
 
-    /* Dedicated, larger resize handle in the center of each active split divider */
+    /* Discreet corner resize handle on each active split divider */
     #dockview-container .dv-sash > .dv-sash-handle {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
       display: flex;
       align-items: center;
       justify-content: center;
       border-radius: 999px;
-      background: var(--bg-panel-sub);
-      border: 1px solid rgba(250, 189, 47, 0.55);
-      color: var(--primary);
-      font-size: 12px;
-      font-weight: 700;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: var(--text-muted);
+      font-size: 9px;
       line-height: 1;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+      opacity: 0.35;
       pointer-events: auto !important;
       touch-action: none !important;
       user-select: none;
-      transition: background-color 0.12s ease, color 0.12s ease, transform 0.12s ease, border-color 0.12s ease;
+      transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+
+    /* Invisible hit-area expansion around the corner pill for comfortable touch/mouse grabbing */
+    #dockview-container .dv-sash > .dv-sash-handle::after {
+      content: "";
+      position: absolute;
+      inset: -7px;
+      border-radius: 999px;
     }
 
     #dockview-container .dv-sash.dv-disabled > .dv-sash-handle {
@@ -388,36 +392,65 @@
       pointer-events: none !important;
     }
 
-    #dockview-container .dv-sash > .dv-sash-handle:hover,
-    #dockview-container .dv-sash > .dv-sash-handle:active {
+    /* Vertical divider (left/right split): tuck handle near bottom corner */
+    #dockview-container .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle {
+      top: auto;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 7px;
+      height: 24px;
+      cursor: ew-resize !important;
+    }
+    #dockview-container .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle::before {
+      content: "⋮";
+    }
+
+    /* Horizontal divider (top/bottom split): tuck handle near right corner */
+    #dockview-container .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle {
+      left: auto;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 24px;
+      height: 7px;
+      cursor: ns-resize !important;
+    }
+    #dockview-container .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle::before {
+      content: "⋯";
+    }
+
+    #dockview-container .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle:hover,
+    #dockview-container .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle:active {
+      opacity: 0.95;
       background: var(--primary);
       color: var(--bg-dark);
       border-color: var(--primary);
-      transform: translate(-50%, -50%) scale(1.08);
+      transform: translateX(-50%) scale(1.12);
     }
 
-    #dockview-container .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle {
-      width: 18px;
-      height: 52px;
-      cursor: ew-resize !important;
-    }
-
-    #dockview-container .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle {
-      width: 52px;
-      height: 18px;
-      cursor: ns-resize !important;
+    #dockview-container .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle:hover,
+    #dockview-container .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle:active {
+      opacity: 0.95;
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
+      transform: translateY(-50%) scale(1.12);
     }
 
     @media (pointer: coarse) {
+      #dockview-container .dv-sash > .dv-sash-handle::after {
+        inset: -11px;
+      }
       #dockview-container .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle {
-        width: 26px;
-        height: 64px;
-        font-size: 14px;
+        width: 9px;
+        height: 28px;
+        bottom: 12px;
       }
       #dockview-container .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle {
-        width: 64px;
-        height: 26px;
-        font-size: 14px;
+        width: 28px;
+        height: 9px;
+        right: 14px;
       }
     }
 
@@ -449,7 +482,7 @@
       font-size: 10.5px;
       font-weight: 600;
       letter-spacing: 0.3px;
-      padding: 0 7px 0 4px;
+      padding: 0 7px 0 3px;
       height: 26px;
       line-height: 26px;
       cursor: pointer !important;
@@ -460,21 +493,21 @@
       background: transparent;
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 2px;
     }
 
     @media (pointer: coarse) {
       .dockview-theme-dark,
       #dockview-container {
-        --dv-tabs-and-actions-container-height: 32px;
+        --dv-tabs-and-actions-container-height: 30px;
       }
       #dockview-container .dv-tabs-and-actions-container {
-        height: 32px !important;
+        height: 30px !important;
       }
       #dockview-container .dv-tab {
-        height: 32px;
-        line-height: 32px;
-        padding: 0 9px 0 5px;
+        height: 30px;
+        line-height: 30px;
+        padding: 0 8px 0 4px;
         font-size: 11px;
       }
     }
@@ -490,56 +523,61 @@
       background: var(--bg-panel-sub);
     }
 
-    #dockview-container .dv-tab.dv-tab--touch-armed {
-      outline: 2px solid var(--primary) !important;
-      outline-offset: -2px;
-      background: var(--primary-dim) !important;
-      color: var(--text-bright) !important;
-    }
-
     #dockview-container .dv-tab * {
       cursor: pointer;
     }
 
-    /* Dedicated Larger Tab Drag Handle (always visible) */
-    .dv-touch-tab-wrap {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      height: 100%;
-    }
-
+    /* Discreet Left-Edge Tab Drag Handle */
     #dockview-container .dv-tab .dv-tab-drag-handle {
+      position: relative;
       display: inline-flex !important;
       align-items: center;
       justify-content: center;
-      width: 22px;
-      height: 20px;
-      border-radius: 4px;
-      color: var(--primary);
-      background: rgba(250, 189, 47, 0.15);
-      border: 1px solid rgba(250, 189, 47, 0.42);
-      font-size: 12px;
+      width: 13px;
+      height: 18px;
+      margin-left: -1px;
+      border-radius: 3px;
+      color: currentColor;
+      background: transparent;
+      border: none;
+      opacity: 0.28;
+      font-size: 10px;
       line-height: 1;
       cursor: grab !important;
       touch-action: none !important;
       flex-shrink: 0;
-      transition: background-color 0.12s ease, color 0.12s ease, transform 0.12s ease;
+      transition: opacity 0.12s ease, background-color 0.12s ease, color 0.12s ease;
+    }
+
+    /* Invisible hit-area expansion so the discreet handle remains easy to grab */
+    #dockview-container .dv-tab .dv-tab-drag-handle::after {
+      content: "";
+      position: absolute;
+      inset: -4px -3px;
+    }
+
+    #dockview-container .dv-tab:hover .dv-tab-drag-handle,
+    #dockview-container .dv-tab.dv-active-tab .dv-tab-drag-handle {
+      opacity: 0.5;
     }
 
     #dockview-container .dv-tab .dv-tab-drag-handle:hover,
     #dockview-container .dv-tab .dv-tab-drag-handle:active {
-      background: var(--primary) !important;
-      color: var(--bg-dark) !important;
-      border-color: var(--primary) !important;
+      opacity: 1 !important;
+      background: rgba(250, 189, 47, 0.18) !important;
+      color: var(--primary) !important;
       cursor: grabbing !important;
     }
 
     @media (pointer: coarse) {
       #dockview-container .dv-tab .dv-tab-drag-handle {
-        width: 28px;
-        height: 26px;
-        font-size: 14px;
+        width: 16px;
+        height: 22px;
+        font-size: 11px;
+        opacity: 0.42;
+      }
+      #dockview-container .dv-tab .dv-tab-drag-handle::after {
+        inset: -5px -4px;
       }
     }
 
@@ -2580,7 +2618,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.29 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.30 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
