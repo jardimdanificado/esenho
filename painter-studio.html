@@ -2426,7 +2426,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.19 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.20 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -2635,9 +2635,9 @@
             <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <span style="font-size: 10.5px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.3px;">Active Mode</span>
-                <span style="font-size: 9.5px; color: var(--text-muted);">Click to switch mode</span>
+                <span id="ip-tools-sel-badge" style="font-size: 9.5px; color: var(--text-muted);">Click to switch mode (keeps active selection)</span>
               </div>
-              <div id="ip-actionmode-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
+              <div id="ip-actionmode-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
                 <div class="ip-actionmode-card active" data-actionmode="draw" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
                   <span style="font-size: 9.5px; font-weight: 700;">Draw</span>
@@ -2649,6 +2649,10 @@
                 <div class="ip-actionmode-card" data-actionmode="smudge" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 0 0-5 5c0 3 5 9 5 9s5-6 5-9a5 5 0 0 0-5-5z"/></svg>
                   <span style="font-size: 9.5px; font-weight: 700;">Smudge</span>
+                </div>
+                <div class="ip-actionmode-card" data-actionmode="blend" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>
+                  <span style="font-size: 9.5px; font-weight: 700;">Blend</span>
                 </div>
                 <div class="ip-actionmode-card" data-actionmode="select" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
@@ -2713,10 +2717,29 @@
                   </div>
                 </div>
               </div>
+
+              <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
+                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Symmetry Guides</span>
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
+                  <button type="button" class="ip-btn ip-sym-btn active" data-sym="0">Off</button>
+                  <button type="button" class="ip-btn ip-sym-btn" data-sym="1">Horiz X</button>
+                  <button type="button" class="ip-btn ip-sym-btn" data-sym="2">Vert Y</button>
+                  <button type="button" class="ip-btn ip-sym-btn" data-sym="3">Quad</button>
+                  <button type="button" class="ip-btn ip-sym-btn" data-sym="4">Radial</button>
+                </div>
+              </div>
             </div>
 
             <!-- TAB 2: SELECTION -->
             <div class="ip-tools-tab-panel" data-toolspanel="select" style="display: none; flex-direction: column; gap: 8px;">
+              <div style="background: var(--bg-panel-sub); border: 1px solid var(--primary); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
+                <span style="font-size: 10.5px; font-weight: bold; color: var(--primary);">Paint Inside Active Selection (Keep Mask)</span>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                  <button type="button" id="btn-ip-sel-paint-inside" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: 800;">🖌 Paint w/ Brush</button>
+                  <button type="button" id="btn-ip-sel-erase-inside" class="ip-btn" style="font-weight: 700;">🧹 Erase Inside</button>
+                </div>
+              </div>
+
               <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
                 <span style="font-size: 11px; font-weight: bold; color: var(--primary);">1. Selection Tools</span>
                 <div class="ip-tools-grid">
@@ -2795,6 +2818,11 @@
                   <button type="button" id="btn-ip-paste" class="ip-btn">Paste</button>
                   <button type="button" id="btn-ip-crop-sel" class="ip-btn">Crop Canvas</button>
                 </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
+                  <button type="button" id="btn-ip-sel-clear-pixels" class="ip-btn" style="color: var(--danger);">Clear Pixels</button>
+                  <button type="button" id="btn-ip-sel-capture-tip" class="ip-btn">Capture Tip</button>
+                  <button type="button" id="btn-ip-sel-capture-grain" class="ip-btn">Capture Grain</button>
+                </div>
               </div>
             </div>
 
@@ -2811,6 +2839,13 @@
                   <button type="button" class="ip-btn ip-xbar-mode active" data-xmode="scale">Free Scale</button>
                   <button type="button" class="ip-btn ip-xbar-mode" data-xmode="distort">Perspective Distort</button>
                   <button type="button" class="ip-btn ip-xbar-mode" data-xmode="skew">Skew / Shear</button>
+                </div>
+
+                <span style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Constraints &amp; Interpolation</span>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
+                  <button type="button" id="btn-ip-sheet-xform-lock" class="ip-btn">Lock Aspect</button>
+                  <button type="button" class="ip-btn ip-sheet-xform-interp active" data-xinterp="nearest">Crisp (Nearest)</button>
+                  <button type="button" class="ip-btn ip-sheet-xform-interp" data-xinterp="bilinear">Smooth (Bilinear)</button>
                 </div>
 
                 <span style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Rotate, Flip &amp; Alignment</span>
@@ -3492,11 +3527,12 @@
 <script src="vendor/dockview-core.js"></script>
 <script>
   (function () {
-    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v6';
-    const ALL_PANEL_IDS = ['canvas', 'layers', 'timeline', 'color', 'lab', 'hud'];
+    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v7';
+    const ALL_PANEL_IDS = ['canvas', 'layers', 'tools', 'timeline', 'color', 'lab', 'hud'];
     const PANEL_TITLES = {
       canvas: 'Canvas',
       layers: 'Layers',
+      tools: 'Tools',
       timeline: 'Timeline',
       color: 'Color Studio',
       lab: 'Brush Lab',
@@ -3611,13 +3647,20 @@
           initialHeight: 135
         });
 
-        // 3. Right Dock: Layers, Color Studio, Brush Lab & Menu Sliders
+        // 3. Right Dock: Layers, Tools, Color Studio, Brush Lab & Menu Sliders
         dockviewApi.addPanel({
           id: 'layers',
           component: 'layers',
           title: PANEL_TITLES.layers,
           position: { direction: 'right', referencePanel: 'canvas' },
           initialWidth: 280
+        });
+
+        dockviewApi.addPanel({
+          id: 'tools',
+          component: 'tools',
+          title: PANEL_TITLES.tools,
+          position: { direction: 'within', referencePanel: 'layers' }
         });
 
         dockviewApi.addPanel({

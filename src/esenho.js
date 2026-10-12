@@ -7483,9 +7483,20 @@ class EsenhoScreenHost {
     const m = String(mode).toLowerCase();
     if (m === 'erase' || m === 'eraser') this.actionMode = 'erase';
     else if (m === 'smudge') this.actionMode = 'smudge';
+    else if (m === 'blend') this.actionMode = 'blend';
+    else if (m === 'clone') this.actionMode = 'clone';
     else if (m === 'select' || m === 'sel') this.actionMode = 'select';
     else if (m === 'vector' || m === 'vec') this.actionMode = 'vector';
     else this.actionMode = 'draw';
+    if (this.actionMode !== 'select') {
+      if (this.brushParams && (this.brushParams.mode === 9 || this.brushParams.mode === 10 || this.brushParams.mode === 11)) {
+        this.brushParams.mode = 0;
+        if (this.brushActor?.exports?.w_set_mode) this.brushActor.exports.w_set_mode(0);
+      }
+      if (this.currentTool === 'select_rect' || this.currentTool === 'lasso_select' || this.currentTool === 'magic_wand' || this.currentTool === 'select') {
+        this.currentTool = 'brush';
+      }
+    }
     return this.actionMode;
   }
 

@@ -3508,7 +3508,7 @@ async function main() {
     host.contextMenuSliders = initialSliders;
   }
 
-  const DOCKVIEW_TAB_PANELS = new Set(['canvas', 'layers', 'timeline', 'color', 'lab', 'hud']);
+  const DOCKVIEW_TAB_PANELS = new Set(['canvas', 'layers', 'tools', 'timeline', 'color', 'lab', 'hud']);
 
   function openPanelInContextMenu(panelId, anchor) {
     if (panelId === 'brushes') panelId = 'lab';
@@ -3970,6 +3970,9 @@ async function main() {
           { type: 'item', label: (curMode === 'select' && host.currentTool === 'magic_wand' ? '✓ ' : '') + 'Magic Wand Select', action: () => { host.setActionMode('select'); host.currentTool = 'magic_wand'; host.setBrushParam('mode', 11); syncUiFromHost(); } },
           { type: 'item', label: (curMode === 'select' && host.currentTool === 'brush' ? '✓ ' : '') + 'Selection Brush Mask', action: () => { host.setActionMode('select'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
           { type: 'sep' },
+          { type: 'item', label: '🖌 Paint Inside Selection (Keep Mask)', action: () => { host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
+          { type: 'item', label: '🧹 Erase Inside Selection (Keep Mask)', action: () => { host.setActionMode('erase'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
+          { type: 'sep' },
           { type: 'item', label: 'Select All', hotkey: 'Ctrl+A', action: () => runCmd('select all') },
           { type: 'item', label: 'Invert Selection', hotkey: 'Ctrl+Shift+I', action: () => runCmd('select invert') },
           { type: 'item', label: 'Deselect', hotkey: 'Ctrl+D', action: () => runCmd('deselect') }
@@ -3988,11 +3991,7 @@ async function main() {
       },
       { type: 'item', label: 'Free Transform Layer', hotkey: 'Ctrl+T', action: () => runCmd('transform') },
       { type: 'sep' },
-      {
-        type: 'submenu',
-        label: 'Full Tool Options & Guides',
-        items: [buildDomPanelAction('tools')]
-      }
+      { type: 'item', label: 'Open Tools Tab...', action: () => window.openPainterDockPanel?.('tools') }
     ]);
 
     // 7. Active Layer Submenu
@@ -4100,6 +4099,7 @@ async function main() {
         label: 'Workspace Tabs',
         items: [
           { type: 'item', label: (isTabOpen('layers') ? '✓ ' : '') + 'Layers Tab', action: () => window.togglePainterDockPanel?.('layers') },
+          { type: 'item', label: (isTabOpen('tools') ? '✓ ' : '') + 'Tools Tab', action: () => window.togglePainterDockPanel?.('tools') },
           { type: 'item', label: (isTabOpen('color') ? '✓ ' : '') + 'Color Studio Tab', action: () => window.togglePainterDockPanel?.('color') },
           { type: 'item', label: (isTabOpen('lab') ? '✓ ' : '') + 'Brush Lab Tab', action: () => window.togglePainterDockPanel?.('lab') },
           { type: 'item', label: (isTabOpen('hud') ? '✓ ' : '') + 'Menu Sliders Tab', action: () => window.togglePainterDockPanel?.('hud') },
@@ -12906,6 +12906,34 @@ async function main() {
       });
     });
 
+    // Symmetry buttons in Tools panel
+    document.querySelectorAll('#sheet-tools .ip-sym-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const symVal = parseInt(btn.dataset.sym, 10) || 0;
+        runCmd(`set symmetry ${symVal}`);
+        syncUiFromHost();
+        triggerHaptic(10);
+      });
+    });
+
+    // Paint / Erase Inside Active Selection (Keep Mask)
+    document.getElementById('btn-ip-sel-paint-inside')?.addEventListener('click', () => {
+      host.setActionMode('draw');
+      host.currentTool = 'brush';
+      host.setBrushParam('mode', 0);
+      switchToolsSheetTab('draw');
+      syncUiFromHost();
+      triggerHaptic(12);
+    });
+    document.getElementById('btn-ip-sel-erase-inside')?.addEventListener('click', () => {
+      host.setActionMode('erase');
+      host.currentTool = 'brush';
+      host.setBrushParam('mode', 0);
+      switchToolsSheetTab('draw');
+      syncUiFromHost();
+      triggerHaptic(12);
+    });
+
     // Selection & Transform buttons in Sheet & Floating Transform Bar
     document.getElementById('btn-ip-copy')?.addEventListener('click', () => { runCmd('copy'); });
     document.getElementById('btn-ip-cut')?.addEventListener('click', () => { runCmd('cut'); });
@@ -12913,7 +12941,11 @@ async function main() {
     document.getElementById('btn-ip-deselect')?.addEventListener('click', () => { runCmd('deselect'); });
     document.getElementById('btn-ip-select-all')?.addEventListener('click', () => { runCmd('select all'); });
     document.getElementById('btn-ip-invert-sel')?.addEventListener('click', () => { runCmd('select invert'); });
-    document.getElementById('btn-ip-transform')?.addEventListener('click', () => { runCmd('transform'); });
+    document.getElementById('btn-ip-crop-sel')?.addEventListener('click', () => { runCmd('crop'); });
+    document.getElementById('btn-ip-sel-clear-pixels')?.addEventListener('click', () => { runCmd('clear'); });
+    document.getElementById('btn-ip-sel-capture-tip')?.addEventListener('click', () => { runCmd('brush capture tip'); });
+    document.getElementById('btn-ip-sel-capture-grain')?.addEventListener('click', () => { runCmd('brush capture grain'); });
+    document.getElementById('btn-ip-transform')?.addEventListener('click', () => { runCmd('transform'); switchToolsSheetTab('transform'); });
     document.getElementById('btn-ip-xform-apply')?.addEventListener('click', () => { runCmd('transform apply'); });
     document.getElementById('btn-ip-xform-cancel')?.addEventListener('click', () => { runCmd('transform cancel'); });
 
@@ -13840,6 +13872,32 @@ async function main() {
     document.querySelectorAll('#sheet-tools .ip-actionmode-card').forEach(card => {
       card.classList.toggle('active', card.dataset.actionmode === host.actionMode);
     });
+    document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(card => {
+      const t = card.dataset.tool;
+      if (!t || t === 'transform') return;
+      let isCardActive = false;
+      if (host.actionMode === 'select') {
+        if (t === 'brush_select') isCardActive = (host.currentTool === 'brush');
+        else isCardActive = (host.currentTool === t);
+      } else {
+        isCardActive = (host.currentTool === t);
+      }
+      card.classList.toggle('active', isCardActive);
+    });
+    const curSymVal = host.brushParams?.symmetry || 0;
+    document.querySelectorAll('#sheet-tools .ip-sym-btn').forEach(btn => {
+      btn.classList.toggle('active', (parseInt(btn.dataset.sym, 10) || 0) === curSymVal);
+    });
+    const selBadgeEl = document.getElementById('ip-tools-sel-badge');
+    if (selBadgeEl) {
+      if (host.selection?.active) {
+        selBadgeEl.textContent = 'Selection Active (strokes clipped)';
+        selBadgeEl.style.color = 'var(--primary)';
+      } else {
+        selBadgeEl.textContent = 'Click to switch mode';
+        selBadgeEl.style.color = 'var(--text-muted)';
+      }
+    }
 
     // Vector Painter Floating Bar & Sheet Synchronization
     const ipVecBar = document.getElementById('ip-vector-bar');
