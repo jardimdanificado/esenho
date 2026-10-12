@@ -1,14 +1,17 @@
 /**
  * =========================================================================
- * Raster Frame-by-Frame Animation Timeline Dock Widget (src/anim/raster_animator_ui.js)
- * Reorganized, clean studio-grade timeline for Esenho Painter.
+ * Raster Per-Layer Frame-by-Frame Animation Timeline Dock Widget
+ * (src/anim/raster_animator_ui.js)
  * Features:
- * - Structured 2-tier layout (Header/Transport/Timing + Frame Actions & Filmstrip)
- * - Collapsible Onion Skin configuration bar (Past/Future frames, Opacity)
- * - Frame actions: Add blank, Duplicate, Clear, Move Left/Right, Hold Duration (1x..6x), Delete
- * - Collapsible/minimizable filmstrip mode & unclipped GIF/WebM export
+ * - Multi-layer timeline tracks (each layer has its own independent cel track)
+ * - Unlimited frame hold duration (numeric input, +/- buttons, drag right edge
+ *   of any cel card, or right-click custom duration)
+ * - Shared time/tick ruler for scrubbing across all layers simultaneously
+ * - Collapsible Onion Skin configuration bar & GIF/WebM export
  * =========================================================================
  */
+
+const TICK_COL_WIDTH = 58;
 
 export class RasterAnimatorUI {
   constructor(containerEl, animator, options = {}) {
@@ -20,6 +23,7 @@ export class RasterAnimatorUI {
     this.onionSettingsOpen = false;
     this._thumbCache = new Map();
 
+    this._ensurePerLayerAnimator(this.animator);
     this.render();
     this.bindEvents();
     this.updateTimeline();
@@ -27,6 +31,103 @@ export class RasterAnimatorUI {
     this._unsub = this.animator.subscribe((event, data) => {
       this.handleAnimatorEvent(event, data);
     });
+  }
+
+  _ensurePerLayerAnimator(anim) {
+    if (!anim) return;
+    if (!anim.layerTracks) anim.layerTracks = new Map();
+    if (typeof anim.getDrawingLayerIds !== 'function') {
+      anim.getDrawingLayerIds = function () {
+        const exp = this.host?.canvasActor?.exports;
+        if (!exp) return [3];
+        const cnt = exp.w_layer_get_order_count ? exp.w_layer_get_order_count() : 0;
+        const texIds = (typeof this.host.getTextureWasmIds === 'function') ? this.host.getTextureWasmIds() : new Set();
+        const ids = [];
+        for (let p = 0; p < cnt; p++) {
+          const id = exp.w_layer_get_order(p);
+          if (id >= 3 && !texIds.has(id)) ids.push(id);
+        }
+        return ids.length ? ids : [3];
+      };
+    }
+    if (typeof anim.getActiveLayerId !== 'function') {
+      anim.getActiveLayerId = function () {
+        const exp = this.host?.canvasActor?.exports;
+        const fn = exp?.get_active_layer || exp?.w_layer_get_active;
+        const id = typeof fn === 'function' ? fn() : 3;
+        return id >= 3 ? id : 3;
+      };
+    }
+    if (typeof anim.getLayerName !== 'function') {
+      anim.getLayerName = function (lid) {
+        return this.host?.layerNames?.get(lid) || (lid === 3 ? 'Background' : `Layer ${lid}`);
+      };
+    }
+    if (typeof anim.syncLayersWithCanvas !== 'function') {
+      anim.syncLayersWithCanvas = function () {
+        const ids = this.getDrawingLayerIds();
+        for (const lid of ids) {
+          if (!this.layerTracks.has(lid)) {
+            this.layerTracks.set(lid, {
+              layerId: lid,
+              frames: Array.isArray(this.frames) && this.frames.length
+                ? this.frames.map((f, i) => ({
+                    id: f.id || `cel_${lid}_${i + 1}`,
+                    layerId: lid,
+                    name: f.name || `Frame ${i + 1}`,
+                    duration: Math.max(1, Number(f.duration) || 1),
+                    width: f.layers?.get?.(lid)?.width || this.docWidth,
+                    height: f.layers?.get?.(lid)?.height || this.docHeight,
+                    pixels: f.layers?.get?.(lid)?.pixels || new Uint8Array(this.docWidth * this.docHeight * 4),
+                    visible: 1,
+                    opacity: 255
+                  }))
+                : [{ id: `cel_${lid}_1`, layerId: lid, name: 'Frame 1', duration: 1, width: this.docWidth, height: this.docHeight, pixels: new Uint8Array(this.docWidth * this.docHeight * 4), visible: 1, opacity: 255 }],
+              activeCelIndex: this.currentFrameIndex || 0
+            });
+          }
+        }
+      };
+    }
+    if (typeof anim.getLayerTrack !== 'function') {
+      anim.getLayerTrack = function (lid = this.getActiveLayerId()) {
+        this.syncLayersWithCanvas();
+        return this.layerTracks.get(lid) || { layerId: lid, frames: this.frames || [], activeCelIndex: this.currentFrameIndex || 0 };
+      };
+    }
+    if (typeof anim.getLayerDurationTicks !== 'function') {
+      anim.getLayerDurationTicks = function (lid) {
+        const tr = this.getLayerTrack(lid);
+        return Math.max(1, (tr?.frames || []).reduce((acc, f) => acc + Math.max(1, Math.round(Number(f.duration) || 1)), 0));
+      };
+    }
+    if (typeof anim.getTotalDurationTicks !== 'function') {
+      anim.getTotalDurationTicks = function () {
+        this.syncLayersWithCanvas();
+        let m = 1;
+        for (const lid of this.layerTracks.keys()) {
+          m = Math.max(m, this.getLayerDurationTicks(lid));
+        }
+        return m;
+      };
+    }
+    if (typeof anim.goToTick !== 'function') {
+      anim.goToTick = function (tick) {
+        this.currentTick = Math.max(0, Math.round(tick || 0));
+        if (typeof this.goToFrame === 'function') {
+          this.goToFrame(Math.min(this.currentTick, Math.max(0, (this.frames?.length || 1) - 1)));
+        }
+      };
+    }
+    if (typeof anim.selectLayerCel !== 'function') {
+      anim.selectLayerCel = function (layerId, celIndex) {
+        const exp = this.host?.canvasActor?.exports;
+        if (exp?.w_layer_select) exp.w_layer_select(layerId);
+        const tr = this.getLayerTrack(layerId);
+        if (tr) tr.activeCelIndex = Math.max(0, Math.min(celIndex, tr.frames.length - 1));
+        if (typeof this.goToFrame === 'function') this.goToFrame(celIndex);
+      };
+    }
   }
 
   syncUI() {
@@ -61,63 +162,72 @@ export class RasterAnimatorUI {
 
   render() {
     this.container.innerHTML = `
-      <div class="raster-anim-dock" style="display: flex; flex-direction: column; width: 100%; background: var(--bg-panel); color: var(--text); font-family: var(--font-sans); font-size: 11px; user-select: none; box-sizing: border-box; position: relative; border-radius: var(--radius-lg); overflow: visible;">
+      <div class="raster-anim-dock" style="display: flex; flex-direction: column; width: 100%; height: 100%; background: var(--bg-panel); color: var(--text); font-family: var(--font-sans); font-size: 11px; user-select: none; box-sizing: border-box; position: relative; overflow: hidden;">
         
-        <!-- TIER 1: Header, Transport, Speed, Onion Skin & Export -->
-        <div class="raster-anim-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 10px; background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); border-radius: var(--radius-lg) var(--radius-lg) 0 0; overflow-x: auto; scrollbar-width: none;">
+        <!-- TIER 1: Header, Transport, Active Layer Cel Actions, Unlimited Hold Duration, Onion Skin & Export -->
+        <div class="raster-anim-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 10px; background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; flex-shrink: 0;">
           
-          <!-- Left: Brand Badge & Frame Counter -->
+          <!-- Left: Playhead Counter & Transport Controls -->
           <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-            <span style="display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-size: 10px; color: var(--primary); letter-spacing: 0.4px; text-transform: uppercase;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="7" y1="3" x2="7" y2="21"/><line x1="17" y1="3" x2="17" y2="21"/><line x1="2" y1="9" x2="7" y2="9"/><line x1="2" y1="15" x2="7" y2="15"/><line x1="17" y1="9" x2="22" y2="9"/><line x1="17" y1="15" x2="22" y2="15"/></svg>
-              ANIM
-            </span>
-            <span id="raster-frame-counter" style="font-weight: 800; font-family: var(--font-mono); font-size: 10.5px; color: var(--primary); background: var(--bg-dark); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px 7px; min-width: 48px; text-align: center;" title="Current Frame / Total Frames">1 / 1</span>
+            <span id="raster-frame-counter" style="font-weight: 800; font-family: var(--font-mono); font-size: 10px; color: var(--primary); background: var(--bg-dark); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px 7px; min-width: 68px; text-align: center;" title="Current Tick / Total Ticks (Active Layer Cel)">1 / 1</span>
+
+            <div style="display: flex; align-items: center; gap: 2px; background: var(--bg-dark); padding: 2px 4px; border-radius: var(--radius-sm); border: 1px solid var(--border); flex-shrink: 0;">
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-first" title="First Tick" style="min-width: 22px; height: 22px; padding: 0 4px; font-size: 10px;">⏮</button>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-prev" title="Previous Cel on Active Layer (,)" style="min-width: 24px; height: 22px; padding: 0 5px; font-size: 10px;">◀</button>
+              <button type="button" class="ip-btn ip-mini-btn raster-btn-play" id="raster-btn-play" title="Play / Pause (Space)" style="min-width: 32px; height: 22px; padding: 0 8px; background: var(--primary); color: var(--bg-dark); font-weight: 800; font-size: 11px;">▶</button>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-next" title="Next Cel on Active Layer (.)" style="min-width: 24px; height: 22px; padding: 0 5px; font-size: 10px;">▶</button>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-last" title="Last Tick" style="min-width: 22px; height: 22px; padding: 0 4px; font-size: 10px;">⏭</button>
+              <div style="width: 1px; height: 14px; background: var(--border); margin: 0 2px;"></div>
+              <button type="button" class="ip-btn ip-mini-btn active" id="raster-btn-loop" title="Loop Playback" style="height: 22px; padding: 0 6px; font-size: 9.5px; font-weight: 700;">Loop</button>
+            </div>
           </div>
 
-          <!-- Center: Transport Controls -->
-          <div style="display: flex; align-items: center; gap: 3px; background: var(--bg-dark); padding: 2px 4px; border-radius: var(--radius-sm); border: 1px solid var(--border); flex-shrink: 0;">
-            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-first" title="First Frame" style="min-width: 24px; height: 24px; padding: 0 5px; font-size: 10px;">⏮</button>
-            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-prev" title="Previous Frame (,)" style="min-width: 26px; height: 24px; padding: 0 6px; font-size: 10px;">◀</button>
-            <button type="button" class="ip-btn ip-mini-btn raster-btn-play" id="raster-btn-play" title="Play / Pause (Space)" style="min-width: 34px; height: 24px; padding: 0 10px; background: var(--primary); color: var(--bg-dark); font-weight: 800; font-size: 11px;">▶</button>
-            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-next" title="Next Frame (.)" style="min-width: 26px; height: 24px; padding: 0 6px; font-size: 10px;">▶</button>
-            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-last" title="Last Frame" style="min-width: 24px; height: 24px; padding: 0 5px; font-size: 10px;">⏭</button>
-            <div style="width: 1px; height: 14px; background: var(--border); margin: 0 2px;"></div>
-            <button type="button" class="ip-btn ip-mini-btn active" id="raster-btn-loop" title="Loop Playback" style="height: 24px; padding: 0 7px; font-size: 10px; font-weight: 700;">Loop</button>
-          </div>
-
-          <!-- Right: Onion Skin, FPS, Export & Window Controls -->
+          <!-- Center: Active Layer Cel Actions + Unlimited Hold Duration Input -->
           <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
-            <!-- Onion Skin Pill Group -->
+            <div style="display: flex; align-items: center; gap: 3px; background: var(--bg-dark); padding: 2px 4px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-add" title="Add Blank Frame to Active Layer (+)" style="height: 22px; padding: 0 7px; font-size: 10px; font-weight: 800; background: var(--primary); color: var(--bg-dark);">+ Blank</button>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-dup" title="Duplicate Cel on Active Layer" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: 700;">Dup</button>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-move-left" title="Move Cel Left on Layer" style="height: 22px; padding: 0 5px; font-size: 10px;">←</button>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-move-right" title="Move Cel Right on Layer" style="height: 22px; padding: 0 5px; font-size: 10px;">→</button>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-clear" title="Clear Active Cel Pixels" style="height: 22px; padding: 0 6px; font-size: 9.5px;">Clear</button>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-del" title="Delete Active Cel" style="height: 22px; padding: 0 6px; font-size: 9.5px; color: var(--danger);">Del</button>
+            </div>
+
+            <!-- Unlimited Frame Duration (Hold) Stepper + Number Input -->
+            <div style="display: flex; align-items: center; gap: 3px; background: var(--bg-dark); padding: 2px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border);" title="Frame Hold Duration (in frames) — any positive number">
+              <span style="font-size: 9.5px; color: var(--text-muted); font-weight: 800;">Duration:</span>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-hold-dec" title="Decrease Frame Duration (-1f)" style="min-width: 20px; height: 20px; padding: 0 4px; font-size: 11px; font-weight: 800;">−</button>
+              <input type="number" id="raster-hold-input" min="1" step="1" value="1" style="width: 46px; height: 20px; background: var(--bg-panel); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 800; text-align: center; padding: 0 2px;" title="Type any frame duration (1, 10, 24, 100...)">
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-hold-inc" title="Increase Frame Duration (+1f)" style="min-width: 20px; height: 20px; padding: 0 4px; font-size: 11px; font-weight: 800;">+</button>
+              <span style="font-size: 9px; color: var(--text-muted); font-family: var(--font-mono);">frames</span>
+            </div>
+          </div>
+
+          <!-- Right: Onion Skin, FPS, Export -->
+          <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
             <div style="display: flex; align-items: center; gap: 2px; background: var(--bg-dark); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-onionskin" title="Toggle Onion Skinning (O)" style="height: 24px; padding: 0 8px; font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 4px;">
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-onionskin" title="Toggle Onion Skinning on Active Layer (O)" style="height: 22px; padding: 0 7px; font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 4px;">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="6" stroke-dasharray="2 2"/><circle cx="15" cy="12" r="6"/></svg>
                 <span>Onion</span>
               </button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-onion-cfg" title="Onion Skin Settings (Past/Future Frames & Opacity)" style="height: 24px; padding: 0 5px; font-size: 9px;">▾</button>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-onion-cfg" title="Onion Skin Settings" style="height: 22px; padding: 0 5px; font-size: 9px;">▾</button>
             </div>
 
-            <!-- FPS Control -->
             <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-dark); padding: 2px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border);" title="Playback Frame Rate (FPS)">
               <span style="font-size: 9.5px; color: var(--text-muted); font-weight: 800;">FPS</span>
-              <input type="range" id="raster-fps-slider" min="1" max="30" value="12" style="width: 54px; cursor: pointer; accent-color: var(--primary);">
+              <input type="range" id="raster-fps-slider" min="1" max="60" value="12" style="width: 50px; cursor: pointer; accent-color: var(--primary);">
               <span id="raster-fps-val" style="font-family: var(--font-mono); font-size: 10px; font-weight: 800; color: var(--primary); min-width: 18px; text-align: right;">12</span>
             </div>
 
-            <!-- Direct Export Buttons -->
             <div style="display: flex; align-items: center; gap: 2px; background: var(--bg-dark); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-export-gif" title="Export Animated GIF (.gif)" style="height: 24px; padding: 0 7px; font-size: 10px; font-weight: 700; color: var(--primary);">GIF</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-export-webm" title="Export WebM Video (.webm)" style="height: 24px; padding: 0 7px; font-size: 10px; font-weight: 700;">WebM</button>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-export-gif" title="Export Animated GIF (.gif)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: 700; color: var(--primary);">GIF</button>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-export-webm" title="Export WebM Video (.webm)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: 700;">WebM</button>
             </div>
-
-            <!-- Collapse & Close -->
-            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-collapse" title="Collapse / Expand Filmstrip" style="height: 24px; width: 24px; padding: 0; font-size: 10px;">▾</button>
-            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-close" title="Close Animation Timeline" style="height: 24px; width: 24px; padding: 0; font-weight: bold; color: var(--danger);">✕</button>
           </div>
         </div>
 
         <!-- COLLAPSIBLE ONION SKIN CONFIGURATION ROW -->
-        <div id="raster-onion-settings-row" style="display: none; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 12px; background: var(--bg-dark); border-bottom: 1px solid var(--border); font-size: 10px; flex-wrap: wrap;">
+        <div id="raster-onion-settings-row" style="display: none; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 12px; background: var(--bg-dark); border-bottom: 1px solid var(--border); font-size: 10px; flex-wrap: wrap; flex-shrink: 0;">
           <div style="display: flex; align-items: center; gap: 6px;">
             <span style="color: #fb4934; font-weight: 800;">● Past Frames:</span>
             <input type="range" id="raster-onion-prev" min="0" max="5" value="2" style="width: 55px; accent-color: #fb4934;">
@@ -135,28 +245,9 @@ export class RasterAnimatorUI {
           </div>
         </div>
 
-        <!-- TIER 2: Frame Operations Toolbar + Filmstrip -->
-        <div id="raster-tier2-body" style="display: flex; align-items: stretch; min-height: 74px; background: var(--bg-dark); border-radius: 0 0 var(--radius-lg) var(--radius-lg); overflow: hidden;">
-          
-          <!-- Left Sticky Frame Action Cluster -->
-          <div style="display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 6px 8px; background: var(--bg-panel-sub); border-right: 1px solid var(--border); flex-shrink: 0;">
-            <div style="display: flex; gap: 3px;">
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-add" title="Add Blank Frame (+)" style="height: 24px; padding: 0 8px; font-size: 10px; font-weight: 800; background: var(--primary); color: var(--bg-dark);">+ Blank</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-dup" title="Duplicate Current Frame" style="height: 24px; padding: 0 7px; font-size: 10px; font-weight: 700;">Dup</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-hold" title="Cycle Frame Hold Duration (1x..4x)" style="height: 24px; padding: 0 6px; font-size: 10px; font-family: var(--font-mono);">1x</button>
-            </div>
-            <div style="display: flex; gap: 3px;">
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-move-left" title="Move Frame Left" style="height: 22px; padding: 0 6px; font-size: 9.5px;">←</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-move-right" title="Move Frame Right" style="height: 22px; padding: 0 6px; font-size: 9.5px;">→</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-clear" title="Clear Current Frame Pixels" style="height: 22px; padding: 0 6px; font-size: 9.5px;">Clear</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-del" title="Delete Current Frame" style="height: 22px; padding: 0 6px; font-size: 9.5px; color: var(--danger);">Del</button>
-            </div>
-          </div>
-
-          <!-- Scrollable Filmstrip Container -->
-          <div id="raster-filmstrip-wrap" style="flex: 1; display: flex; align-items: center; overflow-x: auto; overflow-y: hidden; padding: 6px 10px; gap: 6px; touch-action: pan-x; -webkit-overflow-scrolling: touch;">
-            <div id="raster-filmstrip" style="display: flex; align-items: center; gap: 6px; min-width: max-content;"></div>
-          </div>
+        <!-- TIER 2: Multi-Layer Timeline Tracks (Scrollable X & Y) -->
+        <div id="raster-tier2-body" style="flex: 1; display: flex; flex-direction: column; background: var(--bg-dark); overflow: auto; position: relative;">
+          <div id="raster-filmstrip" style="display: flex; flex-direction: column; min-width: max-content; width: 100%;"></div>
         </div>
       </div>
     `;
@@ -178,7 +269,9 @@ export class RasterAnimatorUI {
 
     const btnAdd = this.container.querySelector('#raster-btn-add');
     const btnDup = this.container.querySelector('#raster-btn-dup');
-    const btnHold = this.container.querySelector('#raster-btn-hold');
+    const btnHoldDec = this.container.querySelector('#raster-btn-hold-dec');
+    const btnHoldInc = this.container.querySelector('#raster-btn-hold-inc');
+    const holdInput = this.container.querySelector('#raster-hold-input');
     const btnMoveL = this.container.querySelector('#raster-btn-move-left');
     const btnMoveR = this.container.querySelector('#raster-btn-move-right');
     const btnClear = this.container.querySelector('#raster-btn-clear');
@@ -186,12 +279,9 @@ export class RasterAnimatorUI {
     const fpsSlider = this.container.querySelector('#raster-fps-slider');
     const btnExportGif = this.container.querySelector('#raster-export-gif');
     const btnExportWebm = this.container.querySelector('#raster-export-webm');
-    const btnCollapse = this.container.querySelector('#raster-btn-collapse');
-    const tier2Body = this.container.querySelector('#raster-tier2-body');
-    const btnClose = this.container.querySelector('#raster-btn-close');
 
     btnFirst?.addEventListener('click', () => {
-      this.animator.goToFrame(0);
+      this.animator.goToTick(0);
     });
 
     btnPlay?.addEventListener('click', () => {
@@ -207,7 +297,8 @@ export class RasterAnimatorUI {
     });
 
     btnLast?.addEventListener('click', () => {
-      this.animator.goToFrame(Math.max(0, this.animator.frames.length - 1));
+      const total = this.animator.getTotalDurationTicks ? this.animator.getTotalDurationTicks() : this.animator.frames.length;
+      this.animator.goToTick(Math.max(0, total - 1));
     });
 
     btnLoop?.addEventListener('click', () => {
@@ -260,17 +351,34 @@ export class RasterAnimatorUI {
       this.animator.addFrame(true);
     });
 
-    btnHold?.addEventListener('click', () => {
+    const applyDurationChange = (newDuration) => {
+      const d = Math.max(1, Math.round(Number(newDuration) || 1));
+      this.animator.setFrameDuration(d);
+      if (holdInput) holdInput.value = String(d);
+    };
+
+    btnHoldDec?.addEventListener('click', () => {
       const cur = this.animator.frames[this.animator.currentFrameIndex];
-      if (!cur) return;
-      const nextHold = ((cur.duration || 1) % 4) + 1;
-      if (typeof this.animator.setFrameDuration === 'function') {
-        this.animator.setFrameDuration(nextHold);
-      } else {
-        cur.duration = nextHold;
-        this.updateTimeline();
+      const curDur = cur ? (cur.duration || 1) : 1;
+      applyDurationChange(Math.max(1, curDur - 1));
+    });
+
+    btnHoldInc?.addEventListener('click', () => {
+      const cur = this.animator.frames[this.animator.currentFrameIndex];
+      const curDur = cur ? (cur.duration || 1) : 1;
+      applyDurationChange(curDur + 1);
+    });
+
+    holdInput?.addEventListener('change', (e) => {
+      applyDurationChange(e.target.value);
+    });
+
+    holdInput?.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        applyDurationChange(holdInput.value);
+        holdInput.blur();
       }
-      btnHold.textContent = `${nextHold}x`;
     });
 
     btnMoveL?.addEventListener('click', () => {
@@ -289,9 +397,7 @@ export class RasterAnimatorUI {
     });
 
     btnDel?.addEventListener('click', () => {
-      if (this.animator.frames.length <= 1 || confirm('Delete current frame?')) {
-        this.animator.deleteFrame();
-      }
+      this.animator.deleteFrame();
     });
 
     fpsSlider?.addEventListener('input', (e) => {
@@ -345,21 +451,10 @@ export class RasterAnimatorUI {
       }
     });
 
-    btnCollapse?.addEventListener('click', () => {
-      this.collapsed = !this.collapsed;
-      if (tier2Body) tier2Body.style.display = this.collapsed ? 'none' : 'flex';
-      if (onionRow && this.collapsed) onionRow.style.display = 'none';
-      btnCollapse.textContent = this.collapsed ? '▴' : '▾';
-    });
-
-    btnClose?.addEventListener('click', () => {
-      this.hide();
-    });
-
     // Keyboard shortcuts: Space = Play/Pause, ,/. = Prev/Next frame, O = Onion
     window.addEventListener('keydown', (e) => {
       if (!this.visible) return;
-      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
 
       if (e.code === 'Space') {
         e.preventDefault();
@@ -381,36 +476,53 @@ export class RasterAnimatorUI {
       if (e.target.closest('.raster-frame-card')) return;
       e.preventDefault();
       e.stopPropagation();
-      this.openTimelineContextMenu(e, this.animator.currentFrameIndex);
+      this.openTimelineContextMenu(e, this.animator.getActiveLayerId(), this.animator.currentFrameIndex);
     });
   }
 
-  openTimelineContextMenu(e, frameIdx) {
+  openTimelineContextMenu(e, layerId, frameIdx) {
     if (typeof window === 'undefined' || !window.contextMenuService) return;
-    if (typeof frameIdx === 'number' && frameIdx >= 0 && frameIdx < this.animator.frames.length) {
-      this.animator.goToFrame(frameIdx);
+    if (typeof layerId === 'number' && typeof frameIdx === 'number') {
+      this.animator.selectLayerCel(layerId, frameIdx);
     }
-    const idx = this.animator.currentFrameIndex;
-    const total = this.animator.frames.length;
-    const curFrame = this.animator.frames[idx];
+    const activeLid = this.animator.getActiveLayerId();
+    const track = this.animator.getLayerTrack(activeLid);
+    const idx = track ? track.activeCelIndex : 0;
+    const total = track ? track.frames.length : 1;
+    const curFrame = track?.frames?.[idx];
     const curHold = curFrame?.duration || 1;
+    const layerName = this.animator.getLayerName(activeLid);
     const onion = this.animator.onionSkin || { enabled: false, prevFrames: 2, nextFrames: 1, opacity: 0.35 };
 
-    const holdChildren = [1, 2, 3, 4, 6].map(h => ({
-      type: 'item',
-      label: (curHold === h ? '✓ ' : '') + `${h}x Hold`,
-      action: () => {
-        if (typeof this.animator.setFrameDuration === 'function') {
-          this.animator.setFrameDuration(h);
-        } else if (curFrame) {
-          curFrame.duration = h;
-          this.updateTimeline();
+    const presetDurations = [1, 2, 3, 4, 6, 8, 12, 16, 24, 36, 48, 60, 100];
+    const holdChildren = [
+      {
+        type: 'slider',
+        label: 'Duration (Frames)',
+        min: 1,
+        max: Math.max(60, curHold + 24),
+        step: 1,
+        value: curHold,
+        unit: 'f',
+        onInput: (val) => {
+          this.animator.setFrameDuration(val, idx, activeLid);
         }
-      }
-    }));
+      },
+      { type: 'sep' },
+      { type: 'item', label: '+1 Frame', action: () => this.animator.setFrameDuration(curHold + 1, idx, activeLid) },
+      { type: 'item', label: '-1 Frame', action: () => this.animator.setFrameDuration(Math.max(1, curHold - 1), idx, activeLid) },
+      { type: 'item', label: '+5 Frames', action: () => this.animator.setFrameDuration(curHold + 5, idx, activeLid) },
+      { type: 'item', label: '+10 Frames', action: () => this.animator.setFrameDuration(curHold + 10, idx, activeLid) },
+      { type: 'sep' },
+      ...presetDurations.map(h => ({
+        type: 'item',
+        label: (curHold === h ? '✓ ' : '') + `${h} ${h === 1 ? 'Frame' : 'Frames'}`,
+        action: () => this.animator.setFrameDuration(h, idx, activeLid)
+      }))
+    ];
 
     const actions = [
-      { type: 'header', title: `Frame #${idx + 1} of ${total}` },
+      { type: 'header', title: `${layerName} • Cel #${idx + 1}/${total} (${curHold}f)` },
       {
         type: 'item',
         label: this.animator.isPlaying ? '⏸ Pause Playback' : '▶ Play Animation',
@@ -438,15 +550,15 @@ export class RasterAnimatorUI {
         }
       },
       { type: 'sep' },
-      { type: 'item', label: '+ Add Blank Frame', action: () => this.animator.addFrame(false) },
-      { type: 'item', label: 'Duplicate Frame', action: () => this.animator.addFrame(true) },
+      { type: 'item', label: `+ Add Blank Cel on "${layerName}"`, action: () => this.animator.addFrame(false, activeLid) },
+      { type: 'item', label: `Duplicate Cel on "${layerName}"`, action: () => this.animator.addFrame(true, activeLid) },
       {
         type: 'item',
-        label: `Hold Duration: ${curHold}x`,
+        label: `Frame Duration: ${curHold} ${curHold === 1 ? 'frame' : 'frames'}`,
         children: holdChildren
       },
-      { type: 'item', label: '← Move Frame Left', action: () => { if (idx > 0) this.animator.moveFrame(idx, idx - 1); } },
-      { type: 'item', label: '→ Move Frame Right', action: () => { if (idx < total - 1) this.animator.moveFrame(idx, idx + 1); } },
+      { type: 'item', label: '← Move Cel Left', action: () => { if (idx > 0) this.animator.moveFrame(idx, idx - 1, activeLid); } },
+      { type: 'item', label: '→ Move Cel Right', action: () => { if (idx < total - 1) this.animator.moveFrame(idx, idx + 1, activeLid); } },
       { type: 'sep' },
       {
         type: 'item',
@@ -510,21 +622,19 @@ export class RasterAnimatorUI {
       { type: 'sep' },
       {
         type: 'item',
-        label: 'Clear Frame Pixels',
+        label: 'Clear Cel Pixels',
         danger: true,
         action: () => {
-          this.animator.clearCurrentFrame();
+          this.animator.clearCurrentFrame(activeLid);
           this.updateTimeline();
         }
       },
       {
         type: 'item',
-        label: 'Delete Frame',
+        label: 'Delete Cel',
         danger: true,
         action: () => {
-          if (this.animator.frames.length <= 1 || confirm('Delete current frame?')) {
-            this.animator.deleteFrame();
-          }
+          this.animator.deleteFrame(idx, activeLid);
         }
       }
     ];
@@ -536,10 +646,7 @@ export class RasterAnimatorUI {
   }
 
   handleAnimatorEvent(event, data) {
-    if (event === 'frameChange') {
-      this.updateCounter();
-      this.highlightActiveFrame(data.index);
-    } else if (event === 'framesUpdated' || event === 'frameContentUpdated') {
+    if (event === 'frameChange' || event === 'framesUpdated' || event === 'frameContentUpdated') {
       this.updateTimeline();
     } else if (event === 'playState') {
       const btnPlay = this.container.querySelector('#raster-btn-play');
@@ -560,134 +667,329 @@ export class RasterAnimatorUI {
 
   updateCounter() {
     const counter = this.container.querySelector('#raster-frame-counter');
+    const totalTicks = this.animator.getTotalDurationTicks ? this.animator.getTotalDurationTicks() : this.animator.frames.length;
+    const curTick = (this.animator.currentTick || 0) + 1;
     if (counter) {
-      counter.textContent = `${this.animator.currentFrameIndex + 1} / ${this.animator.frames.length}`;
+      counter.textContent = `T ${curTick} / ${totalTicks}`;
     }
-    const btnHold = this.container.querySelector('#raster-btn-hold');
+    const holdInput = this.container.querySelector('#raster-hold-input');
     const cur = this.animator.frames[this.animator.currentFrameIndex];
-    if (btnHold && cur) {
-      btnHold.textContent = `${cur.duration || 1}x`;
+    if (holdInput && cur && document.activeElement !== holdInput) {
+      holdInput.value = String(cur.duration || 1);
     }
-  }
-
-  highlightActiveFrame(activeIndex) {
-    const strip = this.container.querySelector('#raster-filmstrip');
-    if (!strip) return;
-
-    const cards = strip.querySelectorAll('.raster-frame-card');
-    cards.forEach((card, idx) => {
-      if (idx === activeIndex) {
-        card.classList.add('active');
-        card.style.borderColor = 'var(--primary)';
-        card.style.boxShadow = '0 0 8px rgba(250, 189, 47, 0.45)';
-        card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-      } else {
-        card.classList.remove('active');
-        card.style.borderColor = 'var(--border)';
-        card.style.boxShadow = 'none';
-      }
-    });
   }
 
   updateTimeline() {
+    this.animator.syncLayersWithCanvas?.();
     this.updateCounter();
     const strip = this.container.querySelector('#raster-filmstrip');
     if (!strip) return;
 
     strip.innerHTML = '';
-    const frames = this.animator.frames;
 
-    frames.forEach((frame, idx) => {
-      const isAct = idx === this.animator.currentFrameIndex;
-      const card = document.createElement('div');
-      card.className = `raster-frame-card ${isAct ? 'active' : ''}`;
-      card.dataset.index = String(idx);
-      card.title = `Frame #${idx + 1} — Click to select, right-click for timeline actions`;
-      card.style.cssText = `
-        position: relative; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-        width: 64px; height: 60px; background: var(--bg-panel); border: 2px solid ${isAct ? 'var(--primary)' : 'var(--border)'};
-        border-radius: var(--radius-sm); cursor: pointer; flex-shrink: 0; box-sizing: border-box; padding: 3px;
-        transition: transform 0.1s ease, border-color 0.1s ease;
-        ${isAct ? 'box-shadow: 0 0 8px rgba(250, 189, 47, 0.45);' : ''}
+    const layerIdsBottomToTop = this.animator.getDrawingLayerIds ? this.animator.getDrawingLayerIds() : [3];
+    // Display layers top-to-bottom (matching the Layers panel visual order)
+    const layerIdsTopToBottom = [...layerIdsBottomToTop].reverse();
+    const activeLayerId = this.animator.getActiveLayerId ? this.animator.getActiveLayerId() : 3;
+    const totalTicks = this.animator.getTotalDurationTicks ? this.animator.getTotalDurationTicks() : 1;
+    const curTick = this.animator.currentTick || 0;
+
+    // 1. Time Ruler Row
+    const rulerRow = document.createElement('div');
+    rulerRow.style.cssText = `
+      display: flex; align-items: stretch; border-bottom: 1px solid var(--border);
+      background: var(--bg-panel-sub); position: sticky; top: 0; z-index: 4; height: 22px;
+    `;
+
+    const rulerCorner = document.createElement('div');
+    rulerCorner.style.cssText = `
+      width: 170px; min-width: 170px; padding: 0 8px; display: flex; align-items: center; justify-content: space-between;
+      border-right: 1px solid var(--border); background: var(--bg-panel-sub); position: sticky; left: 0; z-index: 5;
+      font-size: 9.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px;
+      box-sizing: border-box;
+    `;
+    rulerCorner.innerHTML = `<span>Layer Tracks (${layerIdsTopToBottom.length})</span><span>Ticks</span>`;
+    rulerRow.appendChild(rulerCorner);
+
+    const rulerTicksWrap = document.createElement('div');
+    rulerTicksWrap.style.cssText = 'display: flex; align-items: stretch; padding: 0 6px; gap: 4px;';
+    const displayTicks = Math.min(totalTicks, 240);
+    for (let t = 0; t < displayTicks; t++) {
+      const isCurTick = t === curTick;
+      const tickEl = document.createElement('div');
+      tickEl.title = `Scrub to Tick #${t + 1}`;
+      tickEl.style.cssText = `
+        width: ${TICK_COL_WIDTH}px; min-width: ${TICK_COL_WIDTH}px; display: flex; align-items: center; justify-content: center;
+        font-family: var(--font-mono); font-size: 9.5px; font-weight: 800; cursor: pointer; border-radius: 2px;
+        color: ${isCurTick ? 'var(--bg-dark)' : 'var(--text-muted)'};
+        background: ${isCurTick ? 'var(--primary)' : 'transparent'};
+      `;
+      tickEl.textContent = `${t + 1}f`;
+      tickEl.addEventListener('click', () => {
+        this.animator.goToTick(t);
+      });
+      rulerTicksWrap.appendChild(tickEl);
+    }
+    rulerRow.appendChild(rulerTicksWrap);
+    strip.appendChild(rulerRow);
+
+    // 2. Per-Layer Track Rows
+    layerIdsTopToBottom.forEach((lid) => {
+      const isLayerActive = lid === activeLayerId;
+      const track = this.animator.getLayerTrack(lid);
+      const frames = track ? track.frames : [];
+      const layerName = this.animator.getLayerName(lid);
+      const exp = this.animator.host?.canvasActor?.exports;
+      const isVis = exp?.w_layer_get_visible ? !!exp.w_layer_get_visible(lid) : true;
+
+      const rowEl = document.createElement('div');
+      rowEl.className = `raster-layer-track-row ${isLayerActive ? 'active' : ''}`;
+      rowEl.dataset.layerId = String(lid);
+      rowEl.style.cssText = `
+        display: flex; align-items: stretch; min-height: 62px; border-bottom: 1px solid var(--border);
+        background: ${isLayerActive ? 'rgba(16, 185, 129, 0.06)' : 'var(--bg-dark)'};
       `;
 
-      const thumb = document.createElement('canvas');
-      thumb.width = 56;
-      thumb.height = 38;
-      thumb.style.cssText = 'width: 56px; height: 38px; background: #121415; border-radius: 2px; display: block;';
-      this.renderFrameThumb(frame, thumb);
+      // Left Sticky Layer Info Header
+      const layerHeader = document.createElement('div');
+      layerHeader.style.cssText = `
+        width: 170px; min-width: 170px; padding: 6px 8px; display: flex; flex-direction: column; justify-content: space-between;
+        border-right: 1px solid var(--border); position: sticky; left: 0; z-index: 3; box-sizing: border-box; cursor: pointer;
+        background: ${isLayerActive ? 'var(--bg-panel)' : 'var(--bg-panel-sub)'};
+        border-left: 3px solid ${isLayerActive ? 'var(--primary)' : 'transparent'};
+      `;
 
-      const footer = document.createElement('div');
-      footer.style.cssText = 'display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0 2px;';
+      const topRow = document.createElement('div');
+      topRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 4px;';
 
-      const label = document.createElement('span');
-      label.style.cssText = `font-size: 9px; font-weight: 800; font-family: var(--font-mono); color: ${isAct ? 'var(--primary)' : 'var(--text-muted)'};`;
-      label.textContent = `#${idx + 1}`;
-      footer.appendChild(label);
+      const nameWrap = document.createElement('div');
+      nameWrap.style.cssText = 'display: flex; align-items: center; gap: 5px; overflow: hidden;';
 
-      if ((frame.duration || 1) > 1) {
-        const holdBadge = document.createElement('span');
-        holdBadge.style.cssText = 'font-size: 8.5px; font-weight: 800; font-family: var(--font-mono); color: var(--bg-dark); background: var(--primary); border-radius: 2px; padding: 0 3px;';
-        holdBadge.textContent = `${frame.duration}x`;
-        footer.appendChild(holdBadge);
-      }
-
-      card.appendChild(thumb);
-      card.appendChild(footer);
-
-      card.addEventListener('click', () => {
-        this.animator.goToFrame(idx);
-      });
-
-      card.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
+      const visBtn = document.createElement('button');
+      visBtn.type = 'button';
+      visBtn.className = 'ip-btn ip-mini-btn';
+      visBtn.title = 'Toggle Layer Visibility';
+      visBtn.style.cssText = `padding: 0 4px; height: 18px; font-size: 9.5px; opacity: ${isVis ? '1' : '0.4'};`;
+      visBtn.textContent = isVis ? '👁' : '—';
+      visBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.openTimelineContextMenu(e, idx);
+        if (exp?.w_layer_visible) {
+          exp.w_layer_visible(lid, isVis ? 0 : 1);
+          this.animator.host?.render?.();
+          this.updateTimeline();
+        }
       });
 
-      strip.appendChild(card);
-    });
+      const nameSpan = document.createElement('span');
+      nameSpan.style.cssText = `font-size: 10.5px; font-weight: ${isLayerActive ? '800' : '600'}; color: ${isLayerActive ? 'var(--primary)' : 'var(--text)'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;`;
+      nameSpan.textContent = layerName;
 
-    // Quick "+ Frame" tail card at the end of the filmstrip
-    const addCard = document.createElement('button');
-    addCard.type = 'button';
-    addCard.title = 'Add Blank Frame';
-    addCard.style.cssText = `
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-      width: 46px; height: 60px; background: var(--bg-panel-sub); border: 1.5px dashed var(--border-bright);
-      border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; flex-shrink: 0; font-size: 16px; font-weight: bold;
-    `;
-    addCard.innerHTML = `<span>+</span><span style="font-size: 8.5px; font-weight: 700;">New</span>`;
-    addCard.addEventListener('click', () => {
-      this.animator.addFrame(false);
+      nameWrap.appendChild(visBtn);
+      nameWrap.appendChild(nameSpan);
+      topRow.appendChild(nameWrap);
+
+      const bottomRow = document.createElement('div');
+      bottomRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 4px;';
+
+      const layerStats = document.createElement('span');
+      const layerTicks = this.animator.getLayerDurationTicks ? this.animator.getLayerDurationTicks(lid) : frames.length;
+      layerStats.style.cssText = 'font-size: 9px; font-family: var(--font-mono); color: var(--text-muted);';
+      layerStats.textContent = `${frames.length} ${frames.length === 1 ? 'cel' : 'cels'} (${layerTicks}f)`;
+
+      const quickBtns = document.createElement('div');
+      quickBtns.style.cssText = 'display: flex; gap: 3px;';
+
+      const addLayerCelBtn = document.createElement('button');
+      addLayerCelBtn.type = 'button';
+      addLayerCelBtn.className = 'ip-btn ip-mini-btn';
+      addLayerCelBtn.title = `Add Blank Frame to ${layerName}`;
+      addLayerCelBtn.style.cssText = 'height: 18px; padding: 0 5px; font-size: 9px; font-weight: 800;';
+      addLayerCelBtn.textContent = '+Cel';
+      addLayerCelBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.animator.selectLayerCel(lid, track.activeCelIndex);
+        this.animator.addFrame(false, lid);
+      });
+
+      const dupLayerCelBtn = document.createElement('button');
+      dupLayerCelBtn.type = 'button';
+      dupLayerCelBtn.className = 'ip-btn ip-mini-btn';
+      dupLayerCelBtn.title = `Duplicate Frame on ${layerName}`;
+      dupLayerCelBtn.style.cssText = 'height: 18px; padding: 0 5px; font-size: 9px;';
+      dupLayerCelBtn.textContent = 'Dup';
+      dupLayerCelBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.animator.selectLayerCel(lid, track.activeCelIndex);
+        this.animator.addFrame(true, lid);
+      });
+
+      quickBtns.appendChild(addLayerCelBtn);
+      quickBtns.appendChild(dupLayerCelBtn);
+      bottomRow.appendChild(layerStats);
+      bottomRow.appendChild(quickBtns);
+
+      layerHeader.appendChild(topRow);
+      layerHeader.appendChild(bottomRow);
+
+      layerHeader.addEventListener('click', () => {
+        this.animator.selectLayerCel(lid, track.activeCelIndex);
+      });
+
+      rowEl.appendChild(layerHeader);
+
+      // Right Cels Track for this Layer
+      const celsWrap = document.createElement('div');
+      celsWrap.style.cssText = 'display: flex; align-items: center; padding: 4px 6px; gap: 4px;';
+
+      frames.forEach((cel, idx) => {
+        const isCelActive = isLayerActive && idx === track.activeCelIndex;
+        const dur = Math.max(1, Math.round(Number(cel.duration) || 1));
+        const cardWidth = Math.max(TICK_COL_WIDTH, Math.min(dur * TICK_COL_WIDTH + (dur - 1) * 4, 920));
+
+        const card = document.createElement('div');
+        card.className = `raster-frame-card ${isCelActive ? 'active' : ''}`;
+        card.dataset.layerId = String(lid);
+        card.dataset.index = String(idx);
+        card.title = `${layerName} • Cel #${idx + 1} (Duration: ${dur} ${dur === 1 ? 'frame' : 'frames'}) — Drag right edge to resize duration`;
+        card.style.cssText = `
+          position: relative; display: flex; flex-direction: column; justify-content: space-between;
+          width: ${cardWidth}px; min-width: ${cardWidth}px; height: 54px;
+          background: var(--bg-panel); border: 2px solid ${isCelActive ? 'var(--primary)' : (idx === track.activeCelIndex ? 'var(--border-bright)' : 'var(--border)')};
+          border-radius: var(--radius-sm); cursor: pointer; flex-shrink: 0; box-sizing: border-box; padding: 3px 8px 3px 4px;
+          ${isCelActive ? 'box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);' : ''}
+        `;
+
+        const bodyRow = document.createElement('div');
+        bodyRow.style.cssText = 'display: flex; align-items: center; gap: 6px; height: 34px; overflow: hidden;';
+
+        const thumb = document.createElement('canvas');
+        thumb.width = 48;
+        thumb.height = 32;
+        thumb.style.cssText = 'width: 48px; height: 32px; background: #14171a; border-radius: 2px; display: block; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.06);';
+        this.renderCelThumb(cel, thumb);
+        bodyRow.appendChild(thumb);
+
+        if (dur > 1) {
+          const holdBar = document.createElement('div');
+          holdBar.style.cssText = 'flex: 1; height: 6px; background: repeating-linear-gradient(90deg, var(--primary) 0px, var(--primary) 6px, transparent 6px, transparent 10px); opacity: 0.45; border-radius: 3px;';
+          bodyRow.appendChild(holdBar);
+        }
+
+        const footer = document.createElement('div');
+        footer.style.cssText = 'display: flex; align-items: center; justify-content: space-between; width: 100%;';
+
+        const label = document.createElement('span');
+        label.style.cssText = `font-size: 9px; font-weight: 800; font-family: var(--font-mono); color: ${isCelActive ? 'var(--primary)' : 'var(--text-muted)'};`;
+        label.textContent = `#${idx + 1}`;
+        footer.appendChild(label);
+
+        const holdBadge = document.createElement('span');
+        holdBadge.title = 'Click to edit frame duration (unlimited frames)';
+        holdBadge.style.cssText = `
+          font-size: 8.5px; font-weight: 800; font-family: var(--font-mono);
+          color: ${dur > 1 ? 'var(--bg-dark)' : 'var(--text-muted)'};
+          background: ${dur > 1 ? 'var(--primary)' : 'var(--bg-dark)'};
+          border-radius: 2px; padding: 0 4px; cursor: pointer;
+        `;
+        holdBadge.textContent = `${dur}f`;
+        holdBadge.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.animator.selectLayerCel(lid, idx);
+          const holdInput = this.container.querySelector('#raster-hold-input');
+          if (holdInput) {
+            holdInput.focus();
+            holdInput.select();
+          }
+        });
+        footer.appendChild(holdBadge);
+
+        // Right-edge resize handle for dragging cel duration interactively
+        const resizeHandle = document.createElement('div');
+        resizeHandle.title = 'Drag horizontally to change frame duration';
+        resizeHandle.style.cssText = `
+          position: absolute; top: 0; right: 0; width: 7px; height: 100%;
+          cursor: ew-resize; display: flex; align-items: center; justify-content: center;
+          background: rgba(255,255,255,0.04); border-left: 1px solid rgba(255,255,255,0.08);
+        `;
+        resizeHandle.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          const startX = e.clientX;
+          const startDur = dur;
+          const onMove = (me) => {
+            const dx = me.clientX - startX;
+            const deltaTicks = Math.round(dx / (TICK_COL_WIDTH * 0.65));
+            const nextDur = Math.max(1, startDur + deltaTicks);
+            if (nextDur !== cel.duration) {
+              this.animator.setFrameDuration(nextDur, idx, lid);
+            }
+          };
+          const onUp = () => {
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+          };
+          window.addEventListener('pointermove', onMove);
+          window.addEventListener('pointerup', onUp);
+        });
+
+        card.appendChild(bodyRow);
+        card.appendChild(footer);
+        card.appendChild(resizeHandle);
+
+        card.addEventListener('click', () => {
+          this.animator.selectLayerCel(lid, idx);
+        });
+
+        card.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.openTimelineContextMenu(e, lid, idx);
+        });
+
+        celsWrap.appendChild(card);
+      });
+
+      // Quick "+ Frame" button at the end of this layer's track
+      const addCard = document.createElement('button');
+      addCard.type = 'button';
+      addCard.title = `Add Blank Frame to ${layerName}`;
+      addCard.style.cssText = `
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+        width: 40px; height: 54px; background: var(--bg-panel-sub); border: 1px dashed var(--border-bright);
+        border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; flex-shrink: 0; font-size: 14px; font-weight: bold;
+      `;
+      addCard.innerHTML = `<span>+</span><span style="font-size: 8px; font-weight: 700;">Cel</span>`;
+      addCard.addEventListener('click', () => {
+        this.animator.selectLayerCel(lid, frames.length - 1);
+        this.animator.addFrame(false, lid);
+      });
+      celsWrap.appendChild(addCard);
+
+      rowEl.appendChild(celsWrap);
+      strip.appendChild(rowEl);
     });
-    strip.appendChild(addCard);
   }
 
-  renderFrameThumb(frame, canvas) {
+  renderCelThumb(cel, canvas) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const docW = this.animator.docWidth;
-    const docH = this.animator.docHeight;
-    const scale = Math.min(canvas.width / docW, canvas.height / docH);
-    const tw = Math.round(docW * scale);
-    const th = Math.round(docH * scale);
+    if (!cel || !cel.pixels || !cel.width || !cel.height) return;
+    const scale = Math.min(canvas.width / cel.width, canvas.height / cel.height);
+    const tw = Math.max(1, Math.round(cel.width * scale));
+    const th = Math.max(1, Math.round(cel.height * scale));
     const ox = Math.round((canvas.width - tw) / 2);
     const oy = Math.round((canvas.height - th) / 2);
 
-    for (const [, ldata] of frame.layers.entries()) {
-      if (!ldata.visible || ldata.opacity === 0 || !ldata.pixels) continue;
-      const off = document.createElement('canvas');
-      off.width = ldata.width;
-      off.height = ldata.height;
-      const octx = off.getContext('2d');
-      const img = octx.createImageData(ldata.width, ldata.height);
-      img.data.set(ldata.pixels);
-      octx.putImageData(img, 0, 0);
+    const off = document.createElement('canvas');
+    off.width = cel.width;
+    off.height = cel.height;
+    const octx = off.getContext('2d');
+    const img = octx.createImageData(cel.width, cel.height);
+    img.data.set(cel.pixels.subarray(0, img.data.length));
+    octx.putImageData(img, 0, 0);
 
-      ctx.globalAlpha = (ldata.opacity || 255) / 255;
-      ctx.drawImage(off, ox, oy, tw, th);
-    }
+    ctx.globalAlpha = (cel.opacity ?? 255) / 255;
+    ctx.drawImage(off, ox, oy, tw, th);
   }
 }

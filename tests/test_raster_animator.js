@@ -185,4 +185,41 @@ describe('Raster Frame-by-Frame Animator Engine', () => {
     assert.strictEqual(blob.type, 'image/gif', 'Blob type must be image/gif');
     assert(blob.size > 50, 'GIF Blob should contain header and encoded frame data');
   });
+
+  it('8. Supports independent per-layer timelines and arbitrary (unlimited) frame hold durations', () => {
+    const host = createMockHost(20, 20);
+    // Simulate 2 layers: layer 3 (Background) and layer 4 (Foreground)
+    let layersOrder = [3, 4];
+    host.canvasActor.exports.w_layer_get_order_count = () => layersOrder.length;
+    host.canvasActor.exports.w_layer_get_order = (pos) => layersOrder[pos] ?? -1;
+
+    const anim = new RasterAnimator(host);
+    anim.syncLayersWithCanvas();
+
+    // Layer 3 has 1 cel with duration = 50 frames (way beyond old 4/12 frame limit)
+    anim.setFrameDuration(50, 0, 3);
+    assert.strictEqual(anim.getLayerTrack(3).frames.length, 1);
+    assert.strictEqual(anim.getLayerTrack(3).frames[0].duration, 50);
+
+    // Select Layer 4 and add 2 more cels with durations 15 and 120
+    host.canvasActor.exports.w_layer_select(4);
+    anim.setFrameDuration(10, 0, 4);
+    anim.addFrame(false, 4);
+    anim.setFrameDuration(15, 1, 4);
+    anim.addFrame(false, 4);
+    anim.setFrameDuration(120, 2, 4);
+
+    assert.strictEqual(anim.getLayerTrack(3).frames.length, 1, 'Layer 3 must still have 1 cel');
+    assert.strictEqual(anim.getLayerTrack(4).frames.length, 3, 'Layer 4 must have 3 independent cels');
+    assert.strictEqual(anim.getLayerDurationTicks(3), 50);
+    assert.strictEqual(anim.getLayerDurationTicks(4), 10 + 15 + 120);
+    assert.strictEqual(anim.getTotalDurationTicks(), 145);
+
+    // Check cel resolution at tick 20: Layer 3 is on cel 0, Layer 4 is on cel 1 (ticks 10..24)
+    assert.strictEqual(anim.getCelAtTick(3, 20).celIndex, 0);
+    assert.strictEqual(anim.getCelAtTick(4, 20).celIndex, 1);
+    // At tick 60: Layer 4 is on cel 2 (ticks 25..144)
+    assert.strictEqual(anim.getCelAtTick(4, 60).celIndex, 2);
+  });
 });
+

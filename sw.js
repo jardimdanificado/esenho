@@ -1,4 +1,4 @@
-const CACHE_NAME = 'esenho-v0.13.21';
+const CACHE_NAME = 'esenho-v0.13.22';
 
 const PRECACHE_ASSETS = [
   './',
@@ -25,6 +25,8 @@ const PRECACHE_ASSETS = [
   './src/anim/animator_engine.js',
   './src/anim/dopesheet.js',
   './src/anim/dopesheet_ui.js',
+  './src/anim/raster_animator.js',
+  './src/anim/raster_animator_ui.js',
   './data.json',
   './src/project_store.js',
   './src/resource_registry.js',

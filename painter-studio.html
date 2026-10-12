@@ -2426,7 +2426,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.21 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.22 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -2872,8 +2872,8 @@
             <div class="ip-tools-tab-panel" data-toolspanel="anim" style="display: none; flex-direction: column; gap: 8px;">
               <div style="background: var(--bg-panel-sub); border: 1px solid var(--primary); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Frame-by-Frame Animation Studio</span>
-                  <button type="button" id="btn-sheet-anim-toggle-dock" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: 800; padding: 4px 10px;">Toggle Timeline Dock</button>
+                  <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Per-Layer Frame Animation Studio</span>
+                  <button type="button" id="btn-sheet-anim-toggle-dock" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: 800; padding: 4px 10px;">Focus Timeline Tab</button>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
                   <button type="button" id="btn-sheet-anim-prev" class="ip-btn">◀ Prev</button>
@@ -2882,9 +2882,17 @@
                   <button type="button" id="btn-sheet-anim-onion" class="ip-btn">Onion Skin</button>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
-                  <button type="button" id="btn-sheet-anim-add" class="ip-btn">+ Blank Frame</button>
-                  <button type="button" id="btn-sheet-anim-dup" class="ip-btn">⎘ Duplicate</button>
-                  <button type="button" id="btn-sheet-anim-del" class="ip-btn" style="color: var(--danger);">🗑 Delete Frame</button>
+                  <button type="button" id="btn-sheet-anim-add" class="ip-btn">+ Blank Cel</button>
+                  <button type="button" id="btn-sheet-anim-dup" class="ip-btn">⎘ Duplicate Cel</button>
+                  <button type="button" id="btn-sheet-anim-del" class="ip-btn" style="color: var(--danger);">🗑 Delete Cel</button>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-dark); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px;">
+                  <span style="font-size: 10px; font-weight: bold; color: var(--text);">Active Cel Duration (Frames):</span>
+                  <div style="display: flex; align-items: center; gap: 4px;">
+                    <button type="button" id="btn-sheet-anim-dur-dec" class="ip-btn ip-mini-btn" style="padding: 2px 7px;">−</button>
+                    <input type="number" id="ip-sheet-anim-duration" min="1" step="1" value="1" style="width: 54px; height: 22px; background: var(--bg-panel); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; font-family: var(--font-mono); font-size: 11px; font-weight: 800; text-align: center;">
+                    <button type="button" id="btn-sheet-anim-dur-inc" class="ip-btn ip-mini-btn" style="padding: 2px 7px;">+</button>
+                  </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
                   <button type="button" id="btn-sheet-anim-gif" class="ip-btn">Export Animated GIF</button>
@@ -3800,8 +3808,8 @@
 <script src="src/asset_bundle.js"></script>
 <script src="src/gpu/shaders.js"></script>
 <script src="src/gpu/gpu_renderer.js"></script>
-<script src="src/esenho.js"></script>
-<script src="src/host-browser.js"></script>
+<script src="src/esenho.js?v=2"></script>
+<script src="src/host-browser.js?v=2"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

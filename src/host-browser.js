@@ -299,8 +299,8 @@ async function main() {
 
   // Initialize Frame-by-Frame Raster Animator
   try {
-    const { RasterAnimator } = await import('./anim/raster_animator.js');
-    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js');
+    const { RasterAnimator } = await import('./anim/raster_animator.js?v=2');
+    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js?v=2');
     host.rasterAnimator = new RasterAnimator(host);
     const timelineDock = document.getElementById('raster-anim-timeline-dock');
     if (timelineDock) {
@@ -314,7 +314,7 @@ async function main() {
       const savedLoop = localStorage.getItem('esenho_anim_loop');
       if (savedLoop !== null) host.rasterAnimator.loop = savedLoop !== '0';
       const savedOnion = localStorage.getItem('esenho_anim_onion');
-      if (savedOnion !== null) host.rasterAnimator.onionSkin = savedOnion === '1';
+      if (savedOnion !== null) host.rasterAnimator.toggleOnionSkin(savedOnion === '1');
     }
     if (host.rasterAnimatorUI && localStorage.getItem('esenho_anim_dock_visible') === '1') {
       host.rasterAnimatorUI.show();
@@ -422,7 +422,7 @@ async function main() {
       if (host.rasterAnimator) {
         localStorage.setItem('esenho_anim_fps', String(host.rasterAnimator.fps || 12));
         localStorage.setItem('esenho_anim_loop', host.rasterAnimator.loop ? '1' : '0');
-        localStorage.setItem('esenho_anim_onion', host.rasterAnimator.onionSkin ? '1' : '0');
+        localStorage.setItem('esenho_anim_onion', host.rasterAnimator.onionSkin?.enabled ? '1' : '0');
       }
       if (host.rasterAnimatorUI) {
         localStorage.setItem('esenho_anim_dock_visible', host.rasterAnimatorUI.visible ? '1' : '0');
@@ -13033,12 +13033,14 @@ async function main() {
 
     // Animation Tab Controls in #sheet-tools
     bindXformSheetBtn(['btn-ip-sheet-anim-toggle-dock', 'btn-sheet-anim-toggle-dock'], () => {
-      if (host.rasterAnimatorUI) {
+      if (window.isDockviewPainter && typeof window.openPainterDockPanel === 'function') {
+        window.openPainterDockPanel('timeline');
+      } else if (host.rasterAnimatorUI) {
         host.rasterAnimatorUI.toggle();
         updateAnimTimelineDockOffset();
-        syncUiFromHost();
-        triggerHaptic(12);
       }
+      syncUiFromHost();
+      triggerHaptic(12);
     });
     bindXformSheetBtn(['btn-ip-sheet-anim-play', 'btn-sheet-anim-play'], () => {
       if (host.rasterAnimator) {
@@ -13066,7 +13068,7 @@ async function main() {
     });
     bindXformSheetBtn(['btn-ip-sheet-anim-add', 'btn-sheet-anim-add'], () => {
       if (host.rasterAnimator) {
-        host.rasterAnimator.addFrame(true);
+        host.rasterAnimator.addFrame(false);
         if (host.rasterAnimatorUI) host.rasterAnimatorUI.syncUI();
         syncUiFromHost();
         triggerHaptic(10);
@@ -13098,8 +13100,7 @@ async function main() {
     });
     bindXformSheetBtn(['btn-ip-sheet-anim-onion', 'btn-sheet-anim-onion'], () => {
       if (host.rasterAnimator) {
-        host.rasterAnimator.onionSkin = !host.rasterAnimator.onionSkin;
-        host.render();
+        host.rasterAnimator.toggleOnionSkin();
         if (host.rasterAnimatorUI) host.rasterAnimatorUI.syncUI();
         syncUiFromHost();
         triggerHaptic(10);
@@ -13111,6 +13112,31 @@ async function main() {
         if (host.rasterAnimatorUI) host.rasterAnimatorUI.syncUI();
         syncUiFromHost();
         triggerHaptic(10);
+      }
+    });
+    document.getElementById('btn-sheet-anim-dur-dec')?.addEventListener('click', () => {
+      if (host.rasterAnimator) {
+        const cur = host.rasterAnimator.frames[host.rasterAnimator.currentFrameIndex];
+        const nextDur = Math.max(1, (cur?.duration || 1) - 1);
+        host.rasterAnimator.setFrameDuration(nextDur);
+        syncUiFromHost();
+        triggerHaptic(8);
+      }
+    });
+    document.getElementById('btn-sheet-anim-dur-inc')?.addEventListener('click', () => {
+      if (host.rasterAnimator) {
+        const cur = host.rasterAnimator.frames[host.rasterAnimator.currentFrameIndex];
+        const nextDur = (cur?.duration || 1) + 1;
+        host.rasterAnimator.setFrameDuration(nextDur);
+        syncUiFromHost();
+        triggerHaptic(8);
+      }
+    });
+    document.getElementById('ip-sheet-anim-duration')?.addEventListener('change', (e) => {
+      if (host.rasterAnimator) {
+        const nextDur = Math.max(1, Math.round(Number(e.target.value) || 1));
+        host.rasterAnimator.setFrameDuration(nextDur);
+        syncUiFromHost();
       }
     });
     document.getElementById('ip-sheet-slider-anim-fps')?.addEventListener('input', (e) => {
@@ -14085,21 +14111,30 @@ async function main() {
       if (wandAdjBarChk) wandAdjBarChk.checked = host.wandAdjacent;
     }
 
-    // Animation Controls in #sheet-tools
+    // Animation Controls in #sheet-tools & Timeline Dock
     if (host.rasterAnimator) {
-      const animPlayBtn = document.getElementById('btn-ip-sheet-anim-play');
+      const animPlayBtn = document.getElementById('btn-ip-sheet-anim-play') || document.getElementById('btn-sheet-anim-play');
       if (animPlayBtn) {
-        animPlayBtn.textContent = host.rasterAnimator.isPlaying ? '⏸ Pause' : '▶ Play';
+        animPlayBtn.textContent = host.rasterAnimator.isPlaying ? '⏸ Pause' : '▶ Play / Pause';
         animPlayBtn.classList.toggle('active', !!host.rasterAnimator.isPlaying);
       }
-      document.getElementById('btn-ip-sheet-anim-onion')?.classList.toggle('active', !!host.rasterAnimator.onionSkin);
+      document.getElementById('btn-ip-sheet-anim-onion')?.classList.toggle('active', !!host.rasterAnimator.onionSkin?.enabled);
+      document.getElementById('btn-sheet-anim-onion')?.classList.toggle('active', !!host.rasterAnimator.onionSkin?.enabled);
       document.getElementById('btn-ip-sheet-anim-loop')?.classList.toggle('active', !!host.rasterAnimator.loop);
       const animFpsSlider = document.getElementById('ip-sheet-slider-anim-fps');
       const animFpsVal = document.getElementById('ip-sheet-anim-fps-val');
       if (animFpsSlider && document.activeElement !== animFpsSlider) animFpsSlider.value = host.rasterAnimator.fps || 12;
       if (animFpsVal) animFpsVal.textContent = host.rasterAnimator.fps || 12;
+      const animDurInput = document.getElementById('ip-sheet-anim-duration');
+      if (animDurInput && document.activeElement !== animDurInput) {
+        const curCel = host.rasterAnimator.frames?.[host.rasterAnimator.currentFrameIndex];
+        animDurInput.value = String(curCel?.duration || 1);
+      }
     }
     if (host.rasterAnimatorUI) {
+      if (host.rasterAnimatorUI.visible) {
+        host.rasterAnimatorUI.syncUI();
+      }
       const btnToggleDock = document.getElementById('btn-ip-sheet-anim-toggle-dock');
       if (btnToggleDock) {
         btnToggleDock.classList.toggle('active', !!host.rasterAnimatorUI.visible);

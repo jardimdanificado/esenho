@@ -1,8 +1,8 @@
 /**
  * =========================================================================
- * Raster Frame-by-Frame Animation Engine (src/anim/raster_animator.js)
- * High-performance frame management, onion skinning, playback and export
- * for Esenho Painter raster canvas.
+ * Raster Per-Layer Frame-by-Frame Animation Engine (src/anim/raster_animator.js)
+ * Supports independent frame timelines per layer and arbitrary (unlimited)
+ * frame hold durations (in ticks/frames).
  * =========================================================================
  */
 
@@ -10,7 +10,7 @@ export class RasterAnimator {
   constructor(host) {
     this.host = host;
     this.fps = 12;
-    this.currentFrameIndex = 0;
+    this.currentTick = 0;
     this.isPlaying = false;
     this.loop = true;
     this._playTimer = null;
@@ -25,8 +25,8 @@ export class RasterAnimator {
       nextTint: [60, 140, 255]   // Blue tint for future frames
     };
 
-    // Frame list: Array of { id: string, name: string, duration: 1, layers: Map<number, Uint8Array> }
-    this.frames = [];
+    // Per-layer timeline tracks: Map<layerId, { frames: Array<Cel>, activeCelIndex: number }>
+    this.layerTracks = new Map();
 
     // Subscribers for UI updates
     this.listeners = new Set();
@@ -34,7 +34,7 @@ export class RasterAnimator {
     // Cache of offscreen canvases for onion skin rendering
     this._onionCanvasPool = [];
 
-    // Initialize with first frame from current canvas state if available
+    // Initialize tracks from current canvas state
     this.initFromCurrentCanvas();
   }
 
@@ -60,16 +60,12 @@ export class RasterAnimator {
   }
 
   /**
-   * Captures raw pixels of all drawing layers (id >= 3)
+   * Returns ordered drawing layer IDs (bottom-to-top in WASM order, id >= 3)
    */
-  captureCurrentFrameLayers() {
-    const layerMap = new Map();
+  getDrawingLayerIds() {
     const actor = this.host?.canvasActor;
-    if (!actor || !actor.exports) return layerMap;
-
+    if (!actor || !actor.exports) return [3];
     const exp = actor.exports;
-    const w = exp.get_canvas_width();
-    const h = exp.get_canvas_height();
     const orderCount = exp.w_layer_get_order_count ? exp.w_layer_get_order_count() : 0;
     const texIds = (typeof this.host.getTextureWasmIds === 'function') ? this.host.getTextureWasmIds() : new Set();
 
@@ -79,52 +75,291 @@ export class RasterAnimator {
         const id = exp.w_layer_get_order(p);
         if (id >= 3 && !texIds.has(id)) layerIds.push(id);
       }
-    } else {
+    }
+    if (layerIds.length === 0) {
       layerIds.push(3);
     }
+    return layerIds;
+  }
 
-    const mem = actor.memory.buffer;
+  getActiveLayerId() {
+    const exp = this.host?.canvasActor?.exports;
+    if (!exp) return 3;
+    const activeFn = exp.get_active_layer || exp.w_layer_get_active;
+    const id = typeof activeFn === 'function' ? activeFn() : 3;
+    return id >= 3 ? id : 3;
+  }
+
+  getLayerName(lid) {
+    return this.host?.layerNames?.get(lid) || (lid === 3 ? 'Background' : `Layer ${lid}`);
+  }
+
+  _attachCelCompat(cel, lid) {
+    cel.layerId = lid;
+    const selfMap = new Map([[lid, cel]]);
+    cel.layers = selfMap;
+    return cel;
+  }
+
+  /**
+   * Captures raw pixel buffer of a single layer `lid`
+   */
+  captureSingleLayerData(lid) {
+    const actor = this.host?.canvasActor;
+    const w = this.docWidth;
+    const h = this.docHeight;
+    if (!actor || !actor.exports) {
+      return {
+        width: w,
+        height: h,
+        pixels: new Uint8Array(w * h * 4),
+        visible: 1,
+        opacity: 255
+      };
+    }
+    const exp = actor.exports;
+    const ptr = exp.w_layer_get_pixels ? exp.w_layer_get_pixels(lid) : 0;
+    const lw = exp.w_layer_get_width ? exp.w_layer_get_width(lid) : w;
+    const lh = exp.w_layer_get_height ? exp.w_layer_get_height(lid) : h;
+    const byteLen = Math.max(0, lw * lh * 4);
+    const copy = new Uint8Array(byteLen);
+    if (ptr && lw > 0 && lh > 0 && actor.memory?.buffer && ptr + byteLen <= actor.memory.buffer.byteLength) {
+      copy.set(new Uint8Array(actor.memory.buffer, ptr, byteLen));
+    }
+    return {
+      width: lw || w,
+      height: lh || h,
+      pixels: copy,
+      visible: exp.w_layer_get_visible ? exp.w_layer_get_visible(lid) : 1,
+      opacity: exp.w_layer_get_opacity ? exp.w_layer_get_opacity(lid) : 255
+    };
+  }
+
+  createCelFromCanvas(lid, name = 'Frame 1', duration = 1) {
+    const data = this.captureSingleLayerData(lid);
+    const cel = {
+      id: `cel_${lid}_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      layerId: lid,
+      name,
+      duration: Math.max(1, Math.round(Number(duration) || 1)),
+      width: data.width,
+      height: data.height,
+      pixels: data.pixels,
+      visible: data.visible,
+      opacity: data.opacity
+    };
+    return this._attachCelCompat(cel, lid);
+  }
+
+  createBlankCel(lid, name = 'Frame', duration = 1) {
+    const w = this.docWidth;
+    const h = this.docHeight;
+    const exp = this.host?.canvasActor?.exports;
+    const cel = {
+      id: `cel_${lid}_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      layerId: lid,
+      name,
+      duration: Math.max(1, Math.round(Number(duration) || 1)),
+      width: w,
+      height: h,
+      pixels: new Uint8Array(w * h * 4),
+      visible: exp?.w_layer_get_visible ? exp.w_layer_get_visible(lid) : 1,
+      opacity: exp?.w_layer_get_opacity ? exp.w_layer_get_opacity(lid) : 255
+    };
+    return this._attachCelCompat(cel, lid);
+  }
+
+  /**
+   * Ensures every canvas drawing layer has a track in `this.layerTracks`
+   */
+  syncLayersWithCanvas() {
+    const layerIds = this.getDrawingLayerIds();
+    const activeSet = new Set(layerIds);
+
     for (const lid of layerIds) {
-      const ptr = exp.w_layer_get_pixels(lid);
-      const lw = exp.w_layer_get_width ? exp.w_layer_get_width(lid) : w;
-      const lh = exp.w_layer_get_height ? exp.w_layer_get_height(lid) : h;
-      if (ptr && lw > 0 && lh > 0) {
-        const byteLen = lw * lh * 4;
-        const copy = new Uint8Array(byteLen);
-        copy.set(new Uint8Array(mem, ptr, byteLen));
-        layerMap.set(lid, {
-          width: lw,
-          height: lh,
-          pixels: copy,
-          visible: exp.w_layer_get_visible ? exp.w_layer_get_visible(lid) : 1,
-          opacity: exp.w_layer_get_opacity ? exp.w_layer_get_opacity(lid) : 255
+      if (!this.layerTracks.has(lid)) {
+        const cel = this.createCelFromCanvas(lid, 'Frame 1', 1);
+        this.layerTracks.set(lid, {
+          layerId: lid,
+          frames: [cel],
+          activeCelIndex: 0
         });
+      } else {
+        const track = this.layerTracks.get(lid);
+        if (!Array.isArray(track.frames) || track.frames.length === 0) {
+          track.frames = [this.createCelFromCanvas(lid, 'Frame 1', 1)];
+          track.activeCelIndex = 0;
+        }
+        if (track.activeCelIndex < 0 || track.activeCelIndex >= track.frames.length) {
+          track.activeCelIndex = Math.max(0, track.frames.length - 1);
+        }
       }
+    }
+
+    // Prune tracks for layers that no longer exist on canvas (only when WASM order is populated)
+    const exp = this.host?.canvasActor?.exports;
+    const orderCount = exp?.w_layer_get_order_count ? exp.w_layer_get_order_count() : 0;
+    if (orderCount > 0) {
+      for (const lid of Array.from(this.layerTracks.keys())) {
+        if (!activeSet.has(lid)) {
+          this.layerTracks.delete(lid);
+        }
+      }
+    }
+  }
+
+  getLayerTrack(lid = this.getActiveLayerId()) {
+    this.syncLayersWithCanvas();
+    if (!this.layerTracks.has(lid)) {
+      const fallbackId = this.getDrawingLayerIds()[0] ?? 3;
+      return this.layerTracks.get(fallbackId);
+    }
+    return this.layerTracks.get(lid);
+  }
+
+  /**
+   * Compatibility getters/setters: `this.frames` and `this.currentFrameIndex`
+   * refer to the active layer's track.
+   */
+  get frames() {
+    const track = this.getLayerTrack(this.getActiveLayerId());
+    return track ? track.frames : [];
+  }
+
+  set frames(newFrames) {
+    const lid = this.getActiveLayerId();
+    this.syncLayersWithCanvas();
+    const track = this.layerTracks.get(lid);
+    if (track && Array.isArray(newFrames)) {
+      track.frames = newFrames.map(f => this._attachCelCompat(f, lid));
+      track.activeCelIndex = Math.min(track.activeCelIndex, Math.max(0, track.frames.length - 1));
+    }
+  }
+
+  get currentFrameIndex() {
+    const track = this.getLayerTrack(this.getActiveLayerId());
+    return track ? track.activeCelIndex : 0;
+  }
+
+  set currentFrameIndex(idx) {
+    const track = this.getLayerTrack(this.getActiveLayerId());
+    if (track) {
+      track.activeCelIndex = Math.max(0, Math.min(idx, Math.max(0, track.frames.length - 1)));
+    }
+  }
+
+  /**
+   * Total duration in ticks of a single layer's timeline
+   */
+  getLayerDurationTicks(lid) {
+    const track = this.getLayerTrack(lid);
+    if (!track || !track.frames.length) return 1;
+    let total = 0;
+    for (const f of track.frames) {
+      total += Math.max(1, Math.round(Number(f.duration) || 1));
+    }
+    return Math.max(1, total);
+  }
+
+  /**
+   * Total duration in ticks across all layers
+   */
+  getTotalDurationTicks() {
+    this.syncLayersWithCanvas();
+    let maxTicks = 1;
+    for (const lid of this.layerTracks.keys()) {
+      const d = this.getLayerDurationTicks(lid);
+      if (d > maxTicks) maxTicks = d;
+    }
+    return maxTicks;
+  }
+
+  /**
+   * Start tick (0-indexed) of `celIndex` on layer `lid`
+   */
+  getCelStartTick(lid, celIndex) {
+    const track = this.getLayerTrack(lid);
+    if (!track || !track.frames.length) return 0;
+    let tick = 0;
+    const limit = Math.max(0, Math.min(celIndex, track.frames.length - 1));
+    for (let i = 0; i < limit; i++) {
+      tick += Math.max(1, Math.round(Number(track.frames[i].duration) || 1));
+    }
+    return tick;
+  }
+
+  /**
+   * Resolves which cel in layer `lid` is active at global `tick`
+   */
+  getCelAtTick(lid, tick) {
+    const track = this.getLayerTrack(lid);
+    if (!track || !track.frames.length) return { celIndex: 0, cel: null, startTick: 0, offsetInCel: 0 };
+    const t = Math.max(0, Math.round(tick || 0));
+    let acc = 0;
+    for (let i = 0; i < track.frames.length; i++) {
+      const cel = track.frames[i];
+      const dur = Math.max(1, Math.round(Number(cel.duration) || 1));
+      if (t < acc + dur) {
+        return { celIndex: i, cel, startTick: acc, offsetInCel: t - acc };
+      }
+      acc += dur;
+    }
+    const lastIdx = track.frames.length - 1;
+    const lastCel = track.frames[lastIdx];
+    const lastDur = Math.max(1, Math.round(Number(lastCel.duration) || 1));
+    return {
+      celIndex: lastIdx,
+      cel: lastCel,
+      startTick: Math.max(0, acc - lastDur),
+      offsetInCel: t - Math.max(0, acc - lastDur)
+    };
+  }
+
+  /**
+   * Captures raw pixels of all drawing layers (id >= 3)
+   */
+  captureCurrentFrameLayers() {
+    const layerMap = new Map();
+    const layerIds = this.getDrawingLayerIds();
+    for (const lid of layerIds) {
+      layerMap.set(lid, this.captureSingleLayerData(lid));
     }
     return layerMap;
   }
 
   /**
-   * Restores pixel buffers for a given frame onto the active canvas
+   * Writes a single layer's cel buffer into the WASM canvas
    */
-  applyFrameToCanvas(frameIndex) {
-    if (frameIndex < 0 || frameIndex >= this.frames.length) return;
-    const frame = this.frames[frameIndex];
+  _writeCelToWasmLayer(lid, cel) {
     const actor = this.host?.canvasActor;
-    if (!actor || !actor.exports || !frame) return;
-
+    if (!actor || !actor.exports || !cel) return;
     const exp = actor.exports;
-    const mem = actor.memory.buffer;
+    const ptr = exp.w_layer_get_pixels ? exp.w_layer_get_pixels(lid) : 0;
+    const lw = exp.w_layer_get_width ? exp.w_layer_get_width(lid) : cel.width;
+    const lh = exp.w_layer_get_height ? exp.w_layer_get_height(lid) : cel.height;
+    if (ptr && cel.pixels && actor.memory?.buffer && cel.pixels.byteLength <= lw * lh * 4) {
+      new Uint8Array(actor.memory.buffer, ptr, cel.pixels.byteLength).set(cel.pixels);
+    }
+  }
 
-    for (const [lid, data] of frame.layers.entries()) {
-      const ptr = exp.w_layer_get_pixels(lid);
-      const lw = exp.w_layer_get_width ? exp.w_layer_get_width(lid) : data.width;
-      const lh = exp.w_layer_get_height ? exp.w_layer_get_height(lid) : data.height;
-      if (ptr && data.pixels && data.pixels.byteLength <= lw * lh * 4) {
-        new Uint8Array(mem, ptr, data.pixels.byteLength).set(data.pixels);
+  /**
+   * Applies all layers' cels at global `tick` onto the active WASM canvas
+   */
+  applyTickToCanvas(tick) {
+    this.syncLayersWithCanvas();
+    const actor = this.host?.canvasActor;
+    if (!actor || !actor.exports) return;
+
+    this.currentTick = Math.max(0, Math.round(tick || 0));
+    for (const [lid, track] of this.layerTracks.entries()) {
+      const { celIndex, cel } = this.getCelAtTick(lid, this.currentTick);
+      track.activeCelIndex = celIndex;
+      if (cel) {
+        this._writeCelToWasmLayer(lid, cel);
       }
     }
 
+    const exp = actor.exports;
     if (typeof exp.w_force_composite === 'function') {
       exp.w_force_composite();
     }
@@ -133,139 +368,268 @@ export class RasterAnimator {
     }
   }
 
-  initFromCurrentCanvas() {
-    this.frames = [{
-      id: 'frame_1',
-      name: 'Frame 1',
-      duration: 1,
-      layers: this.captureCurrentFrameLayers()
-    }];
-    this.currentFrameIndex = 0;
-  }
+  /**
+   * Restores pixel buffers for a given cel index on `layerId` (and syncs other layers to that cel's start tick)
+   */
+  applyFrameToCanvas(frameIndex, layerId = this.getActiveLayerId()) {
+    const track = this.getLayerTrack(layerId);
+    if (!track || frameIndex < 0 || frameIndex >= track.frames.length) return;
+    track.activeCelIndex = frameIndex;
+    const startTick = this.getCelStartTick(layerId, frameIndex);
+    this.currentTick = startTick;
 
-  saveActiveFrame() {
-    if (this.currentFrameIndex >= 0 && this.currentFrameIndex < this.frames.length) {
-      this.frames[this.currentFrameIndex].layers = this.captureCurrentFrameLayers();
+    for (const [lid, tr] of this.layerTracks.entries()) {
+      if (lid === layerId) {
+        this._writeCelToWasmLayer(lid, tr.frames[frameIndex]);
+      } else {
+        const { celIndex, cel } = this.getCelAtTick(lid, startTick);
+        tr.activeCelIndex = celIndex;
+        if (cel) this._writeCelToWasmLayer(lid, cel);
+      }
+    }
+
+    const exp = this.host?.canvasActor?.exports;
+    if (exp && typeof exp.w_force_composite === 'function') {
+      exp.w_force_composite();
+    }
+    if (typeof this.host?.render === 'function') {
+      this.host.render();
     }
   }
 
-  goToFrame(index, saveActive = true) {
-    if (index < 0 || index >= this.frames.length) return;
-    if (index === this.currentFrameIndex) return;
+  initFromCurrentCanvas() {
+    this.layerTracks.clear();
+    const layerIds = this.getDrawingLayerIds();
+    for (const lid of layerIds) {
+      const cel = this.createCelFromCanvas(lid, 'Frame 1', 1);
+      this.layerTracks.set(lid, {
+        layerId: lid,
+        frames: [cel],
+        activeCelIndex: 0
+      });
+    }
+    this.currentTick = 0;
+  }
+
+  /**
+   * Saves the current canvas pixels of each layer into its currently active cel
+   */
+  saveActiveFrame(onlyLayerId = null) {
+    this.syncLayersWithCanvas();
+    for (const [lid, track] of this.layerTracks.entries()) {
+      if (onlyLayerId !== null && lid !== onlyLayerId) continue;
+      const idx = track.activeCelIndex;
+      if (idx >= 0 && idx < track.frames.length) {
+        const data = this.captureSingleLayerData(lid);
+        const existing = track.frames[idx];
+        existing.width = data.width;
+        existing.height = data.height;
+        existing.pixels = data.pixels;
+        existing.visible = data.visible;
+        existing.opacity = data.opacity;
+        this._attachCelCompat(existing, lid);
+      }
+    }
+  }
+
+  /**
+   * Navigates to a specific cel `index` on `layerId` (defaults to active layer)
+   */
+  goToFrame(index, saveActive = true, layerId = this.getActiveLayerId()) {
+    const track = this.getLayerTrack(layerId);
+    if (!track || index < 0 || index >= track.frames.length) return;
 
     if (saveActive && !this.isPlaying) {
       this.saveActiveFrame();
     }
 
-    this.currentFrameIndex = index;
-    this.applyFrameToCanvas(index);
-    this.notify('frameChange', { index, frame: this.frames[index] });
+    track.activeCelIndex = index;
+    this.applyFrameToCanvas(index, layerId);
+    this.notify('frameChange', {
+      index,
+      layerId,
+      tick: this.currentTick,
+      frame: track.frames[index]
+    });
   }
 
-  nextFrame() {
-    if (this.frames.length <= 1) return;
-    const nextIdx = (this.currentFrameIndex + 1) % this.frames.length;
-    this.goToFrame(nextIdx);
+  /**
+   * Scrubs global timeline to `tick` (0 .. totalDurationTicks - 1)
+   */
+  goToTick(tick, saveActive = true) {
+    const total = this.getTotalDurationTicks();
+    const clamped = Math.max(0, Math.min(total - 1, Math.round(tick || 0)));
+    if (saveActive && !this.isPlaying) {
+      this.saveActiveFrame();
+    }
+    this.applyTickToCanvas(clamped);
+    const activeLid = this.getActiveLayerId();
+    const track = this.getLayerTrack(activeLid);
+    const activeIdx = track ? track.activeCelIndex : 0;
+    this.notify('frameChange', {
+      index: activeIdx,
+      layerId: activeLid,
+      tick: this.currentTick,
+      frame: track?.frames?.[activeIdx] || null
+    });
   }
 
-  prevFrame() {
-    if (this.frames.length <= 1) return;
-    const prevIdx = (this.currentFrameIndex - 1 + this.frames.length) % this.frames.length;
-    this.goToFrame(prevIdx);
+  /**
+   * Selects a specific layer and jumps to `celIndex` on that layer's track
+   */
+  selectLayerCel(layerId, celIndex, saveActive = true) {
+    if (saveActive && !this.isPlaying) {
+      this.saveActiveFrame();
+    }
+    const exp = this.host?.canvasActor?.exports;
+    if (exp && typeof exp.w_layer_select === 'function') {
+      exp.w_layer_select(layerId);
+    }
+    this.goToFrame(celIndex, false, layerId);
+    this.notify('framesUpdated', {
+      frames: this.frames,
+      activeIndex: this.currentFrameIndex,
+      layerId,
+      tick: this.currentTick
+    });
   }
 
-  addFrame(duplicate = false) {
+  nextFrame(layerId = this.getActiveLayerId()) {
+    const track = this.getLayerTrack(layerId);
+    if (!track || track.frames.length <= 1) return;
+    const nextIdx = (track.activeCelIndex + 1) % track.frames.length;
+    this.goToFrame(nextIdx, true, layerId);
+  }
+
+  prevFrame(layerId = this.getActiveLayerId()) {
+    const track = this.getLayerTrack(layerId);
+    if (!track || track.frames.length <= 1) return;
+    const prevIdx = (track.activeCelIndex - 1 + track.frames.length) % track.frames.length;
+    this.goToFrame(prevIdx, true, layerId);
+  }
+
+  /**
+   * Adds a new blank or duplicated frame to `layerId`'s timeline track
+   */
+  addFrame(duplicate = false, layerId = this.getActiveLayerId()) {
     this.saveActiveFrame();
+    const track = this.getLayerTrack(layerId);
+    if (!track) return;
 
-    let newLayers = new Map();
-    if (duplicate && this.frames[this.currentFrameIndex]) {
-      // Clone pixel buffers
-      const curLayers = this.frames[this.currentFrameIndex].layers;
-      for (const [lid, data] of curLayers.entries()) {
-        newLayers.set(lid, {
-          width: data.width,
-          height: data.height,
-          pixels: new Uint8Array(data.pixels),
-          visible: data.visible,
-          opacity: data.opacity
-        });
-      }
+    const curCel = track.frames[track.activeCelIndex];
+    const newIndex = track.activeCelIndex + 1;
+    let newCel;
+
+    if (duplicate && curCel) {
+      newCel = this._attachCelCompat({
+        id: `cel_${layerId}_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+        layerId,
+        name: `Frame ${newIndex + 1}`,
+        duration: curCel.duration || 1,
+        width: curCel.width,
+        height: curCel.height,
+        pixels: new Uint8Array(curCel.pixels),
+        visible: curCel.visible,
+        opacity: curCel.opacity
+      }, layerId);
     } else {
-      // Blank frame: clear pixels on all layers
-      const actor = this.host?.canvasActor;
-      if (actor && actor.exports) {
-        const exp = actor.exports;
-        const w = exp.get_canvas_width();
-        const h = exp.get_canvas_height();
-        const curLayers = this.captureCurrentFrameLayers();
-        for (const [lid, data] of curLayers.entries()) {
-          const blank = new Uint8Array(w * h * 4);
-          newLayers.set(lid, {
-            width: w,
-            height: h,
-            pixels: blank,
-            visible: 1,
-            opacity: 255
-          });
-        }
-      }
+      newCel = this.createBlankCel(layerId, `Frame ${newIndex + 1}`, 1);
     }
 
-    const newIndex = this.currentFrameIndex + 1;
-    const newFrame = {
-      id: 'frame_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-      name: `Frame ${newIndex + 1}`,
-      duration: 1,
-      layers: newLayers
-    };
-
-    this.frames.splice(newIndex, 0, newFrame);
-    this.currentFrameIndex = newIndex;
-    this.applyFrameToCanvas(newIndex);
-    this.notify('framesUpdated', { frames: this.frames, activeIndex: this.currentFrameIndex });
-    this.notify('frameChange', { index: newIndex, frame: newFrame });
+    track.frames.splice(newIndex, 0, newCel);
+    track.activeCelIndex = newIndex;
+    this.applyFrameToCanvas(newIndex, layerId);
+    this.notify('framesUpdated', {
+      frames: track.frames,
+      activeIndex: newIndex,
+      layerId,
+      tick: this.currentTick
+    });
+    this.notify('frameChange', {
+      index: newIndex,
+      layerId,
+      tick: this.currentTick,
+      frame: newCel
+    });
   }
 
-  deleteFrame(index = this.currentFrameIndex) {
-    if (this.frames.length <= 1) {
-      // Reset single frame to blank
-      this.clearCurrentFrame();
+  duplicateFrame(layerId = this.getActiveLayerId()) {
+    this.addFrame(true, layerId);
+  }
+
+  deleteFrame(index = null, layerId = this.getActiveLayerId()) {
+    const track = this.getLayerTrack(layerId);
+    if (!track) return;
+    const targetIdx = (index !== null && index !== undefined) ? index : track.activeCelIndex;
+
+    if (track.frames.length <= 1) {
+      this.clearCurrentFrame(layerId);
       return;
     }
 
-    this.frames.splice(index, 1);
-    if (this.currentFrameIndex >= this.frames.length) {
-      this.currentFrameIndex = this.frames.length - 1;
+    if (targetIdx < 0 || targetIdx >= track.frames.length) return;
+    track.frames.splice(targetIdx, 1);
+    if (track.activeCelIndex >= track.frames.length) {
+      track.activeCelIndex = track.frames.length - 1;
     }
-    this.applyFrameToCanvas(this.currentFrameIndex);
-    this.notify('framesUpdated', { frames: this.frames, activeIndex: this.currentFrameIndex });
-    this.notify('frameChange', { index: this.currentFrameIndex, frame: this.frames[this.currentFrameIndex] });
+    this.applyFrameToCanvas(track.activeCelIndex, layerId);
+    this.notify('framesUpdated', {
+      frames: track.frames,
+      activeIndex: track.activeCelIndex,
+      layerId,
+      tick: this.currentTick
+    });
+    this.notify('frameChange', {
+      index: track.activeCelIndex,
+      layerId,
+      tick: this.currentTick,
+      frame: track.frames[track.activeCelIndex]
+    });
   }
 
-  clearCurrentFrame() {
+  clearCurrentFrame(layerId = this.getActiveLayerId()) {
     const actor = this.host?.canvasActor;
     if (actor && actor.exports) {
       const exp = actor.exports;
-      const curL = (typeof exp.w_layer_get_active === 'function') ? exp.w_layer_get_active() : 3;
       if (typeof exp.w_layer_clear === 'function') {
-        exp.w_layer_clear(curL);
+        exp.w_layer_clear(layerId);
       }
       if (typeof exp.w_force_composite === 'function') exp.w_force_composite();
       if (typeof this.host.render === 'function') this.host.render();
     }
-    this.saveActiveFrame();
-    this.notify('frameContentUpdated', { index: this.currentFrameIndex });
+    this.saveActiveFrame(layerId);
+    const track = this.getLayerTrack(layerId);
+    this.notify('frameContentUpdated', {
+      index: track ? track.activeCelIndex : 0,
+      layerId
+    });
   }
 
-  moveFrame(fromIndex, toIndex) {
-    if (fromIndex < 0 || fromIndex >= this.frames.length || toIndex < 0 || toIndex >= this.frames.length) return;
+  clearFrame(layerId = this.getActiveLayerId()) {
+    this.clearCurrentFrame(layerId);
+  }
+
+  moveFrame(fromIndex, toIndex, layerId = this.getActiveLayerId()) {
+    const track = this.getLayerTrack(layerId);
+    if (!track) return;
+    if (fromIndex < 0 || fromIndex >= track.frames.length || toIndex < 0 || toIndex >= track.frames.length) return;
     this.saveActiveFrame();
-    const [moved] = this.frames.splice(fromIndex, 1);
-    this.frames.splice(toIndex, 0, moved);
-    this.currentFrameIndex = toIndex;
-    this.applyFrameToCanvas(this.currentFrameIndex);
-    this.notify('framesUpdated', { frames: this.frames, activeIndex: this.currentFrameIndex });
-    this.notify('frameChange', { index: this.currentFrameIndex, frame: moved });
+    const [moved] = track.frames.splice(fromIndex, 1);
+    track.frames.splice(toIndex, 0, moved);
+    track.activeCelIndex = toIndex;
+    this.applyFrameToCanvas(track.activeCelIndex, layerId);
+    this.notify('framesUpdated', {
+      frames: track.frames,
+      activeIndex: track.activeCelIndex,
+      layerId,
+      tick: this.currentTick
+    });
+    this.notify('frameChange', {
+      index: track.activeCelIndex,
+      layerId,
+      tick: this.currentTick,
+      frame: moved
+    });
   }
 
   setFps(fps) {
@@ -277,40 +641,50 @@ export class RasterAnimator {
     this.notify('fpsChanged', { fps: this.fps });
   }
 
-  setFrameDuration(duration, index = this.currentFrameIndex) {
-    if (index < 0 || index >= this.frames.length) return;
-    const d = Math.max(1, Math.min(12, Math.round(duration || 1)));
-    this.frames[index].duration = d;
-    this.notify('framesUpdated', { frames: this.frames, activeIndex: this.currentFrameIndex });
+  /**
+   * Sets frame hold duration (in ticks/frames) with NO upper cap (1 .. infinity)
+   */
+  setFrameDuration(duration, index = null, layerId = this.getActiveLayerId()) {
+    const track = this.getLayerTrack(layerId);
+    if (!track) return;
+    const targetIdx = (index !== null && index !== undefined) ? index : track.activeCelIndex;
+    if (targetIdx < 0 || targetIdx >= track.frames.length) return;
+    const d = Math.max(1, Math.round(Number(duration) || 1));
+    track.frames[targetIdx].duration = d;
+    this.notify('framesUpdated', {
+      frames: track.frames,
+      activeIndex: track.activeCelIndex,
+      layerId,
+      tick: this.currentTick
+    });
   }
 
   play() {
     if (this.isPlaying) return;
     this.saveActiveFrame();
     this.isPlaying = true;
-    this._holdTick = 0;
     const intervalMs = Math.round(1000 / this.fps);
 
     this._playTimer = setInterval(() => {
-      const curFrame = this.frames[this.currentFrameIndex];
-      const holdTarget = Math.max(1, (curFrame && curFrame.duration) ? curFrame.duration : 1);
-      this._holdTick = (this._holdTick || 0) + 1;
-      if (this._holdTick < holdTarget) {
-        return;
-      }
-      this._holdTick = 0;
-
-      let next = this.currentFrameIndex + 1;
-      if (next >= this.frames.length) {
+      const totalTicks = this.getTotalDurationTicks();
+      let nextTick = this.currentTick + 1;
+      if (nextTick >= totalTicks) {
         if (!this.loop) {
           this.stop();
           return;
         }
-        next = 0;
+        nextTick = 0;
       }
-      this.currentFrameIndex = next;
-      this.applyFrameToCanvas(next);
-      this.notify('frameChange', { index: next, frame: this.frames[next] });
+      this.applyTickToCanvas(nextTick);
+      const activeLid = this.getActiveLayerId();
+      const track = this.getLayerTrack(activeLid);
+      const activeIdx = track ? track.activeCelIndex : 0;
+      this.notify('frameChange', {
+        index: activeIdx,
+        layerId: activeLid,
+        tick: nextTick,
+        frame: track?.frames?.[activeIdx] || null
+      });
     }, intervalMs);
 
     this.notify('playState', { isPlaying: true });
@@ -319,7 +693,6 @@ export class RasterAnimator {
   stop() {
     if (!this.isPlaying) return;
     this.isPlaying = false;
-    this._holdTick = 0;
     if (this._playTimer) {
       clearInterval(this._playTimer);
       this._playTimer = null;
@@ -341,36 +714,43 @@ export class RasterAnimator {
   }
 
   /**
-   * Renders onion skin frames onto the host 2D context in document space
+   * Renders onion skin frames for the active layer onto the host 2D context in document space
    */
   drawOnionSkin(ctx, cw, ch, zoom) {
-    if (!this.onionSkin.enabled || this.isPlaying || this.frames.length <= 1) return;
+    if (!this.onionSkin.enabled || this.isPlaying) return;
+    const activeLid = this.getActiveLayerId();
+    const track = this.getLayerTrack(activeLid);
+    if (!track || track.frames.length <= 1) return;
 
-    // Past frames
+    const curIdx = track.activeCelIndex;
+
+    // Past cels on the active layer
     for (let step = this.onionSkin.prevFrames; step >= 1; step--) {
-      const idx = this.currentFrameIndex - step;
-      if (idx >= 0 && idx < this.frames.length) {
+      const idx = curIdx - step;
+      if (idx >= 0 && idx < track.frames.length) {
         const falloff = (this.onionSkin.prevFrames - step + 1) / (this.onionSkin.prevFrames + 1);
         const alpha = this.onionSkin.opacity * falloff;
-        this._renderTintedFrame(ctx, this.frames[idx], this.onionSkin.prevTint, alpha, cw, ch, zoom);
+        this._renderTintedCel(ctx, track.frames[idx], this.onionSkin.prevTint, alpha, cw, ch, zoom);
       }
     }
 
-    // Future frames
+    // Future cels on the active layer
     for (let step = this.onionSkin.nextFrames; step >= 1; step--) {
-      const idx = this.currentFrameIndex + step;
-      if (idx >= 0 && idx < this.frames.length) {
+      const idx = curIdx + step;
+      if (idx >= 0 && idx < track.frames.length) {
         const falloff = (this.onionSkin.nextFrames - step + 1) / (this.onionSkin.nextFrames + 1);
         const alpha = this.onionSkin.opacity * falloff;
-        this._renderTintedFrame(ctx, this.frames[idx], this.onionSkin.nextTint, alpha, cw, ch, zoom);
+        this._renderTintedCel(ctx, track.frames[idx], this.onionSkin.nextTint, alpha, cw, ch, zoom);
       }
     }
   }
 
-  _renderTintedFrame(ctx, frame, tintRgb, alpha, cw, ch, zoom) {
-    if (!frame || !frame.layers || frame.layers.size === 0) return;
+  _renderTintedCel(ctx, cel, tintRgb, alpha, cw, ch, zoom) {
+    if (!cel || !cel.pixels) return;
+    const lw = cel.width;
+    const lh = cel.height;
+    if (lw !== cw || lh !== ch) return;
 
-    // Find or create an offscreen canvas
     let off = this._onionCanvasPool.pop();
     if (!off || off.width !== cw || off.height !== ch) {
       off = document.createElement('canvas');
@@ -380,33 +760,22 @@ export class RasterAnimator {
     const octx = off.getContext('2d');
     octx.clearRect(0, 0, cw, ch);
 
-    // Composite frame layers onto offscreen canvas
     const imgData = octx.createImageData(cw, ch);
     const dst32 = new Uint32Array(imgData.data.buffer);
     dst32.fill(0);
 
     const [tr, tg, tb] = tintRgb;
-
-    for (const [lid, ldata] of frame.layers.entries()) {
-      if (!ldata.visible || ldata.opacity === 0) continue;
-      const lw = ldata.width;
-      const lh = ldata.height;
-      if (lw !== cw || lh !== ch || !ldata.pixels) continue;
-
-      const src32 = new Uint32Array(ldata.pixels.buffer, ldata.pixels.byteOffset, lw * lh);
-      for (let i = 0; i < src32.length; i++) {
-        const p = src32[i];
-        const a = (p >>> 24) & 0xFF;
-        if (a > 10) {
-          // Tinted RGBA with preserved shape alpha
-          dst32[i] = (a << 24) | (tb << 16) | (tg << 8) | tr;
-        }
+    const src32 = new Uint32Array(cel.pixels.buffer, cel.pixels.byteOffset, lw * lh);
+    for (let i = 0; i < src32.length; i++) {
+      const p = src32[i];
+      const a = (p >>> 24) & 0xFF;
+      if (a > 10) {
+        dst32[i] = (a << 24) | (tb << 16) | (tg << 8) | tr;
       }
     }
 
     octx.putImageData(imgData, 0, 0);
 
-    // Draw tinted offscreen onto target canvas with alpha
     ctx.save();
     ctx.globalAlpha = Math.max(0.05, Math.min(1.0, alpha));
     ctx.imageSmoothingEnabled = false;
@@ -417,26 +786,26 @@ export class RasterAnimator {
   }
 
   /**
-   * Encodes all frames into an Animated GIF89a using the native WASM or JS encoder
+   * Encodes all timeline ticks into an Animated GIF89a
    */
   async exportGif(delayMs = Math.round(1000 / this.fps)) {
     this.saveActiveFrame();
     const actor = this.host?.canvasActor;
     const w = this.docWidth;
     const h = this.docHeight;
+    const totalTicks = this.getTotalDurationTicks();
+    const origTick = this.currentTick;
 
     // Attempt Native WASM GIF export if exports available
     if (actor && actor.exports && typeof actor.exports.w_gif_start === 'function') {
       const exp = actor.exports;
       exp.w_gif_start(w, h, this.loop ? 0 : 1);
 
-      // Render each frame and append composite
-      const origFrame = this.currentFrameIndex;
-      for (let i = 0; i < this.frames.length; i++) {
-        this.applyFrameToCanvas(i);
+      for (let t = 0; t < totalTicks; t++) {
+        this.applyTickToCanvas(t);
         exp.w_gif_append_composite_frame(delayMs);
       }
-      this.applyFrameToCanvas(origFrame);
+      this.applyTickToCanvas(origTick);
 
       const byteSize = exp.w_gif_finalize();
       if (byteSize > 0) {
@@ -451,35 +820,30 @@ export class RasterAnimator {
     const encoder = new GifEncoder(w, h, { repeat: this.loop ? 0 : -1 });
     encoder.start();
 
-    const origFrame = this.currentFrameIndex;
-    for (let i = 0; i < this.frames.length; i++) {
-      this.applyFrameToCanvas(i);
+    for (let t = 0; t < totalTicks; t++) {
+      this.applyTickToCanvas(t);
       const pixPtr = actor?.exports?.get_composite_pixels ? actor.exports.get_composite_pixels() : 0;
       let rawBytes;
       if (pixPtr && actor?.memory) {
         rawBytes = new Uint8Array(actor.memory.buffer, pixPtr, w * h * 4);
       } else {
-        // Compose active frame layers into raw buffer
         rawBytes = new Uint8Array(w * h * 4);
-        const curFrame = this.frames[i];
-        if (curFrame && curFrame.layers) {
-          for (const [, ldata] of curFrame.layers.entries()) {
-            if (ldata.pixels && ldata.visible && ldata.opacity > 0) {
-              rawBytes.set(ldata.pixels.subarray(0, rawBytes.length));
-            }
+        for (const [lid] of this.layerTracks.entries()) {
+          const { cel } = this.getCelAtTick(lid, t);
+          if (cel && cel.pixels && cel.visible && cel.opacity > 0) {
+            rawBytes.set(cel.pixels.subarray(0, rawBytes.length));
           }
         }
       }
-
       encoder.addFrame({ data: rawBytes }, delayMs);
     }
-    this.applyFrameToCanvas(origFrame);
+    this.applyTickToCanvas(origTick);
 
     return encoder.getBlob();
   }
 
   /**
-   * Encodes frames into WebM Video using VP8 muxer
+   * Encodes all timeline ticks into WebM Video using VP8 muxer
    */
   async exportWebM() {
     this.saveActiveFrame();
@@ -494,9 +858,10 @@ export class RasterAnimator {
     const ctx = cvs.getContext('2d');
     const actor = this.host?.canvasActor;
 
-    const origFrame = this.currentFrameIndex;
-    for (let i = 0; i < this.frames.length; i++) {
-      this.applyFrameToCanvas(i);
+    const totalTicks = this.getTotalDurationTicks();
+    const origTick = this.currentTick;
+    for (let t = 0; t < totalTicks; t++) {
+      this.applyTickToCanvas(t);
       ctx.clearRect(0, 0, w, h);
       const pixPtr = actor?.exports?.get_composite_pixels ? actor.exports.get_composite_pixels() : 0;
       if (pixPtr) {
@@ -505,18 +870,16 @@ export class RasterAnimator {
         ctx.putImageData(idata, 0, 0);
       }
 
-      // Convert canvas to WebP data url and extract VP8 payload
       const dataUrl = cvs.toDataURL('image/webp', 0.92);
       const b64 = dataUrl.split(',')[1];
       const binary = atob(b64);
       const u8 = new Uint8Array(binary.length);
       for (let b = 0; b < binary.length; b++) u8[b] = binary.charCodeAt(b);
 
-      // Find VP8 header chunk
       let vp8Offset = -1;
       for (let p = 0; p < u8.length - 4; p++) {
-        if (u8[p] === 0x56 && u8[p+1] === 0x50 && u8[p+2] === 0x38 && u8[p+3] === 0x20) {
-          vp8Offset = p + 8; // skip FourCC + 4-byte size
+        if (u8[p] === 0x56 && u8[p + 1] === 0x50 && u8[p + 2] === 0x38 && u8[p + 3] === 0x20) {
+          vp8Offset = p + 8;
           break;
         }
       }
@@ -525,60 +888,81 @@ export class RasterAnimator {
         muxer.addVP8Frame(vp8Chunk);
       }
     }
-    this.applyFrameToCanvas(origFrame);
+    this.applyTickToCanvas(origTick);
 
     return muxer.getBlob();
   }
 
   /**
-   * Serializes raster animation state for inclusion in .esen project JSON
+   * Serializes per-layer raster animation state for inclusion in .esen project JSON
+   * (Also includes backwards-compatible `frames` array for active layer)
    */
   toJSON() {
     this.saveActiveFrame();
-    const serializeFrame = (frame) => {
-      const layersObj = {};
-      for (const [lid, ldata] of frame.layers.entries()) {
-        let b64 = '';
-        if (ldata.pixels) {
-          let binary = '';
-          const len = ldata.pixels.byteLength;
-          const chunkSize = 0x8000;
-          for (let i = 0; i < len; i += chunkSize) {
-            const chunk = ldata.pixels.subarray(i, Math.min(i + chunkSize, len));
-            binary += String.fromCharCode.apply(null, chunk);
-          }
-          b64 = btoa(binary);
-        }
-        layersObj[lid] = {
-          width: ldata.width,
-          height: ldata.height,
-          pixels: b64,
-          visible: ldata.visible,
-          opacity: ldata.opacity
-        };
+    const encodeB64 = (pixels) => {
+      if (!pixels) return '';
+      let binary = '';
+      const len = pixels.byteLength;
+      const chunkSize = 0x8000;
+      for (let i = 0; i < len; i += chunkSize) {
+        const chunk = pixels.subarray(i, Math.min(i + chunkSize, len));
+        binary += String.fromCharCode.apply(null, chunk);
       }
-      return {
-        id: frame.id,
-        name: frame.name,
-        duration: frame.duration || 1,
-        layers: layersObj
-      };
+      return btoa(binary);
     };
+
+    const layerTracksObj = {};
+    for (const [lid, track] of this.layerTracks.entries()) {
+      layerTracksObj[lid] = {
+        layerId: lid,
+        activeCelIndex: track.activeCelIndex || 0,
+        frames: track.frames.map(cel => ({
+          id: cel.id,
+          name: cel.name,
+          duration: Math.max(1, Math.round(Number(cel.duration) || 1)),
+          width: cel.width,
+          height: cel.height,
+          pixels: encodeB64(cel.pixels),
+          visible: cel.visible,
+          opacity: cel.opacity
+        }))
+      };
+    }
+
+    // Backwards-compatible `frames` snapshot of active layer
+    const activeLid = this.getActiveLayerId();
+    const activeTrack = this.getLayerTrack(activeLid);
+    const compatFrames = (activeTrack ? activeTrack.frames : []).map(cel => ({
+      id: cel.id,
+      name: cel.name,
+      duration: Math.max(1, Math.round(Number(cel.duration) || 1)),
+      layers: {
+        [activeLid]: {
+          width: cel.width,
+          height: cel.height,
+          pixels: encodeB64(cel.pixels),
+          visible: cel.visible,
+          opacity: cel.opacity
+        }
+      }
+    }));
 
     return {
       fps: this.fps,
       loop: this.loop,
       onionSkin: { ...this.onionSkin },
+      currentTick: this.currentTick,
       currentFrameIndex: this.currentFrameIndex,
-      frames: this.frames.map(f => serializeFrame(f))
+      layerTracks: layerTracksObj,
+      frames: compatFrames
     };
   }
 
   /**
-   * Restores raster animation state from .esen project JSON
+   * Restores per-layer (or legacy multi-layer frame) raster animation state from .esen project JSON
    */
   fromJSON(data) {
-    if (!data || !Array.isArray(data.frames) || data.frames.length === 0) return;
+    if (!data) return;
     this.fps = data.fps || 12;
     this.loop = data.loop !== undefined ? data.loop : true;
     if (data.onionSkin) {
@@ -593,30 +977,75 @@ export class RasterAnimator {
       return u8;
     };
 
-    this.frames = data.frames.map((f, idx) => {
-      const layerMap = new Map();
-      if (f.layers) {
-        for (const [lid, ldata] of Object.entries(f.layers)) {
-          layerMap.set(Number(lid), {
-            width: ldata.width || this.docWidth,
-            height: ldata.height || this.docHeight,
-            pixels: decodeB64(ldata.pixels),
-            visible: ldata.visible !== undefined ? ldata.visible : 1,
-            opacity: ldata.opacity !== undefined ? ldata.opacity : 255
-          });
+    if (data.layerTracks && typeof data.layerTracks === 'object' && Object.keys(data.layerTracks).length > 0) {
+      this.layerTracks.clear();
+      for (const [lidStr, trackData] of Object.entries(data.layerTracks)) {
+        const lid = Number(lidStr);
+        if (!Array.isArray(trackData.frames) || trackData.frames.length === 0) continue;
+        const frames = trackData.frames.map((f, idx) => this._attachCelCompat({
+          id: f.id || `cel_${lid}_${idx + 1}`,
+          layerId: lid,
+          name: f.name || `Frame ${idx + 1}`,
+          duration: Math.max(1, Math.round(Number(f.duration) || 1)),
+          width: f.width || this.docWidth,
+          height: f.height || this.docHeight,
+          pixels: decodeB64(f.pixels),
+          visible: f.visible !== undefined ? f.visible : 1,
+          opacity: f.opacity !== undefined ? f.opacity : 255
+        }, lid));
+        this.layerTracks.set(lid, {
+          layerId: lid,
+          frames,
+          activeCelIndex: Math.max(0, Math.min(trackData.activeCelIndex || 0, frames.length - 1))
+        });
+      }
+      this.syncLayersWithCanvas();
+      this.currentTick = Math.max(0, data.currentTick || 0);
+      this.applyTickToCanvas(this.currentTick);
+    } else if (Array.isArray(data.frames) && data.frames.length > 0) {
+      // Legacy format: convert global `data.frames` into per-layer tracks
+      this.layerTracks.clear();
+      const layerIdsSet = new Set(this.getDrawingLayerIds());
+      for (const f of data.frames) {
+        if (f.layers) {
+          for (const lidStr of Object.keys(f.layers)) layerIdsSet.add(Number(lidStr));
         }
       }
-      return {
-        id: f.id || ('frame_' + (idx + 1)),
-        name: f.name || `Frame ${idx + 1}`,
-        duration: f.duration || 1,
-        layers: layerMap
-      };
-    });
+      for (const lid of layerIdsSet) {
+        const frames = data.frames.map((f, idx) => {
+          const ldata = f.layers ? (f.layers[lid] || f.layers[String(lid)]) : null;
+          return this._attachCelCompat({
+            id: f.id ? `${f.id}_L${lid}` : `cel_${lid}_${idx + 1}`,
+            layerId: lid,
+            name: f.name || `Frame ${idx + 1}`,
+            duration: Math.max(1, Math.round(Number(f.duration) || 1)),
+            width: ldata?.width || this.docWidth,
+            height: ldata?.height || this.docHeight,
+            pixels: ldata?.pixels ? decodeB64(ldata.pixels) : new Uint8Array(this.docWidth * this.docHeight * 4),
+            visible: ldata?.visible !== undefined ? ldata.visible : 1,
+            opacity: ldata?.opacity !== undefined ? ldata.opacity : 255
+          }, lid);
+        });
+        this.layerTracks.set(lid, {
+          layerId: lid,
+          frames,
+          activeCelIndex: Math.min(data.currentFrameIndex || 0, Math.max(0, frames.length - 1))
+        });
+      }
+      this.applyFrameToCanvas(this.currentFrameIndex, this.getActiveLayerId());
+    }
 
-    this.currentFrameIndex = Math.min(data.currentFrameIndex || 0, this.frames.length - 1);
-    this.applyFrameToCanvas(this.currentFrameIndex);
-    this.notify('framesUpdated', { frames: this.frames, activeIndex: this.currentFrameIndex });
-    this.notify('frameChange', { index: this.currentFrameIndex, frame: this.frames[this.currentFrameIndex] });
+    this.notify('framesUpdated', {
+      frames: this.frames,
+      activeIndex: this.currentFrameIndex,
+      layerId: this.getActiveLayerId(),
+      tick: this.currentTick
+    });
+    this.notify('frameChange', {
+      index: this.currentFrameIndex,
+      layerId: this.getActiveLayerId(),
+      tick: this.currentTick,
+      frame: this.frames[this.currentFrameIndex]
+    });
   }
 }
