@@ -3463,9 +3463,60 @@ async function main() {
     };
   }
 
+  const CONTEXT_MENU_SLIDERS_STORAGE_KEY = 'esenho_context_menu_sliders_v1';
+  const CONTEXT_MENU_SLIDERS_DEF = [
+    { id: 'size', label: 'Brush Size', key: 'size', min: 1, max: 300, unit: 'px', defaultVal: 12 },
+    { id: 'opacity', label: 'Opacity', key: 'opacity', min: 1, max: 100, unit: '%', defaultVal: 100 },
+    { id: 'flow', label: 'Flow', key: 'flow', min: 1, max: 100, unit: '%', defaultVal: 100 },
+    { id: 'hardness', label: 'Hardness', key: 'hardness', min: 0, max: 100, unit: '%', defaultVal: 80 },
+    { id: 'smoothing', label: 'Smoothing', key: 'stabilization', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'spacing', label: 'Spacing', key: 'spacing', min: 1, max: 200, unit: '%', defaultVal: 12 },
+    { id: 'roundness', label: 'Roundness', key: 'roundness', min: 1, max: 100, unit: '%', defaultVal: 100 },
+    { id: 'angle', label: 'Tip Angle', key: 'angle', min: 0, max: 360, unit: '°', defaultVal: 0 },
+    { id: 'string_length', label: 'Lazy String', key: 'string_length', min: 0, max: 200, unit: 'px', defaultVal: 0 },
+    { id: 'midpoint', label: 'Pressure Curve', key: 'midpoint', min: 0, max: 100, unit: '%', defaultVal: 50 },
+    { id: 'velocity', label: 'Velocity Size', key: 'velocity', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'taper_in', label: 'Taper Start', key: 'taper_in', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'taper_out', label: 'Taper End', key: 'taper_out', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'fade', label: 'Stroke Fade', key: 'fade', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'wetness', label: 'Wetness', key: 'wetness', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'smudge', label: 'Smudge Pull', key: 'smudge', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'pickup', label: 'Color Pickup', key: 'color_pickup', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'depletion', label: 'Paint Depletion', key: 'depletion', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'scatter', label: 'Scatter', key: 'scatter', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'size_jitter', label: 'Size Jitter', key: 'size_jitter', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'angle_jitter', label: 'Angle Jitter', key: 'angle_jitter', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'opacity_jitter', label: 'Opacity Jitter', key: 'opacity_jitter', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'color_jitter', label: 'Color Jitter', key: 'color_jitter', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'grain', label: 'Paper Grain', key: 'grain', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'tex_scale', label: 'Grain Scale', key: 'texture_scale', min: 10, max: 400, unit: '%', defaultVal: 100 },
+    { id: 'tex_contrast', label: 'Grain Contrast', key: 'texture_contrast', min: 0, max: 200, unit: '%', defaultVal: 100 },
+    { id: 'tex_rotate', label: 'Grain Angle', key: 'texture_rotate', min: 0, max: 360, unit: '°', defaultVal: 0 },
+    { id: 'dual_size', label: 'Dual Brush Size', key: 'dual_size', min: 10, max: 300, unit: '%', defaultVal: 100 },
+    { id: 'dual_spacing', label: 'Dual Spacing', key: 'dual_spacing', min: 1, max: 100, unit: '%', defaultVal: 15 }
+  ];
+
+  if (!Array.isArray(host.contextMenuSliders)) {
+    let initialSliders = ['size', 'opacity', 'smoothing'];
+    try {
+      const saved = localStorage.getItem(CONTEXT_MENU_SLIDERS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) initialSliders = parsed;
+      }
+    } catch (_) {}
+    host.contextMenuSliders = initialSliders;
+  }
+
+  const DOCKVIEW_TAB_PANELS = new Set(['canvas', 'layers', 'timeline', 'color', 'lab', 'hud']);
+
   function openPanelInContextMenu(panelId, anchor) {
-    if (!window.contextMenuService) return;
     if (panelId === 'brushes') panelId = 'lab';
+    if (window.isDockviewPainter && DOCKVIEW_TAB_PANELS.has(panelId) && typeof window.openPainterDockPanel === 'function') {
+      window.openPainterDockPanel(panelId);
+      return;
+    }
+    if (!window.contextMenuService) return;
     const defaultAnchor = () => {
       if (anchor && typeof anchor.x === 'number') return anchor;
       if (host.mouseHover && host.mouseHover.inside && canvasEl) {
@@ -3806,51 +3857,37 @@ async function main() {
     });
 
     const bp = host.brushParams || {};
-    items.push(
-      {
+    const activeSlidersList = Array.isArray(host.contextMenuSliders) ? host.contextMenuSliders : ['size', 'opacity', 'smoothing'];
+    for (const sid of activeSlidersList) {
+      const sDef = CONTEXT_MENU_SLIDERS_DEF.find(s => s.id === sid);
+      if (!sDef) continue;
+      const rawVal = sid === 'smoothing'
+        ? (bp.stabilization ?? bp.smoothing ?? sDef.defaultVal)
+        : (bp[sDef.key] ?? sDef.defaultVal);
+      items.push({
         type: 'slider',
-        label: 'Brush Size',
-        min: 1,
-        max: 300,
-        value: Math.round(bp.size ?? 12),
-        unit: 'px',
+        label: sDef.label,
+        min: sDef.min,
+        max: sDef.max,
+        value: Math.round(rawVal),
+        unit: sDef.unit,
         onInput: (val) => {
-          host.setBrushParam('size', val);
+          host.setBrushParam(sDef.key, val);
+          if (sid === 'smoothing' && host.brushParams) host.brushParams.smoothing = val;
           if (typeof syncUiFromHost === 'function') syncUiFromHost();
         },
-        onChange: (val) => runCmd(`brush size ${val}`)
-      },
-      {
-        type: 'slider',
-        label: 'Opacity',
-        min: 1,
-        max: 100,
-        value: Math.round(bp.opacity ?? 100),
-        unit: '%',
-        onInput: (val) => {
-          host.setBrushParam('opacity', val);
-          if (typeof syncUiFromHost === 'function') syncUiFromHost();
-        },
-        onChange: (val) => runCmd(`brush opacity ${val}`)
-      },
-      {
-        type: 'slider',
-        label: 'Smoothing',
-        min: 0,
-        max: 100,
-        value: Math.round(bp.stabilization ?? bp.smoothing ?? 0),
-        unit: '%',
-        onInput: (val) => {
-          host.setBrushParam('stabilization', val);
-          if (typeof syncUiFromHost === 'function') syncUiFromHost();
-        },
-        onChange: (val) => runCmd(`brush stabilize ${val}`)
-      }
-    );
+        onChange: (val) => {
+          if (sid === 'size') runCmd(`brush size ${val}`);
+          else if (sid === 'opacity') runCmd(`brush opacity ${val}`);
+          else if (sid === 'smoothing') runCmd(`brush stabilize ${val}`);
+          else runCmd(`set ${sDef.key} ${val}`);
+        }
+      });
+    }
 
     addSep();
 
-    // 5. Brush Library & Brush Lab Submenus
+    // 5. Brush Library Submenu
     const activeBrushKey = host.activeBrush || 'ink_pen';
     const activeBrushObj = BRUSH_PRESETS[activeBrushKey] || (host.customBrushPresets && host.customBrushPresets[activeBrushKey]);
     const activeBrushTitle = activeBrushObj ? activeBrushObj.name : activeBrushKey;
@@ -3903,8 +3940,6 @@ async function main() {
     );
 
     addSubmenu(`Brush: ${activeBrushTitle}`, brushLibraryItems);
-    addSubmenu('Brush Lab (Dynamics & Tip)', [buildDomPanelAction('lab')]);
-    addSubmenu('Color Studio', [buildDomPanelAction('color')]);
 
     // 6. Tools, Shapes & Guides Submenu
     const curMode = host.actionMode || 'draw';
@@ -4046,6 +4081,8 @@ async function main() {
     addSep();
 
     // 9. Canvas & View Submenu
+    const dockApi = window.painterDockviewApi;
+    const isTabOpen = (id) => !!(dockApi && dockApi.getPanel(id));
     addSubmenu('Canvas & View', [
       { type: 'item', label: 'Pick Color Here (Eyedropper)', hotkey: 'I / Alt', action: () => { sampleEyedropperColor(p.x, p.y, e.clientX, e.clientY); setTimeout(hideEyedropper, 650); } },
       { type: 'item', label: 'Undo', hotkey: 'Ctrl+Z', action: () => runCmd('undo') },
@@ -4058,6 +4095,19 @@ async function main() {
       { type: 'item', label: (host.flipV ? '✓ ' : '') + 'Flip View Vertical', action: () => { host.flipV = !host.flipV; host.render(); syncUiFromHost(); } },
       { type: 'item', label: (host.showPixelGrid ? '✓ ' : '') + 'Show Pixel Grid', action: () => { syncPixelGrid(!host.showPixelGrid); } },
       { type: 'sep' },
+      {
+        type: 'submenu',
+        label: 'Workspace Tabs',
+        items: [
+          { type: 'item', label: (isTabOpen('layers') ? '✓ ' : '') + 'Layers Tab', action: () => window.togglePainterDockPanel?.('layers') },
+          { type: 'item', label: (isTabOpen('color') ? '✓ ' : '') + 'Color Studio Tab', action: () => window.togglePainterDockPanel?.('color') },
+          { type: 'item', label: (isTabOpen('lab') ? '✓ ' : '') + 'Brush Lab Tab', action: () => window.togglePainterDockPanel?.('lab') },
+          { type: 'item', label: (isTabOpen('hud') ? '✓ ' : '') + 'Menu Sliders Tab', action: () => window.togglePainterDockPanel?.('hud') },
+          { type: 'item', label: (isTabOpen('timeline') ? '✓ ' : '') + 'Timeline Tab', action: () => window.togglePainterDockPanel?.('timeline') },
+          { type: 'sep' },
+          { type: 'item', label: 'Reset Workspace Layout', action: () => window.resetPainterDockLayout?.() }
+        ]
+      },
       {
         type: 'submenu',
         label: 'Canvas Transformations',
@@ -11927,41 +11977,39 @@ async function main() {
 
     let currentCustomizingDock = 'left';
 
+    const saveContextMenuSliders = (list) => {
+      const validIds = new Set(CONTEXT_MENU_SLIDERS_DEF.map(s => s.id));
+      host.contextMenuSliders = CONTEXT_MENU_SLIDERS_DEF
+        .map(s => s.id)
+        .filter(id => validIds.has(id) && list.includes(id));
+      try {
+        localStorage.setItem(CONTEXT_MENU_SLIDERS_STORAGE_KEY, JSON.stringify(host.contextMenuSliders));
+      } catch (_) {}
+    };
+
     const renderHudCustomizerOptions = () => {
       const sGrid = document.getElementById('ip-hud-sliders-toggle-grid');
       const aGrid = document.getElementById('ip-hud-actions-toggle-grid');
-      const dockLbl = document.getElementById('ip-hud-customizer-dock-label');
-      if (dockLbl) {
-        const dName = currentCustomizingDock.charAt(0).toUpperCase() + currentCustomizingDock.slice(1);
-        dockLbl.textContent = `Choose which sliders and quick action buttons appear on the ${dName} Bar:`;
-      }
-
       const cfg = ipActiveHudConfig[currentCustomizingDock] || { sliders: [], actions: [] };
 
       if (sGrid) {
         sGrid.innerHTML = '';
-        HUD_AVAILABLE_SLIDERS.forEach(s => {
+        const activeSet = new Set(Array.isArray(host.contextMenuSliders) ? host.contextMenuSliders : ['size', 'opacity', 'smoothing']);
+        CONTEXT_MENU_SLIDERS_DEF.forEach(s => {
           const item = document.createElement('label');
           item.className = 'ip-btn';
           item.style.display = 'flex';
           item.style.alignItems = 'center';
           item.style.gap = '6px';
           item.style.cursor = 'pointer';
-          const isChecked = (cfg.sliders || []).includes(s.id);
-          item.innerHTML = `<input type="checkbox" ${isChecked ? 'checked' : ''} data-hud-slider="${s.id}"> <span>${s.label} (${s.id})</span>`;
+          item.style.padding = '5px 7px';
+          const isChecked = activeSet.has(s.id);
+          item.innerHTML = `<input type="checkbox" ${isChecked ? 'checked' : ''} data-ctx-slider="${s.id}"> <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.label}</span>`;
           item.querySelector('input').addEventListener('change', (e) => {
-            if (!ipActiveHudConfig[currentCustomizingDock]) {
-              ipActiveHudConfig[currentCustomizingDock] = { sliders: [], actions: [] };
-            }
-            if (e.target.checked) {
-              if (!ipActiveHudConfig[currentCustomizingDock].sliders.includes(s.id)) {
-                ipActiveHudConfig[currentCustomizingDock].sliders.push(s.id);
-              }
-            } else {
-              ipActiveHudConfig[currentCustomizingDock].sliders = ipActiveHudConfig[currentCustomizingDock].sliders.filter(x => x !== s.id);
-            }
-            localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
-            renderAllHuds();
+            const cur = new Set(Array.isArray(host.contextMenuSliders) ? host.contextMenuSliders : []);
+            if (e.target.checked) cur.add(s.id);
+            else cur.delete(s.id);
+            saveContextMenuSliders(Array.from(cur));
           });
           sGrid.appendChild(item);
         });
@@ -11999,41 +12047,22 @@ async function main() {
 
     const openHudCustomizer = (initialDock = 'left') => {
       currentCustomizingDock = initialDock;
+      renderHudCustomizerOptions();
+      if (window.isDockviewPainter && typeof window.openPainterDockPanel === 'function') {
+        window.openPainterDockPanel('hud');
+        return;
+      }
       const modal = document.getElementById('sheet-hud-customizer');
       if (!modal) return;
-
-      const tabs = document.querySelectorAll('#ip-hud-dock-tabs .ip-pill-btn');
-      tabs.forEach(tab => {
-        tab.classList.toggle('active', tab.dataset.docktab === currentCustomizingDock);
-      });
-
-      renderHudCustomizerOptions();
       openSheet('sheet-hud-customizer');
     };
     window.renderHudCustomizerOptions = renderHudCustomizerOptions;
 
-    // Dock switcher tabs inside Customizer
-    document.querySelectorAll('#ip-hud-dock-tabs .ip-pill-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#ip-hud-dock-tabs .ip-pill-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentCustomizingDock = btn.dataset.docktab || 'left';
-        renderHudCustomizerOptions();
-        triggerHaptic(8);
-      });
-    });
-
-    // HUD Customizer Presets
+    // Context Menu Sliders Presets
     const btnHudDefault = document.getElementById('btn-ip-hud-preset-default');
     if (btnHudDefault) {
       btnHudDefault.addEventListener('click', () => {
-        ipActiveHudConfig = {
-          left: { sliders: ['size', 'opacity'], actions: ['color', 'swap_mode'] },
-          right: { sliders: [], actions: ['hud_gear'] },
-          bottom: { sliders: [], actions: ['brush', 'tools', 'layers', 'brush_lab'] }
-        };
-        localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
-        renderAllHuds();
+        saveContextMenuSliders(['size', 'opacity', 'smoothing']);
         renderHudCustomizerOptions();
         triggerHaptic(12);
       });
@@ -12042,13 +12071,16 @@ async function main() {
     const btnHudPro = document.getElementById('btn-ip-hud-preset-pro');
     if (btnHudPro) {
       btnHudPro.addEventListener('click', () => {
-        ipActiveHudConfig = {
-          left: { sliders: ['size', 'opacity', 'flow', 'hardness'], actions: ['color', 'swap_mode'] },
-          right: { sliders: [], actions: ['pipette', 'undo', 'redo', 'hud_gear'] },
-          bottom: { sliders: ['smoothing'], actions: ['brush', 'tools', 'layers', 'brush_lab', 'grid', 'symmetry'] }
-        };
-        localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
-        renderAllHuds();
+        saveContextMenuSliders(['size', 'opacity', 'flow', 'hardness', 'smoothing', 'wetness', 'smudge', 'pickup']);
+        renderHudCustomizerOptions();
+        triggerHaptic(12);
+      });
+    }
+
+    const btnHudInk = document.getElementById('btn-ip-hud-preset-ink');
+    if (btnHudInk) {
+      btnHudInk.addEventListener('click', () => {
+        saveContextMenuSliders(['size', 'opacity', 'smoothing', 'string_length', 'taper_in', 'taper_out', 'velocity']);
         renderHudCustomizerOptions();
         triggerHaptic(12);
       });
@@ -12057,22 +12089,7 @@ async function main() {
     const btnHudFull = document.getElementById('btn-ip-hud-preset-full');
     if (btnHudFull) {
       btnHudFull.addEventListener('click', () => {
-        ipActiveHudConfig = {
-          left: {
-            sliders: ['size', 'opacity', 'flow', 'hardness', 'smoothing', 'spacing', 'pickup'],
-            actions: ['color', 'swap_mode', 'pipette']
-          },
-          right: {
-            sliders: ['wetness', 'smudge', 'grain'],
-            actions: ['undo', 'redo', 'clear_layer', 'hud_gear']
-          },
-          bottom: {
-            sliders: ['string_length'],
-            actions: ['brush', 'tools', 'layers', 'brush_lab', 'select_rect', 'select_lasso', 'grid', 'symmetry']
-          }
-        };
-        localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
-        renderAllHuds();
+        saveContextMenuSliders(CONTEXT_MENU_SLIDERS_DEF.map(s => s.id));
         renderHudCustomizerOptions();
         triggerHaptic(12);
       });

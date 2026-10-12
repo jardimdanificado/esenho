@@ -2426,7 +2426,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.18 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.19 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -3357,30 +3357,22 @@
       <div id="raster-anim-timeline-dock"></div>
     </div>
 
-    <!-- 10. HUD CUSTOMIZER PANEL -->
+    <!-- 10. CONTEXT MENU SLIDERS SELECTOR PANEL -->
     <div id="dock-panel-hud" class="dock-panel-content">
       <div id="sheet-hud-customizer" class="ip-sheet-modal">
         <div class="ip-sheet">
-          <div class="ip-pills-row" id="ip-hud-dock-tabs" style="padding: 6px 8px 0; border-bottom: 1px solid var(--border); background: var(--bg-input);">
-            <button type="button" class="ip-pill-btn active" data-docktab="left">Left Bar</button>
-            <button type="button" class="ip-pill-btn" data-docktab="right">Right Bar</button>
-            <button type="button" class="ip-pill-btn" data-docktab="bottom">Bottom Bar</button>
-          </div>
           <div class="ip-sheet-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
             <div id="ip-hud-customizer-dock-label" style="color: var(--text-muted); font-size: 11px;">
-              Choose which sliders and quick action buttons appear on the Left Dock:
+              Select which sliders appear directly in the right-click context menu:
             </div>
-            <div style="font-size: 11px; font-weight: bold; color: var(--primary);">Vertical Sliders</div>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;">
+              <button type="button" class="ip-btn" id="btn-ip-hud-preset-default" style="font-size: 10.5px;">Minimal (Size/Opac/Stab)</button>
+              <button type="button" class="ip-btn" id="btn-ip-hud-preset-pro" style="font-size: 10.5px;">Painting Pro</button>
+              <button type="button" class="ip-btn" id="btn-ip-hud-preset-ink" style="font-size: 10.5px;">Inking &amp; Taper</button>
+              <button type="button" class="ip-btn" id="btn-ip-hud-preset-full" style="font-size: 10.5px;">All Sliders</button>
+            </div>
+            <div style="font-size: 11px; font-weight: bold; color: var(--primary);">Context Menu Sliders</div>
             <div id="ip-hud-sliders-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
-            <div style="font-size: 11px; font-weight: bold; color: var(--primary); margin-top: 4px;">Quick Action Buttons</div>
-            <div id="ip-hud-actions-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
-            <div style="font-size: 11px; font-weight: bold; color: var(--primary); margin-top: 4px;">Presets</div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
-              <button type="button" class="ip-btn" id="btn-ip-hud-preset-default">Default</button>
-              <button type="button" class="ip-btn" id="btn-ip-hud-preset-pro">Painter Pro</button>
-              <button type="button" class="ip-btn" id="btn-ip-hud-preset-full">Full Deck</button>
-            </div>
-            <button type="button" class="ip-btn" id="btn-ip-hud-save-close" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; padding: 9px; margin-top: 4px;">Apply</button>
           </div>
         </div>
       </div>
@@ -3500,12 +3492,15 @@
 <script src="vendor/dockview-core.js"></script>
 <script>
   (function () {
-    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v5';
-    const ALL_PANEL_IDS = ['canvas', 'layers', 'timeline'];
+    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v6';
+    const ALL_PANEL_IDS = ['canvas', 'layers', 'timeline', 'color', 'lab', 'hud'];
     const PANEL_TITLES = {
       canvas: 'Canvas',
       layers: 'Layers',
-      timeline: 'Timeline'
+      timeline: 'Timeline',
+      color: 'Color Studio',
+      lab: 'Brush Lab',
+      hud: 'Menu Sliders'
     };
 
     const panelElements = new Map();
@@ -3547,7 +3542,7 @@
       saveLayoutTimer = setTimeout(() => {
         try {
           const data = dockviewApi.toJSON();
-          if (data && data.panels && data.panels['canvas'] && data.panels['layers'] && data.panels['timeline']) {
+          if (data && data.panels && ALL_PANEL_IDS.every(k => !!data.panels[k])) {
             localStorage.setItem(DOCKVIEW_STORAGE_KEY, JSON.stringify(data));
           }
         } catch (err) {
@@ -3616,13 +3611,34 @@
           initialHeight: 135
         });
 
-        // 3. Right Dock: Clean Layers List Only
+        // 3. Right Dock: Layers, Color Studio, Brush Lab & Menu Sliders
         dockviewApi.addPanel({
           id: 'layers',
           component: 'layers',
           title: PANEL_TITLES.layers,
           position: { direction: 'right', referencePanel: 'canvas' },
-          initialWidth: 235
+          initialWidth: 280
+        });
+
+        dockviewApi.addPanel({
+          id: 'color',
+          component: 'color',
+          title: PANEL_TITLES.color,
+          position: { direction: 'within', referencePanel: 'layers' }
+        });
+
+        dockviewApi.addPanel({
+          id: 'lab',
+          component: 'lab',
+          title: PANEL_TITLES.lab,
+          position: { direction: 'within', referencePanel: 'layers' }
+        });
+
+        dockviewApi.addPanel({
+          id: 'hud',
+          component: 'hud',
+          title: PANEL_TITLES.hud,
+          position: { direction: 'within', referencePanel: 'layers' }
         });
 
         dockviewApi.getPanel('timeline')?.api?.setActive();
@@ -3682,13 +3698,11 @@
           if (
             saved &&
             saved.grid &&
-            panelKeys.length === 3 &&
-            saved.panels['canvas'] &&
-            saved.panels['layers'] &&
-            saved.panels['timeline']
+            panelKeys.length === ALL_PANEL_IDS.length &&
+            ALL_PANEL_IDS.every(k => !!saved.panels[k])
           ) {
             dockviewApi.fromJSON(saved);
-            if (dockviewApi.getPanel('canvas') && dockviewApi.getPanel('layers') && dockviewApi.getPanel('timeline')) {
+            if (ALL_PANEL_IDS.every(k => !!dockviewApi.getPanel(k))) {
               restored = true;
             }
           }
