@@ -106,7 +106,7 @@ W_EXPORT void w_filter_apply(int32_t p1, int32_t p2) {
 ```bash
 clang --target=wasm32 -O3 -nostdlib \
   -Wl,--no-entry -Wl,--export-dynamic \
-  -Iinclude \
+  -Isrc/include \
   src/plugins/my_effect.c -o plugins/my_effect.wasm
 ```
 

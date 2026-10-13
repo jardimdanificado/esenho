@@ -3,7 +3,7 @@
 
 /**
  * =========================================================================
- * Quadro WebAssembly Header (include/quadro.h)
+ * Quadro WebAssembly Header (src/include/quadro.h)
  * Universal Brush, Vector, Selection & Filter ABI definitions.
  * =========================================================================
  */

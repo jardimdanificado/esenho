@@ -4,7 +4,7 @@
 
 Esenho is an extensible digital painting engine built on WebAssembly and high-performance raster algorithms:
 - **Core WASM Engine (`plugins/canvas.wasm`)**: Written in C99, compiled to WebAssembly without libc dependencies. Manages linear memory, unified multi-layer framebuffers, parametric dab rendering, procedural grain sampling, integer math, dirty-rect composite generation, native vector path rasterization, font glyph rendering, and polyphonic audio DSP.
-- **Header & ABI (`include/quadro.h`)**: Universal interface defining brush engine parameters, layer structures, color conversions, audio DSP, and filter ABI.
+- **Header & ABI (`src/include/quadro.h`)**: Universal interface defining brush engine parameters, layer structures, color conversions, audio DSP, and filter ABI.
 - **Host & Runtime Actor (`src/esenho.js`)**: Executes in Node.js and modern browsers. Implements `EsenhoScreenHost`, `EsenhoModule`, state management, undo/redo snapshot trees, clipboard, and the `papagaio` pattern-matching CLI compiler.
 - **Universal Scripting Platform (`src/script/*`)**: Unified SDK exposing `esenho.*` across raster, vector, animation, audio, and UI domains with an atomic command bus.
 - **Filter Plugins (`plugins/*.wasm`)**: 29 standalone WASM modules implementing image processing kernels (`bloom`, `blur`, `brightness`, `chromatic`, `contrast`, `dither`, `duotone`, `edge`, `emboss`, `fisheye`, `frosted_glass`, `glitch`, `grayscale`, `halftone_dot`, `invert`, `kaleidoscope`, `kuwahara`, `noise`, `pixelate`, `ripple`, `scanline`, `sepia`, `sharpen`, `solarize`, `swirl`, `thermal`, `threshold`, `vignette`).

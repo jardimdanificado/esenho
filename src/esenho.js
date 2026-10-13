@@ -111,7 +111,7 @@ function getPapagaio() {
 }
 
 /**
- * Standard Parameter IDs matching include/quadro.h enum
+ * Standard Parameter IDs matching src/include/quadro.h enum
  */
 const PARAM_IDS = {
   size: 1,

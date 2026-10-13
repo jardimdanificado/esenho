@@ -3,7 +3,7 @@
 
 /**
  * =========================================================================
- * 5x7 Monospaced Bitmap Font Table (include/font5x7.h)
+ * 5x7 Monospaced Bitmap Font Table (src/include/font5x7.h)
  * =========================================================================
  * 
  * Column-major 5x7 ASCII bitmap font definition (character codes 32..126).
