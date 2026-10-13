@@ -70,19 +70,18 @@ jobs:
             echo "ANDROID_KEY_PASSWORD=esenho123" >> $GITHUB_ENV
           fi
 
-      - name: Build Signed Offline APK
+      - name: Build Signed APK
         run: |
           gradle -p android assembleRelease --no-daemon
           VERSION=$(node -p "require('./package.json').version")
-          cp android/app/build/outputs/apk/release/app-release.apk "esenho-v${VERSION}-offline.apk"
-          cp android/app/build/outputs/apk/release/app-release.apk "esenho-offline.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "esenho-v${VERSION}.apk"
           echo "APK_VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: esenho-v${{ env.APK_VERSION }}-offline-apk
-          path: esenho-v${{ env.APK_VERSION }}-offline.apk
+          name: esenho-v${{ env.APK_VERSION }}-apk
+          path: esenho-v${{ env.APK_VERSION }}.apk
           if-no-files-found: error
 
       - name: Create or Update GitHub Release
@@ -90,8 +89,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.APK_VERSION }}
-          name: Esenho v${{ env.APK_VERSION }}
-          files: |
-            esenho-v${{ env.APK_VERSION }}-offline.apk
-            esenho-offline.apk
+          name: v${{ env.APK_VERSION }}
+          files: esenho-v${{ env.APK_VERSION }}.apk
+
 

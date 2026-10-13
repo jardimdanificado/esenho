@@ -60,8 +60,8 @@ apk: $(CORE_WASM) $(PLUGINS) plugins/manifest.json
 	export PATH="$$JAVA_HOME/bin:$$TOOLS_DIR/gradle/bin:$$PATH"; \
 	gradle -p android assembleRelease --no-daemon && \
 	VERSION=$$(node -p "require('./package.json').version") && \
-	cp android/app/build/outputs/apk/release/app-release.apk "esenho-v$${VERSION}-offline.apk" && \
-	echo "Built signed APK: esenho-v$${VERSION}-offline.apk"
+	cp android/app/build/outputs/apk/release/app-release.apk "esenho-v$${VERSION}.apk" && \
+	echo "Built signed APK: esenho-v$${VERSION}.apk"
 
 clean:
 	rm -rf plugins/*.wasm plugins/manifest.json roms bin android/.gradle android/build android/app/build android/app/src/main/assets
