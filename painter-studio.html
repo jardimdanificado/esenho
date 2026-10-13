@@ -2682,7 +2682,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.46 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.47 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -3816,13 +3816,20 @@
       if (!container || container._dvHandleOnlyBound) return;
       container._dvHandleOnlyBound = true;
 
-      const LONG_PRESS_MS = 320;
-      const MOVE_TOLERANCE = 8;
+      const LONG_PRESS_MS = 260;
+      const MOVE_TOLERANCE = 10;
+
+      container.addEventListener('contextmenu', (e) => {
+        if (e.target instanceof Element && e.target.closest('.dv-tab')) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true);
 
       // Capture-phase pointerdown gate:
       // 1. On split dividers (.dv-sash): allow resize ONLY when pointerdown is on .dv-sash-handle.
-      // 2. On mobile/touch (.dv-tab): require pressing & holding (320ms) before tab drag can start;
-      //    swiping before 320ms scrolls .dv-tabs-container horizontally; tapping activates the tab.
+      // 2. On mobile/touch (.dv-tab): require pressing & holding (260ms) before tab drag can start;
+      //    swiping before 260ms scrolls .dv-tabs-container horizontally; tapping activates the tab.
       // 3. On desktop mouse (.dv-tab): the entire tab is draggable; click-without-moving activates.
       // 4. On group header empty space: prevent accidental whole-group drag.
       container.addEventListener('pointerdown', (e) => {
@@ -3901,9 +3908,11 @@
           const startY = e.clientY;
           const startScrollLeft = tabsContainer ? tabsContainer.scrollLeft : 0;
           const pointerId = e.pointerId;
+          const pointerType = e.pointerType || 'touch';
           let longPressArmed = false;
           let didScroll = false;
           let lastX = startX;
+          let lastY = startY;
           let lastTime = performance.now();
           let velocityX = 0;
 
@@ -3914,12 +3923,32 @@
             if (navigator.vibrate) {
               try { navigator.vibrate(18); } catch (_) {}
             }
+            try {
+              window.dispatchEvent(new PointerEvent('pointermove', {
+                pointerId,
+                pointerType,
+                clientX: startX + 9,
+                clientY: startY,
+                bubbles: true,
+                cancelable: true
+              }));
+              window.dispatchEvent(new PointerEvent('pointermove', {
+                pointerId,
+                pointerType,
+                clientX: lastX,
+                clientY: lastY,
+                bubbles: true,
+                cancelable: true
+              }));
+            } catch (_) {}
           }, LONG_PRESS_MS);
 
           const onTouchMove = (moveEvt) => {
             if (moveEvt.pointerId !== pointerId) return;
             if (longPressArmed) {
-              // Long-press succeeded: let PointerDragSource receive pointermove and drag the tab
+              lastX = moveEvt.clientX;
+              lastY = moveEvt.clientY;
+              // Long-press succeeded: let PointerDragSource / PointerDragController receive pointermove
               return;
             }
 
@@ -3938,10 +3967,11 @@
               const now = performance.now();
               const dt = Math.max(1, now - lastTime);
               velocityX = (moveEvt.clientX - lastX) / dt;
-              lastX = moveEvt.clientX;
               lastTime = now;
               tabsContainer.scrollLeft = startScrollLeft - dx;
             }
+            lastX = moveEvt.clientX;
+            lastY = moveEvt.clientY;
           };
 
           const onTouchEnd = (endEvt) => {

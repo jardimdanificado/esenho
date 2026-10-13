@@ -6437,6 +6437,7 @@ Object.defineProperties(exports, { __esModule: { value: true }, [Symbol.toString
 				(_this$accessor$contex = this.accessor.contextMenuService) === null || _this$accessor$contex === void 0 || _this$accessor$contex.show(this.panel, this.group, event);
 			}), new LongPressDetector(this._element, { onLongPress: (event) => {
 				var _this$accessor$contex2;
+				if (!this.accessor.options.getTabContextMenuItems) return;
 				this.pointerDragSource.cancelPending();
 				(_this$accessor$contex2 = this.accessor.contextMenuService) === null || _this$accessor$contex2 === void 0 || _this$accessor$contex2.show(this.panel, this.group, event);
 			} }), this.dropTarget.onDrop((event) => {
