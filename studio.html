@@ -1029,6 +1029,73 @@
       background: var(--border-bright);
     }
 
+    /* ── Top Header Bar (Single Button Menu) ── */
+    #ip-top-bar {
+      position: relative;
+      height: 38px;
+      flex-shrink: 0;
+      background: var(--bg-dark);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      z-index: 2000;
+      user-select: none;
+      -webkit-user-select: none;
+      box-sizing: border-box;
+      gap: 8px;
+      overflow: visible;
+    }
+    .ip-bar-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .brand-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 3px 5px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text);
+      height: 28px;
+    }
+    .brand-btn:hover, .brand-btn.active {
+      background: var(--bg-panel-sub);
+      border-color: var(--border);
+    }
+    .brand-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--primary-dim);
+      border: 1.5px solid var(--primary);
+      border-radius: var(--radius-sm);
+      color: var(--primary);
+      font-weight: 900;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+    .ip-top-status-text {
+      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      user-select: none;
+      -webkit-user-select: none;
+      pointer-events: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-right: 4px;
+    }
+
     /* ── VS Code Style Titlebar ── */
     .vscode-titlebar {
       height: 32px;
@@ -1240,8 +1307,8 @@
       overflow: hidden;
       min-height: 0;
       width: 100vw;
-      height: 100vh;
-      height: 100dvh;
+      height: calc(100vh - 38px);
+      height: calc(100dvh - 38px);
     }
 
     /* VS Code Footer / Statusbar */
@@ -1376,13 +1443,14 @@
     .brand-btn {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       background: transparent;
       border: 1px solid transparent;
-      padding: 4px 6px;
+      padding: 3px 5px;
       border-radius: var(--radius-sm);
       cursor: pointer;
       color: var(--text);
+      height: 28px;
     }
 
     .brand-btn:hover, .brand-btn.active {
@@ -1391,8 +1459,8 @@
     }
 
     .brand-icon {
-      width: 24px;
-      height: 24px;
+      width: 20px;
+      height: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1401,7 +1469,7 @@
       border-radius: var(--radius-sm);
       color: var(--primary);
       font-weight: 900;
-      font-size: 12px;
+      font-size: 11px;
       font-family: var(--font-mono);
     }
 
@@ -3680,8 +3748,23 @@
 </head>
 <body>
 
-  <!-- VS Code Custom Titlebar & Menu System -->
-  <header id="vscode-titlebar" class="vscode-titlebar">
+  <!-- ── Top Header Bar (Single Button Menu) ── -->
+  <header id="ip-top-bar">
+    <div class="ip-bar-group" id="ip-top-fixed-group">
+      <div class="menu-container">
+        <button type="button" id="btn-menu-logo" class="brand-btn" title="Menu &amp; Tools">
+          <div class="brand-icon">E</div>
+          <span style="font-size: 8px; color: var(--text-muted); margin-left: -2px;">▼</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Status Information on Top Bar -->
+    <span id="wstatus" class="ip-top-status-text">v0.13.58 ready</span>
+  </header>
+
+  <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
+  <header id="vscode-titlebar" class="vscode-titlebar" style="display: none;">
     <!-- Left: App Icon + Menu Bar -->
     <div class="titlebar-left">
       <div class="titlebar-app-icon" id="titlebar-brand-icon" title="Esenho Studio">
@@ -9500,9 +9583,23 @@
           { type: 'item', label: 'Quick Export PNG (1×)', action: () => performExport('image/png', 1) },
           { type: 'item', label: 'Export Center (Video / GIF / Scale)...', action: () => openDockPanel('export') },
           { type: 'sep' },
-          { type: 'item', label: 'Toggle Theme (Dark / Light)', action: () => toggleTheme() },
-          { type: 'item', label: 'Open Raster Painter...', hotkey: '🎨', action: () => { window.location.href = 'painter.html'; } }
+          { type: 'item', label: 'Toggle Theme (Dark / Light)', action: () => toggleTheme() }
         ]);
+
+        // App Switcher & About
+        addSep();
+        addItem('Switch to Painter', '', () => {
+          window.location.href = 'painter.html';
+        });
+        const vStudioStr = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.13.54';
+        addItem(`v${vStudioStr}`, '', async () => {
+          if (typeof saveCurrentProjectSnapshot === 'function') {
+            await saveCurrentProjectSnapshot();
+          }
+          if (typeof showNotification === 'function') {
+            showNotification(`v${vStudioStr} · Saved`);
+          }
+        });
 
         // ── Monaco / VS Code Context Menu Architecture (vs/base/browser/ui/contextview & menu) ──
         if (window.contextMenuService) {
@@ -10493,6 +10590,11 @@
             updateInspector();
             updateObjectList();
             drawOverlay();
+          } else if (key === 's' || e.code === 'KeyS') {
+            e.preventDefault();
+            if (typeof saveCurrentProjectSnapshot === 'function') {
+              saveCurrentProjectSnapshot();
+            }
           } else if (key === 'e' || e.code === 'KeyE') {
             e.preventDefault();
             updateExportDimPreview();
@@ -10682,14 +10784,14 @@
       const menuDropdown = document.getElementById('app-menu-dropdown');
       btnMenuLogo?.addEventListener('click', (e) => {
         e.stopPropagation();
-        const willBeActive = !menuDropdown?.classList.contains('active');
-        menuDropdown?.classList.toggle('active');
-        btnMenuLogo?.classList.toggle('active');
-        if (!willBeActive) {
-          document.querySelectorAll('.menu-item-submenu-wrap').forEach(w => w.classList.remove('open'));
-        } else if (typeof updateRecentProjectsMenu === 'function') {
-          updateRecentProjectsMenu();
-        }
+        e.preventDefault();
+        const rect = btnMenuLogo.getBoundingClientRect();
+        showCanvasContextMenu({
+          clientX: rect.left,
+          clientY: rect.bottom + 2,
+          preventDefault() {},
+          stopPropagation() {}
+        }, { x: doc.width / 2, y: doc.height / 2 });
       });
 
       document.addEventListener('click', (e) => {
@@ -12923,11 +13025,16 @@
       function updateTitlebarProjectName(name, isDirty = false) {
         const label = document.getElementById('titlebar-proj-label');
         const dirty = document.getElementById('titlebar-dirty-indicator');
+        const wstatus = document.getElementById('wstatus');
+        const vStudioStr = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.13.54';
         if (label) {
           label.textContent = `esenho — ${name || 'Untitled Artwork'}`;
         }
         if (dirty) {
           dirty.style.display = isDirty ? 'inline-block' : 'none';
+        }
+        if (wstatus) {
+          wstatus.textContent = `${name || 'Untitled Artwork'} (v${vStudioStr})`;
         }
       }
       window.updateTitlebarProjectName = updateTitlebarProjectName;
@@ -15713,6 +15820,47 @@
       let currentProjectId = 'vec_' + Date.now();
       let currentProjectTitle = 'Untitled Vector';
       let autosaveTimeout = null;
+
+      async function saveCurrentProjectSnapshot() {
+        if (autosaveTimeout) clearTimeout(autosaveTimeout);
+        try {
+          if (typeof EsenhoStore !== 'undefined') {
+            if (window.dopeSheet) {
+              doc.animation = window.dopeSheet.toJSON();
+            }
+            if (Array.isArray(window.animationClips) && window.animationClips.length > 0) {
+              doc.animations = window.animationClips.map(c => c.toJSON());
+              doc.activeAnimationId = window.dopeSheet ? window.dopeSheet.id : (doc.animations[0]?.id || null);
+            }
+            const svgXml = doc.toSVGString();
+            const jsonDoc = doc.toJSON();
+            const thumb = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgXml);
+            await EsenhoStore.saveProject({
+              id: currentProjectId,
+              type: 'vector',
+              name: currentProjectTitle,
+              width: doc.width,
+              height: doc.height,
+              svgData: svgXml,
+              jsonDoc: jsonDoc,
+              animation: window.dopeSheet ? window.dopeSheet.toJSON() : (doc.animation || null),
+              animations: doc.animations || null,
+              activeAnimationId: doc.activeAnimationId || null,
+              thumbnail: thumb
+            });
+            localStorage.setItem('esenho_current_vector_project_id', currentProjectId);
+            updateRecentProjectsMenu();
+            if (typeof refreshProjectsList === 'function') refreshProjectsList();
+            showNotification('Project Snapshot Saved');
+            return true;
+          }
+        } catch (e) {
+          console.warn('Snapshot save error:', e);
+          showNotification('Save error: ' + e.message);
+        }
+        return false;
+      }
+      window.saveCurrentProjectSnapshot = saveCurrentProjectSnapshot;
 
       function scheduleAutosave() {
         if (autosaveTimeout) clearTimeout(autosaveTimeout);

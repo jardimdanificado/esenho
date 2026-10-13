@@ -4254,11 +4254,31 @@ async function main() {
       { type: 'item', label: 'Clear Project Storage...', danger: true, action: () => document.getElementById('btn-ip-recents-clear')?.click() }
     ]);
 
+    // 11. App Switcher & About
+    addSep();
+    addItem('Switch to Studio', '', () => {
+      window.location.href = 'studio.html';
+    });
+    const pVersion = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.13.54';
+    addItem(`v${pVersion}`, '', async () => {
+      if (typeof performAutosave === 'function') {
+        saveUserPreferences();
+        await performAutosave(true);
+      } else {
+        document.getElementById('btn-ip-save-proj')?.click();
+      }
+      log(`esenho v${pVersion} — Project saved [ok]`);
+      if (typeof showNotification === 'function') {
+        showNotification(`v${pVersion} · Saved`);
+      }
+    });
+
     window.contextMenuService.showContextMenu({
       getAnchor: () => ({ x: e.clientX, y: e.clientY }),
       getActions: () => items
     });
   }
+  window.showPainterContextMenu = showPainterContextMenu;
 
   /* ── Mouse events ── */
   canvasEl.addEventListener('contextmenu', showPainterContextMenu);
@@ -11473,22 +11493,14 @@ async function main() {
 
     btnMenuLogo?.addEventListener('click', (e) => {
       e.stopPropagation();
-      const willBeActive = !menuDropdown?.classList.contains('active');
-      menuDropdown?.classList.toggle('active');
-      btnMenuLogo?.classList.toggle('active');
-      if (!willBeActive) {
-        document.querySelectorAll('.menu-item-submenu-wrap').forEach(w => w.classList.remove('open'));
-      } else {
-        updatePainterRecentsMenu();
-      }
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!menuDropdown?.contains(e.target) && !btnMenuLogo?.contains(e.target)) {
-        menuDropdown?.classList.remove('active');
-        btnMenuLogo?.classList.remove('active');
-        document.querySelectorAll('.menu-item-submenu-wrap').forEach(w => w.classList.remove('open'));
-      }
+      e.preventDefault();
+      const rect = btnMenuLogo.getBoundingClientRect();
+      showPainterContextMenu({
+        clientX: rect.left,
+        clientY: rect.bottom + 2,
+        preventDefault() {},
+        stopPropagation() {}
+      });
     });
 
     document.querySelectorAll('.menu-item-submenu-wrap > button').forEach(btn => {
