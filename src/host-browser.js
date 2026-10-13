@@ -1822,52 +1822,73 @@ async function main() {
   let _lastEcoPanY = NaN;
   let _lastEcoZoom = NaN;
   let _lastEcoRot = NaN;
+  let _lastHoverSx = NaN;
+  let _lastHoverSy = NaN;
 
   function frame(now = performance.now()) {
-    if (host.powerSaveMode) {
-      if (document.visibilityState === 'hidden') {
-        requestAnimationFrame(frame);
-        return;
-      }
-      if (now - _lastEcoRenderTime < 32) {
-        requestAnimationFrame(frame);
-        return;
-      }
-      const isBusy = Boolean(
-        host.isDrawingOnCanvas ||
-        host.isPanning ||
-        isDraggingShape ||
-        isSelecting ||
-        isLassoSelecting ||
-        (typeof lassoPoints !== 'undefined' && lassoPoints.length > 1) ||
-        ftDragging ||
-        vecDragging ||
-        vecWidthDragging ||
-        selectScratchLayerId >= 0 ||
-        (host.rasterAnimator && host.rasterAnimator.isPlaying)
-      );
-      const curEpoch = (typeof host.canvasActor.exports.w_get_layer_epoch === 'function')
-        ? host.canvasActor.exports.w_get_layer_epoch()
-        : -2;
-      if (
-        !isBusy &&
-        !host._forceNextFrame &&
-        curEpoch === _lastEcoEpoch &&
-        host.panX === _lastEcoPanX &&
-        host.panY === _lastEcoPanY &&
-        host.zoom === _lastEcoZoom &&
-        (host.canvasRotation || 0) === _lastEcoRot
-      ) {
-        requestAnimationFrame(frame);
-        return;
-      }
-      host._forceNextFrame = false;
-      _lastEcoRenderTime = now;
-      _lastEcoEpoch = curEpoch;
-      _lastEcoPanX = host.panX;
-      _lastEcoPanY = host.panY;
-      _lastEcoZoom = host.zoom;
-      _lastEcoRot = host.canvasRotation || 0;
+    if (document.visibilityState === 'hidden') {
+      requestAnimationFrame(frame);
+      return;
+    }
+    if (host.powerSaveMode && now - _lastEcoRenderTime < 32) {
+      requestAnimationFrame(frame);
+      return;
+    }
+
+    const hoverMoved = Boolean(
+      host.showBrushOutline !== false &&
+      host.mouseHover &&
+      host.mouseHover.inside &&
+      (host.mouseHover.sx !== _lastHoverSx || host.mouseHover.sy !== _lastHoverSy)
+    );
+
+    const isBusy = Boolean(
+      host.isDrawingOnCanvas ||
+      (typeof touch !== 'undefined' && touch && (touch.drawing || touch.pending)) ||
+      host.isPanning ||
+      isDraggingShape ||
+      isSelecting ||
+      isLassoSelecting ||
+      (typeof lassoPoints !== 'undefined' && lassoPoints.length > 1) ||
+      ftDragging ||
+      vecDragging ||
+      vecWidthDragging ||
+      selectScratchLayerId >= 0 ||
+      (host.rasterAnimator && host.rasterAnimator.isPlaying) ||
+      (host.selection && host.selection.active) ||
+      hoverMoved
+    );
+
+    const curEpoch = (typeof host.canvasActor.exports.w_get_layer_epoch === 'function')
+      ? host.canvasActor.exports.w_get_layer_epoch()
+      : -2;
+
+    if (
+      !isBusy &&
+      !host._forceNextFrame &&
+      curEpoch === _lastEcoEpoch &&
+      host.panX === _lastEcoPanX &&
+      host.panY === _lastEcoPanY &&
+      host.zoom === _lastEcoZoom &&
+      (host.canvasRotation || 0) === _lastEcoRot
+    ) {
+      requestAnimationFrame(frame);
+      return;
+    }
+
+    host._forceNextFrame = false;
+    _lastEcoRenderTime = now;
+    _lastEcoEpoch = curEpoch;
+    _lastEcoPanX = host.panX;
+    _lastEcoPanY = host.panY;
+    _lastEcoZoom = host.zoom;
+    _lastEcoRot = host.canvasRotation || 0;
+    if (host.mouseHover && host.mouseHover.inside) {
+      _lastHoverSx = host.mouseHover.sx;
+      _lastHoverSy = host.mouseHover.sy;
+    } else {
+      _lastHoverSx = NaN;
+      _lastHoverSy = NaN;
     }
 
     if (!host.isDrawingOnCanvas && (!touch || !touch.drawing) && now - _lastSizeCheckTime > 500 && canvasEl.parentElement) {
@@ -10375,14 +10396,20 @@ async function main() {
   // 6. Master Sync Function
   let lastLayerOptionsCount = -1;
   let lastLayerTreeSig = '';
+  let _lastSyncedActionMode = null;
+  let _lastSyncedToolKey = null;
+  let _lastSyncedSelMode = null;
   function syncUiFromHost() {
     if (!host.canvasActor || !host.canvasActor.exports) return;
 
     // 0. Action Mode
     const curActionMode = host.actionMode || (host.currentTool === 1 ? 'erase' : 'draw');
-    document.querySelectorAll('.mode-btn, .ip-actionmode-card').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.actionmode === curActionMode);
-    });
+    if (_lastSyncedActionMode !== curActionMode) {
+      _lastSyncedActionMode = curActionMode;
+      document.querySelectorAll('.mode-btn, .ip-actionmode-card').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.actionmode === curActionMode);
+      });
+    }
 
     // Transform Action Bar (disabled; controls live in Tools & Modes panel)
     const xbar = document.getElementById('ip-transform-bar');
@@ -10395,29 +10422,34 @@ async function main() {
       ? host.currentTool
       : (modeNames[mode] || 'brush');
 
-    document.querySelectorAll('.tool-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tool === curToolName);
-    });
+    const toolKey = curToolName + ':' + (host.actionMode === 'vector' ? host.vectorSubTool : '');
+    if (_lastSyncedToolKey !== toolKey) {
+      _lastSyncedToolKey = toolKey;
+      document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tool === curToolName);
+      });
 
-    document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(card => {
-      const t = card.dataset.tool;
-      let active = false;
-      if (host.actionMode === 'vector') {
-        active = (t === 'pen_tool' && host.vectorSubTool === 'pen');
-      } else if (host.actionMode === 'select') {
-        active = (t === curToolName) || (t === 'brush_select' && curToolName === 'brush') || (t === 'select_rect' && curToolName === 'select');
-      } else {
-        active = (t === curToolName);
-      }
-      card.classList.toggle('active', active);
-    });
-
-
+      document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(card => {
+        const t = card.dataset.tool;
+        let active = false;
+        if (host.actionMode === 'vector') {
+          active = (t === 'pen_tool' && host.vectorSubTool === 'pen');
+        } else if (host.actionMode === 'select') {
+          active = (t === curToolName) || (t === 'brush_select' && curToolName === 'brush') || (t === 'select_rect' && curToolName === 'select');
+        } else {
+          active = (t === curToolName);
+        }
+        card.classList.toggle('active', active);
+      });
+    }
 
     const curSelMode = host.selectionMode || 'replace';
-    document.querySelectorAll('.sel-mode-btn, #sheet-tools .ip-selmode-card, .ip-selbar-mode').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.selmode === curSelMode);
-    });
+    if (_lastSyncedSelMode !== curSelMode) {
+      _lastSyncedSelMode = curSelMode;
+      document.querySelectorAll('.sel-mode-btn, #sheet-tools .ip-selmode-card, .ip-selbar-mode').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.selmode === curSelMode);
+      });
+    }
 
     // Sync Preset dropdowns
     const curPreset = host.activeBrush;
@@ -10441,12 +10473,13 @@ async function main() {
       const bp = host.brushParams;
       const setSlider = (id, valId, val, suf = '') => {
         const el = document.getElementById(id);
+        if (!el || document.activeElement === el || val === undefined) return;
+        const strVal = String(val);
+        if (el._currentVal === strVal) return;
+        el.value = val;
+        el._currentVal = strVal;
         const v = document.getElementById(valId);
-        if (el && document.activeElement !== el && val !== undefined) {
-          el.value = val;
-          el._currentVal = String(val);
-          if (v) v.textContent = val + suf;
-        }
+        if (v) v.textContent = val + suf;
       };
       setSlider('ui-slider-size', 'ui-val-size', bp.size);
       setSlider('ui-slider-opacity', 'ui-val-opacity', bp.opacity, '%');
@@ -13796,6 +13829,10 @@ async function main() {
     }
   }
 
+  let _lastSyncedColorHex = null;
+  let _lastSyncedBrushKey = null;
+  let _lastSyncedHudState = null;
+
   function syncInfinitePainterUI() {
     // 1. Color chips across all HUDs and ribbons
     let hex = '#ebdbb2';
@@ -13804,20 +13841,26 @@ async function main() {
     } else if (host.brushParams && host.brushParams.color !== undefined) {
       hex = host.brushParams.color;
     }
-    document.querySelectorAll('.ip-color-chip, #ip-color-chip').forEach(el => {
-      el.style.backgroundColor = hex;
-    });
-    if (window.isDockviewPainter && typeof applyColorFromStudio === 'function' && touchColorHexInput && touchColorHexInput.value.toUpperCase() !== hex.toUpperCase()) {
-      applyColorFromStudio(hex, true);
+    if (_lastSyncedColorHex !== hex) {
+      _lastSyncedColorHex = hex;
+      document.querySelectorAll('.ip-color-chip, #ip-color-chip').forEach(el => {
+        el.style.backgroundColor = hex;
+      });
+      if (window.isDockviewPainter && typeof applyColorFromStudio === 'function' && touchColorHexInput && touchColorHexInput.value.toUpperCase() !== hex.toUpperCase()) {
+        applyColorFromStudio(hex, true);
+      }
     }
 
     // 2. Active Brush Name
     const activeKey = host.activeBrush;
-    const p = BRUSH_PRESETS[activeKey] || (host.customBrushPresets && host.customBrushPresets[activeKey]);
-    const activeBrushDisplayName = p?.name || activeKey || 'Studio Inker';
-    document.querySelectorAll('.ip-hud-brush-name, #ip-active-brush-name').forEach(el => {
-      el.textContent = activeBrushDisplayName;
-    });
+    if (_lastSyncedBrushKey !== activeKey) {
+      _lastSyncedBrushKey = activeKey;
+      const p = BRUSH_PRESETS[activeKey] || (host.customBrushPresets && host.customBrushPresets[activeKey]);
+      const activeBrushDisplayName = p?.name || activeKey || 'Studio Inker';
+      document.querySelectorAll('.ip-hud-brush-name, #ip-active-brush-name').forEach(el => {
+        el.textContent = activeBrushDisplayName;
+      });
+    }
 
     // 3. Multi-Dock Dynamic Sliders & Actions
     if (host.brushParams) {
@@ -13869,6 +13912,8 @@ async function main() {
             else if (s.key === 'color_pickup' && bp.pickup !== undefined) rawVal = bp.pickup;
             else rawVal = s.min || 0;
           }
+          if (valEl._lastRawVal === rawVal) return;
+          valEl._lastRawVal = rawVal;
           valEl.textContent = `${rawVal}${s.unit || ''}`;
           let ratio = 0;
           if (s.isCurve) {
@@ -13886,36 +13931,40 @@ async function main() {
     const isErase = host.actionMode === 'erase' || (host.brushParams && host.brushParams.eraser === 1);
     const isSmudge = host.actionMode === 'smudge' || (host.brushParams && host.brushParams.mode === 1);
     const isDraw = !isErase && !isSmudge;
-
-    const btnBrush = document.getElementById('btn-ip-brush');
-    const btnEraser = document.getElementById('btn-ip-eraser');
-    const btnBlend = document.getElementById('btn-ip-blend');
-    if (btnBrush) btnBrush.classList.toggle('active', isDraw);
-    if (btnEraser) btnEraser.classList.toggle('active', isErase);
-    if (btnBlend) btnBlend.classList.toggle('active', isSmudge);
-
-    // Swap mode and action buttons across docks
     const symActive = (host.brushParams?.symmetry || 0) > 0;
     const isSelectMode = host.actionMode === 'select';
     const curSelMode = host.selectionMode || 'replace';
-    ['top', 'left', 'right', 'bottom'].forEach(dockName => {
-      const btnBrushHud = document.getElementById(`btn-ip-hud-${dockName}-brush`);
-      if (btnBrushHud) btnBrushHud.classList.toggle('active', isDraw);
-      const btnSwap = document.getElementById(`btn-ip-swap-mode-${dockName}`) || document.getElementById('btn-ip-swap-mode');
-      if (btnSwap) btnSwap.classList.toggle('is-eraser', isErase);
-      const btnPip = document.getElementById(`btn-ip-hud-${dockName}-pipette`) || document.getElementById('btn-ip-hud-pipette');
-      if (btnPip) btnPip.classList.toggle('active', host.actionMode === 'color_picker');
-      const btnGridHud = document.getElementById(`btn-ip-hud-${dockName}-grid`);
-      if (btnGridHud) btnGridHud.classList.toggle('active', !!host.showPixelGrid);
-      const btnSymHud = document.getElementById(`btn-ip-hud-${dockName}-symmetry`);
-      if (btnSymHud) btnSymHud.classList.toggle('active', symActive);
-      const btnSelRect = document.getElementById(`btn-ip-hud-${dockName}-select_rect`);
-      if (btnSelRect) btnSelRect.classList.toggle('active', isSelectMode && host.currentTool === 'select_rect');
-      const btnSelLasso = document.getElementById(`btn-ip-hud-${dockName}-select_lasso`);
-      if (btnSelLasso) btnSelLasso.classList.toggle('active', isSelectMode && host.currentTool === 'lasso_select');
-      const btnSelWand = document.getElementById(`btn-ip-hud-${dockName}-select_wand`);
-      if (btnSelWand) btnSelWand.classList.toggle('active', isSelectMode && host.currentTool === 'magic_wand');
-    });
+    const curHudState = `${isDraw}:${isErase}:${isSmudge}:${symActive}:${isSelectMode}:${curSelMode}:${host.currentTool}:${host.actionMode}:${host.showPixelGrid}`;
+
+    if (_lastSyncedHudState !== curHudState) {
+      _lastSyncedHudState = curHudState;
+      const btnBrush = document.getElementById('btn-ip-brush');
+      const btnEraser = document.getElementById('btn-ip-eraser');
+      const btnBlend = document.getElementById('btn-ip-blend');
+      if (btnBrush) btnBrush.classList.toggle('active', isDraw);
+      if (btnEraser) btnEraser.classList.toggle('active', isErase);
+      if (btnBlend) btnBlend.classList.toggle('active', isSmudge);
+
+      // Swap mode and action buttons across docks
+      ['top', 'left', 'right', 'bottom'].forEach(dockName => {
+        const btnBrushHud = document.getElementById(`btn-ip-hud-${dockName}-brush`);
+        if (btnBrushHud) btnBrushHud.classList.toggle('active', isDraw);
+        const btnSwap = document.getElementById(`btn-ip-swap-mode-${dockName}`) || document.getElementById('btn-ip-swap-mode');
+        if (btnSwap) btnSwap.classList.toggle('is-eraser', isErase);
+        const btnPip = document.getElementById(`btn-ip-hud-${dockName}-pipette`) || document.getElementById('btn-ip-hud-pipette');
+        if (btnPip) btnPip.classList.toggle('active', host.actionMode === 'color_picker');
+        const btnGridHud = document.getElementById(`btn-ip-hud-${dockName}-grid`);
+        if (btnGridHud) btnGridHud.classList.toggle('active', !!host.showPixelGrid);
+        const btnSymHud = document.getElementById(`btn-ip-hud-${dockName}-symmetry`);
+        if (btnSymHud) btnSymHud.classList.toggle('active', symActive);
+        const btnSelRect = document.getElementById(`btn-ip-hud-${dockName}-select_rect`);
+        if (btnSelRect) btnSelRect.classList.toggle('active', isSelectMode && host.currentTool === 'select_rect');
+        const btnSelLasso = document.getElementById(`btn-ip-hud-${dockName}-select_lasso`);
+        if (btnSelLasso) btnSelLasso.classList.toggle('active', isSelectMode && host.currentTool === 'lasso_select');
+        const btnSelWand = document.getElementById(`btn-ip-hud-${dockName}-select_wand`);
+        if (btnSelWand) btnSelWand.classList.toggle('active', isSelectMode && host.currentTool === 'magic_wand');
+      });
+    }
 
     // Vector Layer Mode State & Transition Handling
     if (window.ESENHO_VECTOR_PAINTER_MODE && host.enableVectorLayer && (!host.isVectorLayer || !host.isVectorLayer())) {

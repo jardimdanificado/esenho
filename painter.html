@@ -505,7 +505,7 @@
       overflow-x: auto !important;
       overflow-y: hidden !important;
       -webkit-overflow-scrolling: touch;
-      touch-action: none !important;
+      touch-action: pan-x !important;
       scrollbar-width: none;
     }
     #dockview-container .dv-tabs-container::-webkit-scrollbar {
@@ -665,6 +665,7 @@
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
       overscroll-behavior: contain;
+      contain: layout style;
     }
 
     #dock-panel-canvas {
@@ -780,6 +781,8 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      contain: layout paint;
+      transform: translateZ(0);
     }
     #wcanvas, #uicanvas {
       position: absolute;
@@ -2473,7 +2476,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.60 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.61 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -3693,22 +3696,14 @@
             return;
           }
 
-          // Mobile / Touch: require press-and-hold (LONG_PRESS_MS) before allowing Dockview drag.
-          // Calling e.preventDefault() stops Dockview's tab.onPointerDown from switching tabs on touch-down,
-          // while letting PointerDragSource._onPointerDown arm its window pointermove listener.
-          e.preventDefault();
-
+          // Mobile / Touch: allow native accelerated horizontal scrolling.
+          // Quick tap activates immediately on release without scroll;
+          // Long press (LONG_PRESS_MS) arms dragging.
           const startX = e.clientX;
           const startY = e.clientY;
-          const startScrollLeft = tabsContainer ? tabsContainer.scrollLeft : 0;
           const pointerId = e.pointerId;
-          const pointerType = e.pointerType || 'touch';
-          let longPressArmed = false;
           let didScroll = false;
-          let lastX = startX;
-          let lastY = startY;
-          let lastTime = performance.now();
-          let velocityX = 0;
+          let longPressArmed = false;
 
           const longPressTimer = setTimeout(() => {
             if (didScroll) return;
@@ -3717,38 +3712,10 @@
             if (navigator.vibrate) {
               try { navigator.vibrate(18); } catch (_) {}
             }
-            try {
-              window.dispatchEvent(new PointerEvent('pointermove', {
-                pointerId,
-                pointerType,
-                clientX: startX + 9,
-                clientY: startY,
-                bubbles: true,
-                cancelable: true
-              }));
-              window.dispatchEvent(new PointerEvent('pointermove', {
-                pointerId,
-                pointerType,
-                clientX: lastX,
-                clientY: lastY,
-                bubbles: true,
-                cancelable: true
-              }));
-            } catch (_) {}
           }, LONG_PRESS_MS);
 
           const onTouchMove = (moveEvt) => {
             if (moveEvt.pointerId !== pointerId) return;
-            if (longPressArmed) {
-              lastX = moveEvt.clientX;
-              lastY = moveEvt.clientY;
-              // Long-press succeeded: let PointerDragSource / PointerDragController receive pointermove
-              return;
-            }
-
-            // Block PointerDragSource from starting a drag before long-press completes
-            moveEvt.stopImmediatePropagation();
-
             const dx = moveEvt.clientX - startX;
             const dy = moveEvt.clientY - startY;
             if (!didScroll && Math.hypot(dx, dy) > MOVE_TOLERANCE) {
@@ -3756,16 +3723,9 @@
               clearTimeout(longPressTimer);
               tabEl.classList.remove('dv-tab--touch-armed');
             }
-
-            if (didScroll && tabsContainer) {
-              const now = performance.now();
-              const dt = Math.max(1, now - lastTime);
-              velocityX = (moveEvt.clientX - lastX) / dt;
-              lastTime = now;
-              tabsContainer.scrollLeft = startScrollLeft - dx;
+            if (!longPressArmed) {
+              moveEvt.stopImmediatePropagation();
             }
-            lastX = moveEvt.clientX;
-            lastY = moveEvt.clientY;
           };
 
           const onTouchEnd = (endEvt) => {
@@ -3778,16 +3738,6 @@
 
             if (!didScroll && !longPressArmed && endEvt.type === 'pointerup') {
               activateTab();
-            } else if (didScroll && tabsContainer && Math.abs(velocityX) > 0.15) {
-              // Momentum scroll decay after flicking the tab strip
-              let v = velocityX * 16;
-              const step = () => {
-                if (Math.abs(v) < 0.5) return;
-                tabsContainer.scrollLeft -= v;
-                v *= 0.92;
-                requestAnimationFrame(step);
-              };
-              requestAnimationFrame(step);
             }
           };
 
@@ -3805,11 +3755,10 @@
       if (typeof MutationObserver !== 'undefined') {
         let sashRaf = 0;
         const mo = new MutationObserver((mutations) => {
-          const relevant = mutations.some(m => {
-            const t = m.target;
-            return !(t instanceof Element) || !t.closest('.dock-panel-content');
+          const hasNewSash = mutations.some(m => {
+            return Array.from(m.addedNodes).some(n => n instanceof Element && (n.classList.contains('dv-sash') || n.querySelector?.('.dv-sash')));
           });
-          if (!relevant) return;
+          if (!hasNewSash) return;
           if (!sashRaf) {
             sashRaf = requestAnimationFrame(() => {
               sashRaf = 0;
