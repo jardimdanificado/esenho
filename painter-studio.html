@@ -488,7 +488,7 @@
       font-size: 10.5px;
       font-weight: 600;
       letter-spacing: 0.3px;
-      padding: 0 7px;
+      padding: 0 10px !important;
       height: 26px;
       line-height: 26px;
       cursor: pointer !important;
@@ -499,15 +499,29 @@
       transition: color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
       color: var(--text-muted);
       background: transparent;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+      gap: 0 !important;
       flex-shrink: 0 !important;
     }
 
-    #dockview-container .dv-tab .dv-default-tab,
-    #dockview-container .dv-tab .dv-default-tab-content {
+    #dockview-container .dv-tab .dv-default-tab {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: auto !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      touch-action: none !important;
+    }
+
+    #dockview-container .dv-tab .dv-default-tab .dv-default-tab-content {
+      flex-grow: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      text-align: center !important;
       touch-action: none !important;
     }
 
@@ -529,7 +543,7 @@
       #dockview-container .dv-tab {
         height: 30px;
         line-height: 30px;
-        padding: 0 8px;
+        padding: 0 10px !important;
         font-size: 11px;
       }
     }
@@ -2668,7 +2682,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.43 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.46 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -3447,9 +3461,7 @@
             <div style="font-size: 10.5px; font-weight: bold; color: var(--primary);">Context Menu Sliders</div>
             <div id="ip-hud-sliders-toggle-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 5px;"></div>
 
-            <div style="height: 1px; background: var(--border); margin: 2px 0;"></div>
-
-            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: none;">
               <span style="font-size: 10.5px; font-weight: bold; color: var(--primary);">UI, Cursor &amp; Input Gestures</span>
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
                 <span style="font-size: 10.5px; color: var(--text-muted);">UI Scale</span>
@@ -3478,7 +3490,7 @@
               </div>
             </div>
 
-            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: none;">
               <span style="font-size: 10.5px; font-weight: bold; color: var(--primary);">Display &amp; Engine</span>
               <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; cursor: pointer; user-select: none; color: var(--primary); font-weight: 600;">
                 <input type="checkbox" id="ip-chk-power-save"> Power Saving Mode (30 FPS &amp; Idle Sleep)
@@ -3628,16 +3640,15 @@
 <script src="vendor/dockview-core.js"></script>
 <script>
   (function () {
-    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v9';
-    const ALL_PANEL_IDS = ['canvas', 'layers', 'tools', 'timeline', 'color', 'lab', 'hud'];
+    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v10';
+    const ALL_PANEL_IDS = ['canvas', 'layers', 'tools', 'timeline', 'color', 'lab'];
     const PANEL_TITLES = {
       canvas: 'Canvas',
       layers: 'Layers',
       tools: 'Tools',
       timeline: 'Timeline',
       color: 'Color Studio',
-      lab: 'Brush Lab',
-      hud: 'Menu Sliders'
+      lab: 'Brush Lab'
     };
 
     const panelElements = new Map();
@@ -4017,8 +4028,8 @@
           }
         } else {
           const siblingCandidates = isPortrait
-            ? ['layers', 'tools', 'color', 'lab', 'hud', 'timeline']
-            : ['layers', 'tools', 'color', 'lab', 'hud'];
+            ? ['layers', 'tools', 'color', 'lab', 'timeline']
+            : ['layers', 'tools', 'color', 'lab'];
           const siblingId = siblingCandidates.find((cid) => cid !== id && Boolean(dockviewApi.getPanel(cid)));
           if (siblingId) {
             panelOpts.position = { direction: 'within', referencePanel: siblingId };
@@ -4147,12 +4158,6 @@
             title: PANEL_TITLES.timeline,
             position: { direction: 'within', referencePanel: 'layers' }
           });
-          dockviewApi.addPanel({
-            id: 'hud',
-            component: 'hud',
-            title: PANEL_TITLES.hud,
-            position: { direction: 'within', referencePanel: 'layers' }
-          });
         } else {
           dockviewApi.addPanel({
             id: 'timeline',
@@ -4189,13 +4194,6 @@
             id: 'lab',
             component: 'lab',
             title: PANEL_TITLES.lab,
-            position: { direction: 'within', referencePanel: 'layers' }
-          });
-
-          dockviewApi.addPanel({
-            id: 'hud',
-            component: 'hud',
-            title: PANEL_TITLES.hud,
             position: { direction: 'within', referencePanel: 'layers' }
           });
 

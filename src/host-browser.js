@@ -3195,6 +3195,7 @@ async function main() {
 
           this.actionsList.appendChild(li);
           itemObj.element = li;
+          itemObj.checkSpan = checkSpan;
         }
 
         this.items.push(itemObj);
@@ -3289,7 +3290,7 @@ async function main() {
     }
 
     focusLast() {
-      for (let i = this.items.length - 1; i >= 0; i--) {
+      for (let i = 0; i < this.items.length; i++) {
         if (this.items[i].isSelectable) {
           this.focus(i);
           break;
@@ -3302,8 +3303,11 @@ async function main() {
       if (!item || !item.isSelectable) return;
       const action = item.action;
       if (!action.keepOpen && this.service) this.service.hideContextMenu();
-      if (typeof action.action === 'function') action.action();
-      else if (typeof action.run === 'function') action.run();
+      if (typeof action.action === 'function') action.action(action, item);
+      else if (typeof action.run === 'function') action.run(action, item);
+      if (action.keepOpen && item.checkSpan && typeof action.checked === 'boolean') {
+        item.checkSpan.textContent = action.checked ? '✓' : '';
+      }
     }
 
     openSubmenu(index, focusFirst = false) {
@@ -3577,7 +3581,31 @@ async function main() {
     host.contextMenuSliders = initialSliders;
   }
 
-  const DOCKVIEW_TAB_PANELS = new Set(['canvas', 'layers', 'tools', 'timeline', 'color', 'lab', 'hud']);
+  const DOCKVIEW_TAB_PANELS = new Set(['canvas', 'layers', 'tools', 'timeline', 'color', 'lab']);
+
+  function buildContextMenuSlidersActions() {
+    return CONTEXT_MENU_SLIDERS_DEF.map(s => {
+      const isOn = Array.isArray(host.contextMenuSliders) && host.contextMenuSliders.includes(s.id);
+      return {
+        type: 'item',
+        checked: isOn,
+        keepOpen: true,
+        label: s.label,
+        action: (act) => {
+          const cur = Array.isArray(host.contextMenuSliders) ? [...host.contextMenuSliders] : ['size', 'opacity', 'smoothing'];
+          const next = cur.includes(s.id) ? cur.filter(x => x !== s.id) : [...cur, s.id];
+          host.contextMenuSliders = next;
+          act.checked = next.includes(s.id);
+          try {
+            localStorage.setItem(CONTEXT_MENU_SLIDERS_STORAGE_KEY, JSON.stringify(next));
+          } catch (_) {}
+          if (typeof window.renderHudCustomizerOptions === 'function') {
+            window.renderHudCustomizerOptions();
+          }
+        }
+      };
+    });
+  }
 
   function openPanelInContextMenu(panelId, anchor) {
     if (panelId === 'brushes') panelId = 'lab';
@@ -3596,7 +3624,7 @@ async function main() {
     };
     window.contextMenuService.showContextMenu({
       getAnchor: defaultAnchor,
-      getActions: () => [buildDomPanelAction(panelId)]
+      getActions: () => panelId === 'hud' ? buildContextMenuSlidersActions() : [buildDomPanelAction(panelId)]
     });
   }
   window.openPanelInContextMenu = openPanelInContextMenu;
@@ -4184,7 +4212,6 @@ async function main() {
           { type: 'item', label: (isTabOpen('tools') ? '✓ ' : '') + 'Tools Tab', action: () => window.togglePainterDockPanel?.('tools') },
           { type: 'item', label: (isTabOpen('color') ? '✓ ' : '') + 'Color Studio Tab', action: () => window.togglePainterDockPanel?.('color') },
           { type: 'item', label: (isTabOpen('lab') ? '✓ ' : '') + 'Brush Lab Tab', action: () => window.togglePainterDockPanel?.('lab') },
-          { type: 'item', label: (isTabOpen('hud') ? '✓ ' : '') + 'Menu Sliders Tab', action: () => window.togglePainterDockPanel?.('hud') },
           { type: 'item', label: (isTabOpen('timeline') ? '✓ ' : '') + 'Timeline Tab', action: () => window.togglePainterDockPanel?.('timeline') },
           { type: 'sep' },
           { type: 'item', label: 'Reset Workspace Layout', action: () => window.resetPainterDockLayout?.() }
@@ -4292,7 +4319,11 @@ async function main() {
               action: () => host.setUiScale(o.val)
             }))
           },
-          { type: 'item', label: 'Customize Context Menu Sliders...', action: () => window.openPainterDockPanel ? window.openPainterDockPanel('hud') : openSheet('sheet-hud-customizer') }
+          {
+            type: 'submenu',
+            label: 'Context Menu Sliders',
+            items: buildContextMenuSlidersActions()
+          }
         ]
       }
     ]);
