@@ -8393,6 +8393,14 @@ class EsenhoScreenHost {
     return true;
   }
 
+  cancelTransform() {
+    return this.cancelFloatTransform();
+  }
+
+  applyTransform() {
+    return this.applyFloatTransform();
+  }
+
   /**
    * Configures optional bilinear (smooth) vs nearest-neighbor (crisp) viewport filtering.
    */

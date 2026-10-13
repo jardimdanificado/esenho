@@ -1023,9 +1023,20 @@ async function main() {
       host.cutSelection();
       log('cut selection [ok]');
       e.preventDefault();
+    } else if (e.ctrlKey && (e.key === 't' || e.key === 'T')) {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      runCmd('transform');
+      e.preventDefault();
     } else if (e.key === 'Escape') {
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
         document.activeElement.blur();
+        e.preventDefault();
+        return;
+      }
+      if (host.floatingTransform) {
+        runCmd('transform cancel');
+        markCanvasDirty();
+        syncUiFromHost();
         e.preventDefault();
         return;
       }
@@ -13061,7 +13072,14 @@ async function main() {
     document.getElementById('btn-ip-sel-clear-pixels')?.addEventListener('click', () => { runCmd('clear'); });
     document.getElementById('btn-ip-sel-capture-tip')?.addEventListener('click', () => { runCmd('brush capture tip'); });
     document.getElementById('btn-ip-sel-capture-grain')?.addEventListener('click', () => { runCmd('brush capture grain'); });
-    document.getElementById('btn-ip-transform')?.addEventListener('click', () => { runCmd('transform'); switchToolsSheetTab('transform'); });
+    const handleTransformBtn = () => {
+      runCmd('transform');
+      if (typeof switchToolsSheetTab === 'function') switchToolsSheetTab('transform');
+      markCanvasDirty();
+      syncUiFromHost();
+    };
+    document.getElementById('btn-ip-transform')?.addEventListener('click', handleTransformBtn);
+    document.getElementById('btn-ip-tool-transform')?.addEventListener('click', handleTransformBtn);
     document.getElementById('btn-ip-xform-apply')?.addEventListener('click', () => { runCmd('transform apply'); });
     document.getElementById('btn-ip-xform-cancel')?.addEventListener('click', () => { runCmd('transform cancel'); });
 
@@ -14009,6 +14027,11 @@ async function main() {
     });
 
     // Transform Bar & Sheet Synchronization
+    const isFloatTransforming = !!(host.floatingTransform && host.floatingTransform.corners);
+    const btnToolTransform = document.getElementById('btn-ip-tool-transform') || document.getElementById('btn-ip-transform');
+    if (btnToolTransform) {
+      btnToolTransform.classList.toggle('active', isFloatTransforming);
+    }
     const curXMode = host.transformMode || 'scale';
     document.querySelectorAll('.ip-xbar-mode, .ip-sheet-xform-mode').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.xmode === curXMode);
