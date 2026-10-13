@@ -3760,7 +3760,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.59 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.60 ready</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -12218,158 +12218,256 @@
       }
 
       function createTabWithHandleRenderer() {
-        const CoreDefaultTab = window['dockview-core']?.DockviewDefaultTab;
-        if (typeof CoreDefaultTab === 'function') {
-          return new CoreDefaultTab();
-        }
         const el = document.createElement('div');
         el.className = 'dv-default-tab';
-        const content = document.createElement('div');
-        content.className = 'dv-default-tab-content';
-        el.appendChild(content);
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'dv-default-tab-content';
+
+        el.appendChild(titleEl);
+
+        let panelId = '';
+        let disposable = null;
+
         return {
           element: el,
-          init: (params) => { content.textContent = params?.title || ''; },
-          update: (event) => {
-            if (event?.title !== undefined) content.textContent = event.title;
+          init(params) {
+            panelId = params.api?.id || '';
+            el.setAttribute('data-panel-id', panelId);
+            titleEl.textContent = params.title || PANEL_TITLES[panelId] || panelId;
+            if (params.api?.onDidTitleChange) {
+              disposable = params.api.onDidTitleChange((evt) => {
+                titleEl.textContent = evt.title;
+              });
+            }
           },
-          dispose: () => {}
+          update(event) {
+            if (event?.params?.title !== undefined) {
+              titleEl.textContent = event.params.title;
+            }
+          },
+          dispose() {
+            if (disposable && typeof disposable.dispose === 'function') {
+              disposable.dispose();
+            }
+          }
         };
       }
 
-      function ensureSashHandles(root = document.getElementById('dockview-container')) {
-        if (!root) return;
-        root.querySelectorAll('.dv-sash').forEach((sash) => {
-          if (sash.classList.contains('disabled')) return;
-          const existing = sash.querySelectorAll(':scope > .dv-sash-handle');
-          if (existing.length === 2) return;
-          existing.forEach(n => n.remove());
-          ['start', 'end'].forEach((pos) => {
-            const h = document.createElement('div');
-            h.className = `dv-sash-handle dv-sash-handle-${pos}`;
-            h.title = 'Drag corner to resize panel';
-            h.setAttribute('aria-label', 'Resize panel');
-            sash.appendChild(h);
-          });
+      function ensureSashHandles(container) {
+        if (!container) return;
+        const sashes = container.querySelectorAll('.dv-sash');
+        sashes.forEach((sash) => {
+          if (!sash.querySelector('.dv-sash-handle')) {
+            const handle = document.createElement('div');
+            handle.className = 'dv-sash-handle';
+            sash.appendChild(handle);
+          }
         });
       }
 
       function bindHandleOnlyInteraction(container) {
-        if (!container || container.__handleOnlyBound) return;
-        container.__handleOnlyBound = true;
+        if (!container || container._dvHandleOnlyBound) return;
+        container._dvHandleOnlyBound = true;
 
-        // 1) Block sash resize unless pointer started inside `.dv-sash-handle`
-        const blockSashOutsideHandle = (e) => {
-          const sash = e.target.closest?.('.dv-sash');
-          if (!sash) return;
-          if (e.target.closest?.('.dv-sash-handle')) return;
-          e.stopImmediatePropagation();
-        };
-        container.addEventListener('pointerdown', blockSashOutsideHandle, true);
-        container.addEventListener('mousedown', blockSashOutsideHandle, true);
-        container.addEventListener('touchstart', blockSashOutsideHandle, { capture: true, passive: true });
+        const LONG_PRESS_MS = 260;
+        const MOVE_TOLERANCE = 10;
 
-        // 2) Touch tabs: swipe horizontally to scroll tabs; long-press (240ms) to arm drag-and-drop
-        const TOUCH_HOLD_MS = 240;
-        const MOVE_CANCEL_PX = 8;
-        let armedTab = null;
-        let holdTimer = null;
-        let startX = 0;
-        let startY = 0;
-        let activeScrollStrip = null;
-        let scrollStartLeft = 0;
-        let didTouchScroll = false;
-
-        const clearArm = () => {
-          if (holdTimer) {
-            clearTimeout(holdTimer);
-            holdTimer = null;
-          }
-          if (armedTab) {
-            armedTab.classList.remove('dv-tab--touch-armed');
-            if (armedTab.__prevDraggable !== undefined) {
-              armedTab.draggable = armedTab.__prevDraggable;
-            }
-            armedTab = null;
-          }
-          activeScrollStrip = null;
-        };
-
-        container.addEventListener('touchstart', (e) => {
-          const tab = e.target.closest?.('.dv-tab');
-          if (!tab) return;
-          if (e.target.closest?.('.dv-default-tab-action')) return;
-          const t = e.touches?.[0];
-          if (!t) return;
-          clearArm();
-          didTouchScroll = false;
-          startX = t.clientX;
-          startY = t.clientY;
-          activeScrollStrip = tab.closest('.dv-tabs-container');
-          scrollStartLeft = activeScrollStrip ? activeScrollStrip.scrollLeft : 0;
-          if (tab.__prevDraggable === undefined) tab.__prevDraggable = tab.draggable;
-          tab.draggable = false;
-          holdTimer = setTimeout(() => {
-            holdTimer = null;
-            armedTab = tab;
-            tab.draggable = true;
-            tab.classList.add('dv-tab--touch-armed');
-          }, TOUCH_HOLD_MS);
-        }, { capture: true, passive: true });
-
-        container.addEventListener('touchmove', (e) => {
-          const t = e.touches?.[0];
-          if (!t) return;
-          const dx = t.clientX - startX;
-          const dy = t.clientY - startY;
-          if (!armedTab) {
-            if (Math.hypot(dx, dy) > MOVE_CANCEL_PX) {
-              if (holdTimer) {
-                clearTimeout(holdTimer);
-                holdTimer = null;
-              }
-              if (activeScrollStrip && Math.abs(dx) >= Math.abs(dy)) {
-                didTouchScroll = true;
-                activeScrollStrip.scrollLeft = scrollStartLeft - dx;
-                if (e.cancelable) e.preventDefault();
-                e.stopPropagation();
-              }
-            }
-          }
-        }, { capture: true, passive: false });
-
-        container.addEventListener('click', (e) => {
-          if (didTouchScroll && e.target.closest?.('.dv-tab')) {
-            didTouchScroll = false;
-            e.stopImmediatePropagation();
+        container.addEventListener('contextmenu', (e) => {
+          if (e.target instanceof Element && e.target.closest('.dv-tab')) {
             e.preventDefault();
+            e.stopPropagation();
           }
         }, true);
 
-        container.addEventListener('touchend', clearArm, { capture: true, passive: true });
-        container.addEventListener('touchcancel', clearArm, { capture: true, passive: true });
+        // Capture-phase pointerdown gate:
+        // 1. On split dividers (.dv-sash): allow resize ONLY when pointerdown is on .dv-sash-handle.
+        // 2. On mobile/touch (.dv-tab): require pressing & holding (260ms) before tab drag can start;
+        //    swiping before 260ms scrolls .dv-tabs-container horizontally; tapping activates the tab.
+        // 3. On desktop mouse (.dv-tab): the entire tab is draggable; click-without-moving activates.
+        // 4. On group header empty space: prevent accidental whole-group drag.
+        container.addEventListener('pointerdown', (e) => {
+          const target = e.target;
+          if (!(target instanceof Element)) return;
 
-        container.addEventListener('dragstart', (e) => {
-          const tab = e.target.closest?.('.dv-tab');
-          if (!tab) return;
-          const isTouchModality = window.matchMedia?.('(pointer: coarse)')?.matches;
-          if (isTouchModality && armedTab !== tab) {
+          const sashEl = target.closest('.dv-sash');
+          if (sashEl) {
+            if (!target.closest('.dv-sash-handle')) {
+              e.stopImmediatePropagation();
+            }
+            return;
+          }
+
+          const tabEl = target.closest('.dv-tab');
+          if (tabEl) {
+            const isTouch = e.pointerType === 'touch' || e.pointerType === 'pen';
+            const tabsContainer = tabEl.closest('.dv-tabs-container');
+
+            const activateTab = () => {
+              const pid =
+                tabEl.querySelector('[data-panel-id]')?.getAttribute('data-panel-id') ||
+                tabEl.getAttribute('data-panel-id');
+              const titleText = tabEl.querySelector('.dv-default-tab-content')?.textContent?.trim();
+              if (dockviewApi) {
+                const panel =
+                  (pid && dockviewApi.getPanel(pid)) ||
+                  dockviewApi.panels.find((p) => p.title === titleText || p.id === titleText?.toLowerCase());
+                if (panel) {
+                  panel.api.setActive();
+                }
+              }
+            };
+
+            // Desktop mouse: the entire tab is a valid drag handle.
+            // Click-without-moving activates; click-and-drag repositions the tab.
+            if (!isTouch) {
+              const startX = e.clientX;
+              const startY = e.clientY;
+              const pointerId = e.pointerId;
+              let didDrag = false;
+
+              const onMove = (moveEvt) => {
+                if (moveEvt.pointerId !== pointerId) return;
+                const dx = moveEvt.clientX - startX;
+                const dy = moveEvt.clientY - startY;
+                if (Math.hypot(dx, dy) > 4) {
+                  didDrag = true;
+                  window.removeEventListener('pointermove', onMove, true);
+                }
+              };
+              const onUp = (endEvt) => {
+                if (endEvt.pointerId !== pointerId) return;
+                window.removeEventListener('pointermove', onMove, true);
+                window.removeEventListener('pointerup', onUp, true);
+                window.removeEventListener('pointercancel', onUp, true);
+                if (!didDrag && endEvt.type === 'pointerup') {
+                  activateTab();
+                }
+              };
+              window.addEventListener('pointermove', onMove, true);
+              window.addEventListener('pointerup', onUp, true);
+              window.addEventListener('pointercancel', onUp, true);
+              return;
+            }
+
+            // Mobile / Touch: require press-and-hold (LONG_PRESS_MS) before allowing Dockview drag.
             e.preventDefault();
+
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const startScrollLeft = tabsContainer ? tabsContainer.scrollLeft : 0;
+            const pointerId = e.pointerId;
+            const pointerType = e.pointerType || 'touch';
+            let longPressArmed = false;
+            let didScroll = false;
+            let lastX = startX;
+            let lastY = startY;
+            let lastTime = performance.now();
+            let velocityX = 0;
+
+            const longPressTimer = setTimeout(() => {
+              if (didScroll) return;
+              longPressArmed = true;
+              tabEl.classList.add('dv-tab--touch-armed');
+              if (navigator.vibrate) {
+                try { navigator.vibrate(18); } catch (_) {}
+              }
+              try {
+                window.dispatchEvent(new PointerEvent('pointermove', {
+                  pointerId,
+                  pointerType,
+                  clientX: startX + 9,
+                  clientY: startY,
+                  bubbles: true,
+                  cancelable: true
+                }));
+                window.dispatchEvent(new PointerEvent('pointermove', {
+                  pointerId,
+                  pointerType,
+                  clientX: lastX,
+                  clientY: lastY,
+                  bubbles: true,
+                  cancelable: true
+                }));
+              } catch (_) {}
+            }, LONG_PRESS_MS);
+
+            const onTouchMove = (moveEvt) => {
+              if (moveEvt.pointerId !== pointerId) return;
+              if (longPressArmed) {
+                lastX = moveEvt.clientX;
+                lastY = moveEvt.clientY;
+                return;
+              }
+
+              moveEvt.stopImmediatePropagation();
+
+              const dx = moveEvt.clientX - startX;
+              const dy = moveEvt.clientY - startY;
+              if (!didScroll && Math.hypot(dx, dy) > MOVE_TOLERANCE) {
+                didScroll = true;
+                clearTimeout(longPressTimer);
+                tabEl.classList.remove('dv-tab--touch-armed');
+              }
+
+              if (didScroll && tabsContainer) {
+                const now = performance.now();
+                const dt = Math.max(1, now - lastTime);
+                velocityX = (moveEvt.clientX - lastX) / dt;
+                lastTime = now;
+                tabsContainer.scrollLeft = startScrollLeft - dx;
+              }
+              lastX = moveEvt.clientX;
+              lastY = moveEvt.clientY;
+            };
+
+            const onTouchEnd = (endEvt) => {
+              if (endEvt.pointerId !== pointerId) return;
+              clearTimeout(longPressTimer);
+              tabEl.classList.remove('dv-tab--touch-armed');
+              window.removeEventListener('pointermove', onTouchMove, true);
+              window.removeEventListener('pointerup', onTouchEnd, true);
+              window.removeEventListener('pointercancel', onTouchEnd, true);
+
+              if (!didScroll && !longPressArmed && endEvt.type === 'pointerup') {
+                activateTab();
+              } else if (didScroll && tabsContainer && Math.abs(velocityX) > 0.15) {
+                let v = velocityX * 16;
+                const step = () => {
+                  if (Math.abs(v) < 0.5) return;
+                  tabsContainer.scrollLeft -= v;
+                  v *= 0.92;
+                  requestAnimationFrame(step);
+                };
+                requestAnimationFrame(step);
+              }
+            };
+
+            window.addEventListener('pointermove', onTouchMove, true);
+            window.addEventListener('pointerup', onTouchEnd, true);
+            window.addEventListener('pointercancel', onTouchEnd, true);
+            return;
+          }
+
+          if (target.closest('.dv-tabs-and-actions-container') || target.closest('.dv-void-container')) {
             e.stopImmediatePropagation();
           }
         }, true);
 
-        container.addEventListener('dragend', clearArm, true);
-
-        // Observe DOM mutations inside dockview to keep corner handles on dynamically added sashes
         if (typeof MutationObserver !== 'undefined') {
-          let rafId = 0;
-          const mo = new MutationObserver(() => {
-            if (rafId) return;
-            rafId = requestAnimationFrame(() => {
-              rafId = 0;
-              ensureSashHandles(container);
+          let sashRaf = 0;
+          const mo = new MutationObserver((mutations) => {
+            const relevant = mutations.some(m => {
+              const t = m.target;
+              return !(t instanceof Element) || !t.closest('.dock-panel-content');
             });
+            if (!relevant) return;
+            if (!sashRaf) {
+              sashRaf = requestAnimationFrame(() => {
+                sashRaf = 0;
+                ensureSashHandles(container);
+              });
+            }
           });
           mo.observe(container, { childList: true, subtree: true });
         }
@@ -12791,10 +12889,19 @@
         // Pre-cache all panel DOM elements so they are never lost during DOM mutations/clearing
         REQUIRED_PANEL_IDS.forEach(id => getPanelElement(id));
 
+        // Bind handle-only pointer interception BEFORE Dockview attaches its listeners
+        bindHandleOnlyInteraction(container);
+
         try {
           dockviewApi = window['dockview-core'].createDockview(container, {
             className: 'dockview-theme-dark',
             defaultRenderer: 'always',
+            disableDnd: false,
+            dndStrategy: 'pointer',
+            dndEdges: false,
+            proportionalLayout: true,
+            scrollbars: 'native',
+            defaultTabComponent: 'studio-handle-tab',
             createTabComponent: () => createTabWithHandleRenderer(),
             createComponent: (options) => {
               const panelId = options.id || options.name;
