@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>esenho</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#1d2021">
   <meta name="color-scheme" content="dark">
   <style>
@@ -1227,14 +1228,20 @@
       margin: 0 4px;
     }
 
+    #vscode-titlebar,
+    #vscode-statusbar {
+      display: none !important;
+    }
+
     #workspace {
-      flex: 1 1 0px;
+      flex: 1 1 0%;
       display: flex;
       position: relative;
       overflow: hidden;
       min-height: 0;
       width: 100vw;
-      height: calc(100vh - 54px);
+      height: 100vh;
+      height: 100dvh;
     }
 
     /* VS Code Footer / Statusbar */
@@ -1952,6 +1959,45 @@
       pointer-events: none;
     }
 
+    .monaco-menu-container.has-dom-panel {
+      width: 300px;
+      max-width: 92vw;
+      max-height: 82vh;
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .monaco-menu-container.has-dom-panel .monaco-menu,
+    .monaco-menu-container.has-dom-panel .actions-container {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+    }
+    .monaco-menu .action-item.dom-panel-item {
+      padding: 0 !important;
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      cursor: default;
+    }
+    .monaco-menu .action-item.dom-panel-item > .dock-panel-content {
+      width: 100%;
+      max-height: 82vh;
+      overflow-y: auto;
+    }
+    .monaco-menu .action-item.slider-item,
+    .monaco-menu .action-item.custom-widget-item {
+      padding: 3px 8px;
+      cursor: default;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+    }
+
     /* ── Dockview Layout Engine & Gruvbox Dark / Gray Themes ── */
     #dockview-container {
       width: 100%;
@@ -1983,11 +2029,116 @@
       --dv-background-color: var(--bg-panel);
       --dv-sash-hover-color: var(--primary);
       --dv-sash-size: 4px;
-      --dv-tabs-and-actions-container-height: 25px;
+      --dv-tabs-and-actions-container-height: 26px;
     }
 
     #dockview-container .dv-sash {
       z-index: 99 !important;
+      pointer-events: none !important;
+      background: transparent !important;
+    }
+
+    /* Disable full-line invisible sash hit-area so dividers never overlap tabs or canvas edges */
+    #dockview-container .dv-sash:not(.dv-disabled)::before,
+    #dockview-container .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled)::before,
+    #dockview-container .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled)::before {
+      content: "";
+      display: none !important;
+      pointer-events: none !important;
+    }
+
+    /* Discreet corner resize handle on each active split divider */
+    #dockview-container .dv-sash > .dv-sash-handle {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: var(--text-muted);
+      font-size: 9px;
+      line-height: 1;
+      opacity: 0.35;
+      pointer-events: auto !important;
+      touch-action: none !important;
+      user-select: none;
+      transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+
+    /* Invisible hit-area expansion around the corner pill for comfortable touch/mouse grabbing */
+    #dockview-container .dv-sash > .dv-sash-handle::after {
+      content: "";
+      position: absolute;
+      inset: -7px;
+      border-radius: 999px;
+    }
+
+    #dockview-container .dv-sash.dv-disabled > .dv-sash-handle {
+      display: none !important;
+      pointer-events: none !important;
+    }
+
+    /* Vertical divider (left/right split): tuck handle near bottom corner */
+    #dockview-container .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle {
+      top: auto;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 7px;
+      height: 24px;
+      cursor: ew-resize !important;
+    }
+    #dockview-container .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle::before {
+      content: "⋮";
+    }
+
+    /* Horizontal divider (top/bottom split): tuck handle near right corner */
+    #dockview-container .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle {
+      left: auto;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 24px;
+      height: 7px;
+      cursor: ns-resize !important;
+    }
+    #dockview-container .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle::before {
+      content: "⋯";
+    }
+
+    #dockview-container .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle:hover,
+    #dockview-container .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle:active {
+      opacity: 0.95;
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
+      transform: translateX(-50%) scale(1.12);
+    }
+
+    #dockview-container .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle:hover,
+    #dockview-container .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle:active {
+      opacity: 0.95;
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
+      transform: translateY(-50%) scale(1.12);
+    }
+
+    @media (pointer: coarse) {
+      #dockview-container .dv-sash > .dv-sash-handle::after {
+        inset: -11px;
+      }
+      #dockview-container .dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle {
+        width: 9px;
+        height: 28px;
+        bottom: 12px;
+      }
+      #dockview-container .dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled) > .dv-sash-handle {
+        width: 28px;
+        height: 9px;
+        right: 14px;
+      }
     }
 
     /* Hide Dockview tab close buttons, group close buttons and right-side overflow/dropdown actions */
@@ -2001,18 +2152,85 @@
       display: none !important;
     }
 
+    #dockview-container .dv-tabs-container {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      -webkit-overflow-scrolling: touch;
+      touch-action: none !important;
+      scrollbar-width: none;
+    }
+    #dockview-container .dv-tabs-container::-webkit-scrollbar {
+      display: none;
+    }
+    #dockview-container .dv-void-container {
+      flex: 0 1 0px !important;
+      min-width: 0 !important;
+    }
+
     #dockview-container .dv-tab {
       font-size: 10.5px;
       font-weight: 600;
       letter-spacing: 0.3px;
-      padding: 0 10px;
-      height: 25px;
-      line-height: 25px;
+      padding: 0 10px !important;
+      height: 26px;
+      line-height: 26px;
       cursor: pointer !important;
       user-select: none;
-      transition: color 0.12s ease, background-color 0.12s ease;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none !important;
+      transition: color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
       color: var(--text-muted);
       background: transparent;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+      gap: 0 !important;
+      flex-shrink: 0 !important;
+    }
+
+    #dockview-container .dv-tab .dv-default-tab {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: auto !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      touch-action: none !important;
+    }
+
+    #dockview-container .dv-tab .dv-default-tab .dv-default-tab-content {
+      flex-grow: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      text-align: center !important;
+      touch-action: none !important;
+    }
+
+    #dockview-container .dv-tab.dv-tab--touch-armed {
+      outline: 1.5px solid var(--primary) !important;
+      outline-offset: -1.5px;
+      background: var(--primary-dim) !important;
+      color: var(--text-bright) !important;
+    }
+
+    @media (pointer: coarse) {
+      .dockview-theme-dark,
+      #dockview-container {
+        --dv-tabs-and-actions-container-height: 30px;
+      }
+      #dockview-container .dv-tabs-and-actions-container {
+        height: 30px !important;
+      }
+      #dockview-container .dv-tab {
+        height: 30px;
+        line-height: 30px;
+        padding: 0 10px !important;
+        font-size: 11px;
+      }
     }
 
     #dockview-container .dv-tab.dv-active-tab {
@@ -2026,13 +2244,12 @@
       background: var(--bg-panel-sub);
     }
 
-
     #dockview-container .dv-tab * {
       cursor: pointer !important;
     }
 
     #dockview-container .dv-tabs-and-actions-container {
-      height: 25px;
+      height: 26px;
       border-bottom: 1px solid var(--border);
       background: var(--bg-panel-sub);
     }
@@ -2045,12 +2262,18 @@
       background: var(--bg-panel);
       display: flex;
       flex-direction: column;
-      padding: 6px 8px 16px 8px;
+      padding: 6px 8px 14px 8px;
       gap: 6px;
       box-sizing: border-box;
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
       overscroll-behavior: contain;
+      contain: layout style paint;
+    }
+
+    #dockview-container .dv-render-overlay[style*="visibility: hidden"] {
+      content-visibility: hidden;
+      contain: strict;
     }
 
     .dock-panel-content::-webkit-scrollbar {
@@ -2088,6 +2311,7 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      gap: 4px;
     }
 
     #dock-panel-animation {
@@ -2098,6 +2322,113 @@
       gap: 6px;
       height: 100%;
       box-sizing: border-box;
+    }
+
+    /* ── Ultra-Compact Tools & Modes Cards (Painter Style) ── */
+    .ip-tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+      gap: 3px;
+    }
+    .ip-tool-card, .ip-actionmode-card {
+      background: var(--bg-panel-sub);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 3px 5px;
+      min-height: 24px;
+      height: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      touch-action: manipulation;
+      font-size: 9.5px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .ip-tool-card:hover, .ip-actionmode-card:hover {
+      border-color: var(--border-bright);
+      color: var(--text-bright);
+    }
+    .ip-tool-card.active, .ip-actionmode-card.active {
+      background: var(--primary-dim);
+      border-color: var(--primary);
+      color: var(--primary);
+      font-weight: 800;
+    }
+    .ip-mini-btn {
+      background: var(--bg-panel-sub);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font: inherit;
+      font-size: 9.5px;
+      font-weight: 600;
+      height: 22px;
+      padding: 0 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      touch-action: manipulation;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ip-mini-btn:hover {
+      background: var(--border);
+      color: var(--primary);
+      border-color: var(--border-bright);
+    }
+    .ip-mini-btn.active {
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
+      font-weight: 800;
+    }
+
+    /* ── Non-Timeline Panels: No Horizontal Scroll & Automatic Vertical Reflow ── */
+    .dock-panel-content:not(#dock-panel-animation):not(#dock-panel-canvas) {
+      overflow-x: hidden !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .dock-panel-content:not(#dock-panel-animation):not(#dock-panel-canvas) .form-row {
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+    .dock-panel-content:not(#dock-panel-animation):not(#dock-panel-canvas) .form-row label {
+      flex: 0 1 62px;
+      min-width: 44px;
+    }
+    .dock-panel-content:not(#dock-panel-animation):not(#dock-panel-canvas) .form-row > input,
+    .dock-panel-content:not(#dock-panel-animation):not(#dock-panel-canvas) .form-row > select,
+    .dock-panel-content:not(#dock-panel-animation):not(#dock-panel-canvas) .form-row > div {
+      flex: 1 1 80px;
+      min-width: 0;
+    }
+    .dock-panel-content:not(#dock-panel-animation):not(#dock-panel-canvas) .cs-target-bar,
+    .dock-panel-content:not(#dock-panel-animation):not(#dock-panel-canvas) .cs-mode-tabs,
+    .dock-panel-content:not(#dock-panel-animation):not(#dock-panel-canvas) .cs-submode-tabs {
+      flex-wrap: wrap !important;
+      overflow-x: hidden !important;
+      white-space: normal !important;
+    }
+    .dock-panel-content:not(#dock-panel-animation):not(#dock-panel-canvas) .cs-target-btn,
+    .dock-panel-content:not(#dock-panel-animation):not(#dock-panel-canvas) .cs-mode-btn,
+    .dock-panel-content:not(#dock-panel-animation):not(#dock-panel-canvas) .cs-submode-btn {
+      min-width: 0 !important;
+      flex: 1 1 auto !important;
     }
 
 
@@ -3910,8 +4241,155 @@
     </div>
 
     <!-- Dock Panel 5: Scene (Object Hierarchy Tree) -->
-    <div id="dock-panel-scene" class="dock-panel-content">
-      <div id="object-list"></div>
+    <div id="dock-panel-scene" class="dock-panel-content" style="display: flex; flex-direction: column; gap: 6px; padding: 6px !important;">
+      <div class="scene-quick-toolbar" style="display: flex; align-items: center; gap: 3px; flex-wrap: wrap; padding-bottom: 5px; border-bottom: 1px solid var(--border); flex-shrink: 0;">
+        <button type="button" class="ip-mini-btn" id="scene-tb-group" title="Group Selected (Ctrl+G)">⊞ Group</button>
+        <button type="button" class="ip-mini-btn" id="scene-tb-ungroup" title="Ungroup Selected (Ctrl+Shift+G)">⊟ Ungroup</button>
+        <button type="button" class="ip-mini-btn" id="scene-tb-dup" title="Duplicate Selected (Ctrl+D)">⧉ Dup</button>
+        <button type="button" class="ip-mini-btn" id="scene-tb-up" title="Bring Forward (Ctrl+])">↑</button>
+        <button type="button" class="ip-mini-btn" id="scene-tb-down" title="Send Backward (Ctrl+[)">↓</button>
+        <button type="button" class="ip-mini-btn danger" id="scene-tb-del" title="Delete Selected (Del)">✕</button>
+        <button type="button" class="ip-mini-btn" id="scene-tb-menu" title="Open Context Menu for Selection" style="margin-left: auto;">⋯</button>
+      </div>
+      <div id="object-list" style="flex: 1 1 auto; min-height: 0; overflow-y: auto;"></div>
+    </div>
+
+    <!-- Dock Panel 6: Ultra-Compact Tools & Quick Actions (Mobile & Desktop) -->
+    <div id="dock-panel-tools" class="dock-panel-content" style="padding: 6px !important; display: flex; flex-direction: column; gap: 6px;">
+      <!-- 1. Tools & Shapes Grid -->
+      <div class="section-card" style="padding: 6px;">
+        <div class="section-header" style="margin-bottom: 4px;">
+          <span>Tools &amp; Shapes</span>
+          <span id="tools-panel-active-badge" style="font-size: 9px; color: var(--primary); font-family: var(--font-mono); text-transform: none;">Select</span>
+        </div>
+        <div class="ip-tools-grid" id="studio-tools-grid">
+          <button type="button" class="ip-tool-card active" data-tool="select" title="Select / Transform (V)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg>
+            <span class="ip-tool-name">Select</span>
+            <kbd class="ip-tool-key">V</kbd>
+          </button>
+          <button type="button" class="ip-tool-card" data-tool="node" title="Direct / Bézier Node Editor (A)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 8.5l7 7"/></svg>
+            <span class="ip-tool-name">Nodes</span>
+            <kbd class="ip-tool-key">A</kbd>
+          </button>
+          <button type="button" class="ip-tool-card" data-tool="pen" title="Bézier Pen Tool (P)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+            <span class="ip-tool-name">Pen</span>
+            <kbd class="ip-tool-key">P</kbd>
+          </button>
+          <button type="button" class="ip-tool-card" data-tool="brush" title="Freehand Vector Brush (B)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/></svg>
+            <span class="ip-tool-name">Brush</span>
+            <kbd class="ip-tool-key">B</kbd>
+          </button>
+          <button type="button" class="ip-tool-card" data-tool="rect" title="Rectangle Shape (R)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
+            <span class="ip-tool-name">Rect</span>
+            <kbd class="ip-tool-key">R</kbd>
+          </button>
+          <button type="button" class="ip-tool-card" data-tool="ellipse" title="Ellipse / Circle Shape (O)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>
+            <span class="ip-tool-name">Ellipse</span>
+            <kbd class="ip-tool-key">O</kbd>
+          </button>
+          <button type="button" class="ip-tool-card" data-tool="line" title="Line Segment (L)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="20" x2="20" y2="4"/></svg>
+            <span class="ip-tool-name">Line</span>
+            <kbd class="ip-tool-key">L</kbd>
+          </button>
+          <button type="button" class="ip-tool-card" data-tool="text" title="Vector Typography (T)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+            <span class="ip-tool-name">Text</span>
+            <kbd class="ip-tool-key">T</kbd>
+          </button>
+          <button type="button" class="ip-tool-card" data-tool="hand" title="Hand / Pan Canvas (H)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
+            <span class="ip-tool-name">Hand</span>
+            <kbd class="ip-tool-key">H</kbd>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Edit, History & Selection -->
+      <div class="section-card" style="padding: 6px;">
+        <div class="section-header" style="margin-bottom: 4px;"><span>Edit &amp; Selection</span></div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+          <button type="button" class="ip-mini-btn" data-studio-cmd="undo" title="Undo (Ctrl+Z)">↶ Undo</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="redo" title="Redo (Ctrl+Y)">↷ Redo</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="duplicate" title="Duplicate (Ctrl+D)">⧉ Dup</button>
+          <button type="button" class="ip-mini-btn danger" data-studio-cmd="delete" title="Delete Selected (Del)">✕ Del</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="copy" title="Copy (Ctrl+C)">Copy</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="paste" title="Paste (Ctrl+V)">Paste</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="select-all" title="Select All (Ctrl+A)">All</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="deselect" title="Clear Selection (Esc)">None</button>
+        </div>
+      </div>
+
+      <!-- 3. Arrange, Group & Clipping Mask -->
+      <div class="section-card" style="padding: 6px;">
+        <div class="section-header" style="margin-bottom: 4px;"><span>Arrange, Group &amp; Mask</span></div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+          <button type="button" class="ip-mini-btn" data-studio-cmd="group" title="Group Selection (Ctrl+G)">⊞ Group</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="ungroup" title="Ungroup (Ctrl+Shift+G)">⊟ Ungrp</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="mask-make" title="Make Clipping Mask (Ctrl+7)">◐ Mask</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="mask-release" title="Release Clipping Mask">◯ Unmask</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="z-front" title="Bring to Front">⤒ Front</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="z-fwd" title="Bring Forward">↑ Fwd</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="z-back" title="Send Backward">↓ Back</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="z-bottom" title="Send to Back">⤓ Bot</button>
+        </div>
+      </div>
+
+      <!-- 4. Pathfinder & Vector Operations -->
+      <div class="section-card" style="padding: 6px;">
+        <div class="section-header" style="margin-bottom: 4px;"><span>Pathfinder &amp; Vector Ops</span></div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+          <button type="button" class="ip-mini-btn" data-studio-cmd="bool-union" title="Boolean Union (Alt+U)">∪ Union</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="bool-subtract" title="Boolean Subtract (Alt+S)">− Sub</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="bool-intersect" title="Boolean Intersect (Alt+I)">∩ Inter</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="bool-exclude" title="Boolean Exclude (Alt+X)">⊕ XOR</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="outline-stroke" title="Outline Stroke to Filled Path">⬡ Outline</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="to-path" title="Convert Shape/Text to Bézier Path">☡ To Path</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="auto-taper" title="Auto-Taper Path Ends">✦ Taper</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="record-keyframe" title="Record Animation State at Current Frame">◆ Keyframe</button>
+        </div>
+      </div>
+
+      <!-- 5. Align, Distribute & Transform -->
+      <div class="section-card" style="padding: 6px;">
+        <div class="section-header" style="margin-bottom: 4px;"><span>Align &amp; Transform</span></div>
+        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-bottom: 3px;">
+          <button type="button" class="ip-mini-btn" data-studio-cmd="align-left" title="Align Left">⫷</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="align-center" title="Align Horizontal Center">⫿</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="align-right" title="Align Right">⫸</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="align-top" title="Align Top">⊤</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="align-middle" title="Align Vertical Middle">⊶</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="align-bottom" title="Align Bottom">⊥</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+          <button type="button" class="ip-mini-btn" data-studio-cmd="dist-h" title="Distribute Horizontally">⇔ Dist H</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="dist-v" title="Distribute Vertically">⇕ Dist V</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="flip-h" title="Flip Horizontal (Shift+H)">⇄ Flip H</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="flip-v" title="Flip Vertical (Shift+V)">⇅ Flip V</button>
+        </div>
+      </div>
+
+      <!-- 6. Viewport, Snapping & File Shortcuts -->
+      <div class="section-card" style="padding: 6px;">
+        <div class="section-header" style="margin-bottom: 4px;"><span>Viewport, Snap &amp; Studio</span></div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;">
+          <button type="button" class="ip-mini-btn" id="tools-btn-snap" data-studio-cmd="toggle-snap" title="Toggle Smart Snapping (S)">🧲 Snap</button>
+          <button type="button" class="ip-mini-btn" id="tools-btn-rulers" data-studio-cmd="toggle-rulers" title="Toggle Rulers (Shift+R)">📏 Rulers</button>
+          <button type="button" class="ip-mini-btn" id="tools-btn-groupsel" data-studio-cmd="toggle-groupsel" title="Toggle Group Selection Mode">⊞ GrpSel</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="zoom-fit" title="Zoom to Fit (0)">⊡ Fit View</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="zoom-100" title="Zoom 100%">100%</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="toggle-renderer" title="Switch Quadro WASM / SVG Renderer">⚡ Renderer</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="import-svg" title="Import SVG File">📂 SVG</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="import-img" title="Import Raster Image">🖼 Image</button>
+          <button type="button" class="ip-mini-btn" data-studio-cmd="open-painter" title="Switch to Raster Painter">🎨 Painter</button>
+        </div>
+      </div>
     </div>
 
     <!-- Dock Panel 7: Conventional Animation Timeline -->
@@ -6241,6 +6719,7 @@
             <div class="obj-actions" style="display: flex; gap: 2px;">
               <button class="btn-icon ${obj.visible ? 'active is-visible' : 'is-hidden'}" data-action="toggle-vis" title="${obj.visible ? 'Hide' : 'Show'}" style="${obj.visible ? 'color: var(--primary); opacity: 1;' : 'color: var(--text-muted); opacity: 0.35;'}">${obj.visible ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z"/><circle cx="12" cy="12" r="3"/></svg>' : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z"/><line x1="2" y1="2" x2="22" y2="22"/></svg>'}</button>
               <button class="btn-icon ${obj.locked ? 'active is-locked' : 'is-unlocked'}" data-action="toggle-lock" title="${obj.locked ? 'Unlock' : 'Lock'}" style="${obj.locked ? 'color: var(--primary); opacity: 1;' : 'color: var(--text-muted); opacity: 0.35;'}">${obj.locked ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0"/></svg>'}</button>
+              <button class="btn-icon" data-action="open-menu" title="Object Options &amp; Actions" style="color: var(--text-muted); opacity: 0.65; font-size: 11px; padding: 0 3px;">⋯</button>
             </div>
           `;
 
@@ -6308,6 +6787,19 @@
               obj.locked = !obj.locked;
               render();
               updateObjectList();
+              return;
+            }
+            if (action === 'open-menu') {
+              e.stopPropagation();
+              if (!doc.selectedIds.has(obj.id)) {
+                doc.selectedIds.clear();
+                doc.selectedIds.add(obj.id);
+                render();
+                drawOverlay();
+                updateInspector();
+                updateObjectList();
+              }
+              showCanvasContextMenu(e, { x: obj.x || 0, y: obj.y || 0 });
               return;
             }
             if (isGroup) {
@@ -7074,8 +7566,69 @@
       window.updateSwatches = updateSwatches;
 
       // ── Pointer & Tool Event Handlers ──
+      let touchLongPressTimer = null;
+      let touchLongPressStart = null;
+      function clearTouchLongPress() {
+        if (touchLongPressTimer) {
+          clearTimeout(touchLongPressTimer);
+          touchLongPressTimer = null;
+        }
+        touchLongPressStart = null;
+      }
+
       viewportContainer.addEventListener('pointerdown', (e) => {
+        clearTouchLongPress();
         if (isTouchPinching) return;
+
+        const touchHitMult = e.pointerType === 'touch' ? 2.2 : 1.0;
+
+        if (e.pointerType === 'touch' && e.isPrimary !== false && !e.target.closest('.monaco-menu-container')) {
+          const lpClientX = e.clientX;
+          const lpClientY = e.clientY;
+          touchLongPressStart = { x: lpClientX, y: lpClientY, pointerId: e.pointerId };
+          touchLongPressTimer = setTimeout(() => {
+            touchLongPressTimer = null;
+            if (isTouchPinching || !touchLongPressStart) return;
+            // Cancel any in-progress marquee or accidental draft started by touch-down
+            isDragging = false;
+            isPanning = false;
+            isMarqueeSelecting = false;
+            marqueeBox = null;
+            isNodeMarqueeSelecting = false;
+            nodeMarqueeBox = null;
+            activeTransformMode = null;
+            activeResizeHandle = null;
+            isPenDraggingAnchor = false;
+            if (currentDraftObj) {
+              doc.removeObject(currentDraftObj.id);
+              currentDraftObj = null;
+              currentBrushRawPoints = [];
+            }
+            if (navigator.vibrate) {
+              try { navigator.vibrate(18); } catch (_) {}
+            }
+            const lpPt = screenToDoc(lpClientX, lpClientY);
+            if (activeTool === 'select') {
+              const hitObj = groupSelectMode ? (doc.hitTest(lpPt.x, lpPt.y) || doc.hitTestDeep(lpPt.x, lpPt.y)) : doc.hitTestDeep(lpPt.x, lpPt.y);
+              if (hitObj && !doc.selectedIds.has(hitObj.id)) {
+                doc.selectedIds.clear();
+                doc.selectedIds.add(hitObj.id);
+                expandObjectInTree(hitObj);
+              }
+            }
+            render();
+            drawOverlay();
+            updateInspector();
+            updateObjectList();
+            showCanvasContextMenu({
+              clientX: lpClientX,
+              clientY: lpClientY,
+              shiftKey: false,
+              preventDefault: () => {},
+              stopPropagation: () => {}
+            }, lpPt);
+          }, 450);
+        }
 
         // Hand tool / Space / Middle Click Pan
         if (activeTool === 'hand' || e.button === 1 || e.spaceKey || isPanning) {
@@ -7109,7 +7662,7 @@
               const rotHandle = { x: cb.minX + cb.width / 2, y: cb.minY - rotDist };
 
               // 1. Check collective rotation handle
-              if (Math.hypot(pt.x - rotHandle.x, pt.y - rotHandle.y) <= 10 / zoom) {
+              if (Math.hypot(pt.x - rotHandle.x, pt.y - rotHandle.y) <= (10 * touchHitMult) / zoom) {
                 activeTransformMode = 'rotate';
                 initialRotation = 0;
                 initialAngle = Math.atan2(pt.y - origin.y, pt.x - origin.x) * 180 / Math.PI;
@@ -7118,7 +7671,7 @@
               }
 
               // 2. Check collective anchor
-              if (!activeTransformMode && Math.hypot(pt.x - origin.x, pt.y - origin.y) <= 8 / zoom) {
+              if (!activeTransformMode && Math.hypot(pt.x - origin.x, pt.y - origin.y) <= (8 * touchHitMult) / zoom) {
                 activeTransformMode = 'anchor';
                 initialBounds = { ...cb };
                 initialObjectState = unLockedSelected.map(o => ({ id: o.id, state: JSON.parse(JSON.stringify(o.toJSON())) }));
@@ -7137,7 +7690,7 @@
                   { name: 'w',  x: cb.minX, y: cb.minY + cb.height / 2 }
                 ];
                 for (const h of handles) {
-                  if (Math.hypot(pt.x - h.x, pt.y - h.y) <= 9 / zoom) {
+                  if (Math.hypot(pt.x - h.x, pt.y - h.y) <= (9 * touchHitMult) / zoom) {
                     activeTransformMode = 'resize';
                     activeResizeHandle = h.name;
                     initialBounds = { ...cb };
@@ -7167,7 +7720,7 @@
             // 1. Check Rotation handle (top stalk)
             const rotDist = 20 / zoom;
             const rotHandle = { x: b.minX + b.width / 2, y: b.minY - rotDist };
-            if (Math.hypot(localPt.x - rotHandle.x, localPt.y - rotHandle.y) <= 10 / zoom) {
+            if (Math.hypot(localPt.x - rotHandle.x, localPt.y - rotHandle.y) <= (10 * touchHitMult) / zoom) {
               activeTransformMode = 'rotate';
               initialRotation = obj.rotation || 0;
               initialAngle = Math.atan2(pt.y - origin.y, pt.x - origin.x) * 180 / Math.PI;
@@ -7175,7 +7728,7 @@
             }
 
             // 2. Check Center Anchor handle
-            if (!activeTransformMode && Math.hypot(localPt.x - origin.x, localPt.y - origin.y) <= 8 / zoom) {
+            if (!activeTransformMode && Math.hypot(localPt.x - origin.x, localPt.y - origin.y) <= (8 * touchHitMult) / zoom) {
               activeTransformMode = 'anchor';
               initialObjectState = JSON.parse(JSON.stringify(obj.toJSON()));
             }
@@ -7193,7 +7746,7 @@
                 { name: 'w',  x: b.minX, y: b.minY + b.height / 2 }
               ];
               for (const h of handles) {
-                if (Math.hypot(localPt.x - h.x, localPt.y - h.y) <= 9 / zoom) {
+                if (Math.hypot(localPt.x - h.x, localPt.y - h.y) <= (9 * touchHitMult) / zoom) {
                   activeTransformMode = 'resize';
                   activeResizeHandle = h.name;
                   initialBounds = { ...b };
@@ -7295,7 +7848,7 @@
             for (let i = 0; i < obj.nodes.length; i++) {
               const node = obj.nodes[i];
               const cpIn = node.getAbsCpIn();
-              if (Math.hypot(node.cpIn.x, node.cpIn.y) > 0.5 && Math.hypot(pt.x - cpIn.x, pt.y - cpIn.y) <= 8 / zoom) {
+              if (Math.hypot(node.cpIn.x, node.cpIn.y) > 0.5 && Math.hypot(pt.x - cpIn.x, pt.y - cpIn.y) <= (8 * touchHitMult) / zoom) {
                 activeNodeIdx = i;
                 selectedNodeIndices = new Set([i]);
                 activeHandleType = 'in';
@@ -7303,7 +7856,7 @@
                 break;
               }
               const cpOut = node.getAbsCpOut();
-              if (Math.hypot(node.cpOut.x, node.cpOut.y) > 0.5 && Math.hypot(pt.x - cpOut.x, pt.y - cpOut.y) <= 8 / zoom) {
+              if (Math.hypot(node.cpOut.x, node.cpOut.y) > 0.5 && Math.hypot(pt.x - cpOut.x, pt.y - cpOut.y) <= (8 * touchHitMult) / zoom) {
                 activeNodeIdx = i;
                 selectedNodeIndices = new Set([i]);
                 activeHandleType = 'out';
@@ -7321,7 +7874,7 @@
             // 2. Check anchor points
             for (let i = 0; i < obj.nodes.length; i++) {
               const node = obj.nodes[i];
-              if (Math.hypot(pt.x - node.x, pt.y - node.y) <= 8 / zoom) {
+              if (Math.hypot(pt.x - node.x, pt.y - node.y) <= (8 * touchHitMult) / zoom) {
                 if (e.shiftKey) {
                   if (selectedNodeIndices.has(i)) {
                     selectedNodeIndices.delete(i);
@@ -7358,7 +7911,7 @@
 
             // 3. Check clicking on path segment to insert a new anchor point
             if (typeof obj.insertAnchorAtPoint === 'function') {
-              const splitRes = obj.insertAnchorAtPoint(pt.x, pt.y, 8 / zoom);
+              const splitRes = obj.insertAnchorAtPoint(pt.x, pt.y, (8 * touchHitMult) / zoom);
               if (splitRes) {
                 selectedNodeIndices = new Set([splitRes.index]);
                 activeNodeIdx = splitRes.index;
@@ -7393,7 +7946,7 @@
         } else if (activeTool === 'pen') {
           if (currentPenPath && currentPenPath.nodes.length > 1) {
             const first = currentPenPath.nodes[0];
-            if (Math.hypot(pt.x - first.x, pt.y - first.y) <= 12 / zoom) {
+            if (Math.hypot(pt.x - first.x, pt.y - first.y) <= (12 * touchHitMult) / zoom) {
               currentPenPath.closed = true;
               const last = currentPenPath.nodes[currentPenPath.nodes.length - 1];
               if (currentPenPath.nodes.length > 2 && Math.hypot(last.x - first.x, last.y - first.y) < 1.0) {
@@ -7515,7 +8068,15 @@
       });
 
       window.addEventListener('pointermove', (e) => {
-        if (isTouchPinching || touchStartDist > 0) return;
+        if (touchLongPressStart && e.pointerId === touchLongPressStart.pointerId) {
+          if (Math.hypot(e.clientX - touchLongPressStart.x, e.clientY - touchLongPressStart.y) > 10) {
+            clearTouchLongPress();
+          }
+        }
+        if (isTouchPinching) {
+          clearTouchLongPress();
+          return;
+        }
 
         const pt = screenToDoc(e.clientX, e.clientY);
         statusCoords.textContent = `${Math.round(pt.x)}, ${Math.round(pt.y)}`;
@@ -8083,7 +8644,12 @@
         }
       });
 
+      window.addEventListener('pointercancel', () => {
+        clearTouchLongPress();
+      });
+
       window.addEventListener('pointerup', (e) => {
+        clearTouchLongPress();
         if (isTouchPinching) return;
 
         if (activeGuideDrag) {
@@ -8309,6 +8875,175 @@
             items.push({ type: 'sep' });
           }
         };
+
+        // ── Inline Quick Tools, Color Swatches & History Bar (Mobile & Desktop) ──
+        items.push({
+          type: 'custom',
+          render: (menuInst) => {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex;flex-direction:column;gap:5px;min-width:210px;';
+
+            // Row 1: Quick Tools Strip
+            const toolRow = document.createElement('div');
+            toolRow.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:3px;';
+            const quickTools = [
+              { id: 'select', label: '↖ Sel', title: 'Select / Transform (V)' },
+              { id: 'node',   label: '◈ Node', title: 'Bézier Node Editor (A)' },
+              { id: 'pen',    label: '✒ Pen', title: 'Bézier Pen (P)' },
+              { id: 'brush',  label: '🖌 Brsh', title: 'Vector Brush (B)' },
+              { id: 'hand',   label: '✋ Pan', title: 'Hand / Pan (H)' },
+              { id: 'rect',   label: '▭ Rect', title: 'Rectangle (R)' },
+              { id: 'ellipse',label: '○ Ellip', title: 'Ellipse (O)' },
+              { id: 'line',   label: '╱ Line', title: 'Line (L)' },
+              { id: 'text',   label: 'T Text', title: 'Text (T)' }
+            ];
+            quickTools.forEach(qt => {
+              const b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'ip-mini-btn' + (activeTool === qt.id ? ' active' : '');
+              b.style.cssText = 'padding:3px 2px;font-size:9.5px;';
+              b.textContent = qt.label;
+              b.title = qt.title;
+              b.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                selectTool(qt.id);
+                if (menuInst && menuInst.service) menuInst.service.hideContextMenu();
+              });
+              toolRow.appendChild(b);
+            });
+            // Fit view button in 10th slot
+            const fitBtn = document.createElement('button');
+            fitBtn.type = 'button';
+            fitBtn.className = 'ip-mini-btn';
+            fitBtn.style.cssText = 'padding:3px 2px;font-size:9.5px;';
+            fitBtn.textContent = '⊡ Fit';
+            fitBtn.title = 'Zoom to Fit (0)';
+            fitBtn.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              zoomToFit();
+              if (menuInst && menuInst.service) menuInst.service.hideContextMenu();
+            });
+            toolRow.appendChild(fitBtn);
+            wrap.appendChild(toolRow);
+
+            // Row 2: Fill / Stroke Chips + Quick Swatches + Undo / Redo
+            const barRow = document.createElement('div');
+            barRow.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding-top:3px;border-top:1px solid var(--border);';
+
+            const curFill = document.getElementById('prop-fill-text')?.value || '#fabd2f';
+            const curStroke = document.getElementById('prop-stroke-text')?.value || '#1d2021';
+
+            const applyQuickColor = (hex, isStroke) => {
+              const inputId = isStroke ? 'prop-stroke-color' : 'prop-fill-color';
+              const textId = isStroke ? 'prop-stroke-text' : 'prop-fill-text';
+              const cEl = document.getElementById(inputId);
+              const tEl = document.getElementById(textId);
+              if (cEl && hex.startsWith('#')) cEl.value = hex;
+              if (tEl) {
+                tEl.value = hex;
+                tEl.dispatchEvent(new Event('input', { bubbles: true }));
+                tEl.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+              updateSwatches();
+            };
+
+            const fillChip = document.createElement('button');
+            fillChip.type = 'button';
+            fillChip.className = 'ip-mini-btn';
+            fillChip.style.cssText = 'padding:2px 5px;font-size:9px;gap:4px;';
+            fillChip.title = 'Tap to open Materials / Fill Color';
+            fillChip.innerHTML = `<span style="width:10px;height:10px;border-radius:2px;border:1px solid rgba(255,255,255,0.4);background:${curFill === 'none' ? 'transparent' : curFill};display:inline-block;"></span>Fill`;
+            fillChip.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              if (menuInst && menuInst.service) menuInst.service.hideContextMenu();
+              openDockPanel('color');
+            });
+
+            const strokeChip = document.createElement('button');
+            strokeChip.type = 'button';
+            strokeChip.className = 'ip-mini-btn';
+            strokeChip.style.cssText = 'padding:2px 5px;font-size:9px;gap:4px;';
+            strokeChip.title = 'Tap to open Materials / Stroke Color';
+            strokeChip.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;border:2px solid ${curStroke === 'none' ? 'rgba(255,255,255,0.3)' : curStroke};display:inline-block;box-sizing:border-box;"></span>Stk`;
+            strokeChip.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              if (menuInst && menuInst.service) menuInst.service.hideContextMenu();
+              openDockPanel('color');
+            });
+
+            barRow.appendChild(fillChip);
+            barRow.appendChild(strokeChip);
+
+            ['#fabd2f', '#fe8019', '#fb4934', '#b8bb26', '#83a598', '#d3869b', '#ebdbb2', '#1d2021'].forEach(sw => {
+              const dot = document.createElement('button');
+              dot.type = 'button';
+              dot.title = `Tap: Set Color (${sw}) • Shift+Tap: Set Stroke`;
+              dot.style.cssText = `width:15px;height:15px;border-radius:3px;border:1px solid rgba(255,255,255,0.22);background:${sw};cursor:pointer;padding:0;flex-shrink:0;`;
+              dot.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const targetStroke = ev.shiftKey || activeTool === 'brush' || activeTool === 'pen' || activeTool === 'line';
+                applyQuickColor(sw, targetStroke);
+              });
+              barRow.appendChild(dot);
+            });
+
+            const undoBtn = document.createElement('button');
+            undoBtn.type = 'button';
+            undoBtn.className = 'ip-mini-btn';
+            undoBtn.style.cssText = 'margin-left:auto;padding:2px 6px;font-size:10px;';
+            undoBtn.textContent = '↶';
+            undoBtn.title = 'Undo (Ctrl+Z)';
+            undoBtn.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              handleUndo();
+            });
+
+            const redoBtn = document.createElement('button');
+            redoBtn.type = 'button';
+            redoBtn.className = 'ip-mini-btn';
+            redoBtn.style.cssText = 'padding:2px 6px;font-size:10px;';
+            redoBtn.textContent = '↷';
+            redoBtn.title = 'Redo (Ctrl+Y)';
+            redoBtn.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              doc.redo();
+              render();
+              updateInspector();
+              updateObjectList();
+            });
+
+            barRow.appendChild(undoBtn);
+            barRow.appendChild(redoBtn);
+            wrap.appendChild(barRow);
+            return wrap;
+          }
+        });
+
+        const curStrokeW = Number(document.getElementById('prop-stroke-width')?.value) || (selectedObjs[0]?.strokeWidth ?? 3);
+        items.push({
+          type: 'slider',
+          label: 'Stroke Width',
+          value: curStrokeW,
+          min: 0,
+          max: 64,
+          step: 1,
+          unit: ' px',
+          onInput: (v) => {
+            const swEl = document.getElementById('prop-stroke-width');
+            if (swEl) {
+              swEl.value = String(v);
+              swEl.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          },
+          onChange: (v) => {
+            const swEl = document.getElementById('prop-stroke-width');
+            if (swEl) {
+              swEl.value = String(v);
+              swEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+        });
+        addSep();
 
         // Case A: Anchor / Node Tool Context
         if (isNodeTool || clickedNodeIdx !== -1 || (hasSelectedNodes && activePath)) {
@@ -8676,6 +9411,10 @@
 
           // Viewport Submenu
           addSubmenu('Viewport', [
+            { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
+            { type: 'item', label: 'Zoom 100%', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } },
+            { type: 'item', label: 'Reset Viewport Rotation (0°)', action: () => { viewportRotation = 0; applyViewportTransform(); render(); } },
+            { type: 'sep' },
             { type: 'item', label: viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', action: () => syncRenderMode('quadro') },
             { type: 'item', label: viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', action: () => syncRenderMode('svg') },
             { type: 'sep' },
@@ -8720,18 +9459,49 @@
         }
 
         addSubmenu('Tools', [
-          { type: 'item', label: 'Select Tool', hotkey: 'V', action: () => selectTool('select') },
-          { type: 'item', label: 'Direct / Node Select', hotkey: 'A', action: () => selectTool('node') },
-          { type: 'item', label: 'Hand / Pan Canvas', hotkey: 'H', action: () => selectTool('hand') },
-          { type: 'item', label: 'Pen / Bézier Tool', hotkey: 'P', action: () => selectTool('pen') },
-          { type: 'item', label: 'Brush Tool', hotkey: 'B', action: () => selectTool('brush') },
-          { type: 'item', label: 'Rectangle Shape', hotkey: 'R', action: () => selectTool('rect') },
-          { type: 'item', label: 'Ellipse / Circle', hotkey: 'O', action: () => selectTool('ellipse') },
-          { type: 'item', label: 'Line Segment', hotkey: 'L', action: () => selectTool('line') },
-          { type: 'item', label: 'Text Tool', hotkey: 'T', action: () => selectTool('text') },
+          { type: 'item', label: (activeTool === 'select' ? '✓ ' : '') + 'Select Tool', hotkey: 'V', action: () => selectTool('select') },
+          { type: 'item', label: (activeTool === 'node' ? '✓ ' : '') + 'Direct / Node Select', hotkey: 'A', action: () => selectTool('node') },
+          { type: 'item', label: (activeTool === 'hand' ? '✓ ' : '') + 'Hand / Pan Canvas', hotkey: 'H', action: () => selectTool('hand') },
+          { type: 'item', label: (activeTool === 'pen' ? '✓ ' : '') + 'Pen / Bézier Tool', hotkey: 'P', action: () => selectTool('pen') },
+          { type: 'item', label: (activeTool === 'brush' ? '✓ ' : '') + 'Brush Tool', hotkey: 'B', action: () => selectTool('brush') },
+          { type: 'item', label: (activeTool === 'rect' ? '✓ ' : '') + 'Rectangle Shape', hotkey: 'R', action: () => selectTool('rect') },
+          { type: 'item', label: (activeTool === 'ellipse' ? '✓ ' : '') + 'Ellipse / Circle', hotkey: 'O', action: () => selectTool('ellipse') },
+          { type: 'item', label: (activeTool === 'line' ? '✓ ' : '') + 'Line Segment', hotkey: 'L', action: () => selectTool('line') },
+          { type: 'item', label: (activeTool === 'text' ? '✓ ' : '') + 'Text Tool', hotkey: 'T', action: () => selectTool('text') },
           { type: 'sep' },
           { type: 'item', label: (brushCurveFitMode === 'bezier' ? '✓ ' : '') + 'Brush Fit: Smooth Cubic Bézier', action: () => { brushCurveFitMode = (brushCurveFitMode === 'bezier') ? 'raw' : 'bezier'; showNotification(brushCurveFitMode === 'bezier' ? 'Brush Curve Fit: Smooth Cubic Bézier' : 'Brush Curve Fit: Raw Points'); } },
           { type: 'item', label: (brushAutoTaper ? '✓ ' : '') + 'Brush Auto-Taper Ends', action: () => { brushAutoTaper = !brushAutoTaper; showNotification(brushAutoTaper ? 'Auto-Taper Ends: ON' : 'Auto-Taper Ends: OFF'); } }
+        ]);
+
+        // Workspace Tabs & Dock Layout Submenu
+        addSubmenu('Workspace Tabs', [
+          { type: 'item', label: (dockviewApi?.getPanel('scene') ? '✓ ' : '') + 'Scene Tree', action: () => openDockPanel('scene') },
+          { type: 'item', label: (dockviewApi?.getPanel('tools') ? '✓ ' : '') + 'Tools & Ops', action: () => openDockPanel('tools') },
+          { type: 'item', label: (dockviewApi?.getPanel('inspect') ? '✓ ' : '') + 'Transform & Inspector', action: () => openDockPanel('inspect') },
+          { type: 'item', label: (dockviewApi?.getPanel('color') ? '✓ ' : '') + 'Materials & Color Studio', action: () => openDockPanel('color') },
+          { type: 'item', label: (dockviewApi?.getPanel('animation') ? '✓ ' : '') + 'Timeline (DopeSheet)', action: () => openDockPanel('animation') },
+          { type: 'item', label: (dockviewApi?.getPanel('curves') ? '✓ ' : '') + 'Curve Editor', action: () => openDockPanel('curves') },
+          { type: 'item', label: (dockviewApi?.getPanel('projects') ? '✓ ' : '') + 'Projects & Export', action: () => openDockPanel('projects') },
+          { type: 'sep' },
+          { type: 'item', label: 'Reset Dock Layout (Auto)', action: () => resetDockviewLayout('auto') },
+          { type: 'item', label: 'Portrait Layout (Bottom Tabs)', action: () => resetDockviewLayout('portrait') },
+          { type: 'item', label: 'Landscape Layout (Side + Bottom)', action: () => resetDockviewLayout('landscape') }
+        ]);
+
+        // Project, File & Export Submenu
+        addSubmenu('Project & File', [
+          { type: 'item', label: 'New Project...', action: () => openNewProjectModal() },
+          { type: 'item', label: 'Projects & Storage...', action: () => openRecentsModal() },
+          { type: 'sep' },
+          { type: 'item', label: 'Import SVG File...', action: () => document.getElementById('file-input-svg')?.click() },
+          { type: 'item', label: 'Import Raster Image...', action: () => document.getElementById('file-import-img')?.click() },
+          { type: 'sep' },
+          { type: 'item', label: 'Quick Export SVG (1×)', action: () => performExport('image/svg+xml', 1) },
+          { type: 'item', label: 'Quick Export PNG (1×)', action: () => performExport('image/png', 1) },
+          { type: 'item', label: 'Export Center (Video / GIF / Scale)...', action: () => openDockPanel('export') },
+          { type: 'sep' },
+          { type: 'item', label: 'Toggle Theme (Dark / Light)', action: () => toggleTheme() },
+          { type: 'item', label: 'Open Raster Painter...', hotkey: '🎨', action: () => { window.location.href = 'painter.html'; } }
         ]);
 
         // ── Monaco / VS Code Context Menu Architecture (vs/base/browser/ui/contextview & menu) ──
@@ -8754,6 +9524,8 @@
           this.activeSubmenu = null;
           this.focusedIndex = -1;
           this.items = [];
+          this.mountedPanels = [];
+          this.pendingMounts = [];
           this.showTimer = null;
           this.hideTimer = null;
           this.render();
@@ -8793,6 +9565,91 @@
               const li = document.createElement('li');
               li.className = 'action-item separator';
               li.setAttribute('role', 'separator');
+              this.actionsList.appendChild(li);
+              itemObj.element = li;
+            } else if (action.type === 'dom_panel') {
+              this.domNode.classList.add('has-dom-panel');
+              const li = document.createElement('li');
+              li.className = 'action-item dom-panel-item';
+              li.setAttribute('role', 'presentation');
+              const panelEl = document.getElementById('dock-panel-' + action.panelId);
+              if (panelEl) {
+                this.mountedPanels.push(panelEl);
+                li.appendChild(panelEl);
+              }
+              li.addEventListener('click', (ev) => ev.stopPropagation());
+              li.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+              li.addEventListener('mouseenter', () => {
+                clearTimeout(this.hideTimer);
+                if (this.parentMenu) clearTimeout(this.parentMenu.hideTimer);
+              });
+              this.actionsList.appendChild(li);
+              itemObj.element = li;
+              if (typeof action.onMount === 'function') {
+                this.pendingMounts.push(action.onMount);
+              }
+            } else if (action.type === 'slider') {
+              const li = document.createElement('li');
+              li.className = 'action-item slider-item';
+              li.setAttribute('role', 'presentation');
+
+              const topRow = document.createElement('div');
+              topRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;font-size:10.5px;color:var(--text-muted);font-weight:600;';
+              const lbl = document.createElement('span');
+              lbl.textContent = action.label || '';
+              const valSpan = document.createElement('span');
+              valSpan.style.cssText = 'color:var(--primary);font-family:var(--font-mono);font-weight:700;';
+              const unit = action.unit || '';
+              valSpan.textContent = `${action.value ?? 0}${unit}`;
+              topRow.appendChild(lbl);
+              topRow.appendChild(valSpan);
+
+              const slider = document.createElement('input');
+              slider.type = 'range';
+              slider.className = 'ip-touch-slider';
+              slider.min = String(action.min ?? 0);
+              slider.max = String(action.max ?? 100);
+              slider.step = String(action.step ?? 1);
+              slider.value = String(action.value ?? 0);
+              slider.style.cssText = 'width:100%;height:5px;accent-color:var(--primary);cursor:pointer;';
+              slider.addEventListener('input', (ev) => {
+                ev.stopPropagation();
+                const v = parseFloat(slider.value);
+                valSpan.textContent = `${v}${unit}`;
+                if (typeof action.onInput === 'function') action.onInput(v, valSpan);
+              });
+              slider.addEventListener('change', (ev) => {
+                ev.stopPropagation();
+                const v = parseFloat(slider.value);
+                if (typeof action.onChange === 'function') action.onChange(v, valSpan);
+              });
+
+              li.appendChild(topRow);
+              li.appendChild(slider);
+              li.addEventListener('click', (ev) => ev.stopPropagation());
+              li.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+              li.addEventListener('mouseenter', () => {
+                clearTimeout(this.showTimer);
+                if (this.activeSubmenu) {
+                  this.hideTimer = setTimeout(() => this.closeSubmenu(), 180);
+                }
+              });
+              this.actionsList.appendChild(li);
+              itemObj.element = li;
+            } else if (action.type === 'custom' && typeof action.render === 'function') {
+              const li = document.createElement('li');
+              li.className = 'action-item custom-widget-item';
+              li.setAttribute('role', 'presentation');
+              const el = action.render(this);
+              if (el) li.appendChild(el);
+              li.addEventListener('click', (ev) => ev.stopPropagation());
+              li.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+              li.addEventListener('mouseenter', () => {
+                clearTimeout(this.showTimer);
+                if (this.activeSubmenu) {
+                  this.hideTimer = setTimeout(() => this.closeSubmenu(), 180);
+                }
+              });
               this.actionsList.appendChild(li);
               itemObj.element = li;
             } else {
@@ -9268,6 +10125,9 @@
         const btn = document.querySelector(`.tool-btn[data-tool="${toolName}"]`);
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         if (btn) btn.classList.add('active');
+        document.querySelectorAll('.ip-tool-card[data-tool]').forEach(c => {
+          c.classList.toggle('active', c.dataset.tool === toolName);
+        });
         activeTool = toolName;
         if (activeTool === 'node') {
           let selected = doc.getSelectedObjects();
@@ -9299,7 +10159,20 @@
           brush: 'Freehand Vector Brush',
           text: 'Vector Typography'
         };
+        const badgeTitles = {
+          select: 'SELECT (V)',
+          hand: 'HAND (H)',
+          node: 'NODES (N)',
+          pen: 'PEN (P)',
+          rect: 'RECT (R)',
+          ellipse: 'ELLIPSE (O)',
+          line: 'LINE (L)',
+          brush: 'BRUSH (B)',
+          text: 'TEXT (T)'
+        };
         if (statusTool) statusTool.textContent = toolTitles[toolName] || (btn?.title ? btn.title.split('(')[0].trim() : toolName);
+        const toolsBadge = document.getElementById('tools-panel-active-badge');
+        if (toolsBadge) toolsBadge.textContent = badgeTitles[toolName] || toolName.toUpperCase();
         syncMaterialsStrokeOptions();
         render();
         drawOverlay();
@@ -9390,10 +10263,20 @@
           ellipse: 'Ellipse / Circle Shape',
           line: 'Line Segment Shape'
         };
+        const badgeTitles = {
+          rect: 'RECT (R)',
+          ellipse: 'ELLIPSE (O)',
+          line: 'LINE (L)'
+        };
         viewportContainer.classList.remove('panning');
         if (statusTool) statusTool.textContent = titleMap[type] || type;
+        const toolsBadge = document.getElementById('tools-panel-active-badge');
+        if (toolsBadge) toolsBadge.textContent = badgeTitles[type] || type.toUpperCase();
         document.querySelectorAll('.tool-btn').forEach(b => {
           b.classList.toggle('active', b.dataset.tool === type);
+        });
+        document.querySelectorAll('.ip-tool-card[data-tool]').forEach(c => {
+          c.classList.toggle('active', c.dataset.tool === type);
         });
         syncMaterialsStrokeOptions();
         render();
@@ -9448,6 +10331,111 @@
           selectTool(btn.dataset.tool);
         });
       });
+
+      // ── Compact Tools Dock Panel & Scene Quick Toolbar Wiring ──
+      function syncCompactToolsButtons() {
+        const snapBtn = document.getElementById('tools-btn-snap');
+        if (snapBtn) snapBtn.classList.toggle('active', !!snapEnabled);
+        const rulersBtn = document.getElementById('tools-btn-rulers');
+        if (rulersBtn) rulersBtn.classList.toggle('active', !!showRulers);
+        const groupSelBtn = document.getElementById('tools-btn-groupsel');
+        if (groupSelBtn) groupSelBtn.classList.toggle('active', !!groupSelectMode);
+      }
+      window.syncCompactToolsButtons = syncCompactToolsButtons;
+
+      const toolsPanelEl = document.getElementById('dock-panel-tools');
+      toolsPanelEl?.addEventListener('click', (e) => {
+        const toolCard = e.target.closest('.ip-tool-card[data-tool]');
+        if (toolCard) {
+          selectTool(toolCard.dataset.tool);
+          return;
+        }
+        const cmdBtn = e.target.closest('[data-studio-cmd]');
+        if (!cmdBtn) return;
+        const cmd = cmdBtn.dataset.studioCmd;
+        switch (cmd) {
+          case 'undo': handleUndo(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'redo': doc.redo(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'duplicate': doc.duplicateSelected(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'delete':
+            doc.getSelectedObjects().forEach(o => doc.removeObject(o.id));
+            render(); updateInspector(); updateObjectList(); drawOverlay();
+            break;
+          case 'copy': doc.copySelected(); break;
+          case 'paste': doc.paste(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'select-all': doc.selectAll(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'deselect': doc.clearSelection(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'group': doc.groupSelected(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'ungroup': doc.ungroupSelected(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'mask': doc.maskSelected(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'unmask': doc.unmaskSelected(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'bring-front': doc.bringToFront(); render(); updateObjectList(); drawOverlay(); break;
+          case 'bring-forward': doc.bringForward(); render(); updateObjectList(); drawOverlay(); break;
+          case 'send-backward': doc.sendBackward(); render(); updateObjectList(); drawOverlay(); break;
+          case 'send-back': doc.sendToBack(); render(); updateObjectList(); drawOverlay(); break;
+          case 'bool-union': doc.booleanOp('union'); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'bool-subtract': doc.booleanOp('subtract'); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'bool-intersect': doc.booleanOp('intersect'); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'bool-exclude': doc.booleanOp('exclude'); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'to-path': doc.convertSelectedToPath(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'join-paths': doc.joinSelectedPaths(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'outline-stroke': doc.outlineSelectedStrokes(); render(); updateInspector(); updateObjectList(); drawOverlay(); break;
+          case 'reverse-path': doc.reverseSelectedPaths(); render(); drawOverlay(); break;
+          case 'align-left': doc.alignSelected('left'); render(); updateInspector(); drawOverlay(); break;
+          case 'align-center': doc.alignSelected('center'); render(); updateInspector(); drawOverlay(); break;
+          case 'align-right': doc.alignSelected('right'); render(); updateInspector(); drawOverlay(); break;
+          case 'align-top': doc.alignSelected('top'); render(); updateInspector(); drawOverlay(); break;
+          case 'align-middle': doc.alignSelected('middle'); render(); updateInspector(); drawOverlay(); break;
+          case 'align-bottom': doc.alignSelected('bottom'); render(); updateInspector(); drawOverlay(); break;
+          case 'flip-h': doc.flipSelected('horizontal'); render(); updateInspector(); drawOverlay(); break;
+          case 'flip-v': doc.flipSelected('vertical'); render(); updateInspector(); drawOverlay(); break;
+          case 'dist-h': doc.distributeSelected('horizontal'); render(); updateInspector(); drawOverlay(); break;
+          case 'dist-v': doc.distributeSelected('vertical'); render(); updateInspector(); drawOverlay(); break;
+          case 'zoom-fit': zoomToFit(); break;
+          case 'zoom-100': zoom = 1; applyViewportTransform(); break;
+          case 'toggle-snap': toggleSnap(); syncCompactToolsButtons(); break;
+          case 'toggle-rulers': toggleRulers(); syncCompactToolsButtons(); break;
+          case 'toggle-groupsel':
+            groupSelectMode = !groupSelectMode;
+            saveStudioSettings({ groupSelectMode });
+            syncCompactToolsButtons();
+            showNotification(`Group Select: ${groupSelectMode ? 'ON' : 'OFF'}`);
+            break;
+          case 'layout-portrait': resetDockviewLayout('portrait'); break;
+          case 'layout-landscape': resetDockviewLayout('landscape'); break;
+          case 'open-painter': window.location.href = './painter.html'; break;
+        }
+      });
+
+      document.getElementById('scene-tb-group')?.addEventListener('click', () => {
+        doc.groupSelected(); render(); updateInspector(); updateObjectList(); drawOverlay();
+      });
+      document.getElementById('scene-tb-ungroup')?.addEventListener('click', () => {
+        doc.ungroupSelected(); render(); updateInspector(); updateObjectList(); drawOverlay();
+      });
+      document.getElementById('scene-tb-dup')?.addEventListener('click', () => {
+        doc.duplicateSelected(); render(); updateInspector(); updateObjectList(); drawOverlay();
+      });
+      document.getElementById('scene-tb-up')?.addEventListener('click', () => {
+        doc.bringForward(); render(); updateObjectList(); drawOverlay();
+      });
+      document.getElementById('scene-tb-down')?.addEventListener('click', () => {
+        doc.sendBackward(); render(); updateObjectList(); drawOverlay();
+      });
+      document.getElementById('scene-tb-del')?.addEventListener('click', () => {
+        doc.getSelectedObjects().forEach(o => doc.removeObject(o.id));
+        render(); updateInspector(); updateObjectList(); drawOverlay();
+      });
+      document.getElementById('scene-tb-menu')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const selected = doc.getSelectedObjects();
+        if (selected.length > 0) {
+          showSceneObjectContextMenu(e, selected[0]);
+        } else {
+          showCanvasContextMenu(e, { x: doc.width / 2, y: doc.height / 2 });
+        }
+      });
+      syncCompactToolsButtons();
 
       // ── Keyboard Shortcuts ──
       window.addEventListener('keydown', (e) => {
@@ -11076,8 +12064,23 @@
       });
 
       // ── Dockview Initialization & Tab Switching ──
-      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v17';
-      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'color', 'materials', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
+      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v18';
+      const REQUIRED_PANEL_IDS = ['canvas', 'tools', 'fill', 'stroke', 'color', 'materials', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
+      const PANEL_TITLES = {
+        canvas: 'Canvas',
+        scene: 'Scene',
+        tools: 'Tools',
+        inspect: 'Transform',
+        color: 'Materials',
+        materials: 'Materials',
+        material: 'Materials',
+        fill: 'Transform',
+        stroke: 'Materials',
+        animation: 'Timeline',
+        curves: 'Curves',
+        projects: 'Projects',
+        export: 'Projects'
+      };
       let dockviewApi = null;
       let saveDockviewLayoutTimeout = null;
 
@@ -11088,6 +12091,185 @@
         const el = document.getElementById('dock-panel-' + id);
         if (el) panelElementMap.set(id, el);
         return el;
+      }
+
+      function returnPanelElementToPool(id) {
+        const pool = document.getElementById('dock-panel-pool');
+        const el = getPanelElement(id);
+        if (pool && el && el.parentElement !== pool) {
+          pool.appendChild(el);
+        }
+      }
+
+      function applyPanelMinimumConstraints(panel) {
+        try {
+          const group = panel?.group;
+          if (!group) return;
+          group.minimumWidth = 64;
+          group.minimumHeight = 48;
+          if (group.api && typeof group.api.setConstraints === 'function') {
+            group.api.setConstraints({ minimumWidth: 64, minimumHeight: 48 });
+          }
+        } catch (_) {}
+      }
+
+      function createTabWithHandleRenderer() {
+        const CoreDefaultTab = window['dockview-core']?.DockviewDefaultTab;
+        if (typeof CoreDefaultTab === 'function') {
+          return new CoreDefaultTab();
+        }
+        const el = document.createElement('div');
+        el.className = 'dv-default-tab';
+        const content = document.createElement('div');
+        content.className = 'dv-default-tab-content';
+        el.appendChild(content);
+        return {
+          element: el,
+          init: (params) => { content.textContent = params?.title || ''; },
+          update: (event) => {
+            if (event?.title !== undefined) content.textContent = event.title;
+          },
+          dispose: () => {}
+        };
+      }
+
+      function ensureSashHandles(root = document.getElementById('dockview-container')) {
+        if (!root) return;
+        root.querySelectorAll('.dv-sash').forEach((sash) => {
+          if (sash.classList.contains('disabled')) return;
+          const existing = sash.querySelectorAll(':scope > .dv-sash-handle');
+          if (existing.length === 2) return;
+          existing.forEach(n => n.remove());
+          ['start', 'end'].forEach((pos) => {
+            const h = document.createElement('div');
+            h.className = `dv-sash-handle dv-sash-handle-${pos}`;
+            h.title = 'Drag corner to resize panel';
+            h.setAttribute('aria-label', 'Resize panel');
+            sash.appendChild(h);
+          });
+        });
+      }
+
+      function bindHandleOnlyInteraction(container) {
+        if (!container || container.__handleOnlyBound) return;
+        container.__handleOnlyBound = true;
+
+        // 1) Block sash resize unless pointer started inside `.dv-sash-handle`
+        const blockSashOutsideHandle = (e) => {
+          const sash = e.target.closest?.('.dv-sash');
+          if (!sash) return;
+          if (e.target.closest?.('.dv-sash-handle')) return;
+          e.stopImmediatePropagation();
+        };
+        container.addEventListener('pointerdown', blockSashOutsideHandle, true);
+        container.addEventListener('mousedown', blockSashOutsideHandle, true);
+        container.addEventListener('touchstart', blockSashOutsideHandle, { capture: true, passive: true });
+
+        // 2) Touch tabs: swipe horizontally to scroll tabs; long-press (240ms) to arm drag-and-drop
+        const TOUCH_HOLD_MS = 240;
+        const MOVE_CANCEL_PX = 8;
+        let armedTab = null;
+        let holdTimer = null;
+        let startX = 0;
+        let startY = 0;
+        let activeScrollStrip = null;
+        let scrollStartLeft = 0;
+        let didTouchScroll = false;
+
+        const clearArm = () => {
+          if (holdTimer) {
+            clearTimeout(holdTimer);
+            holdTimer = null;
+          }
+          if (armedTab) {
+            armedTab.classList.remove('dv-tab--touch-armed');
+            if (armedTab.__prevDraggable !== undefined) {
+              armedTab.draggable = armedTab.__prevDraggable;
+            }
+            armedTab = null;
+          }
+          activeScrollStrip = null;
+        };
+
+        container.addEventListener('touchstart', (e) => {
+          const tab = e.target.closest?.('.dv-tab');
+          if (!tab) return;
+          if (e.target.closest?.('.dv-default-tab-action')) return;
+          const t = e.touches?.[0];
+          if (!t) return;
+          clearArm();
+          didTouchScroll = false;
+          startX = t.clientX;
+          startY = t.clientY;
+          activeScrollStrip = tab.closest('.dv-tabs-container');
+          scrollStartLeft = activeScrollStrip ? activeScrollStrip.scrollLeft : 0;
+          if (tab.__prevDraggable === undefined) tab.__prevDraggable = tab.draggable;
+          tab.draggable = false;
+          holdTimer = setTimeout(() => {
+            holdTimer = null;
+            armedTab = tab;
+            tab.draggable = true;
+            tab.classList.add('dv-tab--touch-armed');
+          }, TOUCH_HOLD_MS);
+        }, { capture: true, passive: true });
+
+        container.addEventListener('touchmove', (e) => {
+          const t = e.touches?.[0];
+          if (!t) return;
+          const dx = t.clientX - startX;
+          const dy = t.clientY - startY;
+          if (!armedTab) {
+            if (Math.hypot(dx, dy) > MOVE_CANCEL_PX) {
+              if (holdTimer) {
+                clearTimeout(holdTimer);
+                holdTimer = null;
+              }
+              if (activeScrollStrip && Math.abs(dx) >= Math.abs(dy)) {
+                didTouchScroll = true;
+                activeScrollStrip.scrollLeft = scrollStartLeft - dx;
+                if (e.cancelable) e.preventDefault();
+                e.stopPropagation();
+              }
+            }
+          }
+        }, { capture: true, passive: false });
+
+        container.addEventListener('click', (e) => {
+          if (didTouchScroll && e.target.closest?.('.dv-tab')) {
+            didTouchScroll = false;
+            e.stopImmediatePropagation();
+            e.preventDefault();
+          }
+        }, true);
+
+        container.addEventListener('touchend', clearArm, { capture: true, passive: true });
+        container.addEventListener('touchcancel', clearArm, { capture: true, passive: true });
+
+        container.addEventListener('dragstart', (e) => {
+          const tab = e.target.closest?.('.dv-tab');
+          if (!tab) return;
+          const isTouchModality = window.matchMedia?.('(pointer: coarse)')?.matches;
+          if (isTouchModality && armedTab !== tab) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        }, true);
+
+        container.addEventListener('dragend', clearArm, true);
+
+        // Observe DOM mutations inside dockview to keep corner handles on dynamically added sashes
+        if (typeof MutationObserver !== 'undefined') {
+          let rafId = 0;
+          const mo = new MutationObserver(() => {
+            if (rafId) return;
+            rafId = requestAnimationFrame(() => {
+              rafId = 0;
+              ensureSashHandles(container);
+            });
+          });
+          mo.observe(container, { childList: true, subtree: true });
+        }
+        ensureSashHandles(container);
       }
 
       let appearancePanelsComposed = false;
@@ -11202,34 +12384,24 @@
               if (mount) ColorStudio.mountColorTab(mount);
               ColorStudio.onPanelActivated();
             }
+          } else if (id === 'tools' && typeof syncCompactToolsButtons === 'function') {
+            syncCompactToolsButtons();
           }
           if (focusSection) requestAnimationFrame(() => document.getElementById(focusSection)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
           updateTitlebarLayoutButtons();
           return existing;
         }
-        const titleMap = {
-          fill: 'Transform',
-          stroke: 'Materials',
-          color: 'Materials',
-          materials: 'Materials',
-          material: 'Materials',
-          inspect: 'Transform',
-          scene: 'Scene',
-          animation: 'Timeline',
-          curves: 'Curves',
-          projects: 'Projects',
-          export: 'Projects'
-        };
-        const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
+        const title = PANEL_TITLES[id] || (id.charAt(0).toUpperCase() + id.slice(1));
+        const isPortrait = window.innerWidth < 700 && window.innerHeight > window.innerWidth;
 
         try {
-          if (id === 'color') {
-            const leftGroup = ['color'];
-            const ref = leftGroup.find(l => l !== id && !!dockviewApi.getPanel(l));
+          if (isPortrait) {
+            const portraitDockIds = ['scene', 'tools', 'inspect', 'color', 'animation', 'curves', 'projects'];
+            const ref = portraitDockIds.find(pid => pid !== id && !!dockviewApi.getPanel(pid));
             if (ref) {
               dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: ref } });
             } else {
-              dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 260 });
+              dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 220, minimumHeight: 48, minimumWidth: 64 });
             }
           } else if (id === 'animation' || id === 'curves') {
             const otherBottom = (id === 'animation' ? 'curves' : 'animation');
@@ -11237,15 +12409,16 @@
             if (refBottom) {
               dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherBottom } });
             } else {
-              dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
+              dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 155, minimumHeight: 48, minimumWidth: 64 });
             }
-          } else if (['inspect', 'scene', 'projects'].includes(id)) {
-            const rightGroup = ['inspect', 'scene', 'projects'];
+          } else if (['scene', 'tools', 'inspect', 'color', 'projects'].includes(id)) {
+            const rightGroup = ['scene', 'tools', 'inspect', 'color', 'projects'];
             const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
             if (otherRight) {
               dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
             } else {
-              dockviewApi.addPanel({ id, component: id, title, position: { direction: 'right', referencePanel: 'canvas' }, initialWidth: 290 });
+              const sideWidth = Math.max(200, Math.min(280, Math.round(window.innerWidth * 0.34)));
+              dockviewApi.addPanel({ id, component: id, title, position: { direction: 'right', referencePanel: 'canvas' }, initialWidth: sideWidth, minimumWidth: 64, minimumHeight: 48 });
             }
           } else {
             dockviewApi.addPanel({ id, component: id, title });
@@ -11259,7 +12432,9 @@
           }
         }
         const p = dockviewApi.getPanel(id);
+        applyPanelMinimumConstraints(p);
         p?.api?.setActive();
+        ensureSashHandles();
         if (id === 'curves' && window.dopeSheetUI && typeof window.dopeSheetUI.mountCurveEditor === 'function') {
           window.dopeSheetUI.mountCurveEditor(document.getElementById('dock-panel-curves'));
         } else if (id === 'projects') {
@@ -11270,6 +12445,8 @@
             if (mount) ColorStudio.mountColorTab(mount);
             ColorStudio.onPanelActivated();
           }
+        } else if (id === 'tools' && typeof syncCompactToolsButtons === 'function') {
+          syncCompactToolsButtons();
         }
         if (focusSection) requestAnimationFrame(() => document.getElementById(focusSection)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
         scheduleSaveDockviewLayout();
@@ -11298,6 +12475,7 @@
           sourceInfo.style.borderColor = 'var(--primary)';
         } else {
           sourceInfo.style.display = 'none';
+          sourceInfo.style.borderColor = 'var(--border)';
           sourceInfo.innerHTML = '';
         }
       }
@@ -11314,6 +12492,7 @@
         const p = dockviewApi.getPanel(id);
         if (p) {
           p.api.close();
+          returnPanelElementToPool(id);
           scheduleSaveDockviewLayout();
           updateTitlebarLayoutButtons();
         }
@@ -11344,20 +12523,20 @@
 
       function toggleRightSidebar() {
         if (!dockviewApi) return;
-        const rightIds = ['inspect', 'scene', 'projects'];
+        const rightIds = ['scene', 'tools', 'inspect', 'color', 'projects'];
         const hasRight = rightIds.some(id => !!dockviewApi.getPanel(id));
         if (hasRight) {
           rightIds.forEach(id => closeDockPanel(id));
         } else {
           rightIds.forEach(id => openDockPanel(id));
-          dockviewApi.getPanel('inspect')?.api?.setActive();
+          dockviewApi.getPanel('scene')?.api?.setActive();
         }
       }
       window.toggleRightSidebar = toggleRightSidebar;
 
       function updateTitlebarLayoutButtons() {
         const hasLeft = !!dockviewApi?.getPanel('color');
-        const hasRight = ['inspect', 'scene', 'projects'].some(id => !!dockviewApi?.getPanel(id));
+        const hasRight = ['scene', 'tools', 'inspect', 'projects'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
         if (btnLeft) btnLeft.classList.toggle('active', hasLeft);
@@ -11365,75 +12544,103 @@
       }
       window.updateTitlebarLayoutButtons = updateTitlebarLayoutButtons;
 
-      function createDefaultDockPanels() {
+      function createDefaultDockPanels(orientationMode = 'auto') {
         if (!dockviewApi) return;
         try {
           dockviewApi.clear();
         } catch (_) {}
+        REQUIRED_PANEL_IDS.forEach(returnPanelElementToPool);
+
+        const isPortrait = orientationMode === 'portrait'
+          ? true
+          : orientationMode === 'landscape'
+            ? false
+            : (window.innerWidth < 700 && window.innerHeight > window.innerWidth);
 
         try {
           // 1. Center Canvas Viewport
           dockviewApi.addPanel({
             id: 'canvas',
             component: 'canvas',
-            title: 'Canvas'
+            title: PANEL_TITLES.canvas,
+            minimumWidth: 64,
+            minimumHeight: 48
           });
 
-          // 2. Materials & Stroke panel
-          dockviewApi.addPanel({
-            id: 'color',
-            component: 'color',
-            title: 'Materials',
-            position: { direction: 'left', referencePanel: 'canvas' },
-            initialWidth: 280
-          });
+          if (isPortrait) {
+            // Portrait / narrow mobile: Canvas on top (~60%), 1 unified tabbed group below (~40%)
+            const bottomHeight = Math.max(180, Math.min(340, Math.round(window.innerHeight * 0.40)));
+            dockviewApi.addPanel({
+              id: 'scene',
+              component: 'scene',
+              title: PANEL_TITLES.scene,
+              position: { direction: 'below', referencePanel: 'canvas' },
+              initialHeight: bottomHeight,
+              minimumWidth: 64,
+              minimumHeight: 48
+            });
+            ['tools', 'inspect', 'color', 'animation', 'curves', 'projects'].forEach((pid) => {
+              dockviewApi.addPanel({
+                id: pid,
+                component: pid,
+                title: PANEL_TITLES[pid],
+                position: { referencePanel: 'scene' },
+                minimumWidth: 64,
+                minimumHeight: 48
+              });
+            });
+            dockviewApi.getPanel('canvas')?.api?.setActive();
+            dockviewApi.getPanel('scene')?.api?.setActive();
+          } else {
+            // Landscape / Desktop: Canvas in center + Timeline/Curves below + 1 compact right column
+            dockviewApi.addPanel({
+              id: 'animation',
+              component: 'animation',
+              title: PANEL_TITLES.animation,
+              position: { direction: 'below', referencePanel: 'canvas' },
+              initialHeight: 155,
+              minimumWidth: 64,
+              minimumHeight: 48
+            });
 
-          // 5. Right Transform panel
-          dockviewApi.addPanel({
-            id: 'inspect',
-            component: 'inspect',
-            title: 'Transform',
-            position: { direction: 'right', referencePanel: 'canvas' },
-            initialWidth: 270
-          });
+            dockviewApi.addPanel({
+              id: 'curves',
+              component: 'curves',
+              title: PANEL_TITLES.curves,
+              position: { referencePanel: 'animation' },
+              minimumWidth: 64,
+              minimumHeight: 48
+            });
 
-          // 5. Right Scene panel (tabbed with Inspect)
-          dockviewApi.addPanel({
-            id: 'scene',
-            component: 'scene',
-            title: 'Scene',
-            position: { referencePanel: 'inspect' }
-          });
+            const sideWidth = Math.max(200, Math.min(280, Math.round(window.innerWidth * 0.34)));
+            dockviewApi.addPanel({
+              id: 'scene',
+              component: 'scene',
+              title: PANEL_TITLES.scene,
+              position: { direction: 'right', referencePanel: 'canvas' },
+              initialWidth: sideWidth,
+              minimumWidth: 64,
+              minimumHeight: 48
+            });
 
-          // 7. Right Projects panel (tabbed with Inspect)
-          dockviewApi.addPanel({
-            id: 'projects',
-            component: 'projects',
-            title: 'Projects',
-            position: { referencePanel: 'inspect' }
-          });
+            ['tools', 'inspect', 'color', 'projects'].forEach((pid) => {
+              dockviewApi.addPanel({
+                id: pid,
+                component: pid,
+                title: PANEL_TITLES[pid],
+                position: { referencePanel: 'scene' },
+                minimumWidth: 64,
+                minimumHeight: 48
+              });
+            });
 
-          // 9. Bottom Timeline panel
-          dockviewApi.addPanel({
-            id: 'animation',
-            component: 'animation',
-            title: 'Timeline',
-            position: { direction: 'below', referencePanel: 'canvas' },
-            initialHeight: 210
-          });
+            dockviewApi.getPanel('canvas')?.api?.setActive();
+            dockviewApi.getPanel('animation')?.api?.setActive();
+            dockviewApi.getPanel('scene')?.api?.setActive();
+          }
 
-          // 10. Bottom Curves panel (tabbed with Timeline)
-          dockviewApi.addPanel({
-            id: 'curves',
-            component: 'curves',
-            title: 'Curves',
-            position: { referencePanel: 'animation' }
-          });
-
-          // Activate default panels
-          dockviewApi.getPanel('canvas')?.api?.setActive();
-          dockviewApi.getPanel('color')?.api?.setActive();
-          dockviewApi.getPanel('inspect')?.api?.setActive();
+          dockviewApi.panels?.forEach(applyPanelMinimumConstraints);
+          ensureSashHandles();
         } catch (err) {
           console.error('Error creating default dock panels:', err);
         }
@@ -11441,18 +12648,26 @@
       }
       window.createDefaultDockPanels = createDefaultDockPanels;
 
-      function resetDockviewLayout() {
+      function resetDockviewLayout(orientationMode = 'auto') {
         try {
           localStorage.removeItem(DOCKVIEW_LAYOUT_STORAGE_KEY);
         } catch (e) {}
         if (dockviewApi) {
-          createDefaultDockPanels();
+          createDefaultDockPanels(orientationMode);
           scheduleSaveDockviewLayout();
           if (typeof showNotification === 'function') {
-            showNotification('Dock layout reset to default');
+            const label = orientationMode === 'portrait'
+              ? 'Portrait (Top/Bottom)'
+              : orientationMode === 'landscape'
+                ? 'Landscape (Side/Bottom)'
+                : 'Default';
+            showNotification(`Dock layout reset (${label})`);
           }
-          if (typeof drawOverlay === 'function') drawOverlay();
-          if (typeof drawRulers === 'function') drawRulers();
+          requestAnimationFrame(() => {
+            if (typeof zoomToFit === 'function') zoomToFit();
+            if (typeof drawOverlay === 'function') drawOverlay();
+            if (typeof drawRulers === 'function') drawRulers();
+          });
         }
       }
       window.resetDockviewLayout = resetDockviewLayout;
@@ -11464,7 +12679,7 @@
         if (!container || typeof window['dockview-core'] === 'undefined') return;
 
         // Clean up any stale old dock layout keys from previous versions
-        for (let i = 1; i <= 15; i++) {
+        for (let i = 1; i <= 17; i++) {
           try { localStorage.removeItem(`esenho_dockview_layout_v${i}`); } catch (_) {}
         }
         try { localStorage.removeItem('esenho_dockview_layout'); } catch (_) {}
@@ -11476,6 +12691,7 @@
           dockviewApi = window['dockview-core'].createDockview(container, {
             className: 'dockview-theme-dark',
             defaultRenderer: 'always',
+            createTabComponent: () => createTabWithHandleRenderer(),
             createComponent: (options) => {
               const panelId = options.id || options.name;
               if (panelId === 'assets' || panelId === 'document' || !REQUIRED_PANEL_IDS.includes(panelId)) {
@@ -11495,7 +12711,9 @@
                 element: el || document.createElement('div'),
                 init: () => {},
                 update: () => {},
-                dispose: () => {}
+                dispose: () => {
+                  returnPanelElementToPool(panelId);
+                }
               };
             }
           });
@@ -11520,13 +12738,13 @@
               dockviewApi.fromJSON(savedLayout);
               if (dockviewApi.panels && dockviewApi.panels.length >= 2 && dockviewApi.getPanel('canvas')) {
                 restored = true;
-                // Close any obsolete panel if restored
                 ['assets', 'document', 'tracer', 'export'].forEach(obsoleteId => {
                   const p = dockviewApi.getPanel(obsoleteId);
                   if (p) {
                     try { p.api.close(); } catch (_) {}
                   }
                 });
+                dockviewApi.panels.forEach(applyPanelMinimumConstraints);
               } else {
                 console.warn('Restored layout is incomplete, resetting to default');
                 try { dockviewApi.clear(); } catch (_) {}
@@ -11543,6 +12761,9 @@
           createDefaultDockPanels();
         }
 
+        bindHandleOnlyInteraction(container);
+        ensureSashHandles(container);
+
         // Prevent closing only canvas panel (allow closing other tabs)
         if (dockviewApi.onWillClosePanel) {
           dockviewApi.onWillClosePanel((e) => {
@@ -11552,12 +12773,29 @@
           });
         }
 
+        if (dockviewApi.onDidAddPanel) {
+          dockviewApi.onDidAddPanel((panel) => {
+            applyPanelMinimumConstraints(panel);
+            ensureSashHandles(container);
+          });
+        }
+
+        if (dockviewApi.onDidRemovePanel) {
+          dockviewApi.onDidRemovePanel((panel) => {
+            if (panel?.id) returnPanelElementToPool(panel.id);
+            ensureSashHandles(container);
+            scheduleSaveDockviewLayout();
+          });
+        }
+
         // Active panel change handler
         if (dockviewApi.onDidActivePanelChange) {
           dockviewApi.onDidActivePanelChange((event) => {
             const id = event?.panel?.id;
             if (id === 'scene') {
               updateObjectList();
+            } else if (id === 'tools') {
+              if (typeof syncCompactToolsButtons === 'function') syncCompactToolsButtons();
             } else if (id === 'animation') {
               updateSelectedObjectEventsUI();
               updateSceneAnimUI();
@@ -11602,6 +12840,7 @@
         // Relayout handler
         if (dockviewApi.onDidLayoutChange) {
           dockviewApi.onDidLayoutChange(() => {
+            ensureSashHandles(container);
             if (typeof drawRulers === 'function') drawRulers();
             if (typeof drawOverlay === 'function') drawOverlay();
             scheduleSaveDockviewLayout();
@@ -11644,6 +12883,8 @@
         let panelId = 'inspect';
         if (targetTabId === 'tab-scene' || targetTabId === 'scene' || targetTabId === 'tab-objects') {
           panelId = 'scene';
+        } else if (targetTabId === 'tab-tools' || targetTabId === 'tools') {
+          panelId = 'tools';
         } else if (targetTabId === 'tab-document' || targetTabId === 'document' || targetTabId === 'projects') {
           panelId = 'projects';
         } else if (targetTabId === 'tab-animation' || targetTabId === 'animation') {

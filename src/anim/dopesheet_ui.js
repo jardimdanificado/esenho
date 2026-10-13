@@ -136,11 +136,14 @@ export class DopeSheetUI {
         <div id="ds-body" style="display: flex; flex: 1; min-height: 0; position: relative; overflow: hidden;">
           
           <!-- Left: Objects / Animation Tracks Sidebar -->
-          <div id="ds-tree-sidebar" style="width: 270px; min-width: 200px; max-width: 400px; background: var(--bg-panel-sub); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;">
+          <div id="ds-tree-sidebar" style="width: clamp(110px, 28%, 240px); min-width: 90px; max-width: 340px; background: var(--bg-panel-sub); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; transition: width 0.15s ease;">
             <!-- Tree Header (Matches 24px ruler height exactly) -->
-            <div style="height: 24px; min-height: 24px; padding: 0 8px; background: var(--bg-panel); border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; box-sizing: border-box;">
-              <span style="font-size: 10px; font-weight: 700; color: var(--text); letter-spacing: 0.5px;">ANIMATION TRACKS</span>
-              <span id="ds-tracks-summary" style="font-size: 9.5px; color: var(--text-muted);"></span>
+            <div style="height: 24px; min-height: 24px; padding: 0 6px; background: var(--bg-panel); border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; gap: 4px;">
+              <span id="ds-tree-sidebar-title" style="font-size: 9.5px; font-weight: 700; color: var(--text); letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">TRACKS</span>
+              <div style="display: flex; align-items: center; gap: 2px;">
+                <span id="ds-tracks-summary" style="font-size: 9px; color: var(--text-muted); white-space: nowrap;"></span>
+                <button id="ds-btn-toggle-sidebar" class="ds-btn" title="Toggle Tracks Sidebar (T)" style="background: transparent; color: var(--text-dim); border: none; padding: 1px 4px; font-size: 10px; cursor: pointer; border-radius: 2px;">◀</button>
+              </div>
             </div>
             <!-- Scrollable Track Labels Container -->
             <div id="ds-tree-scroll" style="flex: 1; overflow-y: hidden; overflow-x: hidden; position: relative;">
@@ -321,6 +324,30 @@ export class DopeSheetUI {
         } else {
           this.container.classList.toggle('collapsed');
         }
+      };
+    }
+    const toggleSidebarBtn = this.container.querySelector('#ds-btn-toggle-sidebar');
+    const treeSidebar = this.container.querySelector('#ds-tree-sidebar');
+    const treeSidebarTitle = this.container.querySelector('#ds-tree-sidebar-title');
+    if (toggleSidebarBtn && treeSidebar) {
+      toggleSidebarBtn.onclick = (e) => {
+        e.stopPropagation();
+        const isCompact = treeSidebar.dataset.compact === 'true';
+        if (isCompact) {
+          treeSidebar.dataset.compact = 'false';
+          treeSidebar.style.width = 'clamp(110px, 28%, 240px)';
+          treeSidebar.style.minWidth = '90px';
+          if (treeSidebarTitle) treeSidebarTitle.style.display = '';
+          toggleSidebarBtn.textContent = '◀';
+        } else {
+          treeSidebar.dataset.compact = 'true';
+          treeSidebar.style.width = '36px';
+          treeSidebar.style.minWidth = '36px';
+          if (treeSidebarTitle) treeSidebarTitle.style.display = 'none';
+          toggleSidebarBtn.textContent = '▶';
+        }
+        this.updateGrid();
+        this.updatePlayhead();
       };
     }
     const adjustInput = (el) => this.adjustInputWidth(el);
