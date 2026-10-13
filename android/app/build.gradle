@@ -1,0 +1,103 @@
+import groovy.json.JsonSlurper
+
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+def pkgFile = file("../../package.json")
+def pkgVersion = "0.13.49"
+def computedVersionCode = 1349
+if (pkgFile.exists()) {
+    def pkg = new JsonSlurper().parse(pkgFile)
+    if (pkg.version) {
+        pkgVersion = pkg.version.toString()
+        def parts = pkgVersion.tokenize('.')
+        if (parts.size() >= 3) {
+            computedVersionCode = (parts[0].toInteger() * 100000) + (parts[1].toInteger() * 1000) + parts[2].replaceAll("[^0-9]", "").toInteger()
+            if (computedVersionCode <= 0) computedVersionCode = 1
+        }
+    }
+}
+
+android {
+    namespace 'app.esenho'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "app.esenho"
+        minSdk 26
+        targetSdk 34
+        versionCode computedVersionCode
+        versionName pkgVersion
+    }
+
+    signingConfigs {
+        release {
+            def ksPath = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (ksPath != null && file(ksPath).exists()) {
+                storeFile file(ksPath)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            def ksPath = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (ksPath != null && file(ksPath).exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
+        }
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    androidResources {
+        noCompress += ['wasm', 'json', 'esen', 'svg', 'wav', 'webmanifest']
+    }
+}
+
+tasks.register('syncWebAssets', Sync) {
+    def repoRoot = rootProject.projectDir.parentFile
+    from(repoRoot) {
+        include 'index.html'
+        include 'painter.html'
+        include 'studio.html'
+        include 'manifest.webmanifest'
+        include 'icon.svg'
+        include 'data.json'
+        include 'sw.js'
+        include 'vendor/**'
+        include 'plugins/*.wasm'
+        include 'plugins/manifest.json'
+        include 'src/**/*.js'
+        include 'src/**/*.mjs'
+        include 'src/**/*.css'
+        include 'src/**/*.json'
+    }
+    into layout.projectDirectory.dir("src/main/assets")
+}
+
+preBuild.dependsOn(tasks.named('syncWebAssets'))
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+}

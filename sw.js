@@ -1,4 +1,4 @@
-const CACHE_NAME = 'esenho-v0.13.49';
+const CACHE_NAME = 'esenho-v0.13.50';
 
 const PRECACHE_ASSETS = [
   './',
@@ -21,12 +21,15 @@ const PRECACHE_ASSETS = [
   './src/anim/animator_engine.js',
   './src/anim/dopesheet.js',
   './src/anim/dopesheet_ui.js',
+  './src/anim/gif_encoder.js',
+  './src/anim/webm_muxer.js',
   './src/anim/raster_animator.js',
   './src/anim/raster_animator_ui.js',
   './data.json',
   './src/project_store.js',
   './src/resource_registry.js',
   './src/asset_bundle.js',
+  './src/brush_fill_engine.js',
   './src/gpu/shaders.js',
   './src/gpu/gpu_renderer.js',
   './src/color_studio.js',
@@ -39,17 +42,35 @@ const PRECACHE_ASSETS = [
   './src/image_io.js',
   './plugins/canvas.wasm',
   './plugins/manifest.json',
+  './plugins/bloom.wasm',
   './plugins/blur.wasm',
   './plugins/brightness.wasm',
+  './plugins/chromatic.wasm',
   './plugins/contrast.wasm',
   './plugins/dither.wasm',
+  './plugins/duotone.wasm',
   './plugins/edge.wasm',
+  './plugins/emboss.wasm',
+  './plugins/fisheye.wasm',
+  './plugins/frosted_glass.wasm',
+  './plugins/glitch.wasm',
   './plugins/grayscale.wasm',
+  './plugins/halftone_dot.wasm',
   './plugins/invert.wasm',
+  './plugins/kaleidoscope.wasm',
+  './plugins/kuwahara.wasm',
   './plugins/noise.wasm',
   './plugins/pixelate.wasm',
+  './plugins/ripple.wasm',
+  './plugins/scanline.wasm',
   './plugins/sepia.wasm',
-  './plugins/threshold.wasm'
+  './plugins/sharpen.wasm',
+  './plugins/solarize.wasm',
+  './plugins/swirl.wasm',
+  './plugins/thermal.wasm',
+  './plugins/threshold.wasm',
+  './plugins/vignette.wasm',
+  './plugins/water_foam.wasm'
 ];
 
 self.addEventListener('install', (event) => {
