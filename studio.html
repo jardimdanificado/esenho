@@ -3760,7 +3760,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.58 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.59 ready</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -4794,17 +4794,18 @@
       // ── Theme State & Management ──
       let currentTheme = initialStudioSettings.theme || localStorage.getItem('esenho_theme') || 'dark';
       if (currentTheme === 'ableton') currentTheme = 'gray';
-      if (currentTheme === 'skeuomorphic' || currentTheme === 'skeuo') currentTheme = 'dark';
-      if (!['dark', 'gray'].includes(currentTheme)) currentTheme = 'dark';
+      if (currentTheme === 'skeuomorphic') currentTheme = 'skeuo';
+      if (!['dark', 'gray', 'skeuo'].includes(currentTheme)) currentTheme = 'dark';
 
       function setTheme(theme, notify = false) {
         if (theme === 'ableton') theme = 'gray';
-        currentTheme = ['gray', 'dark'].includes(theme) ? theme : 'dark';
+        if (theme === 'skeuomorphic') theme = 'skeuo';
+        currentTheme = ['gray', 'dark', 'skeuo'].includes(theme) ? theme : 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
         document.body.setAttribute('data-theme', currentTheme);
         document.body.classList.toggle('theme-dark', currentTheme === 'dark');
         document.body.classList.toggle('theme-gray', currentTheme === 'gray');
-        document.body.classList.remove('theme-skeuo', 'theme-skeuomorphic');
+        document.body.classList.toggle('theme-skeuo', currentTheme === 'skeuo');
 
         const dvContainer = document.getElementById('dockview-container');
         if (dvContainer) {
@@ -4814,6 +4815,7 @@
         const themeText = document.getElementById('status-theme-text');
         if (themeText) {
           if (currentTheme === 'gray') themeText.textContent = '◼ Gray';
+          else if (currentTheme === 'skeuo') themeText.textContent = '⚙ Skeuo';
           else themeText.textContent = '☾ Dark';
         }
 
@@ -4835,13 +4837,13 @@
         } catch (_) {}
 
         if (notify && typeof showNotification === 'function') {
-          const names = { dark: 'Gruvbox Dark', gray: 'Gray' };
+          const names = { dark: 'Gruvbox Dark', gray: 'Gray', skeuo: 'Skeuomorphic' };
           showNotification(`Theme: ${names[currentTheme] || currentTheme}`);
         }
       }
 
       function toggleTheme() {
-        const order = ['dark', 'gray'];
+        const order = ['dark', 'gray', 'skeuo'];
         const nextIdx = (order.indexOf(currentTheme) + 1) % order.length;
         setTheme(order[nextIdx], true);
       }

@@ -4049,7 +4049,7 @@ async function main() {
     addSubmenu(`Active Layer (#${activeLayerIdx})`, activeLayerItems);
 
     // 8. Filters, Pixel Art & Animation Submenus
-    addSubmenu('Filters & Adjustments', [buildDomPanelAction('filters')]);
+    addSubmenu('Filters', [buildDomPanelAction('filters')]);
     if (!isVecLayer) {
       addSubmenu('Pixel Art Studio', [buildDomPanelAction('pixelart')]);
     }
@@ -4206,6 +4206,27 @@ async function main() {
         items: [
           { type: 'item', label: (host.showBrushOutline ? '✓ ' : '') + 'Brush Cursor Outline', action: () => syncBrushOutline(!host.showBrushOutline) },
           { type: 'item', label: (host.enableTouchUndoRedo ? '✓ ' : '') + 'Touch Gestures (2-Finger Undo / 3-Finger Redo)', action: () => syncTouchUndoRedo(!host.enableTouchUndoRedo) },
+          {
+            type: 'submenu',
+            label: 'Theme',
+            items: [
+              {
+                type: 'item',
+                label: ((localStorage.getItem('esenho_theme') || 'dark') === 'dark' ? '✓ ' : '') + 'Gruvbox Dark',
+                action: () => { window.setPainterTheme?.('dark'); }
+              },
+              {
+                type: 'item',
+                label: ((localStorage.getItem('esenho_theme') || 'dark') === 'gray' ? '✓ ' : '') + 'Gray (Modern Neutral)',
+                action: () => { window.setPainterTheme?.('gray'); }
+              },
+              {
+                type: 'item',
+                label: ((localStorage.getItem('esenho_theme') || 'dark') === 'skeuo' ? '✓ ' : '') + 'Skeuomorphic (Hardware)',
+                action: () => { window.setPainterTheme?.('skeuo'); }
+              }
+            ]
+          },
           { type: 'sep' },
           {
             type: 'submenu',
@@ -9669,18 +9690,19 @@ async function main() {
 
     params.forEach((param, idx) => {
       const wrap = document.createElement('div');
-      wrap.className = 'ui-control';
-      wrap.style.marginTop = '4px';
+      wrap.className = 'ip-touch-control';
+      wrap.style.padding = '2px 4px';
+      wrap.style.gap = '1px';
 
       const labelRow = document.createElement('div');
-      labelRow.className = 'ui-label-row';
+      labelRow.className = 'ip-touch-label-row';
 
       const lbl = document.createElement('span');
       const unit = param.unit ? ` (${param.unit})` : '';
       lbl.textContent = (param.name || param.id || `Param ${idx + 1}`) + unit;
 
       const valSpan = document.createElement('span');
-      valSpan.className = 'ui-val';
+      valSpan.className = 'ip-touch-val';
       const defVal = param.default !== undefined ? param.default : (param.min || 0);
       valSpan.textContent = String(defVal);
 
@@ -9689,7 +9711,7 @@ async function main() {
 
       const slider = document.createElement('input');
       slider.type = 'range';
-      slider.className = 'ui-filter-param-slider';
+      slider.className = 'ip-touch-slider';
       slider.dataset.paramId = param.id || `p${idx}`;
       slider.min = param.min !== undefined ? param.min : 0;
       slider.max = param.max !== undefined ? param.max : 100;

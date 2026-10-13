@@ -13,14 +13,47 @@
     if (new URLSearchParams(window.location.search).get('embedded') === 'true') {
       document.documentElement.classList.add('is-embedded');
     }
-    const savedTheme = localStorage.getItem('esenho_theme');
-    if (savedTheme) {
-      document.documentElement.setAttribute('data-theme', savedTheme);
-      window.addEventListener('DOMContentLoaded', () => {
-        document.body.setAttribute('data-theme', savedTheme);
-        document.body.classList.add('theme-' + savedTheme);
-      });
+    const THEME_ORDER = ['dark', 'gray', 'skeuo'];
+    const THEME_LABELS = { dark: '☾ Dark', gray: '◼ Gray', skeuo: '⚙ Skeuo' };
+
+    function applyPainterTheme(theme) {
+      if (theme === 'ableton') theme = 'gray';
+      if (theme === 'skeuomorphic') theme = 'skeuo';
+      if (!THEME_ORDER.includes(theme)) theme = 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+      if (document.body) {
+        document.body.setAttribute('data-theme', theme);
+        document.body.classList.toggle('theme-dark', theme === 'dark');
+        document.body.classList.toggle('theme-gray', theme === 'gray');
+        document.body.classList.toggle('theme-skeuo', theme === 'skeuo');
+      }
+      try {
+        localStorage.setItem('esenho_theme', theme);
+      } catch (_) {}
+      const txt = document.getElementById('status-theme-text');
+      if (txt) txt.textContent = THEME_LABELS[theme] || theme;
+      if (typeof window.host !== 'undefined' && typeof window.host.log === 'function') {
+        const themeNames = { dark: 'Gruvbox Dark', gray: 'Gray', skeuo: 'Skeuomorphic' };
+        window.host.log(`Theme: ${themeNames[theme] || theme} [ok]`);
+      }
     }
+
+    function togglePainterTheme() {
+      const cur = localStorage.getItem('esenho_theme') || 'dark';
+      const normCur = (cur === 'ableton') ? 'gray' : (cur === 'skeuomorphic' ? 'skeuo' : cur);
+      const nextIdx = (THEME_ORDER.indexOf(normCur) + 1) % THEME_ORDER.length;
+      applyPainterTheme(THEME_ORDER[nextIdx]);
+    }
+
+    window.setPainterTheme = applyPainterTheme;
+    window.togglePainterTheme = togglePainterTheme;
+
+    const initialTheme = localStorage.getItem('esenho_theme') || 'dark';
+    const normInit = (initialTheme === 'ableton') ? 'gray' : (initialTheme === 'skeuomorphic' ? 'skeuo' : initialTheme);
+    document.documentElement.setAttribute('data-theme', normInit);
+    window.addEventListener('DOMContentLoaded', () => {
+      applyPainterTheme(normInit);
+    });
   </script>
   <style>
     :root {
@@ -2290,33 +2323,38 @@
       stroke: var(--primary) !important;
     }
 
-    /* ── Pixel Art Action Grid ── */
+    /* ── Pixel Art Action Grid (Compact) ── */
     .ip-pixel-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
-      gap: 6px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 3px;
     }
     .ip-pixel-card {
       background: var(--bg-panel-sub);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 4px 6px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 1px;
       cursor: pointer;
     }
     .ip-pixel-card:hover { border-color: var(--border-bright); }
-    .ip-pixel-card.active { border-color: var(--primary); }
+    .ip-pixel-card.active { border-color: var(--primary); background: var(--primary-dim); }
     .ip-pixel-card-title {
-      font-size: 11px;
-      font-weight: bold;
+      font-size: 10px;
+      font-weight: 700;
       color: var(--text);
+      line-height: 1.2;
     }
     .ip-pixel-card.active .ip-pixel-card-title { color: var(--primary); }
     .ip-pixel-card-sub {
-      font-size: 9.5px;
+      font-size: 8.5px;
       color: var(--text-muted);
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     /* ── Slider Control (Ultra-Compact) ── */
@@ -2435,7 +2473,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.58 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.59 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -3146,45 +3184,49 @@
     <div id="dock-panel-pixelart" class="dock-panel-content">
       <div id="sheet-pixelart" class="ip-sheet-modal">
         <div class="ip-sheet">
-          <div class="ip-sheet-content">
+          <div class="ip-sheet-content" style="padding: 6px 8px; gap: 5px;">
             <div class="ip-pixel-grid">
-              <div class="ip-pixel-card" id="card-ip-pixel-1px">
-                <span class="ip-pixel-card-title">1px Pixel Pencil</span>
-                <span class="ip-pixel-card-sub">Exact 1-pixel hard square tip</span>
+              <div class="ip-pixel-card" id="card-ip-pixel-1px" title="Exact 1-pixel hard square tip">
+                <span class="ip-pixel-card-title">1px Pencil</span>
+                <span class="ip-pixel-card-sub">1px square</span>
               </div>
-              <div class="ip-pixel-card" id="card-ip-pixel-2px">
-                <span class="ip-pixel-card-title">2px Block Brush</span>
-                <span class="ip-pixel-card-sub">2x2 chunky pixel block</span>
+              <div class="ip-pixel-card" id="card-ip-pixel-2px" title="2x2 chunky pixel block">
+                <span class="ip-pixel-card-title">2px Block</span>
+                <span class="ip-pixel-card-sub">2×2 chunk</span>
               </div>
-              <div class="ip-pixel-card" id="card-ip-pixel-4px">
-                <span class="ip-pixel-card-title">4px Chunky Brush</span>
-                <span class="ip-pixel-card-sub">4x4 retro pixel block</span>
+              <div class="ip-pixel-card" id="card-ip-pixel-4px" title="4x4 retro pixel block">
+                <span class="ip-pixel-card-title">4px Chunky</span>
+                <span class="ip-pixel-card-sub">4×4 retro</span>
               </div>
-              <div class="ip-pixel-card" id="card-ip-pixel-dither">
-                <span class="ip-pixel-card-title">Dither Screentone</span>
-                <span class="ip-pixel-card-sub">Checkerboard shading brush</span>
-              </div>
-            </div>
-
-            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-              <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Pixel Helpers</span>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 6px;">
-                <button type="button" id="btn-ip-pixel-grid-toggle" class="ip-btn">Pixel Grid (4x+)</button>
-                <button type="button" id="btn-ip-pixel-zoom-100" class="ip-btn">100% 1:1 Pixel</button>
-              </div>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 6px;">
-                <button type="button" id="btn-ip-pixel-sym-x" class="ip-btn">Sym Vertical</button>
-                <button type="button" id="btn-ip-pixel-sym-y" class="ip-btn">Sym Horiz</button>
-                <button type="button" id="btn-ip-pixel-sym-quad" class="ip-btn">Sym Quad</button>
+              <div class="ip-pixel-card" id="card-ip-pixel-dither" title="Checkerboard dither shading brush">
+                <span class="ip-pixel-card-title">Dither</span>
+                <span class="ip-pixel-card-sub">Screentone</span>
               </div>
             </div>
 
-            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-              <span style="font-size: 11px; font-weight: bold; color: var(--primary);">Retro Color Palettes</span>
-              <div style="display: flex; gap: 6px;">
-                <button type="button" id="btn-ip-pal-gameboy" class="ip-btn" style="flex: 1;">GameBoy 4-Color</button>
-                <button type="button" id="btn-ip-pal-gruvbox" class="ip-btn" style="flex: 1;">Gruvbox Dark</button>
-                <button type="button" id="btn-ip-pal-cyber" class="ip-btn" style="flex: 1;">Cyberpunk</button>
+            <!-- Helpers -->
+            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 6px; display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase;">Helpers</span>
+                <div style="display: flex; gap: 2px;">
+                  <button type="button" id="btn-ip-pixel-grid-toggle" class="ip-btn ip-mini-btn" style="height: 20px; font-size: 8.5px; padding: 0 5px;">▦ Grid</button>
+                  <button type="button" id="btn-ip-pixel-zoom-100" class="ip-btn ip-mini-btn" style="height: 20px; font-size: 8.5px; padding: 0 5px;">1:1 100%</button>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;">
+                <button type="button" id="btn-ip-pixel-sym-x" class="ip-btn ip-mini-btn" style="height: 19px; font-size: 8.5px; padding: 0;">Sym X</button>
+                <button type="button" id="btn-ip-pixel-sym-y" class="ip-btn ip-mini-btn" style="height: 19px; font-size: 8.5px; padding: 0;">Sym Y</button>
+                <button type="button" id="btn-ip-pixel-sym-quad" class="ip-btn ip-mini-btn" style="height: 19px; font-size: 8.5px; padding: 0;">Quad</button>
+              </div>
+            </div>
+
+            <!-- Palettes -->
+            <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 6px; display: flex; flex-direction: column; gap: 3px;">
+              <span style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Retro Palettes</span>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;">
+                <button type="button" id="btn-ip-pal-gameboy" class="ip-btn ip-mini-btn" style="height: 20px; font-size: 8.5px; padding: 0;">GameBoy</button>
+                <button type="button" id="btn-ip-pal-gruvbox" class="ip-btn ip-mini-btn" style="height: 20px; font-size: 8.5px; padding: 0;">Gruvbox</button>
+                <button type="button" id="btn-ip-pal-cyber" class="ip-btn ip-mini-btn" style="height: 20px; font-size: 8.5px; padding: 0;">Cyber</button>
               </div>
             </div>
           </div>
@@ -3332,11 +3374,11 @@
     <div id="dock-panel-filters" class="dock-panel-content">
       <div id="sheet-filters" class="ip-sheet-modal">
         <div class="ip-sheet">
-          <div class="ip-sheet-content">
-            <div class="ip-ctrl-group" style="margin-bottom: 10px;">
-              <div class="ip-ctrl-row">
-                <span class="ip-ctrl-label">Filter</span>
-                <select id="ui-select-filter" class="ui-select" style="flex: 1;">
+          <div class="ip-sheet-content" style="padding: 6px 8px; gap: 6px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <span style="font-size: 9.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Filter</span>
+                <select id="ui-select-filter" class="ui-select" style="flex: 1; height: 22px; font-size: 10px; padding: 0 4px;">
                   <option value="none">Select Filter...</option>
                   <optgroup label="Color Adjustments">
                     <option value="brightness">Brightness / Contrast</option>
@@ -3371,13 +3413,12 @@
                   </optgroup>
                 </select>
               </div>
-              <div id="ui-ctrl-filter-params" style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;"></div>
-              <button type="button" id="ui-btn-apply-filter" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; width: 100%; margin-top: 6px;">Apply Filter to Layer</button>
-            </div>
-            <div class="ip-ctrl-group">
-              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Custom JS Plugin Filter</div>
-              <input type="file" id="ui-plugin-input" accept=".js" style="display: none;">
-              <button type="button" id="ui-btn-load-plugin" class="ip-btn" style="width: 100%;">Load Plugin (.js)</button>
+              <div id="ui-ctrl-filter-params" style="display: flex; flex-direction: column; gap: 3px;"></div>
+              <div style="display: flex; gap: 3px; margin-top: 2px;">
+                <button type="button" id="ui-btn-apply-filter" class="ip-btn ip-mini-btn" style="flex: 2; height: 24px; background: var(--primary); color: var(--bg-dark); font-weight: 800; font-size: 10px;">Apply to Layer</button>
+                <input type="file" id="ui-plugin-input" accept=".js,.wasm" style="display: none;">
+                <button type="button" id="ui-btn-load-plugin" class="ip-btn ip-mini-btn" style="flex: 1; height: 24px; font-size: 9.5px;" title="Load WASM / JS filter plugin">+ Plugin</button>
+              </div>
             </div>
           </div>
         </div>
