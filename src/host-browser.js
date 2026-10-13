@@ -6397,80 +6397,7 @@ async function main() {
   }
   initSliderTouchScrollProtection();
 
-  function initGlobalTouchTooltips() {
-    let tooltipEl = document.getElementById('touch-tooltip-bubble');
-    if (!tooltipEl) {
-      tooltipEl = document.createElement('div');
-      tooltipEl.id = 'touch-tooltip-bubble';
-      tooltipEl.style.cssText = 'position:fixed;z-index:999999;pointer-events:none;background:#282828;color:#ebdbb2;border:1px solid #504945;border-radius:4px;padding:4px 8px;font-size:11px;font-family:\'JetBrains Mono\',monospace,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.4);max-width:240px;line-height:1.3;display:none;opacity:0;transition:opacity 0.15s ease;';
-      document.body.appendChild(tooltipEl);
-    }
-
-    let timer = null;
-    let startX = 0, startY = 0;
-    let currentTarget = null;
-    let currentText = '';
-
-    const hideTooltip = () => {
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
-      if (tooltipEl) {
-        tooltipEl.style.opacity = '0';
-        tooltipEl.style.display = 'none';
-      }
-      currentTarget = null;
-    };
-
-    document.addEventListener('touchstart', (e) => {
-      hideTooltip();
-      if (e.touches.length !== 1) return;
-      const target = e.target.closest('[title]');
-      if (!target) return;
-      if (target.closest('canvas, #canvas, .ui-layer-row, .ui-layer-group-header, .arc-dial-container, #touch-color-wheel-canvas, #touch-color-box-canvas, input[type="range"]')) {
-        return;
-      }
-      const title = target.getAttribute('title');
-      if (!title || !title.trim()) return;
-
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      currentTarget = target;
-      currentText = title.trim();
-
-      timer = setTimeout(() => {
-        timer = null;
-        if (!currentTarget) return;
-        tooltipEl.textContent = currentText;
-        tooltipEl.style.display = 'block';
-        tooltipEl.style.opacity = '1';
-
-        const pad = 12;
-        let x = startX;
-        let y = startY - 40;
-        if (y < 20) y = startY + 30;
-
-        tooltipEl.style.left = `${Math.max(10, Math.min(window.innerWidth - 250, x - 50))}px`;
-        tooltipEl.style.top = `${y}px`;
-        triggerHaptic(15);
-      }, 350);
-    }, { passive: true });
-
-    document.addEventListener('touchmove', (e) => {
-      if (timer && e.touches.length > 0) {
-        const dx = e.touches[0].clientX - startX;
-        const dy = e.touches[0].clientY - startY;
-        if (Math.hypot(dx, dy) > 10) {
-          hideTooltip();
-        }
-      }
-    }, { passive: true });
-
-    document.addEventListener('touchend', hideTooltip, { passive: true });
-    document.addEventListener('touchcancel', hideTooltip, { passive: true });
-  }
-  initGlobalTouchTooltips();
+  // Touch tooltips removed per request
 
   const dabBlendSel = document.getElementById('ui-select-dab-blend');
   if (dabBlendSel) {
@@ -14040,7 +13967,7 @@ async function main() {
         selBadgeEl.textContent = 'Selection Active (strokes clipped)';
         selBadgeEl.style.color = 'var(--primary)';
       } else {
-        selBadgeEl.textContent = 'Click to switch mode';
+        selBadgeEl.textContent = '';
         selBadgeEl.style.color = 'var(--text-muted)';
       }
     }
