@@ -41,8 +41,8 @@ if (fs.existsSync(indexPath)) {
   console.log(`[sync-version] Updated index.html badge (-> v${version})`);
 }
 
-// 3. Update painter.html and painter-studio.html status
-for (const htmlFile of ["painter.html", "painter-studio.html"]) {
+// 3. Update painter.html status
+for (const htmlFile of ["painter.html"]) {
   const filePath = path.join(rootDir, htmlFile);
   if (fs.existsSync(filePath)) {
     let content = fs.readFileSync(filePath, "utf8");

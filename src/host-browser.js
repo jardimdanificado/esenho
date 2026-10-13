@@ -927,109 +927,6 @@ async function main() {
     if (typeof triggerHaptic === 'function') triggerHaptic(12);
   }
 
-  function initDraggableSheets() {
-    let savedLayouts = {};
-    try {
-      savedLayouts = JSON.parse(localStorage.getItem('esenho_ip_panel_layouts') || '{}') || {};
-    } catch (_) {
-      savedLayouts = {};
-    }
-
-    const getPanelKey = (panel, idx) => {
-      if (panel.id) return panel.id;
-      const modal = panel.closest('.ip-sheet-modal, #touch-color-modal');
-      if (modal && modal.id) return modal.id;
-      return `panel_${idx}`;
-    };
-
-    const savePanelState = (key, panel) => {
-      try {
-        const cur = JSON.parse(localStorage.getItem('esenho_ip_panel_layouts') || '{}') || {};
-        cur[key] = {
-          left: panel.style.left || '',
-          top: panel.style.top || '',
-          userDragged: panel.dataset.userDragged === 'true',
-          collapsed: panel.classList.contains('is-collapsed')
-        };
-        localStorage.setItem('esenho_ip_panel_layouts', JSON.stringify(cur));
-      } catch (_) {}
-    };
-
-    document.querySelectorAll('.ip-sheet, .touch-color-box').forEach((panel, idx) => {
-      if (panel.closest('.dock-panel-content')) return;
-      if (panel.dataset.dragBound === 'true') return;
-      panel.dataset.dragBound = 'true';
-      const panelKey = getPanelKey(panel, idx);
-      const saved = savedLayouts[panelKey];
-      if (saved) {
-        if (saved.collapsed) {
-          panel.classList.add('is-collapsed');
-        }
-        if (saved.userDragged && saved.left && saved.top) {
-          const parsedLeft = Math.max(4, Math.min(window.innerWidth - 80, parseFloat(saved.left) || 12));
-          const parsedTop = Math.max(4, Math.min(window.innerHeight - 48, parseFloat(saved.top) || 56));
-          panel.style.left = `${parsedLeft}px`;
-          panel.style.top = `${parsedTop}px`;
-          panel.style.right = 'auto';
-          panel.style.bottom = 'auto';
-          panel.style.transform = 'none';
-          panel.dataset.userDragged = 'true';
-        }
-      }
-
-      const header = panel.querySelector('.ip-sheet-header, .touch-color-header');
-      if (!header) return;
-
-      let dragging = false;
-      let startX = 0, startY = 0;
-      let origLeft = 0, origTop = 0;
-
-      header.addEventListener('dblclick', (e) => {
-        if (e.target.closest('button, input, select')) return;
-        panel.classList.toggle('is-collapsed');
-        savePanelState(panelKey, panel);
-      });
-
-      header.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('button, input, select, a')) return;
-        if (e.button !== undefined && e.button !== 0) return;
-        const rect = panel.getBoundingClientRect();
-        dragging = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        origLeft = rect.left;
-        origTop = rect.top;
-        panel.style.left = `${origLeft}px`;
-        panel.style.top = `${origTop}px`;
-        panel.style.right = 'auto';
-        panel.style.bottom = 'auto';
-        panel.style.transform = 'none';
-        panel.dataset.userDragged = 'true';
-        try { header.setPointerCapture(e.pointerId); } catch (_) {}
-        e.preventDefault();
-      });
-
-      header.addEventListener('pointermove', (e) => {
-        if (!dragging) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        const newLeft = Math.max(4, Math.min(window.innerWidth - 80, origLeft + dx));
-        const newTop = Math.max(4, Math.min(window.innerHeight - 48, origTop + dy));
-        panel.style.left = `${newLeft}px`;
-        panel.style.top = `${newTop}px`;
-      });
-
-      const endDrag = (e) => {
-        if (!dragging) return;
-        dragging = false;
-        savePanelState(panelKey, panel);
-        try { header.releasePointerCapture(e.pointerId); } catch (_) {}
-      };
-      header.addEventListener('pointerup', endDrag);
-      header.addEventListener('pointercancel', endDrag);
-    });
-  }
-
   /* ── Export Helpers (Browser PNG, JPEG, .ESEN) ── */
   function exportImage(mimeType = 'image/png', quality = 0.92) {
     if (!host.canvasActor || !host.canvasActor.exports) return;
@@ -11819,9 +11716,6 @@ async function main() {
       });
     });
 
-    // Initialize draggable and collapsible floating panels
-    initDraggableSheets();
-
     // Panel & HUD Configuration Menu Buttons
     document.getElementById('btn-menu-configure-panels')?.addEventListener('click', () => {
       openHudCustomizer();
@@ -13635,8 +13529,7 @@ async function main() {
         window.location.href = `studio.html?project=${id}`;
         return;
       }
-      const targetPage = window.isDockviewPainter ? 'painter-studio.html' : 'painter.html';
-      window.location.href = `${targetPage}?project=${id}`;
+      window.location.href = `painter.html?project=${id}`;
     };
 
     window.painterDeleteRecent = async function(id) {
@@ -13681,8 +13574,7 @@ async function main() {
       const title = encodeURIComponent(document.getElementById('inp-ip-new-title')?.value.trim() || 'Untitled Artwork');
       const w = parseInt(document.getElementById('inp-ip-new-w')?.value, 10) || 1280;
       const h = parseInt(document.getElementById('inp-ip-new-h')?.value, 10) || 720;
-      const targetPage = window.isDockviewPainter ? 'painter-studio.html' : 'painter.html';
-      window.location.href = `${targetPage}?new=1&name=${title}&w=${w}&h=${h}`;
+      window.location.href = `painter.html?new=1&name=${title}&w=${w}&h=${h}`;
     });
 
     const btnIpExportPng = document.getElementById('btn-ip-export-png');

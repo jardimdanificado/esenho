@@ -1,15 +1,11 @@
-const CACHE_NAME = 'esenho-v0.13.48';
+const CACHE_NAME = 'esenho-v0.13.49';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './studio.html',
-  './mobile.html',
   './painter.html',
-  './painter-studio.html',
   './manifest.webmanifest',
-  './mobile.webmanifest',
-  './src/mobile/mobile_studio.css',
   './icon.svg',
   './vendor/dockview-core.js',
   './src/version.js',
