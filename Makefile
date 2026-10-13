@@ -47,7 +47,23 @@ test-native: bin/test_brush_dynamics bin/test_native_svg
 test-brush-dyn: bin/test_brush_dynamics
 	./bin/test_brush_dynamics
 
-clean:
-	rm -rf plugins/*.wasm plugins/manifest.json roms bin
+apk: $(CORE_WASM) $(PLUGINS) plugins/manifest.json
+	@TOOLS_DIR="$$HOME/.local/share/esenho-android-tools"; \
+	if [ -d "$$TOOLS_DIR/jdk17" ]; then export JAVA_HOME="$$TOOLS_DIR/jdk17"; fi; \
+	if [ -d "$$TOOLS_DIR/android-sdk" ]; then export ANDROID_HOME="$$TOOLS_DIR/android-sdk"; export ANDROID_SDK_ROOT="$$ANDROID_HOME"; fi; \
+	if [ -f "$$TOOLS_DIR/esenho-release.keystore" ] && [ -z "$$ANDROID_KEYSTORE_PATH" ]; then \
+		export ANDROID_KEYSTORE_PATH="$$TOOLS_DIR/esenho-release.keystore"; \
+		export ANDROID_KEYSTORE_PASSWORD="esenho123"; \
+		export ANDROID_KEY_ALIAS="esenho"; \
+		export ANDROID_KEY_PASSWORD="esenho123"; \
+	fi; \
+	export PATH="$$JAVA_HOME/bin:$$TOOLS_DIR/gradle/bin:$$PATH"; \
+	gradle -p android assembleRelease --no-daemon && \
+	VERSION=$$(node -p "require('./package.json').version") && \
+	cp android/app/build/outputs/apk/release/app-release.apk "esenho-v$${VERSION}-offline.apk" && \
+	echo "Built signed APK: esenho-v$${VERSION}-offline.apk"
 
-.PHONY: all run clean native test-native test-brush-dyn
+clean:
+	rm -rf plugins/*.wasm plugins/manifest.json roms bin android/.gradle android/build android/app/build android/app/src/main/assets
+
+.PHONY: all run clean native test-native test-brush-dyn apk
