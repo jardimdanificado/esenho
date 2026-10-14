@@ -7748,7 +7748,7 @@ async function main() {
     window.addEventListener('pointercancel', endDrag);
   }
 
-  ['bottom-dock-nav', 'bottom-dock-paramstrip', 'bottom-dock-quickstrip', 'bottom-dock-toolstrip', 'ui-drawer-tabs', 'touch-quick-swatches-row'].forEach(id => {
+  ['bottom-dock-nav', 'bottom-dock-paramstrip', 'bottom-dock-quickstrip', 'bottom-dock-toolstrip', 'ui-drawer-tabs'].forEach(id => {
     const el = document.getElementById(id);
     if (el) enableDragToScroll(el);
   });
