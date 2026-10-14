@@ -304,7 +304,7 @@ async function main() {
   // Initialize Frame-by-Frame Raster Animator
   try {
     const { RasterAnimator } = await import('./anim/raster_animator.js?v=2');
-    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js?v=3');
+    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js?v=4');
     host.rasterAnimator = new RasterAnimator(host);
     const timelineDock = document.getElementById('raster-anim-timeline-dock');
     if (timelineDock) {
@@ -990,6 +990,63 @@ async function main() {
     URL.revokeObjectURL(url);
     log(`Project exported to '${filename}' [ok]`);
   }
+
+  async function exportAnimatedGif() {
+    if (!host.rasterAnimator) {
+      log('err: No animation available to export', 'warn');
+      return;
+    }
+    try {
+      log('Exporting animated GIF…');
+      const blob = await host.rasterAnimator.exportGif();
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const projName = host.currentProjectName || 'animation';
+        const safeName = projName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'animation';
+        a.download = `${safeName}.gif`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        log(`Animated GIF exported as ${a.download} [ok]`);
+      }
+    } catch (err) {
+      log(`err: GIF export failed: ${err.message}`, 'err');
+      alert('GIF export failed: ' + err.message);
+    }
+  }
+
+  async function exportWebmVideo() {
+    if (!host.rasterAnimator) {
+      log('err: No animation available to export', 'warn');
+      return;
+    }
+    try {
+      log('Exporting WebM video…');
+      const blob = await host.rasterAnimator.exportWebM();
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const projName = host.currentProjectName || 'animation';
+        const safeName = projName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'animation';
+        a.download = `${safeName}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        log(`WebM video exported as ${a.download} [ok]`);
+      }
+    } catch (err) {
+      log(`err: WebM export failed: ${err.message}`, 'err');
+      alert('WebM export failed: ' + err.message);
+    }
+  }
+
+  host.exportAnimatedGif = exportAnimatedGif;
+  host.exportWebmVideo = exportWebmVideo;
 
   /* ── Mobile-First Unified Bottom Dock & Drawer ── */
   function toggleUi() {
@@ -4348,8 +4405,8 @@ async function main() {
         items: [
           { type: 'item', label: 'Export PNG (.png)', action: () => exportImage('image/png') },
           { type: 'item', label: 'Export JPEG (.jpg)', action: () => exportImage('image/jpeg') },
-          { type: 'item', label: 'Export Animated GIF (.gif)', action: () => document.getElementById('btn-quick-export-gif')?.click() },
-          { type: 'item', label: 'Export WebM Video (.webm)', action: () => document.getElementById('btn-quick-export-webm')?.click() },
+          { type: 'item', label: 'Export Animated GIF (.gif)', action: () => exportAnimatedGif() },
+          { type: 'item', label: 'Export WebM Video (.webm)', action: () => exportWebmVideo() },
           { type: 'item', label: 'Export Project (.esen)', action: () => exportEsenProject() }
         ]
       },
@@ -11692,46 +11749,8 @@ async function main() {
     document.getElementById('btn-quick-export-jpg')?.addEventListener('click', () => {
       exportImage('image/jpeg');
     });
-    document.getElementById('btn-quick-export-gif')?.addEventListener('click', async () => {
-      if (!host.rasterAnimator) return;
-      try {
-        log('Exporting animated GIF…');
-        const blob = await host.rasterAnimator.exportGif();
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${host.currentProjectName || 'animation'}.gif`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          log('Animated GIF exported [ok]');
-        }
-      } catch (err) {
-        log(`err: GIF export failed: ${err.message}`, 'err');
-      }
-    });
-    document.getElementById('btn-quick-export-webm')?.addEventListener('click', async () => {
-      if (!host.rasterAnimator) return;
-      try {
-        log('Exporting WebM video…');
-        const blob = await host.rasterAnimator.exportWebM();
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${host.currentProjectName || 'animation'}.webm`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          log('WebM video exported [ok]');
-        }
-      } catch (err) {
-        log(`err: WebM export failed: ${err.message}`, 'err');
-      }
-    });
+    document.getElementById('btn-quick-export-gif')?.addEventListener('click', exportAnimatedGif);
+    document.getElementById('btn-quick-export-webm')?.addEventListener('click', exportWebmVideo);
     document.getElementById('btn-quick-export-esen')?.addEventListener('click', () => {
       exportEsenProject();
     });
@@ -13348,10 +13367,10 @@ async function main() {
       }
     });
     bindXformSheetBtn(['btn-ip-sheet-anim-gif', 'btn-sheet-anim-gif'], () => {
-      document.getElementById('btn-quick-export-gif')?.click();
+      exportAnimatedGif();
     });
     bindXformSheetBtn(['btn-ip-sheet-anim-webm', 'btn-sheet-anim-webm'], () => {
-      document.getElementById('btn-quick-export-webm')?.click();
+      exportWebmVideo();
     });
 
     // Import Image button strictly from Layers Stack

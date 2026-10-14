@@ -28,7 +28,6 @@ export class RasterAnimatorUI {
     this.visible = !!(typeof window !== 'undefined' && (window.isDockviewPainter || containerEl?.closest?.('#dock-panel-timeline')));
     this.collapsed = false;
     this.onionSettingsOpen = false;
-    this._isDraggingDuration = false;
     this._thumbCache = new Map();
 
     this._ensurePerLayerAnimator(this.animator);
@@ -217,9 +216,6 @@ export class RasterAnimatorUI {
               <input type="range" id="raster-fps-slider" min="1" max="60" value="12" style="width: 42px; height: 4px; cursor: pointer; accent-color: var(--primary);">
               <span id="raster-fps-val" style="font-family: var(--font-mono); font-size: 9px; font-weight: 800; color: var(--primary); min-width: 14px; text-align: right;">12</span>
             </div>
-
-            <button type="button" class="ip-btn ip-mini-btn" id="raster-export-gif" title="Export Animated GIF (.gif)" style="height: 19px; padding: 0 5px; font-size: 9px; font-weight: 700; color: var(--primary);">GIF</button>
-            <button type="button" class="ip-btn ip-mini-btn" id="raster-export-webm" title="Export WebM Video (.webm)" style="height: 19px; padding: 0 5px; font-size: 9px; font-weight: 700;">WebM</button>
           </div>
         </div>
 
@@ -274,8 +270,6 @@ export class RasterAnimatorUI {
     const btnClear = this.container.querySelector('#raster-btn-clear');
     const btnDel = this.container.querySelector('#raster-btn-del');
     const fpsSlider = this.container.querySelector('#raster-fps-slider');
-    const btnExportGif = this.container.querySelector('#raster-export-gif');
-    const btnExportWebm = this.container.querySelector('#raster-export-webm');
 
     btnFirst?.addEventListener('click', () => {
       this.animator.goToTick(0);
@@ -406,50 +400,6 @@ export class RasterAnimatorUI {
       this.animator.setFps(fps);
       const valEl = this.container.querySelector('#raster-fps-val');
       if (valEl) valEl.textContent = String(fps);
-    });
-
-    btnExportGif?.addEventListener('click', async () => {
-      const origText = btnExportGif.textContent;
-      btnExportGif.textContent = '...';
-      try {
-        const blob = await this.animator.exportGif();
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${this.animator.host?.currentProjectName || 'animation'}.gif`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }
-      } catch (err) {
-        alert('GIF export failed: ' + err.message);
-      } finally {
-        btnExportGif.textContent = origText;
-      }
-    });
-
-    btnExportWebm?.addEventListener('click', async () => {
-      const origText = btnExportWebm.textContent;
-      btnExportWebm.textContent = '...';
-      try {
-        const blob = await this.animator.exportWebM();
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${this.animator.host?.currentProjectName || 'animation'}.webm`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }
-      } catch (err) {
-        alert('WebM export failed: ' + err.message);
-      } finally {
-        btnExportWebm.textContent = origText;
-      }
     });
 
     // Keyboard shortcuts: Space = Play/Pause, ,/. = Prev/Next frame, O = Onion
@@ -616,8 +566,8 @@ export class RasterAnimatorUI {
         type: 'item',
         label: 'Export Animation',
         children: [
-          { type: 'item', label: 'Export Animated GIF (.gif)', action: () => this.container.querySelector('#raster-export-gif')?.click() },
-          { type: 'item', label: 'Export WebM Video (.webm)', action: () => this.container.querySelector('#raster-export-webm')?.click() }
+          { type: 'item', label: 'Export Animated GIF (.gif)', action: () => this.exportGif() },
+          { type: 'item', label: 'Export WebM Video (.webm)', action: () => this.exportWebM() }
         ]
       },
       { type: 'sep' },
@@ -646,10 +596,53 @@ export class RasterAnimatorUI {
     });
   }
 
-  handleAnimatorEvent(event, data) {
-    if (this._isDraggingDuration && (event === 'framesUpdated' || event === 'frameChange')) {
-      return;
+  async exportGif() {
+    if (this.animator.host && typeof this.animator.host.exportAnimatedGif === 'function') {
+      return this.animator.host.exportAnimatedGif();
     }
+    try {
+      const blob = await this.animator.exportGif();
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const projName = this.animator.host?.currentProjectName || 'animation';
+        const safeName = projName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'animation';
+        a.download = `${safeName}.gif`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      alert('GIF export failed: ' + err.message);
+    }
+  }
+
+  async exportWebM() {
+    if (this.animator.host && typeof this.animator.host.exportWebmVideo === 'function') {
+      return this.animator.host.exportWebmVideo();
+    }
+    try {
+      const blob = await this.animator.exportWebM();
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const projName = this.animator.host?.currentProjectName || 'animation';
+        const safeName = projName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'animation';
+        a.download = `${safeName}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      alert('WebM export failed: ' + err.message);
+    }
+  }
+
+  handleAnimatorEvent(event, data) {
     if (event === 'frameChange' || event === 'framesUpdated' || event === 'frameContentUpdated') {
       this.updateTimeline();
     } else if (event === 'playState') {
@@ -838,12 +831,12 @@ export class RasterAnimatorUI {
         card.className = `raster-frame-card ${isCelActive ? 'active' : ''}`;
         card.dataset.layerId = String(lid);
         card.dataset.index = String(idx);
-        card.title = `${layerName} • Cel #${idx + 1} (${dur}f) — Drag right edge to resize duration`;
+        card.title = `${layerName} • Cel #${idx + 1} (${dur}f) — Click to select, right-click for options`;
         card.style.cssText = `
           position: relative; display: flex; align-items: center; justify-content: space-between; gap: 2px;
           width: ${cardWidth}px; min-width: ${cardWidth}px; height: 24px;
           background: var(--bg-panel); border: 1.5px solid ${isCelActive ? 'var(--primary)' : (idx === track.activeCelIndex ? 'var(--border-bright)' : 'var(--border)')};
-          border-radius: 3px; cursor: pointer; flex-shrink: 0; box-sizing: border-box; padding: 1px 8px 1px 2px; overflow: hidden;
+          border-radius: 3px; cursor: pointer; flex-shrink: 0; box-sizing: border-box; padding: 1px 4px; overflow: hidden;
           ${isCelActive ? 'box-shadow: 0 0 6px rgba(16, 185, 129, 0.3);' : ''}
         `;
 
@@ -854,9 +847,8 @@ export class RasterAnimatorUI {
         this.renderCelThumb(cel, thumb);
         card.appendChild(thumb);
 
-        let holdBar = null;
         if (dur > 1) {
-          holdBar = document.createElement('div');
+          const holdBar = document.createElement('div');
           holdBar.style.cssText = 'flex: 1; min-width: 4px; height: 4px; background: repeating-linear-gradient(90deg, var(--primary) 0px, var(--primary) 4px, transparent 4px, transparent 7px); opacity: 0.45; border-radius: 2px;';
           card.appendChild(holdBar);
         }
@@ -880,107 +872,6 @@ export class RasterAnimatorUI {
           }
         });
         card.appendChild(holdBadge);
-
-        // Right-edge resize handle for dragging cel duration interactively
-        const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'raster-frame-resize-handle';
-        resizeHandle.title = 'Drag horizontally to change frame duration';
-        resizeHandle.style.cssText = `
-          position: absolute; top: 0; right: 0; width: 10px; height: 100%;
-          cursor: ew-resize; background: rgba(255,255,255,0.06); border-left: 1.5px solid rgba(255,255,255,0.18);
-          box-sizing: border-box; touch-action: none; user-select: none; z-index: 5;
-        `;
-
-        resizeHandle.addEventListener('pointerenter', () => {
-          if (!this._isDraggingDuration) {
-            resizeHandle.style.background = 'rgba(16, 185, 129, 0.2)';
-            resizeHandle.style.borderLeftColor = 'var(--primary)';
-          }
-        });
-
-        resizeHandle.addEventListener('pointerleave', () => {
-          if (!this._isDraggingDuration) {
-            resizeHandle.style.background = 'rgba(255,255,255,0.06)';
-            resizeHandle.style.borderLeftColor = 'rgba(255,255,255,0.18)';
-          }
-        });
-
-        resizeHandle.addEventListener('pointerdown', (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-
-          this.animator.selectLayerCel(lid, idx);
-
-          const tier2Body = this.container.querySelector('#raster-tier2-body');
-          const startScrollLeft = tier2Body ? tier2Body.scrollLeft : 0;
-          const startX = e.clientX;
-          const startDur = Math.max(1, Math.round(Number(cel.duration) || 1));
-          let currentDur = startDur;
-
-          this._isDraggingDuration = true;
-
-          try {
-            resizeHandle.setPointerCapture(e.pointerId);
-          } catch (_) {}
-
-          resizeHandle.style.background = 'rgba(16, 185, 129, 0.35)';
-          resizeHandle.style.borderLeftColor = 'var(--primary)';
-          document.body.style.cursor = 'ew-resize';
-
-          const onMove = (me) => {
-            const currentScroll = tier2Body ? tier2Body.scrollLeft : 0;
-            const dx = (me.clientX - startX) + (currentScroll - startScrollLeft);
-            const deltaTicks = Math.round(dx / TICK_STEP);
-            const nextDur = Math.max(1, startDur + deltaTicks);
-
-            if (nextDur !== currentDur) {
-              currentDur = nextDur;
-              cel.duration = nextDur;
-              this.animator.setFrameDuration(nextDur, idx, lid);
-
-              const newWidth = getCelCardWidth(nextDur);
-              card.style.width = `${newWidth}px`;
-              card.style.minWidth = `${newWidth}px`;
-              card.title = `${layerName} • Cel #${idx + 1} (${nextDur}f) — Drag right edge to resize duration`;
-
-              holdBadge.textContent = nextDur > 1 ? `${nextDur}f` : `#${idx + 1}`;
-              holdBadge.style.color = nextDur > 1 ? 'var(--bg-dark)' : (isCelActive ? 'var(--primary)' : 'var(--text-muted)');
-              holdBadge.style.background = nextDur > 1 ? 'var(--primary)' : 'transparent';
-
-              if (nextDur > 1) {
-                if (!holdBar) {
-                  holdBar = document.createElement('div');
-                  holdBar.style.cssText = 'flex: 1; min-width: 4px; height: 4px; background: repeating-linear-gradient(90deg, var(--primary) 0px, var(--primary) 4px, transparent 4px, transparent 7px); opacity: 0.45; border-radius: 2px;';
-                  card.insertBefore(holdBar, holdBadge);
-                } else {
-                  holdBar.style.display = 'block';
-                }
-              } else if (holdBar) {
-                holdBar.style.display = 'none';
-              }
-
-              this.updateCounter();
-            }
-          };
-
-          const onUp = () => {
-            this._isDraggingDuration = false;
-            document.body.style.cursor = '';
-            try {
-              resizeHandle.releasePointerCapture(e.pointerId);
-            } catch (_) {}
-            window.removeEventListener('pointermove', onMove);
-            window.removeEventListener('pointerup', onUp);
-            window.removeEventListener('pointercancel', onUp);
-            this.updateTimeline();
-          };
-
-          window.addEventListener('pointermove', onMove);
-          window.addEventListener('pointerup', onUp);
-          window.addEventListener('pointercancel', onUp);
-        });
-
-        card.appendChild(resizeHandle);
 
         card.addEventListener('click', () => {
           this.animator.selectLayerCel(lid, idx);
