@@ -5279,6 +5279,17 @@ const COMMAND_RULES = [
   { pat: "select clear", run: (m, host) => COMMAND_RULES.find(r => r.pat === "select none").run(m, host) },
   { pat: "deselect", run: (m, host) => COMMAND_RULES.find(r => r.pat === "select none").run(m, host) },
   {
+    pat: "clear selection",
+    run: (m, host) => {
+      if (host.clearSelectionPixels && host.clearSelectionPixels()) {
+        host.sendConsoleLog('cleared pixels in selection');
+      } else {
+        host.clearSelection();
+        host.sendConsoleLog('selection cleared');
+      }
+    }
+  },
+  {
     pat: "select invert",
     run: (m, host) => {
       const sel = host.invertSelection();
@@ -7753,6 +7764,27 @@ class EsenhoScreenHost {
   }
 
   /**
+   * Returns true if a valid selection exists on the canvas.
+   */
+  hasSelection() {
+    return !!(this.selection && this.selection.active && this.selection.w > 0 && this.selection.h > 0);
+  }
+
+  /**
+   * Returns true if point (x, y) in document space is inside the active selection.
+   */
+  isPointInSelection(x, y) {
+    if (!this.hasSelection()) return false;
+    const sel = this.selection;
+    const ix = Math.floor(x), iy = Math.floor(y);
+    if (ix < sel.x || ix >= sel.x + sel.w || iy < sel.y || iy >= sel.y + sel.h) return false;
+    if (sel.mask) {
+      return !!sel.mask[(iy - sel.y) * sel.w + (ix - sel.x)];
+    }
+    return true;
+  }
+
+  /**
    * Selects the full active layer or document bounds.
    */
   selectAll() {
@@ -7997,6 +8029,38 @@ class EsenhoScreenHost {
     }
     if (this.canvasActor.exports.force_composite) this.canvasActor.exports.force_composite();
     return this.clipboard;
+  }
+
+  /**
+   * Clears (erases) pixels inside the active selection without copying to clipboard.
+   */
+  clearSelectionPixels() {
+    if (!this.canvasActor?.exports?.w_layer_get_pixels || !this.hasSelection()) return false;
+    this.pushUndoSnapshot('clear selection pixels');
+    const act = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
+    const lw = this.canvasActor.exports.w_layer_get_width(act);
+    const lh = this.canvasActor.exports.w_layer_get_height(act);
+    const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
+    if (!ptr || lw <= 0 || lh <= 0) return false;
+
+    const srcU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+    const sx = Math.max(0, this.selection.x);
+    const sy = Math.max(0, this.selection.y);
+    const sw = Math.min(lw - sx, this.selection.w);
+    const sh = Math.min(lh - sy, this.selection.h);
+    const mask = this.selection.mask;
+    for (let dy = 0; dy < sh; dy++) {
+      const rowStart = (sy + dy) * lw + sx;
+      if (mask) {
+        for (let dx = 0; dx < sw; dx++) {
+          if (mask[dy * sw + dx]) srcU32[rowStart + dx] = 0;
+        }
+      } else {
+        srcU32.fill(0, rowStart, rowStart + sw);
+      }
+    }
+    if (this.canvasActor.exports.force_composite) this.canvasActor.exports.force_composite();
+    return true;
   }
 
   /**

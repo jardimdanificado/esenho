@@ -3581,36 +3581,86 @@ async function main() {
     const isVecMode = isVecApp && host.actionMode === 'vector';
     const isVecLayer = isVecApp && host.isVectorLayer && host.isVectorLayer();
 
-    // 1. Floating Transform Context (Raster Layers Only)
-    if (!isVecLayer && host.floatingTransform && host.floatingTransform.corners) {
-      addHeader('Floating Transform');
+    const isFloatingTransform = !isVecLayer && !!(host.floatingTransform && host.floatingTransform.corners);
+    const hitFtHandle = isFloatingTransform ? ftHitTest(p.x, p.y, false) : null;
+    const isOverTransform = isFloatingTransform && !!hitFtHandle;
+
+    const hasSel = !isVecLayer && typeof host.hasSelection === 'function' && host.hasSelection();
+    const isInsideSel = hasSel && typeof host.isPointInSelection === 'function' && host.isPointInSelection(p.x, p.y);
+
+    // ── CASE 1: FLOATING TRANSFORM CONTEXT ──
+    if (isFloatingTransform) {
+      addHeader('Transform Quad');
       addItem('✓ Apply Transform', 'Enter', () => { runCmd('transform apply'); markCanvasDirty(); syncUiFromHost(); });
       addItem('✕ Cancel Transform', 'Esc', () => { runCmd('transform cancel'); markCanvasDirty(); syncUiFromHost(); }, { danger: true });
+      addSep();
+
       const curXMode = host.transformMode || 'scale';
       const curXInterp = host.transformInterpolation || 'nearest';
-      addSubmenu('Transform Mode & Options', [
-        { type: 'item', label: (curXMode === 'scale' ? '✓ ' : '') + 'Scale & Rotate', action: () => { host.transformMode = 'scale'; syncUiFromHost(); } },
+      addSubmenu(`Transform Mode: ${curXMode === 'scale' ? 'Scale & Rotate' : (curXMode === 'distort' ? 'Free Distort' : 'Perspective')}`, [
+        { type: 'item', label: (curXMode === 'scale' ? '✓ ' : '') + 'Scale & Rotate (Standard)', action: () => { host.transformMode = 'scale'; syncUiFromHost(); } },
         { type: 'item', label: (curXMode === 'distort' ? '✓ ' : '') + 'Free Corner Distort', action: () => { host.transformMode = 'distort'; syncUiFromHost(); } },
-        { type: 'item', label: (curXMode === 'perspective' ? '✓ ' : '') + 'Perspective', action: () => { host.transformMode = 'perspective'; syncUiFromHost(); } },
+        { type: 'item', label: (curXMode === 'perspective' ? '✓ ' : '') + 'Perspective Homography', action: () => { host.transformMode = 'perspective'; syncUiFromHost(); } },
         { type: 'sep' },
         { type: 'item', label: (host.transformLockAspect ? '✓ ' : '') + 'Lock Aspect Ratio', action: () => { host.transformLockAspect = !host.transformLockAspect; syncUiFromHost(); } },
-        { type: 'item', label: (curXInterp === 'nearest' ? '✓ ' : '') + 'Crisp (Nearest)', action: () => { host.transformInterpolation = 'nearest'; bakeFtPreview(); syncUiFromHost(); } },
-        { type: 'item', label: (curXInterp === 'bilinear' ? '✓ ' : '') + 'Smooth (Bilinear)', action: () => { host.transformInterpolation = 'bilinear'; bakeFtPreview(); syncUiFromHost(); } }
+        { type: 'item', label: (curXInterp === 'nearest' ? '✓ ' : '') + 'Crisp (Nearest Neighbor)', action: () => { host.transformInterpolation = 'nearest'; bakeFtPreview(); syncUiFromHost(); } },
+        { type: 'item', label: (curXInterp === 'bilinear' ? '✓ ' : '') + 'Smooth (Bilinear Sampling)', action: () => { host.transformInterpolation = 'bilinear'; bakeFtPreview(); syncUiFromHost(); } }
       ]);
-      addSubmenu('Transform Actions', [
-        { type: 'item', label: 'Center on Canvas', action: () => { if (host.centerFloatTransform) host.centerFloatTransform(); bakeFtPreview(); syncUiFromHost(); } },
-        { type: 'item', label: 'Fit to Canvas', action: () => { if (host.fitFloatTransformToCanvas) host.fitFloatTransformToCanvas(); bakeFtPreview(); syncUiFromHost(); } },
+
+      addSubmenu('Quick Transform Actions', [
         { type: 'item', label: 'Rotate 90° CW', action: () => { runCmd('transform rotate 90'); } },
         { type: 'item', label: 'Rotate 90° CCW', action: () => { runCmd('transform rotate -90'); } },
+        { type: 'item', label: 'Rotate 180°', action: () => { runCmd('transform rotate 90'); runCmd('transform rotate 90'); } },
+        { type: 'sep' },
         { type: 'item', label: 'Flip Horizontal', action: () => { runCmd('transform flip h'); } },
         { type: 'item', label: 'Flip Vertical', action: () => { runCmd('transform flip v'); } },
-        { type: 'item', label: 'Reset Transform', action: () => { runCmd('transform reset'); } }
+        { type: 'sep' },
+        { type: 'item', label: 'Center on Canvas', action: () => { if (host.centerFloatTransform) host.centerFloatTransform(); bakeFtPreview(); syncUiFromHost(); } },
+        { type: 'item', label: 'Fit Proportionally to Canvas', action: () => { if (host.fitFloatTransformToCanvas) host.fitFloatTransformToCanvas(); bakeFtPreview(); syncUiFromHost(); } },
+        { type: 'sep' },
+        { type: 'item', label: 'Reset to Original Box', action: () => { runCmd('transform reset'); } }
       ]);
       addSep();
     }
 
-    // 2. Vector Painter Context (vector-painter.html only)
-    if (isVecApp && (isVecMode || isVecLayer)) {
+    // ── CASE 2: CLICK DIRECTLY INSIDE AN ACTIVE SELECTION ──
+    else if (isInsideSel) {
+      addHeader('Selection Area');
+      addItem('Free Transform (Scale/Rotate/Distort)', 'Ctrl+T', () => { runCmd('transform'); });
+      addItem('Invert Selection', 'Ctrl+Shift+I', () => { runCmd('select invert'); });
+      addItem('Deselect', 'Ctrl+D', () => { runCmd('deselect'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); });
+      addSep();
+      addItem('Copy Selection', 'Ctrl+C', () => { runCmd('copy'); });
+      addItem('Cut Selection', 'Ctrl+X', () => { runCmd('cut'); });
+      addItem('Clear / Erase Pixels in Selection', 'Del', () => { runCmd('clear selection'); markCanvasDirty(); });
+      addItem('Fill Selection with Current Color', 'Alt+Del', () => {
+        const curC = host.currentColor ?? 0xFFEBDBB2;
+        if (host.fillSelection) host.fillSelection(curC);
+        else {
+          const prevTool = host.currentTool;
+          host.currentTool = 'fill';
+          host.executeWithSelectionClip?.(() => {
+            if (host.canvasActor?.exports?.w_flood_fill) host.canvasActor.exports.w_flood_fill(p.x, p.y, curC, 100);
+          });
+          host.currentTool = prevTool;
+        }
+        markCanvasDirty();
+      });
+      addSep();
+      addSubmenu('Selection Mask Actions', [
+        { type: 'item', label: '🖌 Paint Inside (Lock Mask)', action: () => { host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
+        { type: 'item', label: '🧹 Erase Inside (Lock Mask)', action: () => { host.setActionMode('erase'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
+        { type: 'sep' },
+        { type: 'item', label: 'Capture as Custom Brush Tip', action: () => { if (host.createBrushFromSelection) host.createBrushFromSelection(); } },
+        { type: 'item', label: 'Capture as Paper Texture', action: () => { if (host.createGrainFromSelection) host.createGrainFromSelection(); } },
+        { type: 'sep' },
+        { type: 'item', label: 'Crop Canvas to Selection', action: () => { runCmd('crop'); } }
+      ]);
+      addSep();
+    }
+
+    // ── CASE 3: VECTOR PAINTER CONTEXT ──
+    else if (isVecApp && (isVecMode || isVecLayer)) {
       const vl = host.getVectorLayer ? host.getVectorLayer() : null;
       const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
       const selNodeArr = host.getSelectedVectorNodeIndices ? host.getSelectedVectorNodeIndices() : [];
@@ -3780,18 +3830,18 @@ async function main() {
       addSep();
     }
 
-    // 3. Active Selection Context (Raster Layers Only)
-    const hasSel = !isVecLayer && typeof host.hasSelection === 'function' && host.hasSelection();
-    if (hasSel) {
-      addHeader('Selection');
+    // ── CASE 4: ACTIVE SELECTION EXISTS BUT CLICK WAS OUTSIDE ──
+    else if (hasSel) {
+      addHeader('Active Selection');
       addItem('Free Transform Selection', 'Ctrl+T', () => { runCmd('transform'); });
       addItem('Deselect', 'Ctrl+D', () => { runCmd('deselect'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); });
       addItem('Invert Selection', 'Ctrl+Shift+I', () => { runCmd('select invert'); });
       addItem('Copy Selection', 'Ctrl+C', () => { runCmd('copy'); });
       addItem('Cut Selection', 'Ctrl+X', () => { runCmd('cut'); });
-      addSubmenu('Capture Selection As', [
-        { type: 'item', label: 'Custom Brush Tip Shape', action: () => { if (host.createBrushFromSelection) host.createBrushFromSelection(); } },
-        { type: 'item', label: 'Custom Paper / Grain Texture', action: () => { if (host.createGrainFromSelection) host.createGrainFromSelection(); } },
+      addSubmenu('Selection Actions', [
+        { type: 'item', label: 'Clear / Erase Pixels in Selection', action: () => { runCmd('clear selection'); markCanvasDirty(); } },
+        { type: 'item', label: 'Capture as Brush Tip', action: () => { if (host.createBrushFromSelection) host.createBrushFromSelection(); } },
+        { type: 'item', label: 'Capture as Paper Texture', action: () => { if (host.createGrainFromSelection) host.createGrainFromSelection(); } },
         { type: 'sep' },
         { type: 'item', label: 'Crop Canvas to Selection', action: () => { runCmd('crop'); } }
       ]);
