@@ -76,25 +76,25 @@ jobs:
           path: esenho-v${{ env.APK_VERSION }}.apk
           if-no-files-found: error
 
-      - name: Clean Old Assets if Release Exists
+      - name: Create or Update GitHub Release
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if gh release view "v${APK_VERSION}" >/dev/null 2>&1; then
             for asset in $(gh release view "v${APK_VERSION}" --json assets -q '.assets[].name'); do
-              gh release delete-asset "v${APK_VERSION}" "$asset" -y || true
+              if [ "$asset" != "esenho-v${APK_VERSION}.apk" ]; then
+                gh release delete-asset "v${APK_VERSION}" "$asset" -y || true
+              fi
             done
+            gh release edit "v${APK_VERSION}" --title "v${APK_VERSION}"
+            gh release upload "v${APK_VERSION}" "esenho-v${APK_VERSION}.apk" --clobber
+          else
+            gh release create "v${APK_VERSION}" "esenho-v${APK_VERSION}.apk" \
+              --title "v${APK_VERSION}" \
+              --notes "Release v${APK_VERSION}"
           fi
 
-      - name: Create or Update GitHub Release
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ env.APK_VERSION }}
-          name: v${{ env.APK_VERSION }}
-          overwrite_files: true
-          files: esenho-v${{ env.APK_VERSION }}.apk
 
 
 
