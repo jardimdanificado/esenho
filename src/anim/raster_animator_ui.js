@@ -12,6 +12,13 @@
  */
 
 const TICK_COL_WIDTH = 38;
+const TICK_GAP = 3;
+const TICK_STEP = TICK_COL_WIDTH + TICK_GAP; // 41px per frame hold tick
+
+function getCelCardWidth(duration) {
+  const d = Math.max(1, Math.round(Number(duration) || 1));
+  return d * TICK_STEP - TICK_GAP;
+}
 
 export class RasterAnimatorUI {
   constructor(containerEl, animator, options = {}) {
@@ -21,6 +28,7 @@ export class RasterAnimatorUI {
     this.visible = !!(typeof window !== 'undefined' && (window.isDockviewPainter || containerEl?.closest?.('#dock-panel-timeline')));
     this.collapsed = false;
     this.onionSettingsOpen = false;
+    this._isDraggingDuration = false;
     this._thumbCache = new Map();
 
     this._ensurePerLayerAnimator(this.animator);
@@ -347,13 +355,17 @@ export class RasterAnimatorUI {
     };
 
     btnHoldDec?.addEventListener('click', () => {
-      const cur = this.animator.frames[this.animator.currentFrameIndex];
+      const activeLid = this.animator.getActiveLayerId ? this.animator.getActiveLayerId() : 3;
+      const activeTrack = this.animator.getLayerTrack ? this.animator.getLayerTrack(activeLid) : null;
+      const cur = activeTrack?.frames?.[activeTrack.activeCelIndex] || this.animator.frames?.[this.animator.currentFrameIndex];
       const curDur = cur ? (cur.duration || 1) : 1;
       applyDurationChange(Math.max(1, curDur - 1));
     });
 
     btnHoldInc?.addEventListener('click', () => {
-      const cur = this.animator.frames[this.animator.currentFrameIndex];
+      const activeLid = this.animator.getActiveLayerId ? this.animator.getActiveLayerId() : 3;
+      const activeTrack = this.animator.getLayerTrack ? this.animator.getLayerTrack(activeLid) : null;
+      const cur = activeTrack?.frames?.[activeTrack.activeCelIndex] || this.animator.frames?.[this.animator.currentFrameIndex];
       const curDur = cur ? (cur.duration || 1) : 1;
       applyDurationChange(curDur + 1);
     });
@@ -635,6 +647,9 @@ export class RasterAnimatorUI {
   }
 
   handleAnimatorEvent(event, data) {
+    if (this._isDraggingDuration && (event === 'framesUpdated' || event === 'frameChange')) {
+      return;
+    }
     if (event === 'frameChange' || event === 'framesUpdated' || event === 'frameContentUpdated') {
       this.updateTimeline();
     } else if (event === 'playState') {
@@ -662,7 +677,9 @@ export class RasterAnimatorUI {
       counter.textContent = `T ${curTick} / ${totalTicks}`;
     }
     const holdInput = this.container.querySelector('#raster-hold-input');
-    const cur = this.animator.frames[this.animator.currentFrameIndex];
+    const activeLid = this.animator.getActiveLayerId ? this.animator.getActiveLayerId() : 3;
+    const activeTrack = this.animator.getLayerTrack ? this.animator.getLayerTrack(activeLid) : null;
+    const cur = activeTrack?.frames?.[activeTrack.activeCelIndex] || this.animator.frames?.[this.animator.currentFrameIndex];
     if (holdInput && cur && document.activeElement !== holdInput) {
       holdInput.value = String(cur.duration || 1);
     }
@@ -671,6 +688,9 @@ export class RasterAnimatorUI {
   updateTimeline() {
     this.animator.syncLayersWithCanvas?.();
     this.updateCounter();
+    const tier2Body = this.container.querySelector('#raster-tier2-body');
+    const savedScrollLeft = tier2Body ? tier2Body.scrollLeft : 0;
+    const savedScrollTop = tier2Body ? tier2Body.scrollTop : 0;
     const strip = this.container.querySelector('#raster-filmstrip');
     if (!strip) return;
 
@@ -702,7 +722,7 @@ export class RasterAnimatorUI {
 
     const rulerTicksWrap = document.createElement('div');
     rulerTicksWrap.style.cssText = 'display: flex; align-items: stretch; padding: 0 4px; gap: 3px;';
-    const displayTicks = Math.min(totalTicks, 240);
+    const displayTicks = Math.max(30, Math.min(totalTicks, 1200));
     for (let t = 0; t < displayTicks; t++) {
       const isCurTick = t === curTick;
       const tickEl = document.createElement('div');
@@ -812,7 +832,7 @@ export class RasterAnimatorUI {
       frames.forEach((cel, idx) => {
         const isCelActive = isLayerActive && idx === track.activeCelIndex;
         const dur = Math.max(1, Math.round(Number(cel.duration) || 1));
-        const cardWidth = Math.max(TICK_COL_WIDTH, Math.min(dur * TICK_COL_WIDTH + (dur - 1) * 3, 920));
+        const cardWidth = getCelCardWidth(dur);
 
         const card = document.createElement('div');
         card.className = `raster-frame-card ${isCelActive ? 'active' : ''}`;
@@ -823,7 +843,7 @@ export class RasterAnimatorUI {
           position: relative; display: flex; align-items: center; justify-content: space-between; gap: 2px;
           width: ${cardWidth}px; min-width: ${cardWidth}px; height: 24px;
           background: var(--bg-panel); border: 1.5px solid ${isCelActive ? 'var(--primary)' : (idx === track.activeCelIndex ? 'var(--border-bright)' : 'var(--border)')};
-          border-radius: 3px; cursor: pointer; flex-shrink: 0; box-sizing: border-box; padding: 1px 6px 1px 2px; overflow: hidden;
+          border-radius: 3px; cursor: pointer; flex-shrink: 0; box-sizing: border-box; padding: 1px 8px 1px 2px; overflow: hidden;
           ${isCelActive ? 'box-shadow: 0 0 6px rgba(16, 185, 129, 0.3);' : ''}
         `;
 
@@ -834,8 +854,9 @@ export class RasterAnimatorUI {
         this.renderCelThumb(cel, thumb);
         card.appendChild(thumb);
 
+        let holdBar = null;
         if (dur > 1) {
-          const holdBar = document.createElement('div');
+          holdBar = document.createElement('div');
           holdBar.style.cssText = 'flex: 1; min-width: 4px; height: 4px; background: repeating-linear-gradient(90deg, var(--primary) 0px, var(--primary) 4px, transparent 4px, transparent 7px); opacity: 0.45; border-radius: 2px;';
           card.appendChild(holdBar);
         }
@@ -862,31 +883,103 @@ export class RasterAnimatorUI {
 
         // Right-edge resize handle for dragging cel duration interactively
         const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'raster-frame-resize-handle';
         resizeHandle.title = 'Drag horizontally to change frame duration';
         resizeHandle.style.cssText = `
-          position: absolute; top: 0; right: 0; width: 5px; height: 100%;
-          cursor: ew-resize; background: rgba(255,255,255,0.04); border-left: 1px solid rgba(255,255,255,0.08);
+          position: absolute; top: 0; right: 0; width: 10px; height: 100%;
+          cursor: ew-resize; background: rgba(255,255,255,0.06); border-left: 1.5px solid rgba(255,255,255,0.18);
+          box-sizing: border-box; touch-action: none; user-select: none; z-index: 5;
         `;
+
+        resizeHandle.addEventListener('pointerenter', () => {
+          if (!this._isDraggingDuration) {
+            resizeHandle.style.background = 'rgba(16, 185, 129, 0.2)';
+            resizeHandle.style.borderLeftColor = 'var(--primary)';
+          }
+        });
+
+        resizeHandle.addEventListener('pointerleave', () => {
+          if (!this._isDraggingDuration) {
+            resizeHandle.style.background = 'rgba(255,255,255,0.06)';
+            resizeHandle.style.borderLeftColor = 'rgba(255,255,255,0.18)';
+          }
+        });
+
         resizeHandle.addEventListener('pointerdown', (e) => {
           e.stopPropagation();
           e.preventDefault();
+
+          this.animator.selectLayerCel(lid, idx);
+
+          const tier2Body = this.container.querySelector('#raster-tier2-body');
+          const startScrollLeft = tier2Body ? tier2Body.scrollLeft : 0;
           const startX = e.clientX;
-          const startDur = dur;
+          const startDur = Math.max(1, Math.round(Number(cel.duration) || 1));
+          let currentDur = startDur;
+
+          this._isDraggingDuration = true;
+
+          try {
+            resizeHandle.setPointerCapture(e.pointerId);
+          } catch (_) {}
+
+          resizeHandle.style.background = 'rgba(16, 185, 129, 0.35)';
+          resizeHandle.style.borderLeftColor = 'var(--primary)';
+          document.body.style.cursor = 'ew-resize';
+
           const onMove = (me) => {
-            const dx = me.clientX - startX;
-            const deltaTicks = Math.round(dx / (TICK_COL_WIDTH * 0.65));
+            const currentScroll = tier2Body ? tier2Body.scrollLeft : 0;
+            const dx = (me.clientX - startX) + (currentScroll - startScrollLeft);
+            const deltaTicks = Math.round(dx / TICK_STEP);
             const nextDur = Math.max(1, startDur + deltaTicks);
-            if (nextDur !== cel.duration) {
+
+            if (nextDur !== currentDur) {
+              currentDur = nextDur;
+              cel.duration = nextDur;
               this.animator.setFrameDuration(nextDur, idx, lid);
+
+              const newWidth = getCelCardWidth(nextDur);
+              card.style.width = `${newWidth}px`;
+              card.style.minWidth = `${newWidth}px`;
+              card.title = `${layerName} • Cel #${idx + 1} (${nextDur}f) — Drag right edge to resize duration`;
+
+              holdBadge.textContent = nextDur > 1 ? `${nextDur}f` : `#${idx + 1}`;
+              holdBadge.style.color = nextDur > 1 ? 'var(--bg-dark)' : (isCelActive ? 'var(--primary)' : 'var(--text-muted)');
+              holdBadge.style.background = nextDur > 1 ? 'var(--primary)' : 'transparent';
+
+              if (nextDur > 1) {
+                if (!holdBar) {
+                  holdBar = document.createElement('div');
+                  holdBar.style.cssText = 'flex: 1; min-width: 4px; height: 4px; background: repeating-linear-gradient(90deg, var(--primary) 0px, var(--primary) 4px, transparent 4px, transparent 7px); opacity: 0.45; border-radius: 2px;';
+                  card.insertBefore(holdBar, holdBadge);
+                } else {
+                  holdBar.style.display = 'block';
+                }
+              } else if (holdBar) {
+                holdBar.style.display = 'none';
+              }
+
+              this.updateCounter();
             }
           };
+
           const onUp = () => {
+            this._isDraggingDuration = false;
+            document.body.style.cursor = '';
+            try {
+              resizeHandle.releasePointerCapture(e.pointerId);
+            } catch (_) {}
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onUp);
+            window.removeEventListener('pointercancel', onUp);
+            this.updateTimeline();
           };
+
           window.addEventListener('pointermove', onMove);
           window.addEventListener('pointerup', onUp);
+          window.addEventListener('pointercancel', onUp);
         });
+
         card.appendChild(resizeHandle);
 
         card.addEventListener('click', () => {
@@ -921,6 +1014,11 @@ export class RasterAnimatorUI {
       rowEl.appendChild(celsWrap);
       strip.appendChild(rowEl);
     });
+
+    if (tier2Body) {
+      tier2Body.scrollLeft = savedScrollLeft;
+      tier2Body.scrollTop = savedScrollTop;
+    }
   }
 
   renderCelThumb(cel, canvas) {

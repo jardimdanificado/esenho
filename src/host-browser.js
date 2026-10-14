@@ -304,7 +304,7 @@ async function main() {
   // Initialize Frame-by-Frame Raster Animator
   try {
     const { RasterAnimator } = await import('./anim/raster_animator.js?v=2');
-    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js?v=2');
+    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js?v=3');
     host.rasterAnimator = new RasterAnimator(host);
     const timelineDock = document.getElementById('raster-anim-timeline-dock');
     if (timelineDock) {
@@ -4613,6 +4613,7 @@ async function main() {
         }
         // Click outside float → apply transform and end interaction without creating a new selection/stroke
         host.applyFloatTransform();
+        markCanvasDirty();
         syncUiFromHost();
         e.preventDefault();
         return;
@@ -5113,6 +5114,7 @@ async function main() {
         }
         // Tap outside float → apply transform and end interaction cleanly
         host.applyFloatTransform();
+        markCanvasDirty();
         syncUiFromHost();
         touch.pending = null;
         return;

@@ -8242,6 +8242,8 @@ class EsenhoScreenHost {
       if (this.canvasActor.exports.w_layer_delete) {
         this.canvasActor.exports.w_layer_delete(ft.layerId);
       }
+      if (this.layerNames) this.layerNames.delete(ft.layerId);
+      if (typeof this.ensureTreeIntegrity === 'function') this.ensureTreeIntegrity();
       if (this.canvasActor.exports.w_layer_select) {
         this.canvasActor.exports.w_layer_select(ft.originLayerId);
       }
@@ -8279,6 +8281,8 @@ class EsenhoScreenHost {
     if (this.canvasActor?.exports?.w_layer_delete) {
       this.canvasActor.exports.w_layer_delete(ft.layerId);
     }
+    if (this.layerNames) this.layerNames.delete(ft.layerId);
+    if (typeof this.ensureTreeIntegrity === 'function') this.ensureTreeIntegrity();
     if (this.canvasActor?.exports?.w_layer_select) {
       this.canvasActor.exports.w_layer_select(ft.originLayerId);
     }
@@ -8744,6 +8748,9 @@ class EsenhoScreenHost {
    */
   getTextureWasmIds() {
     const ids = new Set([0, 1, 2]); // Builtin brush tip masks
+    if (this.floatingTransform && typeof this.floatingTransform.layerId === 'number' && this.floatingTransform.layerId >= 0) {
+      ids.add(this.floatingTransform.layerId);
+    }
     if (this.textures) {
       for (const tex of this.textures.values()) {
         if (tex && typeof tex.wasmId === 'number' && tex.wasmId >= 0) {
