@@ -54,17 +54,9 @@ jobs:
             echo "ANDROID_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
             echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
             echo "ANDROID_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_ENV
-          else
-            keytool -genkeypair -v \
-              -keystore "$RUNNER_TEMP/ci-release.keystore" \
-              -alias esenho \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass esenho123 \
-              -keypass esenho123 \
-              -dname "CN=Esenho, OU=Studio, O=Esenho, L=Unknown, S=Unknown, C=BR"
-            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/ci-release.keystore" >> $GITHUB_ENV
+          elif [ -f "android/keystore/release.keystore" ]; then
+            echo "Using committed repository keystore for deterministic APK signature."
+            echo "ANDROID_KEYSTORE_PATH=$(pwd)/android/keystore/release.keystore" >> $GITHUB_ENV
             echo "ANDROID_KEYSTORE_PASSWORD=esenho123" >> $GITHUB_ENV
             echo "ANDROID_KEY_ALIAS=esenho" >> $GITHUB_ENV
             echo "ANDROID_KEY_PASSWORD=esenho123" >> $GITHUB_ENV

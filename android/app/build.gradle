@@ -35,11 +35,17 @@ android {
     signingConfigs {
         release {
             def ksPath = System.getenv("ANDROID_KEYSTORE_PATH")
+            def defaultKs = file("../keystore/release.keystore")
             if (ksPath != null && file(ksPath).exists()) {
                 storeFile file(ksPath)
-                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                keyAlias System.getenv("ANDROID_KEY_ALIAS")
-                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: "esenho123"
+                keyAlias System.getenv("ANDROID_KEY_ALIAS") ?: "esenho"
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD") ?: "esenho123"
+            } else if (defaultKs.exists()) {
+                storeFile defaultKs
+                storePassword "esenho123"
+                keyAlias "esenho"
+                keyPassword "esenho123"
             }
         }
     }
@@ -48,8 +54,7 @@ android {
         release {
             minifyEnabled false
             shrinkResources false
-            def ksPath = System.getenv("ANDROID_KEYSTORE_PATH")
-            if (ksPath != null && file(ksPath).exists()) {
+            if (signingConfigs.release.storeFile != null) {
                 signingConfig signingConfigs.release
             } else {
                 signingConfig signingConfigs.debug
