@@ -2476,7 +2476,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.73 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.75 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -3437,7 +3437,7 @@
 <script src="vendor/dockview-core.js"></script>
 <script>
   (function () {
-    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v10';
+    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v11';
     const ALL_PANEL_IDS = ['canvas', 'layers', 'tools', 'timeline', 'color', 'lab'];
     const PANEL_TITLES = {
       canvas: 'Canvas',
@@ -3901,9 +3901,9 @@
         if (isPortrait) {
           const bottomHeight = Math.max(180, Math.min(340, Math.round(window.innerHeight * 0.40)));
           dockviewApi.addPanel({
-            id: 'layers',
-            component: 'layers',
-            title: PANEL_TITLES.layers,
+            id: 'timeline',
+            component: 'timeline',
+            title: PANEL_TITLES.timeline,
             position: { direction: 'below', referencePanel: 'canvas' },
             initialHeight: bottomHeight
           });
@@ -3911,26 +3911,21 @@
             id: 'tools',
             component: 'tools',
             title: PANEL_TITLES.tools,
-            position: { direction: 'within', referencePanel: 'layers' }
+            position: { direction: 'within', referencePanel: 'timeline' }
           });
           dockviewApi.addPanel({
             id: 'color',
             component: 'color',
             title: PANEL_TITLES.color,
-            position: { direction: 'within', referencePanel: 'layers' }
+            position: { direction: 'within', referencePanel: 'timeline' }
           });
           dockviewApi.addPanel({
             id: 'lab',
             component: 'lab',
             title: PANEL_TITLES.lab,
-            position: { direction: 'within', referencePanel: 'layers' }
+            position: { direction: 'within', referencePanel: 'timeline' }
           });
-          dockviewApi.addPanel({
-            id: 'timeline',
-            component: 'timeline',
-            title: PANEL_TITLES.timeline,
-            position: { direction: 'within', referencePanel: 'layers' }
-          });
+          dockviewApi.getPanel('timeline')?.api?.setActive();
         } else {
           dockviewApi.addPanel({
             id: 'timeline',
@@ -3942,38 +3937,31 @@
 
           const sideWidth = Math.max(200, Math.min(280, Math.round(window.innerWidth * 0.34)));
           dockviewApi.addPanel({
-            id: 'layers',
-            component: 'layers',
-            title: PANEL_TITLES.layers,
-            position: { direction: 'right', referencePanel: 'canvas' },
-            initialWidth: sideWidth
-          });
-
-          dockviewApi.addPanel({
             id: 'tools',
             component: 'tools',
             title: PANEL_TITLES.tools,
-            position: { direction: 'within', referencePanel: 'layers' }
+            position: { direction: 'right', referencePanel: 'canvas' },
+            initialWidth: sideWidth
           });
 
           dockviewApi.addPanel({
             id: 'color',
             component: 'color',
             title: PANEL_TITLES.color,
-            position: { direction: 'within', referencePanel: 'layers' }
+            position: { direction: 'within', referencePanel: 'tools' }
           });
 
           dockviewApi.addPanel({
             id: 'lab',
             component: 'lab',
             title: PANEL_TITLES.lab,
-            position: { direction: 'within', referencePanel: 'layers' }
+            position: { direction: 'within', referencePanel: 'tools' }
           });
 
+          dockviewApi.getPanel('tools')?.api?.setActive();
           dockviewApi.getPanel('timeline')?.api?.setActive();
         }
 
-        dockviewApi.getPanel('layers')?.api?.setActive();
         dockviewApi.getPanel('canvas')?.api?.setActive();
         applyPanelMinimumConstraints();
       } catch (err) {
@@ -4093,7 +4081,7 @@
 <script src="src/gpu/shaders.js"></script>
 <script src="src/gpu/gpu_renderer.js"></script>
 <script src="src/esenho.js?v=2"></script>
-<script src="src/host-browser.js?v=2"></script>
+<script src="src/host-browser.js?v=5"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

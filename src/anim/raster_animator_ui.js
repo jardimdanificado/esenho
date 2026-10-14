@@ -187,6 +187,11 @@ export class RasterAnimatorUI {
 
           <!-- Center: Active Layer Cel Actions + Unlimited Hold Duration -->
           <div style="display: flex; align-items: center; gap: 2px; flex-shrink: 0;">
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-add-layer" title="New Layer" style="height: 19px; padding: 0 5px; font-size: 9px; font-weight: 700; background: var(--bg-panel); color: var(--text);">+Layer</button>
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-add-group" title="New Folder / Group" style="height: 19px; padding: 0 4px; font-size: 9px; background: var(--bg-panel); color: var(--text);">+Group</button>
+
+            <div style="width: 1px; height: 13px; background: var(--border); margin: 0 2px;"></div>
+
             <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-add" title="Add Blank Cel (+)" style="height: 19px; padding: 0 6px; font-size: 9px; font-weight: 800; background: var(--primary); color: var(--bg-dark);">+Cel</button>
             <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-dup" title="Duplicate Cel" style="height: 19px; padding: 0 5px; font-size: 9px;">Dup</button>
             <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-move-left" title="Move Cel Left" style="height: 19px; padding: 0 4px; font-size: 9px;">←</button>
@@ -260,6 +265,8 @@ export class RasterAnimatorUI {
     const onionNext = this.container.querySelector('#raster-onion-next');
     const onionOp = this.container.querySelector('#raster-onion-opacity');
 
+    const btnAddLayer = this.container.querySelector('#raster-btn-add-layer');
+    const btnAddGroup = this.container.querySelector('#raster-btn-add-group');
     const btnAdd = this.container.querySelector('#raster-btn-add');
     const btnDup = this.container.querySelector('#raster-btn-dup');
     const btnHoldDec = this.container.querySelector('#raster-btn-hold-dec');
@@ -332,6 +339,26 @@ export class RasterAnimatorUI {
       const lbl = this.container.querySelector('#raster-onion-op-val');
       if (lbl) lbl.textContent = `${pct}%`;
       this.animator.host?.render?.();
+    });
+
+    btnAddLayer?.addEventListener('click', () => {
+      const h = this.animator.host;
+      if (h?.runCmd) h.runCmd('layer add');
+      else if (h?.executeCommand) { h.executeCommand('layer add'); h.syncUiFromHost?.(); }
+      else if (h?.canvasActor?.exports?.w_layer_add) {
+        h.canvasActor.exports.w_layer_add();
+        h.syncUiFromHost?.();
+      }
+    });
+
+    btnAddGroup?.addEventListener('click', () => {
+      const h = this.animator.host;
+      if (h?.runCmd) h.runCmd('group create');
+      else if (h?.executeCommand) { h.executeCommand('group create'); h.syncUiFromHost?.(); }
+      else if (h?.createGroup) {
+        h.createGroup();
+        h.syncUiFromHost?.();
+      }
     });
 
     btnAdd?.addEventListener('click', () => {
@@ -433,8 +460,14 @@ export class RasterAnimatorUI {
 
   openTimelineContextMenu(e, layerId, frameIdx) {
     if (typeof window === 'undefined' || !window.contextMenuService) return;
+    const curActiveLid = this.animator.getActiveLayerId ? this.animator.getActiveLayerId() : 3;
+    const curTrack = this.animator.getLayerTrack ? this.animator.getLayerTrack(curActiveLid) : null;
+    const curCelIdx = curTrack ? curTrack.activeCelIndex : this.animator.currentFrameIndex;
+
     if (typeof layerId === 'number' && typeof frameIdx === 'number') {
-      this.animator.selectLayerCel(layerId, frameIdx);
+      if (layerId !== curActiveLid || frameIdx !== curCelIdx) {
+        this.animator.selectLayerCel(layerId, frameIdx);
+      }
     }
     const activeLid = this.animator.getActiveLayerId();
     const track = this.animator.getLayerTrack(activeLid);
@@ -689,59 +722,289 @@ export class RasterAnimatorUI {
 
     strip.innerHTML = '';
 
+    const host = this.animator.host;
+    const exp = host?.canvasActor?.exports;
     const layerIdsBottomToTop = this.animator.getDrawingLayerIds ? this.animator.getDrawingLayerIds() : [3];
     // Display layers top-to-bottom (matching the Layers panel visual order)
     const layerIdsTopToBottom = [...layerIdsBottomToTop].reverse();
     const activeLayerId = this.animator.getActiveLayerId ? this.animator.getActiveLayerId() : 3;
-    const totalTicks = this.animator.getTotalDurationTicks ? this.animator.getTotalDurationTicks() : 1;
-    const curTick = this.animator.currentTick || 0;
 
-    // 1. Compact Time Ruler Row
-    const rulerRow = document.createElement('div');
-    rulerRow.style.cssText = `
-      display: flex; align-items: stretch; border-bottom: 1px solid var(--border);
-      background: var(--bg-panel-sub); position: sticky; top: 0; z-index: 4; height: 17px;
-    `;
-
-    const rulerCorner = document.createElement('div');
-    rulerCorner.style.cssText = `
-      width: 118px; min-width: 118px; padding: 0 5px; display: flex; align-items: center; justify-content: space-between;
-      border-right: 1px solid var(--border); background: var(--bg-panel-sub); position: sticky; left: 0; z-index: 5;
-      font-size: 8.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px;
-      box-sizing: border-box;
-    `;
-    rulerCorner.innerHTML = `<span>Layers (${layerIdsTopToBottom.length})</span><span>Tick</span>`;
-    rulerRow.appendChild(rulerCorner);
-
-    const rulerTicksWrap = document.createElement('div');
-    rulerTicksWrap.style.cssText = 'display: flex; align-items: stretch; padding: 0 4px; gap: 3px;';
-    const displayTicks = Math.max(30, Math.min(totalTicks, 1200));
-    for (let t = 0; t < displayTicks; t++) {
-      const isCurTick = t === curTick;
-      const tickEl = document.createElement('div');
-      tickEl.title = `Scrub to Tick #${t + 1}`;
-      tickEl.style.cssText = `
-        width: ${TICK_COL_WIDTH}px; min-width: ${TICK_COL_WIDTH}px; display: flex; align-items: center; justify-content: center;
-        font-family: var(--font-mono); font-size: 8.5px; font-weight: 800; cursor: pointer; border-radius: 2px;
-        color: ${isCurTick ? 'var(--bg-dark)' : 'var(--text-muted)'};
-        background: ${isCurTick ? 'var(--primary)' : 'transparent'};
-      `;
-      tickEl.textContent = `${t + 1}f`;
-      tickEl.addEventListener('click', () => {
-        this.animator.goToTick(t);
+    // Helper: Drop indicators and drag state
+    const clearDropIndicators = () => {
+      strip.querySelectorAll('.drop-indicator-top, .drop-indicator-bottom, .drop-target-group').forEach(el => {
+        el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-target-group');
       });
-      rulerTicksWrap.appendChild(tickEl);
-    }
-    rulerRow.appendChild(rulerTicksWrap);
-    strip.appendChild(rulerRow);
+    };
 
-    // 2. Compact Per-Layer Track Rows (28px height)
-    layerIdsTopToBottom.forEach((lid) => {
+    let layerDragSource = null;
+    let touchReorderState = null;
+
+    const attachDragAndDrop = (row, type, id) => {
+      row.draggable = true;
+      row.addEventListener('dragstart', (e) => {
+        layerDragSource = { type, id };
+        row.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(id));
+        e.stopPropagation();
+      });
+
+      row.addEventListener('dragend', () => {
+        layerDragSource = null;
+        clearDropIndicators();
+        row.classList.remove('is-dragging');
+      });
+
+      row.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!layerDragSource) return;
+        if (layerDragSource.type === type && String(layerDragSource.id) === String(id)) return;
+        const rect = row.getBoundingClientRect();
+        const relY = (e.clientY - rect.top) / rect.height;
+        clearDropIndicators();
+        if (type === 'group') {
+          if (relY < 0.25) row.classList.add('drop-indicator-top');
+          else if (relY > 0.75) row.classList.add('drop-indicator-bottom');
+          else row.classList.add('drop-target-group');
+        } else {
+          if (relY < 0.5) row.classList.add('drop-indicator-top');
+          else row.classList.add('drop-indicator-bottom');
+        }
+      });
+
+      row.addEventListener('dragleave', (e) => {
+        if (!row.contains(e.relatedTarget)) {
+          row.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-target-group');
+        }
+      });
+
+      row.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!layerDragSource) return;
+        if (layerDragSource.type === type && String(layerDragSource.id) === String(id)) return;
+        const rect = row.getBoundingClientRect();
+        const relY = (e.clientY - rect.top) / rect.height;
+        let dropPos = 'after';
+        if (type === 'group') {
+          if (relY < 0.25) dropPos = 'before';
+          else if (relY > 0.75) dropPos = 'after';
+          else dropPos = 'inside';
+        } else {
+          dropPos = relY < 0.5 ? 'before' : 'after';
+        }
+        if (host?.reorderTreeItem) {
+          host.reorderTreeItem(layerDragSource.type, layerDragSource.id, type, id, dropPos);
+          clearDropIndicators();
+          if (host.syncUiFromHost) host.syncUiFromHost();
+          else this.updateTimeline();
+        }
+      });
+
+      // Touch hold-and-drag reordering
+      let timer = null;
+      let startX = 0, startY = 0;
+      row.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        if (e.target.closest('button, input, select, .raster-frame-card')) return;
+        row.draggable = false;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        timer = setTimeout(() => {
+          timer = null;
+          touchReorderState = { type, id, startEl: row, lastTarget: null, lastDropPos: null };
+          layerDragSource = { type, id };
+          row.classList.add('touch-reordering');
+          if (navigator.vibrate) try { navigator.vibrate(18); } catch (_) {}
+        }, 280);
+      }, { passive: true });
+
+      row.addEventListener('touchmove', (e) => {
+        if (timer) {
+          const dx = e.touches[0].clientX - startX;
+          const dy = e.touches[0].clientY - startY;
+          if (Math.hypot(dx, dy) > 10) {
+            clearTimeout(timer);
+            timer = null;
+          }
+        }
+        if (touchReorderState && String(touchReorderState.id) === String(id)) {
+          if (e.cancelable) e.preventDefault();
+          const touchX = e.touches[0].clientX;
+          const touchY = e.touches[0].clientY;
+          const prevPE = row.style.pointerEvents;
+          row.style.pointerEvents = 'none';
+          const targetEl = document.elementFromPoint(touchX, touchY);
+          row.style.pointerEvents = prevPE;
+
+          const targetRow = targetEl?.closest('.raster-layer-track-row, .raster-group-track-row');
+          clearDropIndicators();
+          if (targetRow && targetRow !== row) {
+            const rect = targetRow.getBoundingClientRect();
+            const relY = (touchY - rect.top) / rect.height;
+            const isGroup = targetRow.classList.contains('raster-group-track-row');
+            const tgtId = isGroup ? targetRow.dataset.groupId : parseInt(targetRow.dataset.layerId, 10);
+            const tgtType = isGroup ? 'group' : 'layer';
+            let dropPos = 'after';
+            if (isGroup) {
+              if (relY < 0.25) { dropPos = 'before'; targetRow.classList.add('drop-indicator-top'); }
+              else if (relY > 0.75) { dropPos = 'after'; targetRow.classList.add('drop-indicator-bottom'); }
+              else { dropPos = 'inside'; targetRow.classList.add('drop-target-group'); }
+            } else {
+              if (relY < 0.5) { dropPos = 'before'; targetRow.classList.add('drop-indicator-top'); }
+              else { dropPos = 'after'; targetRow.classList.add('drop-indicator-bottom'); }
+            }
+            touchReorderState.lastTarget = { type: tgtType, id: tgtId };
+            touchReorderState.lastDropPos = dropPos;
+          } else {
+            touchReorderState.lastTarget = null;
+            touchReorderState.lastDropPos = null;
+          }
+        }
+      }, { passive: false });
+
+      const finishTouch = () => {
+        row.draggable = true;
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (touchReorderState && String(touchReorderState.id) === String(id)) {
+          row.classList.remove('touch-reordering');
+          clearDropIndicators();
+          if (touchReorderState.lastTarget && touchReorderState.lastDropPos) {
+            const tgt = touchReorderState.lastTarget;
+            if (tgt.type !== touchReorderState.type || String(tgt.id) !== String(touchReorderState.id)) {
+              if (host?.reorderTreeItem) {
+                host.reorderTreeItem(touchReorderState.type, touchReorderState.id, tgt.type, tgt.id, touchReorderState.lastDropPos);
+                if (navigator.vibrate) try { navigator.vibrate(15); } catch (_) {}
+                if (host.syncUiFromHost) host.syncUiFromHost();
+                else this.updateTimeline();
+              }
+            }
+          }
+          touchReorderState = null;
+          layerDragSource = null;
+        }
+      };
+
+      row.addEventListener('touchend', finishTouch);
+      row.addEventListener('touchcancel', finishTouch);
+    };
+
+    // Helper: Create Group Row
+    const createGroupTrack = (grp, depth = 0, parentGroup = null) => {
+      const grpRow = document.createElement('div');
+      grpRow.className = 'raster-group-track-row ui-layer-group-header';
+      grpRow.dataset.groupId = String(grp.id);
+      grpRow.style.cssText = `
+        display: flex; align-items: stretch; min-height: 24px; height: 24px; border-bottom: 1px solid var(--border);
+        background: var(--bg-panel-sub);
+      `;
+
+      const grpHeader = document.createElement('div');
+      grpHeader.style.cssText = `
+        width: 195px; min-width: 195px; max-width: 195px; padding: 0 4px; padding-left: ${4 + depth * 12}px;
+        display: flex; align-items: center; justify-content: space-between; gap: 3px;
+        border-right: 1px solid var(--border); position: sticky; left: 0; z-index: 3; box-sizing: border-box; cursor: pointer;
+        background: var(--bg-panel-sub); font-size: 9px;
+      `;
+
+      const leftWrap = document.createElement('div');
+      leftWrap.style.cssText = 'display: flex; align-items: center; gap: 3px; overflow: hidden; flex: 1; min-width: 0;';
+
+      const toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.className = 'ip-btn ip-mini-btn';
+      toggleBtn.textContent = grp.collapsed ? '▸' : '▾';
+      toggleBtn.title = grp.collapsed ? 'Expand folder' : 'Collapse folder';
+      toggleBtn.style.cssText = 'min-width: 14px; height: 16px; padding: 0 1px; font-size: 8px; flex-shrink: 0;';
+      toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        grp.collapsed = !grp.collapsed;
+        if (host?.syncUiFromHost) host.syncUiFromHost();
+        else this.updateTimeline();
+      });
+
+      const iconSpan = document.createElement('span');
+      iconSpan.style.cssText = 'font-size: 10px; flex-shrink: 0;';
+      iconSpan.textContent = grp.collapsed ? '📁' : '📂';
+
+      const grpNameSpan = document.createElement('span');
+      grpNameSpan.style.cssText = 'font-weight: 700; color: var(--text-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+      grpNameSpan.textContent = grp.name;
+      grpNameSpan.title = grp.name;
+      grpNameSpan.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const newName = prompt('Rename folder:', grp.name);
+        if (newName && newName.trim()) {
+          grp.name = newName.trim();
+          if (host?.syncUiFromHost) host.syncUiFromHost();
+          else this.updateTimeline();
+        }
+      });
+
+      leftWrap.appendChild(toggleBtn);
+      leftWrap.appendChild(iconSpan);
+      leftWrap.appendChild(grpNameSpan);
+
+      const rightWrap = document.createElement('div');
+      rightWrap.style.cssText = 'display: flex; align-items: center; gap: 2px; flex-shrink: 0;';
+
+      const grpVisBtn = document.createElement('button');
+      grpVisBtn.type = 'button';
+      grpVisBtn.className = 'ip-btn ip-mini-btn';
+      grpVisBtn.textContent = grp.visible !== false ? '◉' : '—';
+      grpVisBtn.title = grp.visible !== false ? 'Hide folder' : 'Show folder';
+      grpVisBtn.style.cssText = `padding: 0 2px; min-width: 16px; height: 16px; font-size: 9px; opacity: ${grp.visible !== false ? '1' : '0.4'}; flex-shrink: 0;`;
+      grpVisBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (host?.runCmd) host.runCmd(`group toggle ${grp.id}`);
+        else {
+          grp.visible = grp.visible === false;
+          if (host?.syncUiFromHost) host.syncUiFromHost();
+          else this.updateTimeline();
+        }
+      });
+
+      const grpMoreBtn = document.createElement('button');
+      grpMoreBtn.type = 'button';
+      grpMoreBtn.className = 'ip-btn ip-mini-btn';
+      grpMoreBtn.textContent = '⋯';
+      grpMoreBtn.title = `Folder options for ${grp.name}`;
+      grpMoreBtn.style.cssText = 'min-width: 16px; height: 16px; padding: 0 2px; font-size: 9px; font-weight: bold; flex-shrink: 0;';
+      grpMoreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (host?.openGroupContextMenu) host.openGroupContextMenu(grpMoreBtn, grp.id);
+      });
+
+      rightWrap.appendChild(grpVisBtn);
+      rightWrap.appendChild(grpMoreBtn);
+
+      grpHeader.appendChild(leftWrap);
+      grpHeader.appendChild(rightWrap);
+
+      grpHeader.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (host?.openGroupContextMenu) host.openGroupContextMenu(e, grp.id);
+      });
+
+      grpRow.appendChild(grpHeader);
+
+      const grpTrack = document.createElement('div');
+      grpTrack.style.cssText = 'display: flex; align-items: center; padding: 0 8px; font-size: 8.5px; color: var(--text-muted); font-style: italic;';
+      grpTrack.textContent = `${(grp.children || []).length} items`;
+      grpRow.appendChild(grpTrack);
+
+      attachDragAndDrop(grpRow, 'group', grp.id);
+      return grpRow;
+    };
+
+    // Helper: Create Layer Row
+    const createLayerTrack = (lid, depth = 0, parentGroup = null) => {
       const isLayerActive = lid === activeLayerId;
       const track = this.animator.getLayerTrack(lid);
       const frames = track ? track.frames : [];
       const layerName = this.animator.getLayerName(lid);
-      const exp = this.animator.host?.canvasActor?.exports;
       const isVis = exp?.w_layer_get_visible ? !!exp.w_layer_get_visible(lid) : true;
 
       const rowEl = document.createElement('div');
@@ -749,16 +1012,17 @@ export class RasterAnimatorUI {
       rowEl.dataset.layerId = String(lid);
       rowEl.style.cssText = `
         display: flex; align-items: stretch; min-height: 28px; height: 28px; border-bottom: 1px solid var(--border);
-        background: ${isLayerActive ? 'rgba(16, 185, 129, 0.06)' : 'var(--bg-dark)'};
+        background: ${isLayerActive ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-dark)'};
       `;
 
-      // Left Sticky Single-Line Layer Header (118px)
+      // Sticky Left Layer Header (Layers++ with full layer management)
       const layerHeader = document.createElement('div');
       layerHeader.style.cssText = `
-        width: 118px; min-width: 118px; padding: 0 4px; display: flex; align-items: center; justify-content: space-between; gap: 3px;
+        width: 195px; min-width: 195px; max-width: 195px; padding: 0 4px; padding-left: ${4 + depth * 12}px;
+        display: flex; align-items: center; justify-content: space-between; gap: 3px;
         border-right: 1px solid var(--border); position: sticky; left: 0; z-index: 3; box-sizing: border-box; cursor: pointer;
         background: ${isLayerActive ? 'var(--bg-panel)' : 'var(--bg-panel-sub)'};
-        border-left: 2px solid ${isLayerActive ? 'var(--primary)' : 'transparent'};
+        border-left: 3px solid ${isLayerActive ? 'var(--primary)' : 'transparent'};
       `;
 
       const nameWrap = document.createElement('div');
@@ -767,58 +1031,138 @@ export class RasterAnimatorUI {
       const visBtn = document.createElement('button');
       visBtn.type = 'button';
       visBtn.className = 'ip-btn ip-mini-btn';
-      visBtn.title = 'Toggle Layer Visibility';
-      visBtn.style.cssText = `padding: 0 2px; min-width: 16px; height: 16px; font-size: 8.5px; opacity: ${isVis ? '1' : '0.4'}; flex-shrink: 0;`;
-      visBtn.textContent = isVis ? '👁' : '—';
+      visBtn.title = isVis ? 'Hide layer' : 'Show layer';
+      visBtn.style.cssText = `padding: 0 2px; min-width: 16px; height: 16px; font-size: 9px; opacity: ${isVis ? '1' : '0.4'}; flex-shrink: 0;`;
+      visBtn.textContent = isVis ? '◉' : '—';
       visBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (exp?.w_layer_visible) {
+        if (host?.runCmd) host.runCmd(`toggle layer ${lid}`);
+        else if (exp?.w_layer_visible) {
           exp.w_layer_visible(lid, isVis ? 0 : 1);
-          this.animator.host?.render?.();
-          this.updateTimeline();
+          host?.render?.();
+          if (host?.syncUiFromHost) host.syncUiFromHost();
+          else this.updateTimeline();
         }
       });
 
+      const idxSpan = document.createElement('span');
+      idxSpan.style.cssText = 'font-size: 8.5px; font-family: var(--font-mono); color: var(--text-muted); flex-shrink: 0;';
+      idxSpan.textContent = `#${lid}`;
+
       const nameSpan = document.createElement('span');
-      nameSpan.style.cssText = `font-size: 9.5px; font-weight: ${isLayerActive ? '800' : '600'}; color: ${isLayerActive ? 'var(--primary)' : 'var(--text)'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;`;
+      nameSpan.style.cssText = `font-size: 9.5px; font-weight: ${isLayerActive ? '800' : '600'}; color: ${isLayerActive ? 'var(--primary)' : 'var(--text)'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;`;
       nameSpan.textContent = layerName;
+      nameSpan.title = layerName;
+      nameSpan.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const newName = prompt(`Rename layer #${lid}:`, layerName);
+        if (newName && newName.trim()) {
+          if (!host.layerNames) host.layerNames = new Map();
+          host.layerNames.set(lid, newName.trim());
+          if (host.syncUiFromHost) host.syncUiFromHost();
+          else this.updateTimeline();
+        }
+      });
 
       nameWrap.appendChild(visBtn);
+      nameWrap.appendChild(idxSpan);
       nameWrap.appendChild(nameSpan);
 
+      // Layer Badges
+      const badgesWrap = document.createElement('div');
+      badgesWrap.style.cssText = 'display: flex; align-items: center; gap: 2px; flex-shrink: 0;';
+
+      const isVec = host?.isVectorLayer && host.isVectorLayer(lid);
+      if (isVec) {
+        const vecSpan = document.createElement('span');
+        vecSpan.style.cssText = 'font-size: 8px; background: #1d2021; color: #8ec07c; border: 1px solid #8ec07c; border-radius: 2px; padding: 0 2px; font-weight: bold;';
+        vecSpan.title = 'Vector Layer';
+        vecSpan.textContent = 'VEC';
+        badgesWrap.appendChild(vecSpan);
+      }
+
+      const blendMode = exp?.w_layer_get_blend_mode ? exp.w_layer_get_blend_mode(lid) : 0;
+      const blendList = host?.BLEND_MODE_NAMES || [
+        { val: 0, short: 'Norm', label: 'Normal' },
+        { val: 1, short: 'Mult', label: 'Multiply' },
+        { val: 2, short: 'Scrn', label: 'Screen' },
+        { val: 3, short: 'Over', label: 'Overlay' },
+        { val: 4, short: 'Ddg', label: 'Color Dodge' },
+        { val: 5, short: 'Add', label: 'Linear Dodge (Add)' }
+      ];
+      const blendObj = blendList.find(b => b.val === blendMode);
+      if (blendMode !== 0 && blendObj) {
+        const bmSpan = document.createElement('span');
+        bmSpan.style.cssText = 'font-size: 8px; color: #d3869b; font-weight: bold;';
+        bmSpan.title = `Blend Mode: ${blendObj.label}`;
+        bmSpan.textContent = blendObj.short;
+        badgesWrap.appendChild(bmSpan);
+      }
+
+      const alphaLock = exp?.w_layer_get_alpha_lock ? exp.w_layer_get_alpha_lock(lid) : 0;
+      if (alphaLock) {
+        const lockSpan = document.createElement('span');
+        lockSpan.style.cssText = 'font-size: 9px; color: #fabd2f;';
+        lockSpan.title = 'Alpha Lock';
+        lockSpan.textContent = '⚿';
+        badgesWrap.appendChild(lockSpan);
+      }
+
+      const clipping = exp?.w_layer_get_clipping ? exp.w_layer_get_clipping(lid) : 0;
+      if (clipping) {
+        const clipSpan = document.createElement('span');
+        clipSpan.style.cssText = 'font-size: 9px; color: #83a598;';
+        clipSpan.title = 'Clipping Mask';
+        clipSpan.textContent = '⮑';
+        badgesWrap.appendChild(clipSpan);
+      }
+
+      nameWrap.appendChild(badgesWrap);
+
+      // Right Controls: Opacity % + Options button ⋯
       const rightWrap = document.createElement('div');
       rightWrap.style.cssText = 'display: flex; align-items: center; gap: 2px; flex-shrink: 0;';
 
-      const layerTicks = this.animator.getLayerDurationTicks ? this.animator.getLayerDurationTicks(lid) : frames.length;
-      const layerStats = document.createElement('span');
-      layerStats.style.cssText = 'font-size: 8px; font-family: var(--font-mono); color: var(--text-muted);';
-      layerStats.textContent = `${layerTicks}f`;
+      const opRaw = exp?.get_layer_opacity ? exp.get_layer_opacity(lid) : 255;
+      const opPct = Math.round((opRaw / 255) * 100);
+      const opSpan = document.createElement('span');
+      opSpan.style.cssText = 'font-size: 8px; font-family: var(--font-mono); color: var(--text-muted); min-width: 22px; text-align: right; flex-shrink: 0;';
+      opSpan.textContent = `${opPct}%`;
 
-      const addLayerCelBtn = document.createElement('button');
-      addLayerCelBtn.type = 'button';
-      addLayerCelBtn.className = 'ip-btn ip-mini-btn';
-      addLayerCelBtn.title = `Add Blank Cel to ${layerName}`;
-      addLayerCelBtn.style.cssText = 'min-width: 16px; height: 16px; padding: 0 3px; font-size: 9px; font-weight: 800;';
-      addLayerCelBtn.textContent = '+';
-      addLayerCelBtn.addEventListener('click', (e) => {
+      const moreBtn = document.createElement('button');
+      moreBtn.type = 'button';
+      moreBtn.className = 'ip-btn ip-mini-btn';
+      moreBtn.title = `Layer options for [${lid}] ${layerName}`;
+      moreBtn.style.cssText = 'min-width: 16px; height: 16px; padding: 0 2px; font-size: 9px; font-weight: bold; flex-shrink: 0;';
+      moreBtn.textContent = '⋯';
+      moreBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.animator.selectLayerCel(lid, track.activeCelIndex);
-        this.animator.addFrame(false, lid);
+        if (host?.openLayerContextMenu) {
+          host.openLayerContextMenu(moreBtn, lid);
+        }
       });
 
-      rightWrap.appendChild(layerStats);
-      rightWrap.appendChild(addLayerCelBtn);
+      rightWrap.appendChild(opSpan);
+      rightWrap.appendChild(moreBtn);
 
       layerHeader.appendChild(nameWrap);
       layerHeader.appendChild(rightWrap);
 
       layerHeader.addEventListener('click', () => {
-        this.animator.selectLayerCel(lid, track.activeCelIndex);
+        this.animator.selectLayerCel(lid, track ? track.activeCelIndex : 0);
+      });
+
+      layerHeader.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (host?.openLayerContextMenu) {
+          host.openLayerContextMenu(e, lid);
+        }
       });
 
       rowEl.appendChild(layerHeader);
 
-      // Right Cels Track for this Layer
+      // Right Cels Track for this Layer (no tick row, no add-tick button)
       const celsWrap = document.createElement('div');
       celsWrap.style.cssText = 'display: flex; align-items: center; padding: 1px 4px; gap: 3px;';
 
@@ -886,25 +1230,42 @@ export class RasterAnimatorUI {
         celsWrap.appendChild(card);
       });
 
-      // Quick "+" button at the end of this layer's track
-      const addCard = document.createElement('button');
-      addCard.type = 'button';
-      addCard.title = `Add Blank Cel to ${layerName}`;
-      addCard.style.cssText = `
-        display: flex; align-items: center; justify-content: center;
-        width: 22px; height: 24px; background: var(--bg-panel-sub); border: 1px dashed var(--border-bright);
-        border-radius: 3px; color: var(--text-muted); cursor: pointer; flex-shrink: 0; font-size: 11px; font-weight: bold; padding: 0;
-      `;
-      addCard.textContent = '+';
-      addCard.addEventListener('click', () => {
-        this.animator.selectLayerCel(lid, frames.length - 1);
-        this.animator.addFrame(false, lid);
-      });
-      celsWrap.appendChild(addCard);
-
       rowEl.appendChild(celsWrap);
-      strip.appendChild(rowEl);
-    });
+      attachDragAndDrop(rowEl, 'layer', lid);
+      return rowEl;
+    };
+
+    // Render tree or flat list
+    const texIds = host?.getTextureWasmIds ? host.getTextureWasmIds() : new Set([0, 1, 2]);
+    const renderNode = (node, depth = 0, parentGroup = null) => {
+      if (node.type === 'layer') {
+        if (texIds.has(node.id)) return;
+        const rowEl = createLayerTrack(node.id, depth, parentGroup);
+        if (rowEl) strip.appendChild(rowEl);
+      } else if (node.type === 'group') {
+        const grp = host?.layerGroups?.get(node.id);
+        if (grp) {
+          const grpRow = createGroupTrack(grp, depth, parentGroup);
+          if (grpRow) strip.appendChild(grpRow);
+          if (!grp.collapsed && Array.isArray(grp.children)) {
+            for (const childNode of grp.children) {
+              renderNode(childNode, depth + 1, grp);
+            }
+          }
+        }
+      }
+    };
+
+    if (host?.layerTree && host.layerTree.length > 0) {
+      for (const rootNode of host.layerTree) {
+        renderNode(rootNode, 0, null);
+      }
+    } else {
+      layerIdsTopToBottom.forEach((lid) => {
+        const rowEl = createLayerTrack(lid, 0, null);
+        if (rowEl) strip.appendChild(rowEl);
+      });
+    }
 
     if (tier2Body) {
       tier2Body.scrollLeft = savedScrollLeft;
@@ -917,21 +1278,35 @@ export class RasterAnimatorUI {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!cel || !cel.pixels || !cel.width || !cel.height) return;
-    const scale = Math.min(canvas.width / cel.width, canvas.height / cel.height);
+    const cw = canvas.width;
+    const ch = canvas.height;
+    const scale = Math.min(cw / cel.width, ch / cel.height);
     const tw = Math.max(1, Math.round(cel.width * scale));
     const th = Math.max(1, Math.round(cel.height * scale));
-    const ox = Math.round((canvas.width - tw) / 2);
-    const oy = Math.round((canvas.height - th) / 2);
+    const ox = Math.round((cw - tw) / 2);
+    const oy = Math.round((ch - th) / 2);
 
-    const off = document.createElement('canvas');
-    off.width = cel.width;
-    off.height = cel.height;
-    const octx = off.getContext('2d');
-    const img = octx.createImageData(cel.width, cel.height);
-    img.data.set(cel.pixels.subarray(0, img.data.length));
-    octx.putImageData(img, 0, 0);
+    const img = ctx.createImageData(tw, th);
+    const dst = img.data;
+    const src = cel.pixels;
+    const srcW = cel.width;
+    const srcH = cel.height;
+    const alphaMul = ((cel.opacity ?? 255) / 255);
 
-    ctx.globalAlpha = (cel.opacity ?? 255) / 255;
-    ctx.drawImage(off, ox, oy, tw, th);
+    for (let dy = 0; dy < th; dy++) {
+      const sy = Math.min(srcH - 1, Math.floor((dy + 0.5) * srcH / th));
+      const rowSrcOffset = sy * srcW;
+      const rowDstOffset = dy * tw;
+      for (let dx = 0; dx < tw; dx++) {
+        const sx = Math.min(srcW - 1, Math.floor((dx + 0.5) * srcW / tw));
+        const si = (rowSrcOffset + sx) * 4;
+        const di = (rowDstOffset + dx) * 4;
+        dst[di] = src[si];
+        dst[di + 1] = src[si + 1];
+        dst[di + 2] = src[si + 2];
+        dst[di + 3] = Math.round(src[si + 3] * alphaMul);
+      }
+    }
+    ctx.putImageData(img, ox, oy);
   }
 }

@@ -304,7 +304,7 @@ async function main() {
   // Initialize Frame-by-Frame Raster Animator
   try {
     const { RasterAnimator } = await import('./anim/raster_animator.js?v=2');
-    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js?v=4');
+    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js?v=5');
     host.rasterAnimator = new RasterAnimator(host);
     const timelineDock = document.getElementById('raster-anim-timeline-dock');
     if (timelineDock) {
@@ -327,42 +327,52 @@ async function main() {
     console.warn('[RasterAnimator] Init failed:', err);
   }
 
-  try {
-    const res = await fetch('plugins/manifest.json');
-    if (res.ok) {
-      const list = await res.json();
-      for (const item of list) {
-        const file = typeof item === 'string' ? item : item.file || item.name;
-        if (!file || !file.endsWith('.wasm')) continue;
-        const name = file.replace(/\.wasm$/i, '');
-        try {
-          const mod = await EsenhoModule.fromURL(`plugins/${file}`, { name });
-          host.plugins.set(name, { type: 'filter', module: mod, actor: mod });
-        } catch (e) {
-          log(`warn: plugin ${file} — ${e.message}`, 'err');
-        }
-      }
-    }
-  } catch (e) {
-    log(`info: plugins dynamic discovery: ${e.message}`);
-  }
-
-  // Load custom plugins stored in shared EsenhoStore (IndexedDB)
-  if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) {
+  // Asynchronously load filter plugins in parallel without blocking UI boot
+  const loadPluginsAsync = async () => {
     try {
-      const customPlugins = await EsenhoStore.getAllPlugins();
-      for (const cp of customPlugins) {
-        if (!cp.name || !cp.bytes || host.plugins.has(cp.name)) continue;
-        try {
-          const mod = await EsenhoModule.fromBytes(cp.bytes, { name: cp.name });
-          host.plugins.set(cp.name, { type: 'filter', module: mod, actor: mod });
-        } catch (err) {
-          log(`warn: stored plugin ${cp.name} — ${err.message}`, 'err');
-        }
+      const res = await fetch('plugins/manifest.json');
+      if (res.ok) {
+        const list = await res.json();
+        const tasks = list.map(async (item) => {
+          const file = typeof item === 'string' ? item : item.file || item.name;
+          if (!file || !file.endsWith('.wasm')) return;
+          const name = file.replace(/\.wasm$/i, '');
+          try {
+            const mod = await EsenhoModule.fromURL(`plugins/${file}`, { name });
+            host.plugins.set(name, { type: 'filter', module: mod, actor: mod });
+          } catch (e) {
+            console.warn(`[Plugin] ${file} — ${e.message}`);
+          }
+        });
+        await Promise.allSettled(tasks);
       }
-    } catch (_) {}
-  }
-  log(`${host.plugins.size} plugins loaded [ok]`);
+    } catch (e) {
+      console.warn('[Plugins] dynamic discovery:', e.message);
+    }
+
+    // Load custom plugins stored in shared EsenhoStore (IndexedDB)
+    if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) {
+      try {
+        const customPlugins = await EsenhoStore.getAllPlugins();
+        const storeTasks = customPlugins.map(async (cp) => {
+          if (!cp.name || !cp.bytes || host.plugins.has(cp.name)) return;
+          try {
+            const mod = await EsenhoModule.fromBytes(cp.bytes, { name: cp.name });
+            host.plugins.set(cp.name, { type: 'filter', module: mod, actor: mod });
+          } catch (err) {
+            console.warn(`[Plugin] stored ${cp.name} — ${err.message}`);
+          }
+        });
+        await Promise.allSettled(storeTasks);
+      } catch (_) {}
+    }
+    log(`${host.plugins.size} plugins loaded [ok]`);
+    if (typeof populateFilterSelect === 'function') {
+      populateFilterSelect();
+    }
+  };
+
+  host.loadPluginsPromise = loadPluginsAsync();
 
 
 
@@ -11062,6 +11072,62 @@ async function main() {
         el.addEventListener('touchcancel', finishTouch);
       };
 
+      const openGroupContextMenu = (anchorOrEv, grpId) => {
+        if (!window.contextMenuService) return;
+        const grp = typeof grpId === 'object' && grpId !== null ? grpId : host.layerGroups?.get(grpId);
+        if (!grp) return;
+        const getAnchor = () => {
+          if (anchorOrEv && typeof anchorOrEv.getBoundingClientRect === 'function') {
+            const r = anchorOrEv.getBoundingClientRect();
+            return { x: r.right, y: r.bottom + 2 };
+          }
+          return { x: anchorOrEv?.clientX || 120, y: anchorOrEv?.clientY || 120 };
+        };
+        const grpActions = [
+          { type: 'header', title: `Folder: ${grp.name}` },
+          { type: 'item', label: '+ Add Layer Inside Folder', action: () => {
+            if (host.canvasActor?.exports?.w_layer_add) {
+              const newLid = host.canvasActor.exports.w_layer_add();
+              if (newLid >= 0) {
+                host.addLayerToGroup(grp.id, newLid);
+                grp.collapsed = false;
+                syncUiFromHost();
+                triggerHaptic(15);
+              }
+            }
+          }},
+          { type: 'item', label: '+ New Raster Layer', action: () => runCmd('layer add') },
+          { type: 'item', label: '+ New Folder / Group', action: () => runCmd('group create') },
+          { type: 'sep' },
+          { type: 'item', label: (grp.visible ? '✓ ' : '') + 'Folder Visible', action: () => runCmd(`group toggle ${grp.id}`) },
+          { type: 'item', label: 'Rename Folder...', action: () => {
+            const newName = prompt('Rename folder:', grp.name);
+            if (newName && newName.trim()) {
+              grp.name = newName.trim();
+              syncUiFromHost();
+            }
+          }},
+          { type: 'sep' },
+          { type: 'item', label: '▲ Move Folder Up', action: () => runCmd(`group move up ${grp.id}`) },
+          { type: 'item', label: '▼ Move Folder Down', action: () => runCmd(`group move down ${grp.id}`) },
+          { type: 'sep' },
+          { type: 'item', label: 'Delete Folder...', danger: true, action: () => {
+            const hasChildren = (grp.children && grp.children.length > 0);
+            if (!hasChildren) {
+              runCmd(`group delete ${grp.id}`);
+            } else {
+              const delContent = confirm(`Delete folder '${grp.name}' AND all layers inside? (Click Cancel to delete folder only)`);
+              host.deleteGroup(grp.id, delContent);
+              syncUiFromHost();
+            }
+          }}
+        ];
+        window.contextMenuService.showContextMenu({
+          getAnchor,
+          getActions: () => grpActions
+        });
+      };
+
       const createGroupHeader = (grp, depth = 0, parentGroup = null) => {
         const grpRow = document.createElement('div');
         grpRow.className = 'ui-layer-group-header' + (grp.collapsed ? ' group-collapsed' : '');
@@ -11176,60 +11242,6 @@ async function main() {
         });
         grpRow.appendChild(grpVisBtn);
 
-        const openGroupContextMenu = (anchorOrEv) => {
-          if (!window.contextMenuService) return;
-          const getAnchor = () => {
-            if (anchorOrEv && typeof anchorOrEv.getBoundingClientRect === 'function') {
-              const r = anchorOrEv.getBoundingClientRect();
-              return { x: r.right, y: r.bottom + 2 };
-            }
-            return { x: anchorOrEv?.clientX || 120, y: anchorOrEv?.clientY || 120 };
-          };
-          const grpActions = [
-            { type: 'header', title: `Folder: ${grp.name}` },
-            { type: 'item', label: '+ Add Layer Inside Folder', action: () => {
-              if (host.canvasActor?.exports?.w_layer_add) {
-                const newLid = host.canvasActor.exports.w_layer_add();
-                if (newLid >= 0) {
-                  host.addLayerToGroup(grp.id, newLid);
-                  grp.collapsed = false;
-                  syncUiFromHost();
-                  triggerHaptic(15);
-                }
-              }
-            }},
-            { type: 'item', label: '+ New Raster Layer', action: () => runCmd('layer add') },
-            { type: 'item', label: '+ New Folder / Group', action: () => runCmd('group create') },
-            { type: 'sep' },
-            { type: 'item', label: (grp.visible ? '✓ ' : '') + 'Folder Visible', action: () => runCmd(`group toggle ${grp.id}`) },
-            { type: 'item', label: 'Rename Folder...', action: () => {
-              const newName = prompt('Rename folder:', grp.name);
-              if (newName && newName.trim()) {
-                grp.name = newName.trim();
-                syncUiFromHost();
-              }
-            }},
-            { type: 'sep' },
-            { type: 'item', label: '▲ Move Folder Up', action: () => runCmd(`group move up ${grp.id}`) },
-            { type: 'item', label: '▼ Move Folder Down', action: () => runCmd(`group move down ${grp.id}`) },
-            { type: 'sep' },
-            { type: 'item', label: 'Delete Folder...', danger: true, action: () => {
-              const hasChildren = (grp.children && grp.children.length > 0);
-              if (!hasChildren) {
-                runCmd(`group delete ${grp.id}`);
-              } else {
-                const delContent = confirm(`Delete folder '${grp.name}' AND all layers inside? (Click Cancel to delete folder only)`);
-                host.deleteGroup(grp.id, delContent);
-                syncUiFromHost();
-              }
-            }}
-          ];
-          window.contextMenuService.showContextMenu({
-            getAnchor,
-            getActions: () => grpActions
-          });
-        };
-
         // 5. Folder '⋯' Contextual Menu button
         const moreGrpBtn = document.createElement('button');
         moreGrpBtn.type = 'button';
@@ -11240,14 +11252,14 @@ async function main() {
         moreGrpBtn.style.padding = '0 6px';
         moreGrpBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          openGroupContextMenu(moreGrpBtn);
+          openGroupContextMenu(moreGrpBtn, grp.id);
         });
         grpRow.appendChild(moreGrpBtn);
 
         grpRow.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          openGroupContextMenu(e);
+          openGroupContextMenu(e, grp.id);
         });
 
         return grpRow;
@@ -11263,8 +11275,32 @@ async function main() {
       ];
 
       const openLayerContextMenu = (anchorOrEv, i, name, vis, alphaLock, clipping, blendMode, parentGroup) => {
-        runCmd(`layer select ${i}`);
+        const curDraw = host.canvasActor?.exports?.get_active_draw_layer ? host.canvasActor.exports.get_active_draw_layer() : null;
+        if (curDraw !== i && host.canvasActor?.exports?.w_layer_select) {
+          host.canvasActor.exports.w_layer_select(i);
+          document.querySelectorAll('.ui-layer-row').forEach(row => {
+            const lid = parseInt(row.getAttribute('data-layer-id'), 10);
+            row.classList.toggle('active-draw', lid === i);
+          });
+        }
         if (!window.contextMenuService) return;
+        if (name === undefined) {
+          if (i === 3) name = 'Background';
+          else if (host.layerNames && host.layerNames.has(i)) name = host.layerNames.get(i);
+          else name = `layer_${i}`;
+        }
+        if (vis === undefined) {
+          vis = host.canvasActor?.exports?.w_layer_get_visible ? host.canvasActor.exports.w_layer_get_visible(i) : 1;
+        }
+        if (alphaLock === undefined) {
+          alphaLock = host.getLayerAlphaLock ? host.getLayerAlphaLock(i) : 0;
+        }
+        if (clipping === undefined) {
+          clipping = host.getLayerClipping ? host.getLayerClipping(i) : 0;
+        }
+        if (blendMode === undefined) {
+          blendMode = host.getLayerBlendMode ? host.getLayerBlendMode(i) : 0;
+        }
         const getAnchor = () => {
           if (anchorOrEv && typeof anchorOrEv.getBoundingClientRect === 'function') {
             const r = anchorOrEv.getBoundingClientRect();
@@ -11387,6 +11423,12 @@ async function main() {
           getActions: () => layerActions
         });
       };
+
+      host.openLayerContextMenu = openLayerContextMenu;
+      host.openGroupContextMenu = openGroupContextMenu;
+      host.BLEND_MODE_NAMES = BLEND_MODE_NAMES;
+      host.syncUiFromHost = syncUiFromHost;
+      host.runCmd = runCmd;
 
       const renderLayerRow = (i, depth = 0, parentGroup = null) => {
         const vis = host.canvasActor.exports.get_layer_visible ? host.canvasActor.exports.get_layer_visible(i) : 1;
