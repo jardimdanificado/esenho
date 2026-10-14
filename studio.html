@@ -3760,7 +3760,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.72 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.73 ready</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -10927,22 +10927,18 @@
         let hasDragged = false;
         let startX = 0;
         let startY = 0;
-        let longPressTimer = null;
         let reticleEl = null;
 
         function createReticle() {
           if (reticleEl) return reticleEl;
           const el = document.createElement('div');
           el.className = 'context-drop-reticle';
-          el.style.cssText = 'position:fixed;pointer-events:none;z-index:100000;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;left:-9999px;top:-9999px;user-select:none;';
+          el.style.cssText = 'position:fixed;pointer-events:none;z-index:100000;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;left:-9999px;top:-9999px;user-select:none;';
           el.innerHTML = `
-            <div style="width:42px;height:42px;border-radius:50%;border:2px solid #fabd2f;background:rgba(29,32,33,0.75);backdrop-filter:blur(2px);box-shadow:0 0 0 2px rgba(0,0,0,0.6),0 0 14px rgba(250,189,47,0.6);display:flex;align-items:center;justify-content:center;position:relative;">
+            <div style="width:40px;height:40px;border-radius:50%;border:2px solid #fabd2f;background:rgba(29,32,33,0.7);backdrop-filter:blur(2px);box-shadow:0 0 0 2px rgba(0,0,0,0.6),0 0 14px rgba(250,189,47,0.6);display:flex;align-items:center;justify-content:center;position:relative;">
               <div style="position:absolute;width:14px;height:2px;background:#fabd2f;left:50%;top:50%;transform:translate(-50%,-50%);"></div>
               <div style="position:absolute;width:2px;height:14px;background:#fabd2f;left:50%;top:50%;transform:translate(-50%,-50%);"></div>
               <div style="width:6px;height:6px;border-radius:50%;background:#ebdbb2;z-index:2;box-shadow:0 0 3px #000;"></div>
-            </div>
-            <div style="margin-top:6px;padding:3px 9px;background:rgba(29,32,33,0.92);border:1px solid #fabd2f;border-radius:12px;color:#ebdbb2;font-size:10.5px;font-weight:600;font-family:system-ui,-apple-system,sans-serif;letter-spacing:0.3px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,0.5);">
-              🎯 Solte para abrir menu aqui
             </div>
           `;
           document.body.appendChild(el);
@@ -10961,18 +10957,6 @@
             reticleEl.remove();
             reticleEl = null;
           }
-        }
-
-        function startDragMode(x, y) {
-          if (isDragging) return;
-          isDragging = true;
-          hasDragged = true;
-          if (navigator.vibrate) {
-            try { navigator.vibrate(22); } catch (_) {}
-          }
-          btnMenuLogo.classList.add('active');
-          btnMenuLogo.style.opacity = '0.6';
-          updateReticlePos(x, y);
         }
 
         function triggerStudioContextDrop(dropX, dropY) {
@@ -11056,20 +11040,28 @@
           isDragging = false;
           hasDragged = false;
 
-          try { btnMenuLogo.setPointerCapture(e.pointerId); } catch (_) {}
+          const rect = btnMenuLogo.getBoundingClientRect();
+          showStudioTitleBarContextMenu({
+            clientX: rect.left,
+            clientY: rect.bottom + 2,
+            preventDefault() {},
+            stopPropagation() {}
+          });
 
-          longPressTimer = setTimeout(() => {
-            startDragMode(startX, startY);
-          }, 220);
+          try { btnMenuLogo.setPointerCapture(e.pointerId); } catch (_) {}
 
           const onPointerMove = (me) => {
             const dist = Math.hypot(me.clientX - startX, me.clientY - startY);
-            if (!isDragging && dist > 7) {
-              if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
+            if (!isDragging && dist > 8) {
+              isDragging = true;
+              hasDragged = true;
+              window.contextMenuService?.hideContextMenu();
+              if (navigator.vibrate) {
+                try { navigator.vibrate(20); } catch (_) {}
               }
-              startDragMode(me.clientX, me.clientY);
+              btnMenuLogo.classList.add('active');
+              btnMenuLogo.style.opacity = '0.6';
+              updateReticlePos(me.clientX, me.clientY);
             }
             if (isDragging) {
               updateReticlePos(me.clientX, me.clientY);
@@ -11077,10 +11069,6 @@
           };
 
           const onPointerUp = (ue) => {
-            if (longPressTimer) {
-              clearTimeout(longPressTimer);
-              longPressTimer = null;
-            }
             btnMenuLogo.removeEventListener('pointermove', onPointerMove);
             btnMenuLogo.removeEventListener('pointerup', onPointerUp);
             btnMenuLogo.removeEventListener('pointercancel', onPointerCancel);
@@ -11107,10 +11095,6 @@
           };
 
           const onPointerCancel = (ce) => {
-            if (longPressTimer) {
-              clearTimeout(longPressTimer);
-              longPressTimer = null;
-            }
             btnMenuLogo.removeEventListener('pointermove', onPointerMove);
             btnMenuLogo.removeEventListener('pointerup', onPointerUp);
             btnMenuLogo.removeEventListener('pointercancel', onPointerCancel);
@@ -11133,13 +11117,15 @@
             hasDragged = false;
             return;
           }
-          const rect = btnMenuLogo.getBoundingClientRect();
-          showStudioTitleBarContextMenu({
-            clientX: rect.left,
-            clientY: rect.bottom + 2,
-            preventDefault() {},
-            stopPropagation() {}
-          });
+          if (!window.contextMenuService?.activeMenu) {
+            const rect = btnMenuLogo.getBoundingClientRect();
+            showStudioTitleBarContextMenu({
+              clientX: rect.left,
+              clientY: rect.bottom + 2,
+              preventDefault() {},
+              stopPropagation() {}
+            });
+          }
         });
       }
 
