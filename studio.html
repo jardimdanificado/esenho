@@ -4333,7 +4333,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.13.89)</span>
+    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.13.92)</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -8244,6 +8244,12 @@
 
       viewportContainer.addEventListener('pointerdown', (e) => {
         clearTouchLongPress();
+        if (window.contextMenuService && window.contextMenuService.activeMenu) {
+          window.contextMenuService.hideContextMenu();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         if (isTouchPinching) return;
 
         const touchHitMult = e.pointerType === 'touch' ? 2.2 : 1.0;
@@ -10842,13 +10848,56 @@
           }
           this.activeMenu = null;
           this.activeDelegate = null;
+          this.openedAt = 0;
+          this._suppressNextPointer = false;
+          this._suppressTimer = null;
           this.registerListeners();
         }
 
         registerListeners() {
-          window.addEventListener('pointerdown', (e) => {
-            if (this.activeMenu && !e.target.closest('.monaco-menu-container')) {
-              this.hideContextMenu();
+          const suppressEvent = (e) => {
+            if (this._suppressNextPointer) {
+              if (e.cancelable) e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+            }
+          };
+
+          const onOutsideDown = (e) => {
+            if (!this.activeMenu) return;
+            if (e.button === 2) return;
+            if (performance.now() - (this.openedAt || 0) < 40) return;
+            if (e.target && typeof e.target.closest === 'function' && e.target.closest('.monaco-menu-container')) {
+              return;
+            }
+            if (e.cancelable) e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            this._suppressNextPointer = true;
+            if (this._suppressTimer) clearTimeout(this._suppressTimer);
+            this._suppressTimer = setTimeout(() => {
+              this._suppressNextPointer = false;
+              this._suppressTimer = null;
+            }, 120);
+            this.hideContextMenu();
+          };
+
+          window.addEventListener('pointerdown', onOutsideDown, true);
+          window.addEventListener('touchstart', onOutsideDown, { capture: true, passive: false });
+          window.addEventListener('mousedown', suppressEvent, true);
+          window.addEventListener('pointerup', suppressEvent, true);
+          window.addEventListener('mouseup', suppressEvent, true);
+          window.addEventListener('touchend', suppressEvent, true);
+          window.addEventListener('click', (e) => {
+            if (this._suppressNextPointer) {
+              if (e.cancelable) e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              this._suppressNextPointer = false;
+              if (this._suppressTimer) {
+                clearTimeout(this._suppressTimer);
+                this._suppressTimer = null;
+              }
             }
           }, true);
 
@@ -10879,6 +10928,7 @@
         showContextMenu(delegate) {
           this.hideContextMenu();
           if (!delegate) return;
+          this.openedAt = performance.now();
 
           this.activeDelegate = delegate;
           const actions = typeof delegate.getActions === 'function' ? delegate.getActions() : (delegate.actions || []);
@@ -15851,7 +15901,7 @@
             img.src = obj.src;
           }
           editingRasterObj = null;
-        } else if (e.data.type === 'CANCEL_EDIT') {
+        } else if (e.data.type === 'CANCEL_EDIT' || e.data.type === 'CLOSE_EMBEDDED') {
           const iframe = document.getElementById('painter-iframe');
           if (iframe) {
             iframe.style.display = 'none';
@@ -16932,8 +16982,13 @@
           const proj = await EsenhoStore.getProject(projId);
           if (proj) {
             if (proj.type === 'raster' || (Array.isArray(proj.layers) && !proj.jsonDoc && !proj.svgData)) {
-              window.location.replace(`painter.html?project=${projId}`);
-              return true;
+              const iframe = document.getElementById('painter-iframe');
+              if (iframe) {
+                iframe.src = `painter.html?embedded=true&project=${projId}`;
+                iframe.style.display = 'block';
+                return true;
+              }
+              return false;
             }
             currentProjectId = proj.id;
             currentProjectTitle = proj.name || 'Untitled Vector';
@@ -17387,7 +17442,13 @@
         menuDropdown?.classList.remove('active');
         btnMenuLogo?.classList.remove('active');
         if (type === 'raster') {
-          window.location.href = `painter.html?project=${id}`;
+          const iframe = document.getElementById('painter-iframe');
+          if (iframe) {
+            iframe.src = `painter.html?embedded=true&project=${id}`;
+            iframe.style.display = 'block';
+          }
+          const modal = document.getElementById('modal-recents');
+          if (modal) modal.style.display = 'none';
           return;
         }
         await loadProjectFromStorage(id);

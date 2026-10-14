@@ -3711,6 +3711,11 @@
     body.is-embedded .ip-hide-embedded {
       display: none !important;
     }
+    .is-embedded #btn-embedded-exit,
+    body.is-embedded #btn-embedded-exit {
+      display: inline-flex !important;
+      align-items: center;
+    }
 
     .ip-sheet-handle-row { display: none; }
     .ip-sheet-header {
@@ -4083,10 +4088,11 @@
           <span style="font-size: 8px; color: var(--text-muted); margin-left: -2px;">▼</span>
         </button>
       </div>
+      <button type="button" id="btn-embedded-exit" class="ip-btn ip-mini-btn" style="display: none; height: 22px; padding: 0 8px; font-size: 10px; font-weight: bold; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border);" title="Exit embedded painter back to Studio">✕ Back to Studio</button>
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.89  --x--  0,0  zoom 100%  rot 0.0°</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.92  --x--  0,0  zoom 100%  rot 0.0°</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -5685,13 +5691,13 @@
 
 <script type="module" src="src/version.js"></script>
 <script type="module" src="src/script/esenho_sdk.js"></script>
-<script src="src/project_store.js?v=10"></script>
-<script src="src/resource_registry.js?v=10"></script>
-<script src="src/asset_bundle.js?v=10"></script>
-<script src="src/gpu/shaders.js?v=10"></script>
-<script src="src/gpu/gpu_renderer.js?v=10"></script>
-<script src="src/esenho.js?v=10"></script>
-<script src="src/host-browser.js?v=10"></script>
+<script src="src/project_store.js?v=11"></script>
+<script src="src/resource_registry.js?v=11"></script>
+<script src="src/asset_bundle.js?v=11"></script>
+<script src="src/gpu/shaders.js?v=11"></script>
+<script src="src/gpu/gpu_renderer.js?v=11"></script>
+<script src="src/esenho.js?v=11"></script>
+<script src="src/host-browser.js?v=11"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

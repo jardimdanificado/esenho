@@ -199,10 +199,7 @@ async function main() {
       if (savedProj) {
         const isVecProj = savedProj.type === 'vector' || (!savedProj.layers && (savedProj.jsonDoc || savedProj.svgData));
         if (isVecProj) {
-          if (explicitProjectId) {
-            window.location.replace(`studio.html?project=${explicitProjectId}`);
-            return;
-          }
+          log('Vector project format detected; Painter only edits raster projects.', 'err');
         } else {
           host.loadProject(savedProj);
           projectLoaded = true;
@@ -331,8 +328,8 @@ async function main() {
 
   // Initialize Frame-by-Frame Raster Animator
   try {
-    const { RasterAnimator } = await import('./anim/raster_animator.js?v=10');
-    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js?v=10');
+    const { RasterAnimator } = await import('./anim/raster_animator.js?v=11');
+    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js?v=11');
     host.rasterAnimator = new RasterAnimator(host);
     const timelineDock = document.getElementById('raster-anim-timeline-dock');
     if (timelineDock) {
@@ -3498,19 +3495,57 @@ async function main() {
       this.activeMenu = null;
       this.activeDelegate = null;
       this.openedAt = 0;
+      this._suppressNextPointer = false;
+      this._suppressTimer = null;
       this.registerListeners();
     }
 
     registerListeners() {
-      const onOutsideDown = (e) => {
-        if (!this.activeMenu) return;
-        if (performance.now() - (this.openedAt || 0) < 350) return;
-        if (e.target && typeof e.target.closest === 'function' && !e.target.closest('.monaco-menu-container')) {
-          this.hideContextMenu();
+      const suppressEvent = (e) => {
+        if (this._suppressNextPointer) {
+          if (e.cancelable) e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
         }
       };
+
+      const onOutsideDown = (e) => {
+        if (!this.activeMenu) return;
+        if (e.button === 2) return; // Allow right click to reposition/open context menu
+        if (performance.now() - (this.openedAt || 0) < 40) return;
+        if (e.target && typeof e.target.closest === 'function' && e.target.closest('.monaco-menu-container')) {
+          return;
+        }
+        if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        this._suppressNextPointer = true;
+        if (this._suppressTimer) clearTimeout(this._suppressTimer);
+        this._suppressTimer = setTimeout(() => {
+          this._suppressNextPointer = false;
+          this._suppressTimer = null;
+        }, 120);
+        this.hideContextMenu();
+      };
+
       window.addEventListener('pointerdown', onOutsideDown, true);
-      window.addEventListener('touchstart', onOutsideDown, { capture: true, passive: true });
+      window.addEventListener('touchstart', onOutsideDown, { capture: true, passive: false });
+      window.addEventListener('mousedown', suppressEvent, true);
+      window.addEventListener('pointerup', suppressEvent, true);
+      window.addEventListener('mouseup', suppressEvent, true);
+      window.addEventListener('touchend', suppressEvent, true);
+      window.addEventListener('click', (e) => {
+        if (this._suppressNextPointer) {
+          if (e.cancelable) e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          this._suppressNextPointer = false;
+          if (this._suppressTimer) {
+            clearTimeout(this._suppressTimer);
+            this._suppressTimer = null;
+          }
+        }
+      }, true);
       window.addEventListener('keydown', (e) => {
         if (this.activeMenu && this.activeMenu.onKeyDown(e)) {
           e.preventDefault();
@@ -4973,6 +5008,12 @@ async function main() {
   });
 
   canvasEl.addEventListener('pointerdown', e => {
+    if (window.contextMenuService && window.contextMenuService.activeMenu) {
+      window.contextMenuService.hideContextMenu();
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     _cachedCanvasRect = canvasEl.getBoundingClientRect();
     if (e.pointerType === 'touch') return; // Handled by touch events (gestures/taps)
     if (e.button === 2) return; // Right-click strictly opens context menu, never draws/erases
@@ -5416,6 +5457,10 @@ async function main() {
 
   canvasEl.addEventListener('touchstart', e => {
     e.preventDefault();
+    if (window.contextMenuService && window.contextMenuService.activeMenu) {
+      window.contextMenuService.hideContextMenu();
+      return;
+    }
     _cachedCanvasRect = canvasEl.getBoundingClientRect();
     touch.coalescedQueue.length = 0;
 
@@ -11992,13 +12037,13 @@ async function main() {
             menuDropdown?.classList.remove('active');
             btnMenuLogo?.classList.remove('active');
             if (p.type === 'vector') {
-              window.location.href = `studio.html?project=${p.id}`;
+              alert('This project was created in Studio. Open the Recents panel to import it as a layer into Painter.');
               return;
             }
             const fullProj = await EsenhoStore.getProject(p.id);
             if (fullProj) {
               if (fullProj.type === 'vector' || (!fullProj.layers && (fullProj.jsonDoc || fullProj.svgData))) {
-                window.location.href = `studio.html?project=${p.id}`;
+                alert('This project was created in Studio. Open the Recents panel to import it as a layer into Painter.');
                 return;
               }
               try {
@@ -14145,7 +14190,7 @@ async function main() {
 
     window.painterOpenRecent = function(id, type) {
       if (type === 'vector') {
-        window.location.href = `studio.html?project=${id}`;
+        alert('This project was created in Studio. Click "+ Layer" to import its rendered image as a layer in Painter.');
         return;
       }
       window.location.href = `painter.html?project=${id}`;
@@ -14172,7 +14217,7 @@ async function main() {
       if (!confirm('Clear ALL projects and stored data? This cannot be undone.')) return;
       if (typeof EsenhoStore !== 'undefined') await EsenhoStore.clearAll();
       alert('Storage cleared.');
-      window.location.href = 'studio.html';
+      window.location.href = 'painter.html';
     }
 
     document.getElementById('btn-ip-clear-storage')?.addEventListener('click', handleClearAllStorage);
@@ -15116,6 +15161,11 @@ async function main() {
       window.parent.postMessage({ type: 'PAINTER_READY' }, '*');
     } catch (_) {}
   }
+  document.getElementById('btn-embedded-exit')?.addEventListener('click', () => {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'CLOSE_EMBEDDED' }, '*');
+    }
+  });
 }
 
 main().catch(e => { console.error(e); log(`BOOT ERROR: ${e.message}`, 'err'); });

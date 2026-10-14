@@ -1198,23 +1198,14 @@ export class RasterAnimatorUI {
         }
 
         const holdBadge = document.createElement('span');
-        holdBadge.title = 'Click to edit frame duration (unlimited frames)';
+        holdBadge.title = `Cel #${idx + 1} (${dur} frame${dur > 1 ? 's' : ''})`;
         holdBadge.style.cssText = `
           font-size: 8px; font-weight: 800; font-family: var(--font-mono);
           color: ${dur > 1 ? 'var(--bg-dark)' : (isCelActive ? 'var(--primary)' : 'var(--text-muted)')};
           background: ${dur > 1 ? 'var(--primary)' : 'transparent'};
-          border-radius: 2px; padding: 0 2px; cursor: pointer; flex-shrink: 0;
+          border-radius: 2px; padding: 0 2px; flex-shrink: 0; pointer-events: none;
         `;
         holdBadge.textContent = dur > 1 ? `${dur}f` : `#${idx + 1}`;
-        holdBadge.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.animator.selectLayerCel(lid, idx);
-          const holdInput = this.container.querySelector('#raster-hold-input');
-          if (holdInput) {
-            holdInput.focus();
-            holdInput.select();
-          }
-        });
         card.appendChild(holdBadge);
 
         card.addEventListener('click', () => {

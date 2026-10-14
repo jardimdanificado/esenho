@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "name": "Esenho Universal Standard Resources",
   "description": "Unified single-file resource library for brush presets, textures, brush tips, materials, curves, meshes, wasm fx plugins, palettes, and brush fill presets.",
-  "exportedAt": "2026-10-14T22:22:21.647Z",
+  "exportedAt": "2026-10-14T22:44:56.313Z",
   "stats": {
     "brushPresets": 81,
     "textures": 18,
