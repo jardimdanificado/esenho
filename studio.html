@@ -3760,7 +3760,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.70 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.72 ready</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -8917,7 +8917,7 @@
       }
       window.removeGuide = removeGuide;
 
-      function buildCanvasContextMenuItems(e, pt) {
+      function buildCanvasContextMenuItems(e, pt, { isTopBar = false } = {}) {
         if (!pt) {
           const rect = viewportContainer?.getBoundingClientRect();
           if (rect && typeof screenToDoc === 'function') {
@@ -9546,13 +9546,160 @@
           { type: 'item', label: (brushAutoTaper ? '✓ ' : '') + 'Brush Auto-Taper Ends', action: () => { brushAutoTaper = !brushAutoTaper; showNotification(brushAutoTaper ? 'Auto-Taper Ends: ON' : 'Auto-Taper Ends: OFF'); } }
         ]);
 
+        if (isTopBar) {
+          addSep();
+
+          const resizeStudioCanvas = (w, h) => {
+            doc.width = w;
+            doc.height = h;
+            const wInput = document.getElementById('prop-doc-w');
+            const hInput = document.getElementById('prop-doc-h');
+            if (wInput) wInput.value = w;
+            if (hInput) hInput.value = h;
+            const presetEl = document.getElementById('prop-canvas-preset');
+            if (presetEl) presetEl.value = 'custom';
+            updateStageSize();
+            zoomToFit();
+            render();
+            showNotification(`Canvas resized to ${w}×${h}`);
+          };
+
+          // Canvas & View Submenu
+          addSubmenu('Canvas & View', [
+            { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
+            { type: 'item', label: 'Zoom 100%', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } },
+            { type: 'item', label: 'Reset Viewport Rotation (0°)', action: () => { viewportRotation = 0; applyViewportTransform(); render(); } },
+            { type: 'sep' },
+            {
+              type: 'submenu',
+              label: `Canvas Size & Presets (${doc.width}×${doc.height})`,
+              items: [
+                {
+                  type: 'custom',
+                  render: () => {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;';
+                    const wInp = document.createElement('input');
+                    wInp.type = 'number';
+                    wInp.className = 'ui-input-num';
+                    wInp.value = String(doc.width);
+                    wInp.min = '16';
+                    wInp.max = '8192';
+                    wInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
+                    const sep = document.createElement('span');
+                    sep.textContent = '×';
+                    sep.style.cssText = 'color:var(--text-muted);font-weight:bold;';
+                    const hInp = document.createElement('input');
+                    hInp.type = 'number';
+                    hInp.className = 'ui-input-num';
+                    hInp.value = String(doc.height);
+                    hInp.min = '16';
+                    hInp.max = '8192';
+                    hInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'ip-btn';
+                    btn.textContent = 'Resize';
+                    btn.style.cssText = 'flex:1;height:24px;padding:0 8px;font-size:10.5px;background:var(--primary);color:var(--bg-dark);font-weight:bold;';
+                    btn.addEventListener('click', (ev) => {
+                      ev.stopPropagation();
+                      const nw = parseInt(wInp.value, 10);
+                      const nh = parseInt(hInp.value, 10);
+                      if (nw >= 16 && nh >= 16) {
+                        resizeStudioCanvas(nw, nh);
+                        window.contextMenuService?.hideContextMenu();
+                      }
+                    });
+                    [wInp, hInp].forEach(inp => inp.addEventListener('keydown', (ke) => {
+                      ke.stopPropagation();
+                      if (ke.key === 'Enter') btn.click();
+                    }));
+                    row.appendChild(wInp);
+                    row.appendChild(sep);
+                    row.appendChild(hInp);
+                    row.appendChild(btn);
+                    return row;
+                  }
+                },
+                { type: 'item', label: '640×480 (VGA)', action: () => resizeStudioCanvas(640, 480) },
+                { type: 'item', label: '1280×720 (720p HD)', action: () => resizeStudioCanvas(1280, 720) },
+                { type: 'item', label: '1920×1080 (1080p FHD)', action: () => resizeStudioCanvas(1920, 1080) },
+                { type: 'item', label: '1080×1080 (1:1 Square)', action: () => resizeStudioCanvas(1080, 1080) }
+              ]
+            },
+            {
+              type: 'submenu',
+              label: 'Renderer & Performance',
+              items: [
+                { type: 'item', label: viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', action: () => syncRenderMode('quadro') },
+                { type: 'item', label: viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', action: () => syncRenderMode('svg') },
+                { type: 'sep' },
+                { type: 'item', label: Math.abs(quadroRenderScale - 0.5) < 0.01 ? '✓ Scale: 0.5× (Fast Draft)' : 'Scale: 0.5× (Fast Draft)', action: () => { quadroRenderScale = 0.5; updateStageSize(); render(); updateRendererMenuUi(); } },
+                { type: 'item', label: Math.abs(quadroRenderScale - 1.0) < 0.01 ? '✓ Scale: 1.0× (Native 1:1)' : 'Scale: 1.0× (Native 1:1)', action: () => { quadroRenderScale = 1.0; updateStageSize(); render(); updateRendererMenuUi(); } },
+                { type: 'item', label: Math.abs(quadroRenderScale - 2.0) < 0.01 ? '✓ Scale: 2.0× (Hi-DPI Retina)' : 'Scale: 2.0× (Hi-DPI Retina)', action: () => { quadroRenderScale = 2.0; updateStageSize(); render(); updateRendererMenuUi(); } },
+                { type: 'sep' },
+                { type: 'item', label: viewportBilinear ? '✓ Filter: Bilinear (Smooth)' : 'Filter: Bilinear (Smooth)', action: () => setViewportBilinear(true, true) },
+                { type: 'item', label: !viewportBilinear ? '✓ Filter: Nearest (Crisp)' : 'Filter: Nearest (Crisp)', action: () => setViewportBilinear(false, true) },
+                { type: 'item', label: groupSelectMode ? '✓ Group Select: Enabled' : 'Group Select: Disabled', action: () => setGroupSelectMode(!groupSelectMode, true) }
+              ]
+            },
+            {
+              type: 'submenu',
+              label: 'Workspace Tabs',
+              items: [
+                { type: 'item', label: (dockviewApi?.getPanel('scene') ? '✓ ' : '') + 'Scene Tree', action: () => openDockPanel('scene') },
+                { type: 'item', label: (dockviewApi?.getPanel('tools') ? '✓ ' : '') + 'Tools & Ops', action: () => openDockPanel('tools') },
+                { type: 'item', label: (dockviewApi?.getPanel('inspect') ? '✓ ' : '') + 'Transform & Inspector', action: () => openDockPanel('inspect') },
+                { type: 'item', label: (dockviewApi?.getPanel('color') ? '✓ ' : '') + 'Materials & Color Studio', action: () => openDockPanel('color') },
+                { type: 'item', label: (dockviewApi?.getPanel('animation') ? '✓ ' : '') + 'Timeline (DopeSheet)', action: () => openDockPanel('animation') },
+                { type: 'item', label: (dockviewApi?.getPanel('curves') ? '✓ ' : '') + 'Curve Editor', action: () => openDockPanel('curves') },
+                { type: 'item', label: (dockviewApi?.getPanel('projects') ? '✓ ' : '') + 'Projects & Export', action: () => openDockPanel('projects') },
+                { type: 'sep' },
+                { type: 'item', label: 'Reset Dock Layout (Auto)', action: () => resetDockviewLayout('auto') },
+                { type: 'item', label: 'Portrait Layout (Bottom Tabs)', action: () => resetDockviewLayout('portrait') },
+                { type: 'item', label: 'Landscape Layout (Side + Bottom)', action: () => resetDockviewLayout('landscape') }
+              ]
+            },
+            { type: 'sep' },
+            { type: 'item', label: 'Toggle Theme (Dark / Light)', action: () => toggleTheme() }
+          ]);
+
+          // Project & File Submenu
+          addSubmenu('Project & File', [
+            { type: 'item', label: 'New Project...', action: () => openNewProjectModal() },
+            { type: 'item', label: 'Projects & Storage...', action: () => openRecentsModal() },
+            { type: 'sep' },
+            { type: 'item', label: 'Import SVG File...', action: () => document.getElementById('file-input-svg')?.click() },
+            { type: 'item', label: 'Import Raster Image...', action: () => document.getElementById('file-import-img')?.click() },
+            { type: 'sep' },
+            { type: 'item', label: 'Quick Export SVG (1×)', action: () => performExport('image/svg+xml', 1) },
+            { type: 'item', label: 'Quick Export PNG (1×)', action: () => performExport('image/png', 1) },
+            { type: 'item', label: 'Export Center (Video / GIF / Scale)...', action: () => openDockPanel('export') }
+          ]);
+
+          // App Switcher & About
+          addSep();
+          addItem('Switch to Painter', '', () => {
+            window.location.href = 'painter.html';
+          });
+          const vStudioStr = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.13.54';
+          addItem(`v${vStudioStr}`, '', async () => {
+            if (typeof saveCurrentProjectSnapshot === 'function') {
+              await saveCurrentProjectSnapshot();
+            }
+            if (typeof showNotification === 'function') {
+              showNotification(`v${vStudioStr} · Saved`);
+            }
+          });
+        }
+
         return items;
       }
 
       function showCanvasContextMenu(e, pt) {
         if (e && typeof e.preventDefault === 'function') e.preventDefault();
         if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-        const items = buildCanvasContextMenuItems(e, pt);
+        const items = buildCanvasContextMenuItems(e, pt, { isTopBar: false });
         if (window.contextMenuService) {
           window.contextMenuService.showContextMenu({
             getAnchor: () => ({ x: e ? e.clientX : 10, y: e ? e.clientY : 10 }),
@@ -9563,174 +9710,20 @@
 
       function showStudioTitleBarContextMenu(e) {
         if (!window.contextMenuService) return;
-        if (e) {
+        if (e && typeof e.preventDefault === 'function') {
           e.preventDefault();
           e.stopPropagation();
         }
-        const items = [];
-        const addItem = (label, hotkey, action, opts = {}) => {
-          items.push({ type: 'item', label, hotkey, action, danger: opts.danger, disabled: opts.disabled });
-        };
-        const addSubmenu = (label, subitems) => {
-          if (subitems && subitems.length > 0) {
-            items.push({ type: 'submenu', label, items: subitems });
-          }
-        };
-        const addSep = () => {
-          if (items.length > 0 && items[items.length - 1].type !== 'sep') {
-            items.push({ type: 'sep' });
-          }
-        };
-
-        // 1. Context Submenu (exact same contextual items as canvas long-press)
-        addSubmenu('Context', buildCanvasContextMenuItems(e));
-        addSep();
-
-        const resizeStudioCanvas = (w, h) => {
-          doc.width = w;
-          doc.height = h;
-          const wInput = document.getElementById('prop-doc-w');
-          const hInput = document.getElementById('prop-doc-h');
-          if (wInput) wInput.value = w;
-          if (hInput) hInput.value = h;
-          const presetEl = document.getElementById('prop-canvas-preset');
-          if (presetEl) presetEl.value = 'custom';
-          updateStageSize();
-          zoomToFit();
-          render();
-          showNotification(`Canvas resized to ${w}×${h}`);
-        };
-
-        // 1. Canvas & View Submenu
-        addSubmenu('Canvas & View', [
-          { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
-          { type: 'item', label: 'Zoom 100%', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } },
-          { type: 'item', label: 'Reset Viewport Rotation (0°)', action: () => { viewportRotation = 0; applyViewportTransform(); render(); } },
-          { type: 'sep' },
-          {
-            type: 'submenu',
-            label: `Canvas Size & Presets (${doc.width}×${doc.height})`,
-            items: [
-              {
-                type: 'custom',
-                render: () => {
-                  const row = document.createElement('div');
-                  row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;';
-                  const wInp = document.createElement('input');
-                  wInp.type = 'number';
-                  wInp.className = 'ui-input-num';
-                  wInp.value = String(doc.width);
-                  wInp.min = '16';
-                  wInp.max = '8192';
-                  wInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
-                  const sep = document.createElement('span');
-                  sep.textContent = '×';
-                  sep.style.cssText = 'color:var(--text-muted);font-weight:bold;';
-                  const hInp = document.createElement('input');
-                  hInp.type = 'number';
-                  hInp.className = 'ui-input-num';
-                  hInp.value = String(doc.height);
-                  hInp.min = '16';
-                  hInp.max = '8192';
-                  hInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
-                  const btn = document.createElement('button');
-                  btn.type = 'button';
-                  btn.className = 'ip-btn';
-                  btn.textContent = 'Resize';
-                  btn.style.cssText = 'flex:1;height:24px;padding:0 8px;font-size:10.5px;background:var(--primary);color:var(--bg-dark);font-weight:bold;';
-                  btn.addEventListener('click', (ev) => {
-                    ev.stopPropagation();
-                    const nw = parseInt(wInp.value, 10);
-                    const nh = parseInt(hInp.value, 10);
-                    if (nw >= 16 && nh >= 16) {
-                      resizeStudioCanvas(nw, nh);
-                      window.contextMenuService?.hideContextMenu();
-                    }
-                  });
-                  [wInp, hInp].forEach(inp => inp.addEventListener('keydown', (ke) => {
-                    ke.stopPropagation();
-                    if (ke.key === 'Enter') btn.click();
-                  }));
-                  row.appendChild(wInp);
-                  row.appendChild(sep);
-                  row.appendChild(hInp);
-                  row.appendChild(btn);
-                  return row;
-                }
-              },
-              { type: 'item', label: '640×480 (VGA)', action: () => resizeStudioCanvas(640, 480) },
-              { type: 'item', label: '1280×720 (720p HD)', action: () => resizeStudioCanvas(1280, 720) },
-              { type: 'item', label: '1920×1080 (1080p FHD)', action: () => resizeStudioCanvas(1920, 1080) },
-              { type: 'item', label: '1080×1080 (1:1 Square)', action: () => resizeStudioCanvas(1080, 1080) }
-            ]
-          },
-          {
-            type: 'submenu',
-            label: 'Renderer & Performance',
-            items: [
-              { type: 'item', label: viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', action: () => syncRenderMode('quadro') },
-              { type: 'item', label: viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', action: () => syncRenderMode('svg') },
-              { type: 'sep' },
-              { type: 'item', label: Math.abs(quadroRenderScale - 0.5) < 0.01 ? '✓ Scale: 0.5× (Fast Draft)' : 'Scale: 0.5× (Fast Draft)', action: () => { quadroRenderScale = 0.5; updateStageSize(); render(); updateRendererMenuUi(); } },
-              { type: 'item', label: Math.abs(quadroRenderScale - 1.0) < 0.01 ? '✓ Scale: 1.0× (Native 1:1)' : 'Scale: 1.0× (Native 1:1)', action: () => { quadroRenderScale = 1.0; updateStageSize(); render(); updateRendererMenuUi(); } },
-              { type: 'item', label: Math.abs(quadroRenderScale - 2.0) < 0.01 ? '✓ Scale: 2.0× (Hi-DPI Retina)' : 'Scale: 2.0× (Hi-DPI Retina)', action: () => { quadroRenderScale = 2.0; updateStageSize(); render(); updateRendererMenuUi(); } },
-              { type: 'sep' },
-              { type: 'item', label: viewportBilinear ? '✓ Filter: Bilinear (Smooth)' : 'Filter: Bilinear (Smooth)', action: () => setViewportBilinear(true, true) },
-              { type: 'item', label: !viewportBilinear ? '✓ Filter: Nearest (Crisp)' : 'Filter: Nearest (Crisp)', action: () => setViewportBilinear(false, true) },
-              { type: 'item', label: groupSelectMode ? '✓ Group Select: Enabled' : 'Group Select: Disabled', action: () => setGroupSelectMode(!groupSelectMode, true) }
-            ]
-          },
-          {
-            type: 'submenu',
-            label: 'Workspace Tabs',
-            items: [
-              { type: 'item', label: (dockviewApi?.getPanel('scene') ? '✓ ' : '') + 'Scene Tree', action: () => openDockPanel('scene') },
-              { type: 'item', label: (dockviewApi?.getPanel('tools') ? '✓ ' : '') + 'Tools & Ops', action: () => openDockPanel('tools') },
-              { type: 'item', label: (dockviewApi?.getPanel('inspect') ? '✓ ' : '') + 'Transform & Inspector', action: () => openDockPanel('inspect') },
-              { type: 'item', label: (dockviewApi?.getPanel('color') ? '✓ ' : '') + 'Materials & Color Studio', action: () => openDockPanel('color') },
-              { type: 'item', label: (dockviewApi?.getPanel('animation') ? '✓ ' : '') + 'Timeline (DopeSheet)', action: () => openDockPanel('animation') },
-              { type: 'item', label: (dockviewApi?.getPanel('curves') ? '✓ ' : '') + 'Curve Editor', action: () => openDockPanel('curves') },
-              { type: 'item', label: (dockviewApi?.getPanel('projects') ? '✓ ' : '') + 'Projects & Export', action: () => openDockPanel('projects') },
-              { type: 'sep' },
-              { type: 'item', label: 'Reset Dock Layout (Auto)', action: () => resetDockviewLayout('auto') },
-              { type: 'item', label: 'Portrait Layout (Bottom Tabs)', action: () => resetDockviewLayout('portrait') },
-              { type: 'item', label: 'Landscape Layout (Side + Bottom)', action: () => resetDockviewLayout('landscape') }
-            ]
-          },
-          { type: 'sep' },
-          { type: 'item', label: 'Toggle Theme (Dark / Light)', action: () => toggleTheme() }
-        ]);
-
-        // 2. Project & File Submenu
-        addSubmenu('Project & File', [
-          { type: 'item', label: 'New Project...', action: () => openNewProjectModal() },
-          { type: 'item', label: 'Projects & Storage...', action: () => openRecentsModal() },
-          { type: 'sep' },
-          { type: 'item', label: 'Import SVG File...', action: () => document.getElementById('file-input-svg')?.click() },
-          { type: 'item', label: 'Import Raster Image...', action: () => document.getElementById('file-import-img')?.click() },
-          { type: 'sep' },
-          { type: 'item', label: 'Quick Export SVG (1×)', action: () => performExport('image/svg+xml', 1) },
-          { type: 'item', label: 'Quick Export PNG (1×)', action: () => performExport('image/png', 1) },
-          { type: 'item', label: 'Export Center (Video / GIF / Scale)...', action: () => openDockPanel('export') }
-        ]);
-
-        // 3. App Switcher & About
-        addSep();
-        addItem('Switch to Painter', '', () => {
-          window.location.href = 'painter.html';
-        });
-        const vStudioStr = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.13.54';
-        addItem(`v${vStudioStr}`, '', async () => {
-          if (typeof saveCurrentProjectSnapshot === 'function') {
-            await saveCurrentProjectSnapshot();
-          }
-          if (typeof showNotification === 'function') {
-            showNotification(`v${vStudioStr} · Saved`);
-          }
-        });
-
+        const items = buildCanvasContextMenuItems(e, null, { isTopBar: true });
         window.contextMenuService.showContextMenu({
-          getAnchor: () => ({ x: e ? e.clientX : 10, y: e ? e.clientY : 30 }),
+          getAnchor: () => {
+            const rect = document.getElementById('btn-menu-logo')?.getBoundingClientRect();
+            if (rect) return { x: rect.left, y: rect.bottom + 2 };
+            if (e && e.clientX !== undefined && e.clientY !== undefined) {
+              return { x: e.clientX, y: e.clientY };
+            }
+            return { x: 10, y: 30 };
+          },
           getActions: () => items
         });
       }
@@ -10922,20 +10915,235 @@
       // ── Top Header & Main Menu Actions ──
       window.addEventListener('resize', () => { drawOverlay(); });
 
-      // Main "E" Menu Dropdown Toggle
+      // Main "E" Menu Dropdown Toggle & Drag Dropper
       const btnMenuLogo = document.getElementById('btn-menu-logo');
       const menuDropdown = document.getElementById('app-menu-dropdown');
-      btnMenuLogo?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        const rect = btnMenuLogo.getBoundingClientRect();
-        showStudioTitleBarContextMenu({
-          clientX: rect.left,
-          clientY: rect.bottom + 2,
-          preventDefault() {},
-          stopPropagation() {}
+
+      function setupStudioTitleBarMenuDrag() {
+        if (!btnMenuLogo) return;
+        btnMenuLogo.style.touchAction = 'none';
+
+        let isDragging = false;
+        let hasDragged = false;
+        let startX = 0;
+        let startY = 0;
+        let longPressTimer = null;
+        let reticleEl = null;
+
+        function createReticle() {
+          if (reticleEl) return reticleEl;
+          const el = document.createElement('div');
+          el.className = 'context-drop-reticle';
+          el.style.cssText = 'position:fixed;pointer-events:none;z-index:100000;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;left:-9999px;top:-9999px;user-select:none;';
+          el.innerHTML = `
+            <div style="width:42px;height:42px;border-radius:50%;border:2px solid #fabd2f;background:rgba(29,32,33,0.75);backdrop-filter:blur(2px);box-shadow:0 0 0 2px rgba(0,0,0,0.6),0 0 14px rgba(250,189,47,0.6);display:flex;align-items:center;justify-content:center;position:relative;">
+              <div style="position:absolute;width:14px;height:2px;background:#fabd2f;left:50%;top:50%;transform:translate(-50%,-50%);"></div>
+              <div style="position:absolute;width:2px;height:14px;background:#fabd2f;left:50%;top:50%;transform:translate(-50%,-50%);"></div>
+              <div style="width:6px;height:6px;border-radius:50%;background:#ebdbb2;z-index:2;box-shadow:0 0 3px #000;"></div>
+            </div>
+            <div style="margin-top:6px;padding:3px 9px;background:rgba(29,32,33,0.92);border:1px solid #fabd2f;border-radius:12px;color:#ebdbb2;font-size:10.5px;font-weight:600;font-family:system-ui,-apple-system,sans-serif;letter-spacing:0.3px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+              🎯 Solte para abrir menu aqui
+            </div>
+          `;
+          document.body.appendChild(el);
+          reticleEl = el;
+          return el;
+        }
+
+        function updateReticlePos(x, y) {
+          if (!reticleEl) createReticle();
+          reticleEl.style.left = `${x}px`;
+          reticleEl.style.top = `${y}px`;
+        }
+
+        function removeReticle() {
+          if (reticleEl) {
+            reticleEl.remove();
+            reticleEl = null;
+          }
+        }
+
+        function startDragMode(x, y) {
+          if (isDragging) return;
+          isDragging = true;
+          hasDragged = true;
+          if (navigator.vibrate) {
+            try { navigator.vibrate(22); } catch (_) {}
+          }
+          btnMenuLogo.classList.add('active');
+          btnMenuLogo.style.opacity = '0.6';
+          updateReticlePos(x, y);
+        }
+
+        function triggerStudioContextDrop(dropX, dropY) {
+          const targetEl = document.elementFromPoint(dropX, dropY);
+          const rect = btnMenuLogo.getBoundingClientRect();
+          const distToBtn = Math.hypot(dropX - (rect.left + rect.width / 2), dropY - (rect.top + rect.height / 2));
+          if (distToBtn < 24 || (targetEl && (targetEl === btnMenuLogo || btnMenuLogo.contains(targetEl)))) {
+            showStudioTitleBarContextMenu({
+              clientX: rect.left,
+              clientY: rect.bottom + 2,
+              preventDefault() {},
+              stopPropagation() {}
+            });
+            return;
+          }
+
+          const viewCont = document.getElementById('viewport-container');
+          if (viewCont && (targetEl === viewCont || viewCont.contains(targetEl))) {
+            const pt = (typeof screenToDoc === 'function') ? screenToDoc(dropX, dropY) : { x: dropX, y: dropY };
+
+            // 1. Guideline hit test
+            const hitGuide = (typeof findGuideAt === 'function' ? findGuideAt(pt, 8) : null) || (typeof selectedGuide !== 'undefined' ? selectedGuide : null);
+            if (hitGuide && typeof drawOverlay === 'function') {
+              selectedGuide = hitGuide;
+              drawOverlay();
+              showCanvasContextMenu({ clientX: dropX, clientY: dropY, preventDefault() {}, stopPropagation() {} }, pt);
+              return;
+            }
+
+            // 2. Object hit test
+            if (typeof doc !== 'undefined' && doc) {
+              let hitObj = null;
+              if (typeof groupSelectMode !== 'undefined' && groupSelectMode) {
+                hitObj = (typeof doc.hitTest === 'function' ? doc.hitTest(pt.x, pt.y) : null) || (typeof doc.hitTestDeep === 'function' ? doc.hitTestDeep(pt.x, pt.y) : null);
+              } else if (typeof doc.hitTestDeep === 'function') {
+                hitObj = doc.hitTestDeep(pt.x, pt.y);
+              }
+              if (hitObj && doc.selectedIds) {
+                if (!doc.selectedIds.has(hitObj.id)) {
+                  doc.selectedIds.clear();
+                  doc.selectedIds.add(hitObj.id);
+                  if (typeof render === 'function') render();
+                  if (typeof drawOverlay === 'function') drawOverlay();
+                  if (typeof expandObjectInTree === 'function') expandObjectInTree(hitObj);
+                  if (typeof updateInspector === 'function') updateInspector();
+                  if (typeof updateObjectList === 'function') updateObjectList();
+                }
+              }
+            }
+
+            showCanvasContextMenu({ clientX: dropX, clientY: dropY, preventDefault() {}, stopPropagation() {} }, pt);
+            return;
+          }
+
+          // Other UI elements: dispatch standard contextmenu event
+          if (targetEl) {
+            const evt = new MouseEvent('contextmenu', {
+              bubbles: true,
+              cancelable: true,
+              clientX: dropX,
+              clientY: dropY,
+              button: 2,
+              buttons: 2,
+              view: window
+            });
+            const cancelled = !targetEl.dispatchEvent(evt);
+            if (!cancelled) {
+              const pt = (typeof screenToDoc === 'function') ? screenToDoc(dropX, dropY) : { x: doc.width / 2, y: doc.height / 2 };
+              showCanvasContextMenu({ clientX: dropX, clientY: dropY, preventDefault() {}, stopPropagation() {} }, pt);
+            }
+          } else {
+            const pt = (typeof screenToDoc === 'function') ? screenToDoc(dropX, dropY) : { x: doc.width / 2, y: doc.height / 2 };
+            showCanvasContextMenu({ clientX: dropX, clientY: dropY, preventDefault() {}, stopPropagation() {} }, pt);
+          }
+        }
+
+        btnMenuLogo.addEventListener('pointerdown', (e) => {
+          if (e.button !== undefined && e.button !== 0) return;
+          startX = e.clientX;
+          startY = e.clientY;
+          isDragging = false;
+          hasDragged = false;
+
+          try { btnMenuLogo.setPointerCapture(e.pointerId); } catch (_) {}
+
+          longPressTimer = setTimeout(() => {
+            startDragMode(startX, startY);
+          }, 220);
+
+          const onPointerMove = (me) => {
+            const dist = Math.hypot(me.clientX - startX, me.clientY - startY);
+            if (!isDragging && dist > 7) {
+              if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+              }
+              startDragMode(me.clientX, me.clientY);
+            }
+            if (isDragging) {
+              updateReticlePos(me.clientX, me.clientY);
+            }
+          };
+
+          const onPointerUp = (ue) => {
+            if (longPressTimer) {
+              clearTimeout(longPressTimer);
+              longPressTimer = null;
+            }
+            btnMenuLogo.removeEventListener('pointermove', onPointerMove);
+            btnMenuLogo.removeEventListener('pointerup', onPointerUp);
+            btnMenuLogo.removeEventListener('pointercancel', onPointerCancel);
+            try { btnMenuLogo.releasePointerCapture(ue.pointerId); } catch (_) {}
+
+            btnMenuLogo.classList.remove('active');
+            btnMenuLogo.style.opacity = '';
+
+            const finalX = ue.clientX;
+            const finalY = ue.clientY;
+
+            if (isDragging) {
+              isDragging = false;
+              removeReticle();
+              if (navigator.vibrate) {
+                try { navigator.vibrate(15); } catch (_) {}
+              }
+              requestAnimationFrame(() => {
+                triggerStudioContextDrop(finalX, finalY);
+              });
+            } else {
+              removeReticle();
+            }
+          };
+
+          const onPointerCancel = (ce) => {
+            if (longPressTimer) {
+              clearTimeout(longPressTimer);
+              longPressTimer = null;
+            }
+            btnMenuLogo.removeEventListener('pointermove', onPointerMove);
+            btnMenuLogo.removeEventListener('pointerup', onPointerUp);
+            btnMenuLogo.removeEventListener('pointercancel', onPointerCancel);
+            try { btnMenuLogo.releasePointerCapture(ce.pointerId); } catch (_) {}
+            btnMenuLogo.classList.remove('active');
+            btnMenuLogo.style.opacity = '';
+            isDragging = false;
+            removeReticle();
+          };
+
+          btnMenuLogo.addEventListener('pointermove', onPointerMove);
+          btnMenuLogo.addEventListener('pointerup', onPointerUp);
+          btnMenuLogo.addEventListener('pointercancel', onPointerCancel);
         });
-      });
+
+        btnMenuLogo.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          if (hasDragged) {
+            hasDragged = false;
+            return;
+          }
+          const rect = btnMenuLogo.getBoundingClientRect();
+          showStudioTitleBarContextMenu({
+            clientX: rect.left,
+            clientY: rect.bottom + 2,
+            preventDefault() {},
+            stopPropagation() {}
+          });
+        });
+      }
+
+      setupStudioTitleBarMenuDrag();
 
       document.addEventListener('click', (e) => {
         if (!menuDropdown?.contains(e.target) && !btnMenuLogo?.contains(e.target)) {

@@ -3615,7 +3615,7 @@ async function main() {
   }
   window.openPanelInContextMenu = openPanelInContextMenu;
 
-  function buildPainterContextMenuItems(e) {
+  function buildPainterContextMenuItems(e, { isTopBar = false } = {}) {
     const r = canvasEl?.getBoundingClientRect();
     const evt = (e && e.clientX !== undefined && (r ? e.clientY >= r.top : true))
       ? e
@@ -4219,13 +4219,234 @@ async function main() {
     addItem('Redo', 'Ctrl+Y', () => runCmd('redo'));
     if (host.clipboardBuffer) addItem('Paste', 'Ctrl+V', () => runCmd('paste'));
 
+    if (isTopBar) {
+      addSep();
+
+      const dockApi = window.painterDockviewApi;
+      const isTabOpen = (id) => !!(dockApi && dockApi.getPanel(id));
+      const curW = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : (host.docWidth || 1280);
+      const curH = host.canvasActor?.exports?.get_canvas_height ? host.canvasActor.exports.get_canvas_height() : (host.docHeight || 720);
+      const uiScaleOpts = [
+        { val: 'auto', label: 'Auto (Responsive)' },
+        { val: '0.75', label: '75% (Small)' },
+        { val: '0.85', label: '85%' },
+        { val: '1.0', label: '100% (Default)' },
+        { val: '1.15', label: '115%' },
+        { val: '1.25', label: '125%' },
+        { val: '1.5', label: '150% (Large)' }
+      ];
+
+      // Canvas & View Submenu
+      addSubmenu('Canvas & View', [
+        { type: 'item', label: 'Zoom to Fit (Reset View)', hotkey: 'Ctrl+0', action: () => { host.zoom = 1.0; host.panX = 0; host.panY = 0; host.canvasRotation = 0; host.render(); } },
+        { type: 'item', label: '100% Zoom (1:1)', action: () => { if (host.zoomTo100) host.zoomTo100(); } },
+        { type: 'item', label: 'Reset Rotation (0°)', action: () => { if (host.resetRotation) host.resetRotation(); else { host.canvasRotation = 0; host.render(); } } },
+        { type: 'item', label: 'Center Canvas', action: () => { if (host.centerCanvas) host.centerCanvas(); else { host.panX = 0; host.panY = 0; host.render(); } } },
+        { type: 'item', label: (host.flipH ? '✓ ' : '') + 'Flip View Horizontal', action: () => { host.flipH = !host.flipH; host.render(); syncUiFromHost(); } },
+        { type: 'item', label: (host.flipV ? '✓ ' : '') + 'Flip View Vertical', action: () => { host.flipV = !host.flipV; host.render(); syncUiFromHost(); } },
+        { type: 'item', label: (host.showPixelGrid ? '✓ ' : '') + 'Show Pixel Grid', action: () => { syncPixelGrid(!host.showPixelGrid); } },
+        { type: 'sep' },
+        {
+          type: 'submenu',
+          label: 'Workspace Tabs',
+          items: [
+            { type: 'item', label: (isTabOpen('layers') ? '✓ ' : '') + 'Layers Tab', action: () => window.togglePainterDockPanel?.('layers') },
+            { type: 'item', label: (isTabOpen('tools') ? '✓ ' : '') + 'Tools Tab', action: () => window.togglePainterDockPanel?.('tools') },
+            { type: 'item', label: (isTabOpen('color') ? '✓ ' : '') + 'Color Studio Tab', action: () => window.togglePainterDockPanel?.('color') },
+            { type: 'item', label: (isTabOpen('lab') ? '✓ ' : '') + 'Brush Lab Tab', action: () => window.togglePainterDockPanel?.('lab') },
+            { type: 'item', label: (isTabOpen('timeline') ? '✓ ' : '') + 'Timeline Tab', action: () => window.togglePainterDockPanel?.('timeline') },
+            { type: 'sep' },
+            { type: 'item', label: 'Reset Workspace Layout', action: () => window.resetPainterDockLayout?.() }
+          ]
+        },
+        {
+          type: 'submenu',
+          label: `Canvas Size & Transform (${curW}×${curH})`,
+          items: [
+            {
+              type: 'custom',
+              render: () => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;';
+                const wInp = document.createElement('input');
+                wInp.type = 'number';
+                wInp.className = 'ui-input-num';
+                wInp.value = String(curW);
+                wInp.min = '16';
+                wInp.max = '16384';
+                wInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
+                const sep = document.createElement('span');
+                sep.textContent = '×';
+                sep.style.cssText = 'color:var(--text-muted);font-weight:bold;';
+                const hInp = document.createElement('input');
+                hInp.type = 'number';
+                hInp.className = 'ui-input-num';
+                hInp.value = String(curH);
+                hInp.min = '16';
+                hInp.max = '16384';
+                hInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'ip-btn';
+                btn.textContent = 'Resize';
+                btn.style.cssText = 'flex:1;height:24px;padding:0 8px;font-size:10.5px;background:var(--primary);color:var(--bg-dark);font-weight:bold;';
+                btn.addEventListener('click', (ev) => {
+                  ev.stopPropagation();
+                  const nw = parseInt(wInp.value, 10);
+                  const nh = parseInt(hInp.value, 10);
+                  if (nw >= 16 && nh >= 16) {
+                    runCmd(`canvas resize ${nw} ${nh}`);
+                    window.contextMenuService?.hideContextMenu();
+                  }
+                });
+                [wInp, hInp].forEach(inp => inp.addEventListener('keydown', (ke) => {
+                  ke.stopPropagation();
+                  if (ke.key === 'Enter') btn.click();
+                }));
+                row.appendChild(wInp);
+                row.appendChild(sep);
+                row.appendChild(hInp);
+                row.appendChild(btn);
+                return row;
+              }
+            },
+            { type: 'item', label: '640×480 (VGA)', action: () => runCmd('canvas resize 640 480') },
+            { type: 'item', label: '1280×720 (720p HD)', action: () => runCmd('canvas resize 1280 720') },
+            { type: 'item', label: '1920×1080 (1080p FHD)', action: () => runCmd('canvas resize 1920 1080') },
+            { type: 'item', label: '1080×1080 (1:1 Square)', action: () => runCmd('canvas resize 1080 1080') },
+            { type: 'sep' },
+            { type: 'item', label: 'Rotate Canvas 90° CW', action: () => runCmd('canvas rotate 90') },
+            { type: 'item', label: 'Rotate Canvas 90° CCW', action: () => runCmd('canvas rotate -90') },
+            { type: 'item', label: 'Flip Canvas Horizontal', action: () => runCmd('canvas flip h') },
+            { type: 'item', label: 'Flip Canvas Vertical', action: () => runCmd('canvas flip v') },
+            { type: 'item', label: 'Crop Canvas to Selection', action: () => runCmd('crop') }
+          ]
+        },
+        {
+          type: 'submenu',
+          label: 'Renderer & Performance',
+          items: [
+            { type: 'item', label: (host.powerSaveMode ? '✓ ' : '') + 'Power Saving Mode (Battery & Thermal Saver)', action: () => host.setPowerSaveMode?.(!host.powerSaveMode) },
+            { type: 'sep' },
+            { type: 'item', label: (host.renderMode !== 'cpu' ? '✓ ' : '') + 'WebGL 2 (GPU)', action: () => document.querySelector('.render-engine-opt[data-engine="gpu"]')?.click() },
+            { type: 'item', label: (host.renderMode === 'cpu' ? '✓ ' : '') + 'Software (2D CPU)', action: () => document.querySelector('.render-engine-opt[data-engine="software"]')?.click() },
+            { type: 'sep' },
+            { type: 'item', label: (!host.viewportFiltering ? '✓ ' : '') + 'Nearest (Crisp / Pixel Art)', action: () => document.querySelector('.view-filter-opt[data-vfilter="nearest"]')?.click() },
+            { type: 'item', label: (host.viewportFiltering ? '✓ ' : '') + 'Bilinear (Smooth)', action: () => document.querySelector('.view-filter-opt[data-vfilter="bilinear"]')?.click() },
+            { type: 'sep' },
+            {
+              type: 'slider',
+              label: 'Undo History Limit',
+              min: 0,
+              max: 100,
+              value: host.maxUndoSteps !== undefined ? host.maxUndoSteps : 25,
+              unit: ' steps',
+              onInput: (val) => { syncMaxUndo(Math.round(val / 5) * 5); }
+            }
+          ]
+        },
+        {
+          type: 'submenu',
+          label: 'Input, Cursor & UI',
+          items: [
+            { type: 'item', label: (host.showBrushOutline ? '✓ ' : '') + 'Brush Cursor Outline', action: () => syncBrushOutline(!host.showBrushOutline) },
+            { type: 'item', label: (host.enableTouchUndoRedo ? '✓ ' : '') + 'Touch Gestures (2-Finger Undo / 3-Finger Redo)', action: () => syncTouchUndoRedo(!host.enableTouchUndoRedo) },
+            {
+              type: 'submenu',
+              label: 'Theme',
+              items: [
+                {
+                  type: 'item',
+                  label: ((localStorage.getItem('esenho_theme') || 'dark') === 'dark' ? '✓ ' : '') + 'Gruvbox Dark',
+                  action: () => { window.setPainterTheme?.('dark'); }
+                },
+                {
+                  type: 'item',
+                  label: ((localStorage.getItem('esenho_theme') || 'dark') === 'gray' ? '✓ ' : '') + 'Gray (Modern Neutral)',
+                  action: () => { window.setPainterTheme?.('gray'); }
+                },
+                {
+                  type: 'item',
+                  label: ((localStorage.getItem('esenho_theme') || 'dark') === 'skeuo' ? '✓ ' : '') + 'Skeuomorphic (Hardware)',
+                  action: () => { window.setPainterTheme?.('skeuo'); }
+                }
+              ]
+            },
+            { type: 'sep' },
+            {
+              type: 'submenu',
+              label: `UI Scale (${host.uiScale || 'auto'})`,
+              items: uiScaleOpts.map(o => ({
+                type: 'item',
+                label: (String(host.uiScale || 'auto') === o.val ? '✓ ' : '') + o.label,
+                action: () => host.setUiScale(o.val)
+              }))
+            },
+            {
+              type: 'submenu',
+              label: 'Context Menu Sliders',
+              items: buildContextMenuSlidersActions()
+            }
+          ]
+        }
+      ]);
+
+      // Project & File Submenu
+      addSubmenu('Project & File', [
+        {
+          type: 'submenu',
+          label: 'New Project',
+          items: [buildDomPanelAction('newproj')]
+        },
+        {
+          type: 'submenu',
+          label: 'Recent Projects',
+          items: [buildDomPanelAction('recents')]
+        },
+        { type: 'item', label: 'Open / Import (.esen, Image)...', hotkey: 'Ctrl+O', action: () => fileInput?.click() },
+        { type: 'item', label: 'Save Project Snapshot', hotkey: 'Ctrl+S', action: () => document.getElementById('btn-ip-save-proj')?.click() },
+        {
+          type: 'submenu',
+          label: 'Export',
+          items: [
+            { type: 'item', label: 'Export PNG (.png)', action: () => exportImage('image/png') },
+            { type: 'item', label: 'Export JPEG (.jpg)', action: () => exportImage('image/jpeg') },
+            { type: 'item', label: 'Export Animated GIF (.gif)', action: () => exportAnimatedGif() },
+            { type: 'item', label: 'Export WebM Video (.webm)', action: () => exportWebmVideo() },
+            { type: 'item', label: 'Export Project (.esen)', action: () => exportEsenProject() }
+          ]
+        },
+        { type: 'sep' },
+        { type: 'item', label: 'Clear Project Storage...', danger: true, action: () => document.getElementById('btn-ip-recents-clear')?.click() }
+      ]);
+
+      // App Switcher & About
+      addSep();
+      addItem('Switch to Studio', '', () => {
+        window.location.href = 'studio.html';
+      });
+      const pVersion = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.13.54';
+      addItem(`v${pVersion}`, '', async () => {
+        if (typeof performAutosave === 'function') {
+          saveUserPreferences();
+          await performAutosave(true);
+        } else {
+          document.getElementById('btn-ip-save-proj')?.click();
+        }
+        log(`esenho v${pVersion} — Project saved [ok]`);
+        if (typeof showNotification === 'function') {
+          showNotification(`v${pVersion} · Saved`);
+        }
+      });
+    }
+
     return items;
   }
 
   function showPainterContextMenu(e) {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-    const items = buildPainterContextMenuItems(e);
+    const items = buildPainterContextMenuItems(e, { isTopBar: false });
     window.contextMenuService.showContextMenu({
       getAnchor: () => ({ x: e ? e.clientX : 10, y: e ? e.clientY : 10 }),
       getActions: () => items
@@ -4235,246 +4456,20 @@ async function main() {
 
   function showPainterTitleBarContextMenu(e) {
     if (!window.contextMenuService) return;
-    if (e) {
+    if (e && typeof e.preventDefault === 'function') {
       e.preventDefault();
       e.stopPropagation();
     }
-    const items = [];
-    const addSubmenu = (label, subItems) => {
-      if (subItems && subItems.length > 0) items.push({ type: 'submenu', label, items: subItems });
-    };
-    const addItem = (label, hotkey, action, opts = {}) => {
-      items.push({ type: 'item', label, hotkey, action, ...opts });
-    };
-    const addSep = () => {
-      if (items.length > 0 && items[items.length - 1].type !== 'sep') {
-        items.push({ type: 'sep' });
-      }
-    };
-
-    // 1. Context Submenu (exact same contextual items as canvas long-press)
-    addSubmenu('Context', buildPainterContextMenuItems(e));
-    addSep();
-
-    const dockApi = window.painterDockviewApi;
-    const isTabOpen = (id) => !!(dockApi && dockApi.getPanel(id));
-    const curW = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : (host.docWidth || 1280);
-    const curH = host.canvasActor?.exports?.get_canvas_height ? host.canvasActor.exports.get_canvas_height() : (host.docHeight || 720);
-    const uiScaleOpts = [
-      { val: 'auto', label: 'Auto (Responsive)' },
-      { val: '0.75', label: '75% (Small)' },
-      { val: '0.85', label: '85%' },
-      { val: '1.0', label: '100% (Default)' },
-      { val: '1.15', label: '115%' },
-      { val: '1.25', label: '125%' },
-      { val: '1.5', label: '150% (Large)' }
-    ];
-
-    // 2. Canvas & View Submenu
-    addSubmenu('Canvas & View', [
-      { type: 'item', label: 'Zoom to Fit (Reset View)', hotkey: 'Ctrl+0', action: () => { host.zoom = 1.0; host.panX = 0; host.panY = 0; host.canvasRotation = 0; host.render(); } },
-      { type: 'item', label: '100% Zoom (1:1)', action: () => { if (host.zoomTo100) host.zoomTo100(); } },
-      { type: 'item', label: 'Reset Rotation (0°)', action: () => { if (host.resetRotation) host.resetRotation(); else { host.canvasRotation = 0; host.render(); } } },
-      { type: 'item', label: 'Center Canvas', action: () => { if (host.centerCanvas) host.centerCanvas(); else { host.panX = 0; host.panY = 0; host.render(); } } },
-      { type: 'item', label: (host.flipH ? '✓ ' : '') + 'Flip View Horizontal', action: () => { host.flipH = !host.flipH; host.render(); syncUiFromHost(); } },
-      { type: 'item', label: (host.flipV ? '✓ ' : '') + 'Flip View Vertical', action: () => { host.flipV = !host.flipV; host.render(); syncUiFromHost(); } },
-      { type: 'item', label: (host.showPixelGrid ? '✓ ' : '') + 'Show Pixel Grid', action: () => { syncPixelGrid(!host.showPixelGrid); } },
-      { type: 'sep' },
-      {
-        type: 'submenu',
-        label: 'Workspace Tabs',
-        items: [
-          { type: 'item', label: (isTabOpen('layers') ? '✓ ' : '') + 'Layers Tab', action: () => window.togglePainterDockPanel?.('layers') },
-          { type: 'item', label: (isTabOpen('tools') ? '✓ ' : '') + 'Tools Tab', action: () => window.togglePainterDockPanel?.('tools') },
-          { type: 'item', label: (isTabOpen('color') ? '✓ ' : '') + 'Color Studio Tab', action: () => window.togglePainterDockPanel?.('color') },
-          { type: 'item', label: (isTabOpen('lab') ? '✓ ' : '') + 'Brush Lab Tab', action: () => window.togglePainterDockPanel?.('lab') },
-          { type: 'item', label: (isTabOpen('timeline') ? '✓ ' : '') + 'Timeline Tab', action: () => window.togglePainterDockPanel?.('timeline') },
-          { type: 'sep' },
-          { type: 'item', label: 'Reset Workspace Layout', action: () => window.resetPainterDockLayout?.() }
-        ]
-      },
-      {
-        type: 'submenu',
-        label: `Canvas Size & Transform (${curW}×${curH})`,
-        items: [
-          {
-            type: 'custom',
-            render: () => {
-              const row = document.createElement('div');
-              row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;';
-              const wInp = document.createElement('input');
-              wInp.type = 'number';
-              wInp.className = 'ui-input-num';
-              wInp.value = String(curW);
-              wInp.min = '16';
-              wInp.max = '16384';
-              wInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
-              const sep = document.createElement('span');
-              sep.textContent = '×';
-              sep.style.cssText = 'color:var(--text-muted);font-weight:bold;';
-              const hInp = document.createElement('input');
-              hInp.type = 'number';
-              hInp.className = 'ui-input-num';
-              hInp.value = String(curH);
-              hInp.min = '16';
-              hInp.max = '16384';
-              hInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
-              const btn = document.createElement('button');
-              btn.type = 'button';
-              btn.className = 'ip-btn';
-              btn.textContent = 'Resize';
-              btn.style.cssText = 'flex:1;height:24px;padding:0 8px;font-size:10.5px;background:var(--primary);color:var(--bg-dark);font-weight:bold;';
-              btn.addEventListener('click', (ev) => {
-                ev.stopPropagation();
-                const nw = parseInt(wInp.value, 10);
-                const nh = parseInt(hInp.value, 10);
-                if (nw >= 16 && nh >= 16) {
-                  runCmd(`canvas resize ${nw} ${nh}`);
-                  window.contextMenuService?.hideContextMenu();
-                }
-              });
-              [wInp, hInp].forEach(inp => inp.addEventListener('keydown', (ke) => {
-                ke.stopPropagation();
-                if (ke.key === 'Enter') btn.click();
-              }));
-              row.appendChild(wInp);
-              row.appendChild(sep);
-              row.appendChild(hInp);
-              row.appendChild(btn);
-              return row;
-            }
-          },
-          { type: 'item', label: '640×480 (VGA)', action: () => runCmd('canvas resize 640 480') },
-          { type: 'item', label: '1280×720 (720p HD)', action: () => runCmd('canvas resize 1280 720') },
-          { type: 'item', label: '1920×1080 (1080p FHD)', action: () => runCmd('canvas resize 1920 1080') },
-          { type: 'item', label: '1080×1080 (1:1 Square)', action: () => runCmd('canvas resize 1080 1080') },
-          { type: 'sep' },
-          { type: 'item', label: 'Rotate Canvas 90° CW', action: () => runCmd('canvas rotate 90') },
-          { type: 'item', label: 'Rotate Canvas 90° CCW', action: () => runCmd('canvas rotate -90') },
-          { type: 'item', label: 'Flip Canvas Horizontal', action: () => runCmd('canvas flip h') },
-          { type: 'item', label: 'Flip Canvas Vertical', action: () => runCmd('canvas flip v') },
-          { type: 'item', label: 'Crop Canvas to Selection', action: () => runCmd('crop') }
-        ]
-      },
-      {
-        type: 'submenu',
-        label: 'Renderer & Performance',
-        items: [
-          { type: 'item', label: (host.powerSaveMode ? '✓ ' : '') + 'Power Saving Mode (Battery & Thermal Saver)', action: () => host.setPowerSaveMode?.(!host.powerSaveMode) },
-          { type: 'sep' },
-          { type: 'item', label: (host.renderMode !== 'cpu' ? '✓ ' : '') + 'WebGL 2 (GPU)', action: () => document.querySelector('.render-engine-opt[data-engine="gpu"]')?.click() },
-          { type: 'item', label: (host.renderMode === 'cpu' ? '✓ ' : '') + 'Software (2D CPU)', action: () => document.querySelector('.render-engine-opt[data-engine="software"]')?.click() },
-          { type: 'sep' },
-          { type: 'item', label: (!host.viewportFiltering ? '✓ ' : '') + 'Nearest (Crisp / Pixel Art)', action: () => document.querySelector('.view-filter-opt[data-vfilter="nearest"]')?.click() },
-          { type: 'item', label: (host.viewportFiltering ? '✓ ' : '') + 'Bilinear (Smooth)', action: () => document.querySelector('.view-filter-opt[data-vfilter="bilinear"]')?.click() },
-          { type: 'sep' },
-          {
-            type: 'slider',
-            label: 'Undo History Limit',
-            min: 0,
-            max: 100,
-            value: host.maxUndoSteps !== undefined ? host.maxUndoSteps : 25,
-            unit: ' steps',
-            onInput: (val) => { syncMaxUndo(Math.round(val / 5) * 5); }
-          }
-        ]
-      },
-      {
-        type: 'submenu',
-        label: 'Input, Cursor & UI',
-        items: [
-          { type: 'item', label: (host.showBrushOutline ? '✓ ' : '') + 'Brush Cursor Outline', action: () => syncBrushOutline(!host.showBrushOutline) },
-          { type: 'item', label: (host.enableTouchUndoRedo ? '✓ ' : '') + 'Touch Gestures (2-Finger Undo / 3-Finger Redo)', action: () => syncTouchUndoRedo(!host.enableTouchUndoRedo) },
-          {
-            type: 'submenu',
-            label: 'Theme',
-            items: [
-              {
-                type: 'item',
-                label: ((localStorage.getItem('esenho_theme') || 'dark') === 'dark' ? '✓ ' : '') + 'Gruvbox Dark',
-                action: () => { window.setPainterTheme?.('dark'); }
-              },
-              {
-                type: 'item',
-                label: ((localStorage.getItem('esenho_theme') || 'dark') === 'gray' ? '✓ ' : '') + 'Gray (Modern Neutral)',
-                action: () => { window.setPainterTheme?.('gray'); }
-              },
-              {
-                type: 'item',
-                label: ((localStorage.getItem('esenho_theme') || 'dark') === 'skeuo' ? '✓ ' : '') + 'Skeuomorphic (Hardware)',
-                action: () => { window.setPainterTheme?.('skeuo'); }
-              }
-            ]
-          },
-          { type: 'sep' },
-          {
-            type: 'submenu',
-            label: `UI Scale (${host.uiScale || 'auto'})`,
-            items: uiScaleOpts.map(o => ({
-              type: 'item',
-              label: (String(host.uiScale || 'auto') === o.val ? '✓ ' : '') + o.label,
-              action: () => host.setUiScale(o.val)
-            }))
-          },
-          {
-            type: 'submenu',
-            label: 'Context Menu Sliders',
-            items: buildContextMenuSlidersActions()
-          }
-        ]
-      }
-    ]);
-
-    // 2. Project & File Submenu
-    addSubmenu('Project & File', [
-      {
-        type: 'submenu',
-        label: 'New Project',
-        items: [buildDomPanelAction('newproj')]
-      },
-      {
-        type: 'submenu',
-        label: 'Recent Projects',
-        items: [buildDomPanelAction('recents')]
-      },
-      { type: 'item', label: 'Open / Import (.esen, Image)...', hotkey: 'Ctrl+O', action: () => fileInput?.click() },
-      { type: 'item', label: 'Save Project Snapshot', hotkey: 'Ctrl+S', action: () => document.getElementById('btn-ip-save-proj')?.click() },
-      {
-        type: 'submenu',
-        label: 'Export',
-        items: [
-          { type: 'item', label: 'Export PNG (.png)', action: () => exportImage('image/png') },
-          { type: 'item', label: 'Export JPEG (.jpg)', action: () => exportImage('image/jpeg') },
-          { type: 'item', label: 'Export Animated GIF (.gif)', action: () => exportAnimatedGif() },
-          { type: 'item', label: 'Export WebM Video (.webm)', action: () => exportWebmVideo() },
-          { type: 'item', label: 'Export Project (.esen)', action: () => exportEsenProject() }
-        ]
-      },
-      { type: 'sep' },
-      { type: 'item', label: 'Clear Project Storage...', danger: true, action: () => document.getElementById('btn-ip-recents-clear')?.click() }
-    ]);
-
-    // 3. App Switcher & About
-    addSep();
-    addItem('Switch to Studio', '', () => {
-      window.location.href = 'studio.html';
-    });
-    const pVersion = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.13.54';
-    addItem(`v${pVersion}`, '', async () => {
-      if (typeof performAutosave === 'function') {
-        saveUserPreferences();
-        await performAutosave(true);
-      } else {
-        document.getElementById('btn-ip-save-proj')?.click();
-      }
-      log(`esenho v${pVersion} — Project saved [ok]`);
-      if (typeof showNotification === 'function') {
-        showNotification(`v${pVersion} · Saved`);
-      }
-    });
-
+    const items = buildPainterContextMenuItems(e, { isTopBar: true });
     window.contextMenuService.showContextMenu({
-      getAnchor: () => ({ x: e ? e.clientX : 10, y: e ? e.clientY : 30 }),
+      getAnchor: () => {
+        const rect = document.getElementById('btn-menu-logo')?.getBoundingClientRect();
+        if (rect) return { x: rect.left, y: rect.bottom + 2 };
+        if (e && e.clientX !== undefined && e.clientY !== undefined) {
+          return { x: e.clientX, y: e.clientY };
+        }
+        return { x: 10, y: 30 };
+      },
       getActions: () => items
     });
   }
@@ -11728,17 +11723,212 @@ async function main() {
       }
     }
 
-    btnMenuLogo?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      const rect = btnMenuLogo.getBoundingClientRect();
-      showPainterTitleBarContextMenu({
-        clientX: rect.left,
-        clientY: rect.bottom + 2,
-        preventDefault() {},
-        stopPropagation() {}
+    function setupPainterTitleBarMenuDrag() {
+      if (!btnMenuLogo) return;
+      btnMenuLogo.style.touchAction = 'none';
+
+      let isDragging = false;
+      let hasDragged = false;
+      let startX = 0;
+      let startY = 0;
+      let longPressTimer = null;
+      let reticleEl = null;
+
+      function createReticle() {
+        if (reticleEl) return reticleEl;
+        const el = document.createElement('div');
+        el.className = 'context-drop-reticle';
+        el.style.cssText = 'position:fixed;pointer-events:none;z-index:100000;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;left:-9999px;top:-9999px;user-select:none;';
+        el.innerHTML = `
+          <div style="width:42px;height:42px;border-radius:50%;border:2px solid #fabd2f;background:rgba(29,32,33,0.75);backdrop-filter:blur(2px);box-shadow:0 0 0 2px rgba(0,0,0,0.6),0 0 14px rgba(250,189,47,0.6);display:flex;align-items:center;justify-content:center;position:relative;">
+            <div style="position:absolute;width:14px;height:2px;background:#fabd2f;left:50%;top:50%;transform:translate(-50%,-50%);"></div>
+            <div style="position:absolute;width:2px;height:14px;background:#fabd2f;left:50%;top:50%;transform:translate(-50%,-50%);"></div>
+            <div style="width:6px;height:6px;border-radius:50%;background:#ebdbb2;z-index:2;box-shadow:0 0 3px #000;"></div>
+          </div>
+          <div style="margin-top:6px;padding:3px 9px;background:rgba(29,32,33,0.92);border:1px solid #fabd2f;border-radius:12px;color:#ebdbb2;font-size:10.5px;font-weight:600;font-family:system-ui,-apple-system,sans-serif;letter-spacing:0.3px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+            🎯 Solte para abrir menu aqui
+          </div>
+        `;
+        document.body.appendChild(el);
+        reticleEl = el;
+        return el;
+      }
+
+      function updateReticlePos(x, y) {
+        if (!reticleEl) createReticle();
+        reticleEl.style.left = `${x}px`;
+        reticleEl.style.top = `${y}px`;
+      }
+
+      function removeReticle() {
+        if (reticleEl) {
+          reticleEl.remove();
+          reticleEl = null;
+        }
+      }
+
+      function startDragMode(x, y) {
+        if (isDragging) return;
+        isDragging = true;
+        hasDragged = true;
+        if (navigator.vibrate) {
+          try { navigator.vibrate(22); } catch (_) {}
+        }
+        btnMenuLogo.classList.add('active');
+        btnMenuLogo.style.opacity = '0.6';
+        updateReticlePos(x, y);
+      }
+
+      function triggerPainterContextDrop(dropX, dropY) {
+        const targetEl = document.elementFromPoint(dropX, dropY);
+        const rect = btnMenuLogo.getBoundingClientRect();
+        const distToBtn = Math.hypot(dropX - (rect.left + rect.width / 2), dropY - (rect.top + rect.height / 2));
+        if (distToBtn < 24 || (targetEl && (targetEl === btnMenuLogo || btnMenuLogo.contains(targetEl)))) {
+          showPainterTitleBarContextMenu({
+            clientX: rect.left,
+            clientY: rect.bottom + 2,
+            preventDefault() {},
+            stopPropagation() {}
+          });
+          return;
+        }
+
+        const cvs = document.getElementById('wcanvas');
+        const cvsWrap = document.getElementById('cvswrap');
+        if (cvs && (targetEl === cvs || cvsWrap?.contains(targetEl))) {
+          showPainterContextMenu({
+            clientX: dropX,
+            clientY: dropY,
+            preventDefault() {},
+            stopPropagation() {}
+          });
+          return;
+        }
+
+        if (targetEl) {
+          const evt = new MouseEvent('contextmenu', {
+            bubbles: true,
+            cancelable: true,
+            clientX: dropX,
+            clientY: dropY,
+            button: 2,
+            buttons: 2,
+            view: window
+          });
+          const cancelled = !targetEl.dispatchEvent(evt);
+          if (!cancelled) {
+            showPainterContextMenu({
+              clientX: dropX,
+              clientY: dropY,
+              preventDefault() {},
+              stopPropagation() {}
+            });
+          }
+        } else {
+          showPainterContextMenu({
+            clientX: dropX,
+            clientY: dropY,
+            preventDefault() {},
+            stopPropagation() {}
+          });
+        }
+      }
+
+      btnMenuLogo.addEventListener('pointerdown', (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        startX = e.clientX;
+        startY = e.clientY;
+        isDragging = false;
+        hasDragged = false;
+
+        try { btnMenuLogo.setPointerCapture(e.pointerId); } catch (_) {}
+
+        longPressTimer = setTimeout(() => {
+          startDragMode(startX, startY);
+        }, 220);
+
+        const onPointerMove = (me) => {
+          const dist = Math.hypot(me.clientX - startX, me.clientY - startY);
+          if (!isDragging && dist > 7) {
+            if (longPressTimer) {
+              clearTimeout(longPressTimer);
+              longPressTimer = null;
+            }
+            startDragMode(me.clientX, me.clientY);
+          }
+          if (isDragging) {
+            updateReticlePos(me.clientX, me.clientY);
+          }
+        };
+
+        const onPointerUp = (ue) => {
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+          btnMenuLogo.removeEventListener('pointermove', onPointerMove);
+          btnMenuLogo.removeEventListener('pointerup', onPointerUp);
+          btnMenuLogo.removeEventListener('pointercancel', onPointerCancel);
+          try { btnMenuLogo.releasePointerCapture(ue.pointerId); } catch (_) {}
+
+          btnMenuLogo.classList.remove('active');
+          btnMenuLogo.style.opacity = '';
+
+          const finalX = ue.clientX;
+          const finalY = ue.clientY;
+
+          if (isDragging) {
+            isDragging = false;
+            removeReticle();
+            if (navigator.vibrate) {
+              try { navigator.vibrate(15); } catch (_) {}
+            }
+            requestAnimationFrame(() => {
+              triggerPainterContextDrop(finalX, finalY);
+            });
+          } else {
+            removeReticle();
+          }
+        };
+
+        const onPointerCancel = (ce) => {
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+          btnMenuLogo.removeEventListener('pointermove', onPointerMove);
+          btnMenuLogo.removeEventListener('pointerup', onPointerUp);
+          btnMenuLogo.removeEventListener('pointercancel', onPointerCancel);
+          try { btnMenuLogo.releasePointerCapture(ce.pointerId); } catch (_) {}
+          btnMenuLogo.classList.remove('active');
+          btnMenuLogo.style.opacity = '';
+          isDragging = false;
+          removeReticle();
+        };
+
+        btnMenuLogo.addEventListener('pointermove', onPointerMove);
+        btnMenuLogo.addEventListener('pointerup', onPointerUp);
+        btnMenuLogo.addEventListener('pointercancel', onPointerCancel);
       });
-    });
+
+      btnMenuLogo.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (hasDragged) {
+          hasDragged = false;
+          return;
+        }
+        const rect = btnMenuLogo.getBoundingClientRect();
+        showPainterTitleBarContextMenu({
+          clientX: rect.left,
+          clientY: rect.bottom + 2,
+          preventDefault() {},
+          stopPropagation() {}
+        });
+      });
+    }
+
+    setupPainterTitleBarMenuDrag();
 
     document.querySelectorAll('.menu-item-submenu-wrap > button').forEach(btn => {
       btn.addEventListener('click', (e) => {
