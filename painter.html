@@ -110,6 +110,12 @@
       color-scheme: dark;
     }
 
+    /* ═══════════════════════════════════════════════════════════════════
+       SKEUOMORPHIC THEME MASTER DEFINITION (Mirrored from Studio)
+       CNC-machined dark alloys, brushed aluminum faceplates, sunken inset wells,
+       chunky dual-shot tactile push keys, console faders with knurled grips,
+       jewel LED tally lamps, phosphor/VFD instrument displays, and true depth.
+       ═══════════════════════════════════════════════════════════════════ */
     [data-theme="skeuo"], body.theme-skeuo,
     [data-theme="skeuomorphic"], body.theme-skeuomorphic {
       --bg-dark: #14171a;
@@ -124,21 +130,69 @@
       --border-subtle: rgba(255, 255, 255, 0.08);
       --text: #e2e8f0;
       --text-bright: #ffffff;
-      --text-muted: #8894a4;
       --text-dim: #cbd5e1;
+      --text-muted: #8894a4;
       --primary: #f59e0b;
       --primary-hover: #fbbf24;
       --primary-dim: rgba(245, 158, 11, 0.22);
+      --primary-text: #1a0f02;
       --accent: #38bdf8;
+      --accent-hover: #7dd3fc;
+      --accent-dim: rgba(56, 189, 248, 0.2);
       --danger: #ef4444;
       --danger-dark: #b91c1c;
+      --danger-dim: rgba(239, 68, 68, 0.2);
       --success: #10b981;
       color-scheme: dark;
     }
 
-    /* Top Bar in Skeuo */
+    /* ── Skeuomorphic Global Chassis Surface & Clean Lettering ── */
+    body.theme-skeuo, [data-theme="skeuo"],
+    [data-theme="skeuomorphic"], body.theme-skeuomorphic {
+      letter-spacing: 0.15px;
+      color: #e2e8f0;
+      background: radial-gradient(circle at 50% 0%, #292d35 0%, #15171b 100%);
+    }
+
+    /* Stamped & Debossed Chassis Labels */
+    [data-theme="skeuo"] .form-row label,
+    body.theme-skeuo .form-row label,
+    [data-theme="skeuo"] .ui-val,
+    body.theme-skeuo .ui-val,
+    [data-theme="skeuo"] .tb-val,
+    body.theme-skeuo .tb-val {
+      font-size: 10px !important;
+      font-weight: 700 !important;
+      color: #94a3b8 !important;
+      text-shadow: 0 -1px 0 #000000, 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      letter-spacing: 0.35px !important;
+    }
+
+    [data-theme="skeuo"] .section-header,
+    body.theme-skeuo .section-header,
+    [data-theme="skeuo"] details.section-accordion summary,
+    body.theme-skeuo details.section-accordion summary {
+      font-size: 11px !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.65px !important;
+      color: #cbd5e1 !important;
+      text-shadow: 0 -1px 1px #000000, 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+    }
+
+    [data-theme="skeuo"] .top-tool-group-label,
+    body.theme-skeuo .top-tool-group-label {
+      font-size: 10px !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.5px !important;
+      color: #94a3b8 !important;
+      text-shadow: 0 -1px 0 #000000, 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    }
+
+    /* ── Skeuomorphic Top Header Faceplate (#ip-top-bar & Fallback Titlebar) ── */
     [data-theme="skeuo"] #ip-top-bar,
-    body.theme-skeuo #ip-top-bar {
+    body.theme-skeuo #ip-top-bar,
+    [data-theme="skeuo"] .vscode-titlebar,
+    body.theme-skeuo .vscode-titlebar {
       background:
         repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0px, transparent 1px, transparent 2px),
         linear-gradient(180deg, #383e46 0%, #2b3037 50%, #20242a 100%) !important;
@@ -147,136 +201,303 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.22),
         inset 0 -1px 0 rgba(0, 0, 0, 0.6),
         0 2px 6px rgba(0, 0, 0, 0.5) !important;
+      position: relative;
     }
 
+    /* Header Brand Plate & Switch */
     [data-theme="skeuo"] #ip-top-bar .brand-btn,
     body.theme-skeuo #ip-top-bar .brand-btn {
       background: linear-gradient(180deg, #3d444d 0%, #2b3037 100%) !important;
       border: 1px solid #14171a !important;
       border-radius: 4px !important;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+        0 2px 4px rgba(0, 0, 0, 0.5) !important;
       color: #cbd5e1 !important;
+      transition: all 0.1s ease !important;
     }
 
+    [data-theme="skeuo"] #ip-top-bar .brand-btn:hover,
+    body.theme-skeuo #ip-top-bar .brand-btn:hover {
+      background: linear-gradient(180deg, #49515b 0%, #343a42 100%) !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 2px 6px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    [data-theme="skeuo"] #ip-top-bar .brand-btn:active,
+    body.theme-skeuo #ip-top-bar .brand-btn:active {
+      background: linear-gradient(180deg, #181b1f 0%, #23272d 100%) !important;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8) !important;
+      transform: translateY(1px) !important;
+    }
+
+    /* Brand Jewel LED Lamp */
     [data-theme="skeuo"] #ip-top-bar .brand-icon,
     body.theme-skeuo #ip-top-bar .brand-icon {
       background: radial-gradient(circle at 35% 35%, #ffffff 0%, #ffc848 35%, #f59e0b 70%, #b45309 100%) !important;
       border: 1px solid #78350f !important;
       color: #1a0f02 !important;
       font-weight: 900 !important;
-      box-shadow: 0 0 6px rgba(245, 158, 11, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.8) !important;
+      border-radius: 3px !important;
+      box-shadow:
+        0 0 6px rgba(245, 158, 11, 0.7),
+        inset 0 1px 1px rgba(255, 255, 255, 0.8),
+        inset 0 -1px 1px rgba(0, 0, 0, 0.4) !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
     }
 
+    /* Top Bar Phosphor Status Readout & Status Rail */
+    [data-theme="skeuo"] #ip-top-bar .ip-top-status-text,
+    body.theme-skeuo #ip-top-bar .ip-top-status-text,
     [data-theme="skeuo"] #wstatus,
-    body.theme-skeuo #wstatus {
+    body.theme-skeuo #wstatus,
+    [data-theme="skeuo"] #cvs-status-bar,
+    body.theme-skeuo #cvs-status-bar,
+    [data-theme="skeuo"] .vscode-statusbar,
+    body.theme-skeuo .vscode-statusbar {
       background: #090b0e !important;
       border: 1px solid #050709 !important;
       border-radius: 3px !important;
       padding: 2px 8px !important;
       color: #38bdf8 !important;
-      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-      text-shadow: 0 0 6px rgba(56, 189, 248, 0.6) !important;
+      box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.95),
+        0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      text-shadow: 0 0 6px rgba(56, 189, 248, 0.6), 0 -1px 0 #000 !important;
+      font-family: var(--font-mono) !important;
+      font-size: 10.5px !important;
     }
 
-    /* Tactile Buttons */
-    [data-theme="skeuo"] .btn,
-    body.theme-skeuo .btn,
-    [data-theme="skeuo"] .btn-sm,
-    body.theme-skeuo .btn-sm,
-    [data-theme="skeuo"] button:not(.btn-icon):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip),
-    body.theme-skeuo button:not(.btn-icon):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip) {
-      background: linear-gradient(180deg, #3a4048 0%, #2b3036 60%, #1f2328 100%);
-      border: 1px solid #131518;
-      border-radius: 4px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.4);
-      color: #cbd5e1;
-      text-shadow: 0 -1px 0 #000, 0 1px 0 rgba(255, 255, 255, 0.1);
+    /* ── Skeuomorphic Left Rack Toolbar & Chunky MPC Tactile Keys ── */
+    [data-theme="skeuo"] #toolbar,
+    body.theme-skeuo #toolbar {
+      background:
+        repeating-linear-gradient(180deg, rgba(255,255,255,0.01) 0px, transparent 1px, transparent 2px),
+        linear-gradient(90deg, #2f343b 0%, #23272d 100%) !important;
+      border-right: 1px solid #101214 !important;
+      box-shadow:
+        inset -1px 0 0 rgba(255, 255, 255, 0.08),
+        inset 1px 0 0 rgba(255, 255, 255, 0.04),
+        3px 0 10px rgba(0, 0, 0, 0.5) !important;
+      position: relative;
     }
 
-    [data-theme="skeuo"] .btn:hover,
-    body.theme-skeuo .btn:hover,
-    [data-theme="skeuo"] button:not(.btn-icon):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip):hover,
-    body.theme-skeuo button:not(.btn-icon):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip):hover {
-      background: linear-gradient(180deg, #464d57 0%, #343a42 60%, #26292f 100%);
-      color: #ffffff;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 2px 5px rgba(0, 0, 0, 0.5);
+    [data-theme="skeuo"] .toolbar-sep,
+    body.theme-skeuo .toolbar-sep {
+      width: 32px !important;
+      height: 2px !important;
+      background: #0f1113 !important;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      margin: 4px 0 !important;
     }
 
-    [data-theme="skeuo"] .btn:active,
-    body.theme-skeuo .btn:active,
-    [data-theme="skeuo"] button:not(.btn-icon):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip):active,
-    body.theme-skeuo button:not(.btn-icon):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip):active {
-      background: linear-gradient(180deg, #17191d 0%, #22252a 100%);
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.08);
-      transform: translateY(1px);
+    [data-theme="skeuo"] .tool-btn,
+    body.theme-skeuo .tool-btn {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.02) 50%, transparent 51%),
+        linear-gradient(180deg, #3a4048 0%, #2b3036 60%, #202328 100%) !important;
+      border: 1px solid #131518 !important;
+      border-radius: 5px !important;
+      color: #94a3b8 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.5),
+        0 2px 4px rgba(0, 0, 0, 0.5) !important;
+      text-shadow: 0 -1px 0 #000 !important;
+      position: relative;
+      transition: all 0.08s ease;
     }
 
-    /* Tool Cards in Painter */
+    [data-theme="skeuo"] .tool-btn:hover:not(.active),
+    body.theme-skeuo .tool-btn:hover:not(.active) {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.04) 50%, transparent 51%),
+        linear-gradient(180deg, #464e58 0%, #343a42 60%, #26292f 100%) !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 3px 6px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    [data-theme="skeuo"] .tool-btn.active,
+    body.theme-skeuo .tool-btn.active,
+    [data-theme="skeuo"] .tool-btn.active:hover,
+    body.theme-skeuo .tool-btn.active:hover {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.3) 0%, transparent 60%),
+        linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
+      color: #170f02 !important;
+      border-color: #78350f !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.7),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.5),
+        0 0 12px rgba(245, 158, 11, 0.7),
+        0 1px 2px rgba(0, 0, 0, 0.8) !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+      transform: translateY(1.5px) !important;
+    }
+
+    [data-theme="skeuo"] .tool-btn.active::before,
+    body.theme-skeuo .tool-btn.active::before {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ffffff 0%, #ffc848 40%, #f59e0b 100%);
+      box-shadow: 0 0 4px #ffffff, 0 0 8px #f59e0b, 0 0 12px rgba(245, 158, 11, 0.9);
+    }
+
+    /* ── Tactile Tool Cards in Tools Panel (.ip-tool-card, .ip-actionmode-card, .ip-selmode-card) ── */
     [data-theme="skeuo"] .ip-tool-card,
-    body.theme-skeuo .ip-tool-card {
-      background: linear-gradient(180deg, #373d45 0%, #292d34 60%, #1e2227 100%) !important;
+    body.theme-skeuo .ip-tool-card,
+    [data-theme="skeuo"] .ip-actionmode-card,
+    body.theme-skeuo .ip-actionmode-card,
+    [data-theme="skeuo"] .ip-selmode-card,
+    body.theme-skeuo .ip-selmode-card {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.02) 50%, transparent 51%),
+        linear-gradient(180deg, #373d45 0%, #292d34 60%, #1e2227 100%) !important;
       border: 1px solid #131518 !important;
       border-radius: 4px !important;
       color: #cbd5e1 !important;
       font-size: 9.5px !important;
       font-weight: 650 !important;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+        0 1px 3px rgba(0, 0, 0, 0.4) !important;
       text-shadow: 0 -1px 0 #000 !important;
+      transition: all 0.08s ease !important;
     }
 
     [data-theme="skeuo"] .ip-tool-card:hover:not(.active),
-    body.theme-skeuo .ip-tool-card:hover:not(.active) {
-      background: linear-gradient(180deg, #444b54 0%, #32373f 60%, #25282e 100%) !important;
+    body.theme-skeuo .ip-tool-card:hover:not(.active),
+    [data-theme="skeuo"] .ip-actionmode-card:hover:not(.active),
+    body.theme-skeuo .ip-actionmode-card:hover:not(.active),
+    [data-theme="skeuo"] .ip-selmode-card:hover:not(.active),
+    body.theme-skeuo .ip-selmode-card:hover:not(.active) {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 50%, transparent 51%),
+        linear-gradient(180deg, #444b54 0%, #32373f 60%, #25282e 100%) !important;
       color: #ffffff !important;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 2px 5px rgba(0, 0, 0, 0.5) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 2px 5px rgba(0, 0, 0, 0.5) !important;
     }
 
     [data-theme="skeuo"] .ip-tool-card.active,
-    body.theme-skeuo .ip-tool-card.active {
-      background: linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
+    body.theme-skeuo .ip-tool-card.active,
+    [data-theme="skeuo"] .ip-actionmode-card.active,
+    body.theme-skeuo .ip-actionmode-card.active,
+    [data-theme="skeuo"] .ip-selmode-card.active,
+    body.theme-skeuo .ip-selmode-card.active {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.3) 0%, transparent 60%),
+        linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
       color: #170f02 !important;
       border-color: #78350f !important;
       font-weight: 800 !important;
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.7), inset 0 -1px 0 rgba(255, 255, 255, 0.5), 0 0 10px rgba(245, 158, 11, 0.6) !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.7),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.5),
+        0 0 10px rgba(245, 158, 11, 0.6) !important;
       text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
       transform: translateY(1px) !important;
     }
 
-    /* Icon Buttons */
-    [data-theme="skeuo"] .btn-icon,
-    body.theme-skeuo .btn-icon {
-      background: transparent !important;
-      border: 1px solid transparent !important;
-      box-shadow: none !important;
-      color: #8894a4 !important;
+    /* ── Skeuomorphic Dockview & Tabs ── */
+    [data-theme="skeuo"] #dockview-container {
+      --dv-tabs-and-actions-container-background-color: #1c1f24;
+      --dv-activegroup-visiblepanel-tab-background-color: #2b3036;
+      --dv-activegroup-visiblepanel-tab-color: #ffc848;
+      --dv-inactivegroup-visiblepanel-tab-background-color: #23272d;
+      --dv-inactivegroup-visiblepanel-tab-color: #94a3b8;
+      --dv-group-view-background-color: #24282f;
+      --dv-background-color: #24282f;
+      --dv-tab-divider-color: #131518;
+      --dv-separator-border: 1px solid #131518;
+      --dv-sash-hover-color: #f59e0b;
     }
 
-    [data-theme="skeuo"] .btn-icon:hover,
-    body.theme-skeuo .btn-icon:hover {
-      background: rgba(255, 255, 255, 0.08) !important;
+    [data-theme="skeuo"] .dock-panel-content {
+      background: linear-gradient(180deg, #272b32 0%, #1e2227 100%) !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+    }
+
+    [data-theme="skeuo"] #dockview-container .dv-tabs-and-actions-container {
+      background: linear-gradient(180deg, #1f2227 0%, #17191d 100%) !important;
+      border-bottom: 1px solid #111316 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 -1px 3px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] #dockview-container .dv-tab {
+      background: linear-gradient(180deg, #2a2e34 0%, #1e2227 100%) !important;
+      border: 1px solid #131518 !important;
+      border-bottom: none !important;
+      border-radius: 4px 4px 0 0 !important;
+      margin-right: 2px !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        0 -1px 2px rgba(0, 0, 0, 0.3) !important;
+      color: #94a3b8 !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.3px !important;
+      text-shadow: 0 -1px 0 #000 !important;
+      transition: all 0.1s ease !important;
+    }
+
+    [data-theme="skeuo"] #dockview-container .dv-tab.dv-active-tab {
+      background: linear-gradient(180deg, #3c424a 0%, #2b3036 100%) !important;
+      color: #ffc848 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.32),
+        inset 0 -2px 0 #f59e0b,
+        0 -2px 6px rgba(0, 0, 0, 0.5) !important;
+      text-shadow:
+        0 -1px 1px #000,
+        0 0 8px rgba(245, 158, 11, 0.45) !important;
+    }
+
+    [data-theme="skeuo"] #dockview-container .dv-tab:hover:not(.dv-active-tab) {
+      background: linear-gradient(180deg, #343a42 0%, #25292f 100%) !important;
       color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 -1px 3px rgba(0, 0, 0, 0.4) !important;
     }
 
-    [data-theme="skeuo"] .btn-icon.active,
-    body.theme-skeuo .btn-icon.active {
-      color: #f59e0b !important;
-      filter: drop-shadow(0 0 3px rgba(245, 158, 11, 0.8)) !important;
+    /* Milled Knurled Sashes (Panel Divider Splitters) */
+    [data-theme="skeuo"] #dockview-container .dv-sash > .dv-sash-handle {
+      background: linear-gradient(180deg, #3e444d 0%, #282c32 100%) !important;
+      border: 1px solid #141618 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 1px 3px rgba(0, 0, 0, 0.6) !important;
+      color: #8894a4 !important;
+      opacity: 0.8 !important;
     }
 
-    /* Sunken Form Controls */
-    [data-theme="skeuo"] input,
-    [data-theme="skeuo"] select,
-    [data-theme="skeuo"] textarea,
-    body.theme-skeuo input,
-    body.theme-skeuo select,
-    body.theme-skeuo textarea {
-      background: linear-gradient(180deg, #0b0d10 0%, #13161a 100%) !important;
-      border: 1px solid #07090b !important;
-      border-radius: 3px !important;
-      color: #e2e8f0 !important;
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.95), inset 0 1px 1px #000, 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-      text-shadow: none !important;
+    [data-theme="skeuo"] #dockview-container .dv-sash > .dv-sash-handle:hover,
+    [data-theme="skeuo"] #dockview-container .dv-sash > .dv-sash-handle:active {
+      background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%) !important;
+      color: #170e02 !important;
+      border-color: #78350f !important;
+      box-shadow:
+        0 0 10px rgba(245, 158, 11, 0.85),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+      opacity: 1 !important;
     }
+
+
 
     /* ── Skeuomorphic Brush Shelf & Preset Cartridges ── */
     [data-theme="skeuo"] .ip-pills-row,
@@ -467,6 +688,11 @@
       border-color: #064e3b !important;
       color: #ffffff !important;
       box-shadow: 0 0 6px rgba(5, 150, 105, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+    }
+
+    [data-theme="skeuo"] .ui-layer-row.clipped-layer,
+    body.theme-skeuo .ui-layer-row.clipped-layer {
+      border-left: 3px solid #10b981 !important;
     }
 
     [data-theme="skeuo"] .ui-layer-group-header,
@@ -846,7 +1072,11 @@
 
     /* ── Floating Artwork Canvas Lightbox ── */
     [data-theme="skeuo"] #cvswrap,
-    body.theme-skeuo #cvswrap {
+    body.theme-skeuo #cvswrap,
+    [data-theme="skeuo"] #dock-panel-canvas,
+    body.theme-skeuo #dock-panel-canvas,
+    [data-theme="skeuo"] #viewport-container,
+    body.theme-skeuo #viewport-container {
       background: #0e1013 !important;
       background-image:
         radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.015) 0%, transparent 80%),
@@ -856,66 +1086,21 @@
     }
 
     [data-theme="skeuo"] #wcanvas,
-    body.theme-skeuo #wcanvas {
+    body.theme-skeuo #wcanvas,
+    [data-theme="skeuo"] #stage-wrapper,
+    body.theme-skeuo #stage-wrapper {
       box-shadow:
-        0 14px 44px rgba(0, 0, 0, 0.95),
-        0 4px 12px rgba(0, 0, 0, 0.8),
-        0 0 0 1px rgba(255, 255, 255, 0.12) !important;
+        0 18px 48px rgba(0, 0, 0, 0.95),
+        0 4px 14px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(255, 255, 255, 0.14) !important;
+      border-radius: 2px !important;
     }
 
-    /* ── Skeuomorphic Tactile Hardware Buttons & Inputs ── */
-    [data-theme="skeuo"] .ip-btn,
-    body.theme-skeuo .ip-btn {
-      background: linear-gradient(180deg, #373d45 0%, #292d34 60%, #1e2227 100%) !important;
-      border: 1px solid #131518 !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.18) !important;
-      border-radius: 3px !important;
-      color: #cbd5e1 !important;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
-      cursor: pointer;
-    }
-
-    [data-theme="skeuo"] .ip-btn:hover:not(.active),
-    body.theme-skeuo .ip-btn:hover:not(.active) {
-      background: linear-gradient(180deg, #444b56 0%, #323841 60%, #24282f 100%) !important;
-      color: #ffffff !important;
-      border-color: #131518 !important;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
-    }
-
-    [data-theme="skeuo"] .ip-btn:active,
-    body.theme-skeuo .ip-btn:active {
-      background: linear-gradient(180deg, #181b1f 0%, #23272d 100%) !important;
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-      transform: translateY(1px) !important;
-    }
-
-    [data-theme="skeuo"] .ip-btn.active,
-    body.theme-skeuo .ip-btn.active,
-    [data-theme="skeuo"] .ip-mini-btn.active,
-    body.theme-skeuo .ip-mini-btn.active,
-    [data-theme="skeuo"] .ip-xbar-mode.active,
-    body.theme-skeuo .ip-xbar-mode.active,
-    [data-theme="skeuo"] .ip-sheet-xform-interp.active,
-    body.theme-skeuo .ip-sheet-xform-interp.active,
-    [data-theme="skeuo"] .ip-sym-btn.active,
-    body.theme-skeuo .ip-sym-btn.active {
-      background: linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
-      border-color: #78350f !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.45) !important;
-      color: #170f02 !important;
-      font-weight: 800 !important;
-      box-shadow: 0 0 8px rgba(245, 158, 11, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
-    }
-
-    [data-theme="skeuo"] .ip-btn.active svg,
-    body.theme-skeuo .ip-btn.active svg {
-      stroke: #170f02 !important;
-    }
-
-    /* Illuminated Hardware Primary Action Buttons */
+    /* ── Skeuomorphic Primary Action Buttons (Amber Illuminated Studio Switch) ── */
+    [data-theme="skeuo"] .btn-primary,
+    body.theme-skeuo .btn-primary,
+    [data-theme="skeuo"] .titlebar-btn.primary-action,
+    body.theme-skeuo .titlebar-btn.primary-action,
     [data-theme="skeuo"] #btn-ip-save-brush-preset,
     body.theme-skeuo #btn-ip-save-brush-preset,
     [data-theme="skeuo"] #btn-ip-lab-save,
@@ -934,18 +1119,24 @@
     body.theme-skeuo #btn-ip-sel-paint-inside,
     [data-theme="skeuo"] #btn-ip-tool-transform,
     body.theme-skeuo #btn-ip-tool-transform {
-      background: linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.35) 0%, transparent 60%),
+        linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%) !important;
       border: 1px solid #78350f !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.45) !important;
-      color: #170f02 !important;
-      font-weight: 800 !important;
+      color: #170e02 !important;
+      font-weight: 750 !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
       box-shadow:
-        0 0 10px rgba(245, 158, 11, 0.5),
-        inset 0 1px 0 rgba(255, 255, 255, 0.4),
-        0 2px 4px rgba(0, 0, 0, 0.5) !important;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.6),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+        0 2px 6px rgba(245, 158, 11, 0.5),
+        0 1px 2px rgba(0, 0, 0, 0.4) !important;
     }
 
+    [data-theme="skeuo"] .btn-primary:hover,
+    body.theme-skeuo .btn-primary:hover,
+    [data-theme="skeuo"] .titlebar-btn.primary-action:hover,
+    body.theme-skeuo .titlebar-btn.primary-action:hover,
     [data-theme="skeuo"] #btn-ip-save-brush-preset:hover,
     body.theme-skeuo #btn-ip-save-brush-preset:hover,
     [data-theme="skeuo"] #btn-ip-lab-save:hover,
@@ -964,14 +1155,88 @@
     body.theme-skeuo #btn-ip-sel-paint-inside:hover,
     [data-theme="skeuo"] #btn-ip-tool-transform:hover,
     body.theme-skeuo #btn-ip-tool-transform:hover {
-      background: linear-gradient(180deg, #d97706 0%, #f59e0b 50%, #fbbf24 100%) !important;
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.45) 0%, transparent 60%),
+        linear-gradient(180deg, #fcd34d 0%, #fbbf24 50%, #f59e0b 100%) !important;
       box-shadow:
-        0 0 14px rgba(245, 158, 11, 0.8),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6),
-        0 2px 6px rgba(0, 0, 0, 0.6) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        0 3px 10px rgba(245, 158, 11, 0.65) !important;
     }
 
-    /* Milled Console Track & Knurled Metal Sliders */
+    /* ── Tactile Micro-Switches (.ip-mini-btn, .ip-xbar-mode, .ip-sheet-xform-interp, .ip-sym-btn) ── */
+    [data-theme="skeuo"] .ip-mini-btn,
+    body.theme-skeuo .ip-mini-btn,
+    [data-theme="skeuo"] .ip-xbar-mode,
+    body.theme-skeuo .ip-xbar-mode,
+    [data-theme="skeuo"] .ip-sheet-xform-interp,
+    body.theme-skeuo .ip-sheet-xform-interp,
+    [data-theme="skeuo"] .ip-sym-btn,
+    body.theme-skeuo .ip-sym-btn {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 50%, transparent 51%),
+        linear-gradient(180deg, #343a42 0%, #262a30 60%, #1d2025 100%) !important;
+      border: 1px solid #121417 !important;
+      border-radius: 3px !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+        0 1px 2px rgba(0, 0, 0, 0.35) !important;
+      color: #cbd5e1 !important;
+      font-size: 9.5px !important;
+      font-weight: 650 !important;
+      text-shadow: 0 -1px 0 #000 !important;
+      transition: all 0.08s ease !important;
+    }
+
+    [data-theme="skeuo"] .ip-mini-btn:hover:not(.active),
+    body.theme-skeuo .ip-mini-btn:hover:not(.active),
+    [data-theme="skeuo"] .ip-xbar-mode:hover:not(.active),
+    body.theme-skeuo .ip-xbar-mode:hover:not(.active),
+    [data-theme="skeuo"] .ip-sheet-xform-interp:hover:not(.active),
+    body.theme-skeuo .ip-sheet-xform-interp:hover:not(.active),
+    [data-theme="skeuo"] .ip-sym-btn:hover:not(.active),
+    body.theme-skeuo .ip-sym-btn:hover:not(.active) {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 50%, transparent 51%),
+        linear-gradient(180deg, #404650 0%, #30353d 60%, #23272d 100%) !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 2px 4px rgba(0, 0, 0, 0.45) !important;
+    }
+
+    [data-theme="skeuo"] .ip-mini-btn.active,
+    body.theme-skeuo .ip-mini-btn.active,
+    [data-theme="skeuo"] .ip-btn.active,
+    body.theme-skeuo .ip-btn.active,
+    [data-theme="skeuo"] .ip-xbar-mode.active,
+    body.theme-skeuo .ip-xbar-mode.active,
+    [data-theme="skeuo"] .ip-sheet-xform-interp.active,
+    body.theme-skeuo .ip-sheet-xform-interp.active,
+    [data-theme="skeuo"] .ip-sym-btn.active,
+    body.theme-skeuo .ip-sym-btn.active {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.25) 0%, transparent 60%),
+        linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
+      color: #170f02 !important;
+      border-color: #78350f !important;
+      font-weight: 800 !important;
+      box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.7),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.4),
+        0 0 8px rgba(245, 158, 11, 0.5) !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+      transform: translateY(1px) !important;
+    }
+
+    [data-theme="skeuo"] .ip-btn.active svg,
+    body.theme-skeuo .ip-btn.active svg,
+    [data-theme="skeuo"] .ip-mini-btn.active svg,
+    body.theme-skeuo .ip-mini-btn.active svg {
+      stroke: #170f02 !important;
+    }
+
+    /* ── Skeuomorphic Range Faders (Physical Console Sliders with Etched Graduations) ── */
     [data-theme="skeuo"] input[type="range"],
     body.theme-skeuo input[type="range"],
     [data-theme="skeuo"] .ip-touch-slider,
@@ -981,16 +1246,37 @@
     [data-theme="skeuo"] .ip-slider,
     body.theme-skeuo .ip-slider {
       -webkit-appearance: none;
+      -moz-appearance: none;
       appearance: none;
-      background: #0d0f12 !important;
-      border: 1px solid #07090b !important;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-      height: 5px !important;
-      border-radius: 3px !important;
-      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.9) !important;
+      background:
+        repeating-linear-gradient(90deg, transparent 0px, transparent 6px, rgba(255,255,255,0.08) 7px, rgba(0,0,0,0.6) 8px),
+        linear-gradient(180deg, #07090b 0%, #13161a 50%, #1a1e23 100%) !important;
+      border: 1px solid #050608 !important;
+      border-radius: 5px !important;
+      height: 10px !important;
+      padding: 0 !important;
       cursor: pointer;
+      box-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.95),
+        inset 0 0 2px rgba(0, 0, 0, 0.7),
+        0 1px 0 rgba(255, 255, 255, 0.14) !important;
     }
 
+    [data-theme="skeuo"] input[type="range"]::-webkit-slider-runnable-track,
+    body.theme-skeuo input[type="range"]::-webkit-slider-runnable-track,
+    [data-theme="skeuo"] .ip-touch-slider::-webkit-slider-runnable-track,
+    body.theme-skeuo .ip-touch-slider::-webkit-slider-runnable-track,
+    [data-theme="skeuo"] .ui-slider::-webkit-slider-runnable-track,
+    body.theme-skeuo .ui-slider::-webkit-slider-runnable-track,
+    [data-theme="skeuo"] .ip-slider::-webkit-slider-runnable-track,
+    body.theme-skeuo .ip-slider::-webkit-slider-runnable-track {
+      background: transparent !important;
+      border: none !important;
+      height: 10px !important;
+      box-shadow: none !important;
+    }
+
+    /* Chunky Cast Aluminum Knurled Fader Cap */
     [data-theme="skeuo"] input[type="range"]::-webkit-slider-thumb,
     body.theme-skeuo input[type="range"]::-webkit-slider-thumb,
     [data-theme="skeuo"] .ip-touch-slider::-webkit-slider-thumb,
@@ -1001,14 +1287,73 @@
     body.theme-skeuo .ip-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 14px !important;
-      height: 14px !important;
-      border-radius: 50% !important;
-      background: radial-gradient(circle at 35% 35%, #5a626d 0%, #2b3036 70%, #17191d 100%) !important;
-      border: 1px solid #101215 !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.4) !important;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 4px rgba(245, 158, 11, 0.3) !important;
-      cursor: pointer !important;
+      width: 16px !important;
+      height: 22px !important;
+      margin-top: -6px !important;
+      background:
+        linear-gradient(90deg, transparent 42%, #ffc848 45%, #f59e0b 55%, transparent 58%),
+        repeating-linear-gradient(180deg, rgba(255,255,255,0.2) 0px, transparent 1px, transparent 2px, rgba(0,0,0,0.3) 3px),
+        linear-gradient(180deg, #ffffff 0%, #cbd5e1 35%, #94a3b8 65%, #64748b 100%) !important;
+      border: 1px solid #1e293b !important;
+      border-radius: 3px !important;
+      box-shadow:
+        inset 0 1px 0 #ffffff,
+        inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+        inset 2px 0 3px rgba(255, 255, 255, 0.25),
+        inset -2px 0 3px rgba(0, 0, 0, 0.25),
+        0 4px 8px rgba(0, 0, 0, 0.9),
+        0 1px 3px rgba(0, 0, 0, 0.6) !important;
+      position: relative;
+      cursor: grab;
+    }
+
+    [data-theme="skeuo"] input[type="range"]:active::-webkit-slider-thumb,
+    body.theme-skeuo input[type="range"]:active::-webkit-slider-thumb,
+    [data-theme="skeuo"] .ip-touch-slider:active::-webkit-slider-thumb,
+    body.theme-skeuo .ip-touch-slider:active::-webkit-slider-thumb,
+    [data-theme="skeuo"] .ui-slider:active::-webkit-slider-thumb,
+    body.theme-skeuo .ui-slider:active::-webkit-slider-thumb,
+    [data-theme="skeuo"] .ip-slider:active::-webkit-slider-thumb,
+    body.theme-skeuo .ip-slider:active::-webkit-slider-thumb {
+      cursor: grabbing;
+      box-shadow:
+        inset 0 1px 0 #ffffff,
+        inset 0 -1px 0 rgba(0, 0, 0, 0.8),
+        0 2px 4px rgba(0, 0, 0, 0.95),
+        0 0 10px rgba(245, 158, 11, 0.6) !important;
+      transform: scale(0.98);
+    }
+
+    [data-theme="skeuo"] input[type="range"]:hover::-webkit-slider-thumb,
+    body.theme-skeuo input[type="range"]:hover::-webkit-slider-thumb,
+    [data-theme="skeuo"] .ip-touch-slider:hover::-webkit-slider-thumb,
+    body.theme-skeuo .ip-touch-slider:hover::-webkit-slider-thumb,
+    [data-theme="skeuo"] .ui-slider:hover::-webkit-slider-thumb,
+    body.theme-skeuo .ui-slider:hover::-webkit-slider-thumb,
+    [data-theme="skeuo"] .ip-slider:hover::-webkit-slider-thumb,
+    body.theme-skeuo .ip-slider:hover::-webkit-slider-thumb {
+      background:
+        linear-gradient(90deg, transparent 40%, #ffc848 44%, #f59e0b 56%, transparent 60%),
+        repeating-linear-gradient(180deg, rgba(255,255,255,0.25) 0px, transparent 1px, transparent 2px, rgba(0,0,0,0.3) 3px),
+        linear-gradient(180deg, #ffffff 0%, #e2e8f0 35%, #cbd5e1 65%, #7a889b 100%) !important;
+      box-shadow:
+        inset 0 1px 0 #ffffff,
+        0 5px 10px rgba(0, 0, 0, 0.95),
+        0 0 8px rgba(245, 158, 11, 0.45) !important;
+    }
+
+    /* Firefox range track & thumb */
+    [data-theme="skeuo"] input[type="range"]::-moz-range-track,
+    body.theme-skeuo input[type="range"]::-moz-range-track,
+    [data-theme="skeuo"] .ip-touch-slider::-moz-range-track,
+    body.theme-skeuo .ip-touch-slider::-moz-range-track,
+    [data-theme="skeuo"] .ui-slider::-moz-range-track,
+    body.theme-skeuo .ui-slider::-moz-range-track,
+    [data-theme="skeuo"] .ip-slider::-moz-range-track,
+    body.theme-skeuo .ip-slider::-moz-range-track {
+      background: transparent !important;
+      border: none !important;
+      height: 10px !important;
     }
 
     [data-theme="skeuo"] input[type="range"]::-moz-range-thumb,
@@ -1019,97 +1364,214 @@
     body.theme-skeuo .ui-slider::-moz-range-thumb,
     [data-theme="skeuo"] .ip-slider::-moz-range-thumb,
     body.theme-skeuo .ip-slider::-moz-range-thumb {
-      width: 14px !important;
-      height: 14px !important;
-      border-radius: 50% !important;
-      background: radial-gradient(circle at 35% 35%, #5a626d 0%, #2b3036 70%, #17191d 100%) !important;
-      border: 1px solid #101215 !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.4) !important;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 4px rgba(245, 158, 11, 0.3) !important;
-      cursor: pointer !important;
-    }
-
-    /* Sunken Precision Form Inputs */
-    [data-theme="skeuo"] .ui-select,
-    body.theme-skeuo .ui-select,
-    [data-theme="skeuo"] select,
-    body.theme-skeuo select,
-    [data-theme="skeuo"] .layer-select-blend,
-    body.theme-skeuo .layer-select-blend {
-      background: linear-gradient(180deg, #1f2328 0%, #14171a 100%) !important;
-      border: 1px solid #0d0f11 !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+      -moz-appearance: none;
+      appearance: none;
+      width: 16px !important;
+      height: 22px !important;
+      background:
+        linear-gradient(90deg, transparent 42%, #ffc848 45%, #f59e0b 55%, transparent 58%),
+        repeating-linear-gradient(180deg, rgba(255,255,255,0.2) 0px, transparent 1px, transparent 2px, rgba(0,0,0,0.3) 3px),
+        linear-gradient(180deg, #ffffff 0%, #cbd5e1 35%, #94a3b8 65%, #64748b 100%) !important;
+      border: 1px solid #1e293b !important;
       border-radius: 3px !important;
-      color: #e2e8f0 !important;
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+      box-shadow:
+        inset 0 1px 0 #ffffff,
+        inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+        0 4px 8px rgba(0, 0, 0, 0.9) !important;
+      cursor: grab;
     }
 
-    [data-theme="skeuo"] .ui-input-text,
-    body.theme-skeuo .ui-input-text,
-    [data-theme="skeuo"] .ui-input-num,
-    body.theme-skeuo .ui-input-num {
-      background: #0d0f12 !important;
-      border: 1px solid #07090b !important;
-      border-radius: 3px !important;
-      color: #38bdf8 !important;
-      font-family: var(--font-mono) !important;
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-    }
-
-    [data-theme="skeuo"] .ip-badge,
-    body.theme-skeuo .ip-badge {
-      background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%) !important;
-      color: #180f02 !important;
-      box-shadow: 0 0 6px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
-      border-radius: 3px !important;
-      font-weight: 800 !important;
-    }
-
+    /* ── Skeuomorphic 3D Jewel Checkbox Rocker Switches ── */
     [data-theme="skeuo"] input[type="checkbox"],
     body.theme-skeuo input[type="checkbox"] {
-      accent-color: #f59e0b !important;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: linear-gradient(180deg, #090b0d 0%, #14171a 50%, #1c2024 100%) !important;
+      border: 1px solid #060708 !important;
+      border-radius: 3px !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.95),
+        inset 0 0 2px rgba(0, 0, 0, 0.8),
+        0 1px 0 rgba(255, 255, 255, 0.16) !important;
+      cursor: pointer;
+      position: relative;
+      outline: none;
+      vertical-align: middle;
+      flex-shrink: 0;
+      margin-right: 4px;
+      transition: all 0.12s ease;
     }
 
-    /* Modal Sheet Styling */
-    [data-theme="skeuo"] .ip-sheet,
-    body.theme-skeuo .ip-sheet {
-      background: linear-gradient(180deg, #2b3037 0%, #1c1f24 100%) !important;
-      border: 1px solid #3c4450 !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.25) !important;
-      border-radius: 8px !important;
+    [data-theme="skeuo"] input[type="checkbox"]:hover,
+    body.theme-skeuo input[type="checkbox"]:hover {
+      border-color: #38424d !important;
       box-shadow:
-        0 20px 50px rgba(0, 0, 0, 0.95),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+        inset 0 2px 4px rgba(0, 0, 0, 0.95),
+        0 0 5px rgba(245, 158, 11, 0.35) !important;
+    }
+
+    [data-theme="skeuo"] input[type="checkbox"]:checked,
+    body.theme-skeuo input[type="checkbox"]:checked {
+      background: linear-gradient(180deg, #181102 0%, #2b1b04 100%) !important;
+      border-color: #b45309 !important;
+      box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.9),
+        0 0 10px rgba(245, 158, 11, 0.7),
+        0 1px 0 rgba(255, 255, 255, 0.16) !important;
+    }
+
+    [data-theme="skeuo"] input[type="checkbox"]:checked::after,
+    body.theme-skeuo input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      background: radial-gradient(circle at 35% 30%, #ffffff 0%, #ffc848 35%, #f59e0b 65%, #b45309 100%);
+      border-radius: 2px;
+      box-shadow:
+        0 0 6px rgba(245, 158, 11, 0.95),
+        inset 0 1px 1px rgba(255, 255, 255, 0.8),
+        inset 0 -1px 1px rgba(0, 0, 0, 0.6);
+    }
+
+    /* ── Skeuomorphic Recessed Color Wells ── */
+    [data-theme="skeuo"] input[type="color"],
+    body.theme-skeuo input[type="color"] {
+      width: 26px !important;
+      height: 22px !important;
+      padding: 0 !important;
+      background: linear-gradient(180deg, #090b0d 0%, #15181c 100%) !important;
+      border: 1px solid #060708 !important;
+      border-radius: 4px !important;
+      box-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.95),
+        0 1px 0 rgba(255, 255, 255, 0.18) !important;
+      cursor: pointer;
+    }
+
+    [data-theme="skeuo"] input[type="color"]::-webkit-color-swatch-wrapper,
+    body.theme-skeuo input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 2px;
+    }
+
+    [data-theme="skeuo"] input[type="color"]::-webkit-color-swatch,
+    body.theme-skeuo input[type="color"]::-webkit-color-swatch {
+      border: 1px solid rgba(0, 0, 0, 0.6);
+      border-radius: 2px;
+      box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.5),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    /* ── Skeuomorphic Machined Knurled Scrollbars ── */
+    [data-theme="skeuo"] ::-webkit-scrollbar,
+    body.theme-skeuo ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    [data-theme="skeuo"] ::-webkit-scrollbar-track,
+    body.theme-skeuo ::-webkit-scrollbar-track {
+      background: #0b0d0f !important;
+      box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.95) !important;
+    }
+
+    [data-theme="skeuo"] ::-webkit-scrollbar-thumb,
+    body.theme-skeuo ::-webkit-scrollbar-thumb {
+      background:
+        repeating-linear-gradient(180deg, rgba(255,255,255,0.15) 0px, transparent 1px, transparent 2px, rgba(0,0,0,0.4) 3px),
+        linear-gradient(180deg, #4f5762 0%, #353b43 50%, #24282e 100%) !important;
+      border: 1px solid #141619 !important;
+      border-radius: 3px !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+        0 1px 3px rgba(0, 0, 0, 0.7) !important;
+    }
+
+    [data-theme="skeuo"] ::-webkit-scrollbar-thumb:hover,
+    body.theme-skeuo ::-webkit-scrollbar-thumb:hover {
+      background:
+        repeating-linear-gradient(180deg, rgba(255,255,255,0.2) 0px, transparent 1px, transparent 2px, rgba(0,0,0,0.4) 3px),
+        linear-gradient(180deg, #5e6874 0%, #424952 50%, #2e333a 100%) !important;
+    }
+
+    /* ── Skeuomorphic Badges & Illuminated Phosphor Readouts ── */
+    [data-theme="skeuo"] .badge,
+    body.theme-skeuo .badge,
+    [data-theme="skeuo"] .ip-badge,
+    body.theme-skeuo .ip-badge {
+      background: linear-gradient(180deg, #090b0e 0%, #13161a 100%) !important;
+      border: 1px solid #060709 !important;
+      border-radius: 3px !important;
+      color: #38bdf8 !important;
+      box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.95),
+        0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      text-shadow: 0 0 6px rgba(56, 189, 248, 0.6), 0 -1px 0 #000 !important;
+      font-weight: 700 !important;
+    }
+
+    /* ── Modal Sheet Styling & Chassis Popovers ── */
+    [data-theme="skeuo"] .ip-sheet,
+    body.theme-skeuo .ip-sheet,
+    [data-theme="skeuo"] .modal-card,
+    body.theme-skeuo .modal-card {
+      background: linear-gradient(180deg, #2b3036 0%, #1f2328 100%) !important;
+      border: 1px solid #3e4652 !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.25) !important;
+      border-radius: 6px !important;
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.85),
+        0 6px 18px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
     }
 
     [data-theme="skeuo"] .ip-sheet-header,
-    body.theme-skeuo .ip-sheet-header {
-      background: linear-gradient(180deg, #22262b 0%, #191c20 100%) !important;
-      border-bottom: 1px solid #101215 !important;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    body.theme-skeuo .ip-sheet-header,
+    [data-theme="skeuo"] .modal-header,
+    body.theme-skeuo .modal-header {
+      background: linear-gradient(180deg, #373d45 0%, #292d34 100%) !important;
+      border-bottom: 1px solid #131518 !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
       color: #ffc848 !important;
-      text-shadow: 0 0 8px rgba(245, 158, 11, 0.4) !important;
+      text-shadow: 0 -1px 0 #000, 0 0 8px rgba(245, 158, 11, 0.3) !important;
+      font-weight: 750 !important;
+    }
+
+    [data-theme="skeuo"] .modal-footer,
+    body.theme-skeuo .modal-footer {
+      background: linear-gradient(180deg, #22262c 0%, #191c20 100%) !important;
+      border-top: 1px solid #131518 !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
     }
 
     [data-theme="skeuo"] .ip-sheet-close,
-    body.theme-skeuo .ip-sheet-close {
-      background: linear-gradient(180deg, #373d45 0%, #202328 100%) !important;
-      border: 1px solid #101215 !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+    body.theme-skeuo .ip-sheet-close,
+    [data-theme="skeuo"] .modal-close,
+    body.theme-skeuo .modal-close {
+      background: transparent !important;
+      border: 1px solid transparent !important;
+      box-shadow: none !important;
+      color: #8894a4 !important;
+      font-size: 14px !important;
       border-radius: 3px !important;
-      color: #94a3b8 !important;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+      transition: all 0.1s ease !important;
     }
 
     [data-theme="skeuo"] .ip-sheet-close:hover,
-    body.theme-skeuo .ip-sheet-close:hover {
-      background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%) !important;
-      border-color: #7f1d1d !important;
-      color: #ffffff !important;
-      box-shadow: 0 0 8px rgba(239, 68, 68, 0.6) !important;
+    body.theme-skeuo .ip-sheet-close:hover,
+    [data-theme="skeuo"] .modal-close:hover,
+    body.theme-skeuo .modal-close:hover {
+      background: rgba(239, 68, 68, 0.18) !important;
+      color: #ef4444 !important;
+      border-color: rgba(239, 68, 68, 0.35) !important;
+      box-shadow: 0 0 6px rgba(239, 68, 68, 0.5) !important;
     }
 
-    /* Project Storage / Recents Skeuo Hardware Styling */
+    /* ── Project Storage / Recents Skeuo Hardware Styling ── */
     [data-theme="skeuo"] .ip-recent-card,
     body.theme-skeuo .ip-recent-card {
       background: linear-gradient(180deg, #2a2f36 0%, #1c1f24 100%) !important;
@@ -1117,17 +1579,20 @@
       border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
     }
+
     [data-theme="skeuo"] .ip-recent-card:hover,
     body.theme-skeuo .ip-recent-card:hover {
       border-color: #f59e0b !important;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7), 0 0 10px rgba(245, 158, 11, 0.3) !important;
     }
+
     [data-theme="skeuo"] .ip-recent-thumb,
     body.theme-skeuo .ip-recent-thumb {
       background: #0d0f12 !important;
       border-bottom: 1px solid #101215 !important;
       box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.9) !important;
     }
+
     [data-theme="skeuo"] .ip-badge-vector,
     body.theme-skeuo .ip-badge-vector {
       background: linear-gradient(180deg, #3a3220 0%, #201a0e 100%) !important;
@@ -1135,6 +1600,7 @@
       color: #ffc848 !important;
       box-shadow: 0 0 4px rgba(245, 158, 11, 0.4) !important;
     }
+
     [data-theme="skeuo"] .ip-badge-painter,
     body.theme-skeuo .ip-badge-painter {
       background: linear-gradient(180deg, #182838 0%, #0c1824 100%) !important;
@@ -1580,56 +2046,7 @@
       background: var(--bg-panel-sub);
     }
 
-    [data-theme="skeuo"] #dockview-container {
-      --dv-tabs-and-actions-container-background-color: #202428;
-      --dv-activegroup-visiblepanel-tab-background-color: #2d3238;
-      --dv-activegroup-visiblepanel-tab-color: #ffc848;
-      --dv-inactivegroup-visiblepanel-tab-background-color: #272b30;
-      --dv-inactivegroup-visiblepanel-tab-color: #cbd5e1;
-      --dv-group-view-background-color: #282c32;
-      --dv-background-color: #282c32;
-      --dv-tab-divider-color: #15171a;
-      --dv-separator-border: 1px solid #15171a;
-      --dv-sash-hover-color: #f59e0b;
-    }
 
-    [data-theme="skeuo"] .dock-panel-content {
-      background: linear-gradient(180deg, #2c3036 0%, #24282e 100%) !important;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-    }
-
-    [data-theme="skeuo"] #dockview-container .dv-tabs-and-actions-container {
-      background: linear-gradient(180deg, #22262b 0%, #1a1d21 100%) !important;
-      border-bottom: 1px solid #131518 !important;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.08),
-        inset 0 -1px 3px rgba(0, 0, 0, 0.5) !important;
-    }
-
-    [data-theme="skeuo"] #dockview-container .dv-tab {
-      background: linear-gradient(180deg, #2d3238 0%, #212429 100%) !important;
-      border: 1px solid #15171a !important;
-      border-bottom: none !important;
-      border-radius: 4px 4px 0 0 !important;
-      margin-right: 2px !important;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.15),
-        0 -1px 2px rgba(0, 0, 0, 0.25) !important;
-      color: #94a3b8 !important;
-      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
-    }
-
-    [data-theme="skeuo"] #dockview-container .dv-tab.dv-active-tab {
-      background: linear-gradient(180deg, #3d434c 0%, #2d3238 100%) !important;
-      color: #ffc848 !important;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.35),
-        inset 0 -2px 0 #f59e0b,
-        0 -2px 6px rgba(0, 0, 0, 0.45) !important;
-      text-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.9),
-        0 0 8px rgba(245, 158, 11, 0.4) !important;
-    }
 
     .dock-panel-content {
       width: 100%;
@@ -2118,7 +2535,7 @@
     }
     .ui-layer-row.clipped-layer {
       padding-left: 12px;
-      border-left: 2px solid #8ec07c;
+      border-left: 2px solid var(--success, #8ec07c);
     }
     .touch-guard { pointer-events: none !important; }
     .layer-cell-op {
@@ -3455,7 +3872,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.80 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.81 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
