@@ -54,26 +54,53 @@ function log(msg, cls = '') {
 let _lastStatusUpdate = 0;
 let _cachedStatusText = '';
 
-function updateStatus(host, docX, docY, force = false) {
-  if (!force && host && (host.isDrawingOnCanvas || host.isPanning)) return;
+function updateStatus(hostOrX, docX, docY, force = false) {
+  let host = (typeof window !== 'undefined') ? window.host : null;
+  let x = 0;
+  let y = 0;
+  let forced = false;
+
+  if (hostOrX && typeof hostOrX === 'object' && ('canvasActor' in hostOrX || 'zoom' in hostOrX)) {
+    host = hostOrX;
+    x = (typeof docX === 'number') ? docX : (host?.lastDocX ?? 0);
+    y = (typeof docY === 'number') ? docY : (host?.lastDocY ?? 0);
+    forced = !!force;
+  } else if (typeof hostOrX === 'number') {
+    x = hostOrX;
+    y = (typeof docX === 'number') ? docX : 0;
+    forced = (typeof docY === 'boolean') ? docY : !!force;
+  } else {
+    x = host?.lastDocX ?? 0;
+    y = host?.lastDocY ?? 0;
+    forced = (typeof hostOrX === 'boolean') ? hostOrX : ((typeof docX === 'boolean') ? docX : !!force);
+  }
+
+  if (host && typeof x === 'number' && typeof y === 'number') {
+    host.lastDocX = x;
+    host.lastDocY = y;
+  }
+  if (!forced && host && (host.isDrawingOnCanvas || host.isPanning)) return;
   const now = performance.now();
-  if (!force && now - _lastStatusUpdate < 80) return; // Max 12 updates/sec
+  if (!forced && now - _lastStatusUpdate < 80) return; // Max 12 updates/sec
   _lastStatusUpdate = now;
 
-  const ver = (typeof globalThis.ESENHO_VERSION !== 'undefined' && globalThis.ESENHO_VERSION) ? `v${globalThis.ESENHO_VERSION}` : 'v0.5.10';
+  const ver = (typeof globalThis.ESENHO_VERSION !== 'undefined' && globalThis.ESENHO_VERSION) ? `v${globalThis.ESENHO_VERSION}` : 'v0.13.81';
   const cw = host?.canvasActor?.exports?.get_canvas_width?.() ?? 0;
   const ch = host?.canvasActor?.exports?.get_canvas_height?.() ?? 0;
   const rawDeg = host ? ((host.canvasRotation * 180 / Math.PI) % 360) : 0;
   const deg = rawDeg.toFixed(1);
   const zoom = host ? (host.zoom * 100).toFixed(0) : 100;
+  const proj = (host?.currentProjectName && host.currentProjectName !== 'Untitled Project') ? `${host.currentProjectName} · ` : '';
   const newText =
-    `${ver}  ${cw}x${ch}  ${Math.round(docX)},${Math.round(docY)}  ` +
+    `${proj}${ver}  ${cw}x${ch}  ${Math.round(x || 0)},${Math.round(y || 0)}  ` +
     `zoom ${zoom}%  rot ${deg}°`;
   if (_cachedStatusText !== newText) {
     _cachedStatusText = newText;
     if (statusEl) statusEl.textContent = newText;
   }
 }
+
+
 
 /* ── Color math helpers ── */
 function hexToRgb(hex) {
@@ -299,6 +326,7 @@ async function main() {
   }
   host.canvasActor.exports.force_composite();
   hasRestoredUserPreferences = true;
+  updateStatus(host, 0, 0, true);
   log('canvas.wasm ready [ok]');
 
   // Initialize Frame-by-Frame Raster Animator
@@ -412,6 +440,7 @@ async function main() {
     if (typeof host.requestRender === 'function') host.requestRender();
     setAutosaveBadges('Unsaved', '#fabd2f');
     scheduleAutosave(1500);
+    updateStatus(host, host.lastDocX || 0, host.lastDocY || 0, false);
   }
 
   function markCanvasClean() {
@@ -531,6 +560,7 @@ async function main() {
     if ((canvasEl.width !== prevW || canvasEl.height !== prevH) && typeof host.render === 'function') {
       host.render();
     }
+    updateStatus(host, host.lastDocX || 0, host.lastDocY || 0, true);
   }
   host.resize = resize;
   resize();
@@ -551,6 +581,7 @@ async function main() {
     host.panX = (canvasEl.width - cw * host.zoom) / 2;
     host.panY = (canvasEl.height - ch * host.zoom) / 2;
     if (typeof host.render === 'function') host.render();
+    updateStatus(host, host.lastDocX || 0, host.lastDocY || 0, true);
   };
 
   host.zoomTo100 = function() {
@@ -562,6 +593,7 @@ async function main() {
       host.panY = (canvasEl.height - ch) / 2;
     }
     if (typeof host.render === 'function') host.render();
+    updateStatus(host, host.lastDocX || 0, host.lastDocY || 0, true);
   };
 
   host.centerCanvas = function() {
@@ -572,11 +604,13 @@ async function main() {
       host.panY = (canvasEl.height - ch * host.zoom) / 2;
     }
     if (typeof host.render === 'function') host.render();
+    updateStatus(host, host.lastDocX || 0, host.lastDocY || 0, true);
   };
 
   host.resetRotation = function() {
     host.canvasRotation = 0;
     if (typeof host.render === 'function') host.render();
+    updateStatus(host, host.lastDocX || 0, host.lastDocY || 0, true);
   };
 
   host.toggleFlipH = function() {
@@ -11898,6 +11932,7 @@ async function main() {
                 host.currentProjectName = fullProj.name;
                 localStorage.setItem('esenho_last_project_id', fullProj.id);
                 if (typeof syncUiFromHost === 'function') syncUiFromHost();
+                updateStatus(host, 0, 0, true);
                 log(`Loaded project '${fullProj.name}' [ok]`);
               } catch (loadErr) {
                 log(`err: failed loading project: ${loadErr.message}`, 'err');
@@ -14994,6 +15029,7 @@ async function main() {
     refreshTouchColorStudio();
   }
   syncUiFromHost();
+  host.updateStatus = (docX, docY, force) => updateStatus(host, docX, docY, force);
   window.host = host;
   window.W = host.canvasActor;
   if (window.esenho) {

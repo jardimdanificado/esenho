@@ -47,11 +47,13 @@ for (const htmlFile of ["painter.html", "studio.html"]) {
   if (fs.existsSync(filePath)) {
     let content = fs.readFileSync(filePath, "utf8");
     content = content.replace(
-      /<span id="wstatus" class="ip-top-status-text">v[0-9.]+ ready<\/span>/,
-      `<span id="wstatus" class="ip-top-status-text">v${version} ready</span>`
+      /<span id="wstatus" class="ip-top-status-text">[^<]*<\/span>/,
+      htmlFile === "studio.html"
+        ? `<span id="wstatus" class="ip-top-status-text">esenho studio (v${version})</span>`
+        : `<span id="wstatus" class="ip-top-status-text">v${version}  --x--  0,0  zoom 100%  rot 0.0°</span>`
     );
     fs.writeFileSync(filePath, content, "utf8");
-    console.log(`[sync-version] Updated ${htmlFile} status (-> v${version} ready)`);
+    console.log(`[sync-version] Updated ${htmlFile} status (-> v${version})`);
   }
 }
 

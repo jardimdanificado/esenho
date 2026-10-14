@@ -510,74 +510,138 @@
       gap: 3px !important;
     }
 
+    /* ── Skeuomorphic Tool Grid Buttons (Chunky Cast Alloy MPC Cards) ── */
+    [data-theme="skeuo"] .tool-btn,
+    body.theme-skeuo .tool-btn,
+    [data-theme="skeuo"] .ip-tool-card,
+    body.theme-skeuo .ip-tool-card,
+    [data-theme="skeuo"] .ip-actionmode-card,
+    body.theme-skeuo .ip-actionmode-card,
+    [data-theme="skeuo"] .ip-hud-btn,
+    body.theme-skeuo .ip-hud-btn,
+    [data-theme="skeuo"] .ip-selmode-card,
+    body.theme-skeuo .ip-selmode-card,
     [data-theme="skeuo"] .ip-pill-btn,
-    body.theme-skeuo .ip-pill-btn {
-      background: linear-gradient(180deg, #373d46 0%, #292d34 55%, #1e2227 100%) !important;
-      border: 1px solid #131518 !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.18) !important;
-      border-radius: 3px !important;
-      color: #94a3b8 !important;
-      font-size: 10px !important;
-      font-weight: 700 !important;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
-      transition: all 0.1s ease !important;
-    }
-
-    [data-theme="skeuo"] .ip-pill-btn:hover:not(.active),
-    body.theme-skeuo .ip-pill-btn:hover:not(.active) {
-      background: linear-gradient(180deg, #444b56 0%, #323841 55%, #252930 100%) !important;
-      color: #ffffff !important;
-      border-color: #131518 !important;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
-    }
-
-    [data-theme="skeuo"] .ip-pill-btn.active,
-    body.theme-skeuo .ip-pill-btn.active {
-      background: linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
-      border: 1px solid #78350f !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.4) !important;
-      color: #180f02 !important;
-      font-weight: 800 !important;
-      box-shadow:
-        0 0 10px rgba(245, 158, 11, 0.6),
-        inset 0 1px 0 rgba(255, 255, 255, 0.4),
-        0 1px 3px rgba(0, 0, 0, 0.5) !important;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
-    }
-
+    body.theme-skeuo .ip-pill-btn,
     [data-theme="skeuo"] .ip-brush-card,
-    body.theme-skeuo .ip-brush-card {
-      background: linear-gradient(180deg, #2b3038 0%, #1e2227 100%) !important;
+    body.theme-skeuo .ip-brush-card,
+    [data-theme="skeuo"] .dock-tool-btn,
+    body.theme-skeuo .dock-tool-btn,
+    [data-theme="skeuo"] .dock-mode-btn,
+    body.theme-skeuo .dock-mode-btn {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.02) 50%, transparent 51%),
+        linear-gradient(180deg, #383e46 0%, #2a2e34 60%, #1e2227 100%) !important;
       border: 1px solid #131518 !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
       border-radius: 4px !important;
       box-shadow:
-        0 2px 4px rgba(0, 0, 0, 0.45),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.4) !important;
-      transition: all 0.12s ease !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+        0 2px 4px rgba(0, 0, 0, 0.45) !important;
+      color: #cbd5e1 !important;
+      font-size: 9.5px !important;
+      font-weight: 700 !important;
+      text-shadow: 0 -1px 0 #000 !important;
+      transition: all 0.08s ease !important;
     }
 
-    [data-theme="skeuo"] .ip-brush-card:hover,
-    body.theme-skeuo .ip-brush-card:hover {
-      background: linear-gradient(180deg, #373d47 0%, #252a30 100%) !important;
-      border-color: #3b4450 !important;
+    [data-theme="skeuo"] .tool-btn:hover:not(.active),
+    body.theme-skeuo .tool-btn:hover:not(.active),
+    [data-theme="skeuo"] .ip-tool-card:hover:not(.active),
+    body.theme-skeuo .ip-tool-card:hover:not(.active),
+    [data-theme="skeuo"] .ip-actionmode-card:hover:not(.active),
+    body.theme-skeuo .ip-actionmode-card:hover:not(.active),
+    [data-theme="skeuo"] .ip-hud-btn:hover:not(.active),
+    body.theme-skeuo .ip-hud-btn:hover:not(.active),
+    [data-theme="skeuo"] .ip-selmode-card:hover:not(.active),
+    body.theme-skeuo .ip-selmode-card:hover:not(.active),
+    [data-theme="skeuo"] .ip-pill-btn:hover:not(.active),
+    body.theme-skeuo .ip-pill-btn:hover:not(.active),
+    [data-theme="skeuo"] .ip-brush-card:hover:not(.active),
+    body.theme-skeuo .ip-brush-card:hover:not(.active),
+    [data-theme="skeuo"] .dock-tool-btn:hover:not(.active),
+    body.theme-skeuo .dock-tool-btn:hover:not(.active),
+    [data-theme="skeuo"] .dock-mode-btn:hover:not(.active),
+    body.theme-skeuo .dock-mode-btn:hover:not(.active) {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 50%, transparent 51%),
+        linear-gradient(180deg, #444b54 0%, #32373f 60%, #25282e 100%) !important;
+      color: #ffffff !important;
       box-shadow:
-        0 4px 10px rgba(0, 0, 0, 0.6),
-        inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
-    }
-
-    [data-theme="skeuo"] .ip-brush-card.active,
-    body.theme-skeuo .ip-brush-card.active {
-      background: linear-gradient(180deg, #362e22 0%, #241c10 100%) !important;
-      border: 1px solid #f59e0b !important;
-      border-top: 1px solid #fbbf24 !important;
-      box-shadow:
-        0 0 12px rgba(245, 158, 11, 0.4),
         inset 0 1px 0 rgba(255, 255, 255, 0.3),
-        inset 0 0 8px rgba(245, 158, 11, 0.15),
-        0 2px 6px rgba(0, 0, 0, 0.6) !important;
+        0 2px 5px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] .tool-btn.active,
+    body.theme-skeuo .tool-btn.active,
+    [data-theme="skeuo"] .ip-tool-card.active,
+    body.theme-skeuo .ip-tool-card.active,
+    [data-theme="skeuo"] .ip-actionmode-card.active,
+    body.theme-skeuo .ip-actionmode-card.active,
+    [data-theme="skeuo"] .ip-hud-btn.active,
+    body.theme-skeuo .ip-hud-btn.active,
+    [data-theme="skeuo"] .ip-selmode-card.active,
+    body.theme-skeuo .ip-selmode-card.active,
+    [data-theme="skeuo"] .ip-pill-btn.active,
+    body.theme-skeuo .ip-pill-btn.active,
+    [data-theme="skeuo"] .ip-brush-card.active,
+    body.theme-skeuo .ip-brush-card.active,
+    [data-theme="skeuo"] .dock-tool-btn.active,
+    body.theme-skeuo .dock-tool-btn.active,
+    [data-theme="skeuo"] .dock-mode-btn.active,
+    body.theme-skeuo .dock-mode-btn.active,
+    [data-theme="skeuo"] .tool-btn.active:hover,
+    body.theme-skeuo .tool-btn.active:hover,
+    [data-theme="skeuo"] .ip-tool-card.active:hover,
+    body.theme-skeuo .ip-tool-card.active:hover,
+    [data-theme="skeuo"] .ip-hud-btn.active:hover,
+    body.theme-skeuo .ip-hud-btn.active:hover {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.3) 0%, transparent 60%),
+        linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
+      color: #170f02 !important;
+      border-color: #78350f !important;
+      font-weight: 800 !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.7),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.5),
+        0 0 10px rgba(245, 158, 11, 0.6) !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+      transform: translateY(1px) !important;
+    }
+
+    [data-theme="skeuo"] .tool-btn.active svg,
+    body.theme-skeuo .tool-btn.active svg,
+    [data-theme="skeuo"] .ip-tool-card.active svg,
+    body.theme-skeuo .ip-tool-card.active svg,
+    [data-theme="skeuo"] .ip-actionmode-card.active svg,
+    body.theme-skeuo .ip-actionmode-card.active svg,
+    [data-theme="skeuo"] .ip-hud-btn.active svg,
+    body.theme-skeuo .ip-hud-btn.active svg,
+    [data-theme="skeuo"] .ip-selmode-card.active svg,
+    body.theme-skeuo .ip-selmode-card.active svg,
+    [data-theme="skeuo"] .dock-tool-btn.active svg,
+    body.theme-skeuo .dock-tool-btn.active svg,
+    [data-theme="skeuo"] .dock-mode-btn.active svg,
+    body.theme-skeuo .dock-mode-btn.active svg {
+      stroke: #170f02 !important;
+    }
+
+    [data-theme="skeuo"] .ip-hud-btn.is-eraser.active,
+    body.theme-skeuo .ip-hud-btn.is-eraser.active {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.3) 0%, transparent 60%),
+        linear-gradient(180deg, #ef4444 0%, #dc2626 50%, #991b1b 100%) !important;
+      border-color: #7f1d1d !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.7),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.5),
+        0 0 10px rgba(239, 68, 68, 0.7) !important;
+    }
+    [data-theme="skeuo"] .ip-hud-btn.is-eraser.active svg,
+    body.theme-skeuo .ip-hud-btn.is-eraser.active svg {
+      stroke: #ffffff !important;
     }
 
     [data-theme="skeuo"] .ip-brush-card-title,
@@ -770,106 +834,6 @@
         inset 0 -1px 0 rgba(0, 0, 0, 0.5) !important;
     }
 
-    [data-theme="skeuo"] .ip-hud-btn,
-    body.theme-skeuo .ip-hud-btn {
-      background: linear-gradient(180deg, #3d434c 0%, #2b2f36 55%, #1e2227 100%) !important;
-      border: 1px solid #101215 !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.22) !important;
-      box-shadow:
-        0 2px 4px rgba(0, 0, 0, 0.5),
-        inset 0 1px 0 rgba(255, 255, 255, 0.14),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.4) !important;
-      color: #cbd5e1 !important;
-      transition: all 0.1s ease !important;
-    }
-
-    [data-theme="skeuo"] .ip-hud-btn:hover,
-    body.theme-skeuo .ip-hud-btn:hover {
-      background: linear-gradient(180deg, #474f5a 0%, #343a43 55%, #252a31 100%) !important;
-      color: #ffffff !important;
-      border-color: #101215 !important;
-      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
-    }
-
-    [data-theme="skeuo"] .ip-hud-btn:active,
-    body.theme-skeuo .ip-hud-btn:active {
-      background: linear-gradient(180deg, #16181c 0%, #22262c 100%) !important;
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.85), 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-      transform: translateY(1px);
-    }
-
-    [data-theme="skeuo"] .ip-hud-btn.active,
-    body.theme-skeuo .ip-hud-btn.active {
-      background: linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
-      border-color: #78350f !important;
-      color: #180f02 !important;
-      box-shadow:
-        0 0 10px rgba(245, 158, 11, 0.7),
-        inset 0 1px 0 rgba(255, 255, 255, 0.5),
-        0 1px 3px rgba(0, 0, 0, 0.6) !important;
-    }
-
-    [data-theme="skeuo"] .ip-hud-btn.is-eraser.active,
-    body.theme-skeuo .ip-hud-btn.is-eraser.active {
-      background: linear-gradient(180deg, #ef4444 0%, #dc2626 50%, #991b1b 100%) !important;
-      border-color: #7f1d1d !important;
-      box-shadow: 0 0 10px rgba(239, 68, 68, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
-    }
-
-    /* ── Skeuomorphic Action Modes & Selection Modes ── */
-    [data-theme="skeuo"] .ip-actionmode-card,
-    body.theme-skeuo .ip-actionmode-card,
-    [data-theme="skeuo"] .ip-selmode-card,
-    body.theme-skeuo .ip-selmode-card {
-      background: linear-gradient(180deg, #373d45 0%, #292d34 60%, #1e2227 100%) !important;
-      border: 1px solid #131518 !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.18) !important;
-      border-radius: 4px !important;
-      color: #cbd5e1 !important;
-      font-size: 9.5px !important;
-      font-weight: 700 !important;
-      box-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.4) !important;
-      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9) !important;
-      transition: all 0.1s ease !important;
-    }
-
-    [data-theme="skeuo"] .ip-actionmode-card:hover:not(.active),
-    body.theme-skeuo .ip-actionmode-card:hover:not(.active),
-    [data-theme="skeuo"] .ip-selmode-card:hover:not(.active),
-    body.theme-skeuo .ip-selmode-card:hover:not(.active) {
-      background: linear-gradient(180deg, #444b54 0%, #32373f 60%, #25282e 100%) !important;
-      color: #ffffff !important;
-      border-color: #131518 !important;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
-    }
-
-    [data-theme="skeuo"] .ip-actionmode-card.active,
-    body.theme-skeuo .ip-actionmode-card.active,
-    [data-theme="skeuo"] .ip-selmode-card.active,
-    body.theme-skeuo .ip-selmode-card.active {
-      background: linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
-      border: 1px solid #78350f !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.4) !important;
-      color: #170f02 !important;
-      font-weight: 800 !important;
-      box-shadow:
-        0 0 10px rgba(245, 158, 11, 0.6),
-        inset 0 1px 0 rgba(255, 255, 255, 0.4),
-        0 1px 3px rgba(0, 0, 0, 0.6) !important;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
-      transform: translateY(1px) !important;
-    }
-
-    [data-theme="skeuo"] .ip-actionmode-card.active svg,
-    body.theme-skeuo .ip-actionmode-card.active svg,
-    [data-theme="skeuo"] .ip-selmode-card.active svg,
-    body.theme-skeuo .ip-selmode-card.active svg {
-      stroke: #170f02 !important;
-    }
-
     /* ── Skeuomorphic Touch Color Studio in Painter ── */
     [data-theme="skeuo"] .touch-color-box,
     body.theme-skeuo .touch-color-box {
@@ -1029,39 +993,83 @@
       text-shadow: 0 0 5px rgba(56, 189, 248, 0.5) !important;
     }
 
+    /* ── Skeuomorphic Menus, Popovers, Modals & Flyouts ── */
     [data-theme="skeuo"] .dropdown-menu,
     body.theme-skeuo .dropdown-menu,
     [data-theme="skeuo"] .menu-submenu,
     body.theme-skeuo .menu-submenu,
     [data-theme="skeuo"] .monaco-menu-container,
-    body.theme-skeuo .monaco-menu-container {
-      background: linear-gradient(180deg, #2c3138 0%, #1e2227 100%) !important;
-      border: 1px solid #3c4450 !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.25) !important;
+    body.theme-skeuo .monaco-menu-container,
+    [data-theme="skeuo"] .tool-flyout,
+    body.theme-skeuo .tool-flyout,
+    [data-theme="skeuo"] .tool-submenu,
+    body.theme-skeuo .tool-submenu {
+      background: linear-gradient(180deg, #2d3238 0%, #202429 100%) !important;
+      border: 1px solid #3c444f !important;
       border-radius: 5px !important;
       box-shadow:
-        0 14px 40px rgba(0, 0, 0, 0.85),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+        0 16px 36px rgba(0, 0, 0, 0.8),
+        0 4px 12px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
     }
 
-    [data-theme="skeuo"] .menu-item:hover,
-    body.theme-skeuo .menu-item:hover,
+    [data-theme="skeuo"] .monaco-menu .action-menu-item,
+    body.theme-skeuo .monaco-menu .action-menu-item,
+    [data-theme="skeuo"] .menu-item,
+    body.theme-skeuo .menu-item {
+      font-size: 12px !important;
+      font-weight: 600 !important;
+      color: #cbd5e1 !important;
+      text-shadow: 0 -1px 0 #000 !important;
+      border-radius: 3px !important;
+    }
+
     [data-theme="skeuo"] .monaco-menu .action-item.focused > .action-menu-item,
     body.theme-skeuo .monaco-menu .action-item.focused > .action-menu-item,
     [data-theme="skeuo"] .monaco-menu .action-item:hover > .action-menu-item,
-    body.theme-skeuo .monaco-menu .action-item:hover > .action-menu-item {
+    body.theme-skeuo .monaco-menu .action-item:hover > .action-menu-item,
+    [data-theme="skeuo"] .menu-item:hover,
+    body.theme-skeuo .menu-item:hover {
       background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%) !important;
-      color: #170f02 !important;
-      font-weight: 700 !important;
+      color: #180e02 !important;
       text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 1px 3px rgba(0, 0, 0, 0.4) !important;
     }
 
     [data-theme="skeuo"] .monaco-menu .action-item.focused > .action-menu-item .keybinding,
     body.theme-skeuo .monaco-menu .action-item.focused > .action-menu-item .keybinding,
     [data-theme="skeuo"] .monaco-menu .action-item:hover > .action-menu-item .keybinding,
-    body.theme-skeuo .monaco-menu .action-item:hover > .action-menu-item .keybinding {
-      color: #170f02 !important;
+    body.theme-skeuo .monaco-menu .action-item:hover > .action-menu-item .keybinding,
+    [data-theme="skeuo"] .monaco-menu .action-item.focused > .action-menu-item .submenu-indicator,
+    body.theme-skeuo .monaco-menu .action-item.focused > .action-menu-item .submenu-indicator,
+    [data-theme="skeuo"] .monaco-menu .action-item:hover > .action-menu-item .submenu-indicator,
+    body.theme-skeuo .monaco-menu .action-item:hover > .action-menu-item .submenu-indicator,
+    [data-theme="skeuo"] .monaco-menu .action-item.focused > .action-menu-item .menu-item-check,
+    body.theme-skeuo .monaco-menu .action-item.focused > .action-menu-item .menu-item-check,
+    [data-theme="skeuo"] .monaco-menu .action-item:hover > .action-menu-item .menu-item-check,
+    body.theme-skeuo .monaco-menu .action-item:hover > .action-menu-item .menu-item-check {
+      color: #180e02 !important;
+    }
+
+    [data-theme="skeuo"] .monaco-menu .action-item.separator,
+    body.theme-skeuo .monaco-menu .action-item.separator {
+      height: 1px !important;
+      margin: 4px 6px !important;
+      background: #141619 !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+
+    [data-theme="skeuo"] .monaco-menu .action-item.header,
+    body.theme-skeuo .monaco-menu .action-item.header {
+      color: #94a3b8 !important;
+      text-shadow: 0 -1px 0 #000 !important;
+    }
+
+    [data-theme="skeuo"] .monaco-menu .action-label,
+    body.theme-skeuo .monaco-menu .action-label {
+      color: inherit !important;
     }
 
     [data-theme="skeuo"] .eyedropper-ring,
@@ -1096,6 +1104,83 @@
       border-radius: 2px !important;
     }
 
+    /* ── Skeuomorphic Buttons (Explicit & Non-Destructive Standard Push Keys) ── */
+    [data-theme="skeuo"] .btn,
+    body.theme-skeuo .btn,
+    [data-theme="skeuo"] .btn-sm,
+    body.theme-skeuo .btn-sm,
+    [data-theme="skeuo"] .top-tool-btn,
+    body.theme-skeuo .top-tool-btn,
+    [data-theme="skeuo"] .titlebar-btn,
+    body.theme-skeuo .titlebar-btn,
+    [data-theme="skeuo"] .ip-btn,
+    body.theme-skeuo .ip-btn,
+    [data-theme="skeuo"] .dock-strip-btn,
+    body.theme-skeuo .dock-strip-btn,
+    [data-theme="skeuo"] .ip-btn-new-res,
+    body.theme-skeuo .ip-btn-new-res,
+    [data-theme="skeuo"] .btn-filter-trigger,
+    body.theme-skeuo .btn-filter-trigger {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.02) 50%, transparent 51%),
+        linear-gradient(180deg, #3a4048 0%, #2b3036 60%, #1f2328 100%) !important;
+      border: 1px solid #131518 !important;
+      border-radius: 4px !important;
+      color: #cbd5e1 !important;
+      font-size: 11px !important;
+      font-weight: 650 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+        0 2px 4px rgba(0, 0, 0, 0.4) !important;
+      text-shadow: 0 -1px 0 #000, 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      transition: all 0.08s ease !important;
+    }
+
+    [data-theme="skeuo"] .btn:hover,
+    body.theme-skeuo .btn:hover,
+    [data-theme="skeuo"] .btn-sm:hover,
+    body.theme-skeuo .btn-sm:hover,
+    [data-theme="skeuo"] .top-tool-btn:hover,
+    body.theme-skeuo .top-tool-btn:hover,
+    [data-theme="skeuo"] .titlebar-btn:hover,
+    body.theme-skeuo .titlebar-btn:hover,
+    [data-theme="skeuo"] .ip-btn:hover:not(.active),
+    body.theme-skeuo .ip-btn:hover:not(.active),
+    [data-theme="skeuo"] .dock-strip-btn:hover:not(.active),
+    body.theme-skeuo .dock-strip-btn:hover:not(.active),
+    [data-theme="skeuo"] .ip-btn-new-res:hover,
+    body.theme-skeuo .ip-btn-new-res:hover,
+    [data-theme="skeuo"] .btn-filter-trigger:hover,
+    body.theme-skeuo .btn-filter-trigger:hover {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 50%, transparent 51%),
+        linear-gradient(180deg, #464d57 0%, #343a42 60%, #26292f 100%) !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.32),
+        0 2px 5px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] .btn:active,
+    body.theme-skeuo .btn:active,
+    [data-theme="skeuo"] .btn-sm:active,
+    body.theme-skeuo .btn-sm:active,
+    [data-theme="skeuo"] .top-tool-btn:active,
+    body.theme-skeuo .top-tool-btn:active,
+    [data-theme="skeuo"] .titlebar-btn:active,
+    body.theme-skeuo .titlebar-btn:active,
+    [data-theme="skeuo"] .ip-btn:active,
+    body.theme-skeuo .ip-btn:active,
+    [data-theme="skeuo"] .dock-strip-btn:active,
+    body.theme-skeuo .dock-strip-btn:active {
+      background: linear-gradient(180deg, #17191d 0%, #22252a 100%) !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.8),
+        0 1px 0 rgba(255, 255, 255, 0.08) !important;
+      transform: translateY(1px) !important;
+    }
+
     /* ── Skeuomorphic Primary Action Buttons (Amber Illuminated Studio Switch) ── */
     [data-theme="skeuo"] .btn-primary,
     body.theme-skeuo .btn-primary,
@@ -1118,7 +1203,9 @@
     [data-theme="skeuo"] #btn-ip-sel-paint-inside,
     body.theme-skeuo #btn-ip-sel-paint-inside,
     [data-theme="skeuo"] #btn-ip-tool-transform,
-    body.theme-skeuo #btn-ip-tool-transform {
+    body.theme-skeuo #btn-ip-tool-transform,
+    [data-theme="skeuo"] #btn-touch-add-swatch,
+    body.theme-skeuo #btn-touch-add-swatch {
       background:
         radial-gradient(circle at 50% 25%, rgba(255,255,255,0.35) 0%, transparent 60%),
         linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%) !important;
@@ -1154,7 +1241,9 @@
     [data-theme="skeuo"] #btn-ip-sel-paint-inside:hover,
     body.theme-skeuo #btn-ip-sel-paint-inside:hover,
     [data-theme="skeuo"] #btn-ip-tool-transform:hover,
-    body.theme-skeuo #btn-ip-tool-transform:hover {
+    body.theme-skeuo #btn-ip-tool-transform:hover,
+    [data-theme="skeuo"] #btn-touch-add-swatch:hover,
+    body.theme-skeuo #btn-touch-add-swatch:hover {
       background:
         radial-gradient(circle at 50% 25%, rgba(255,255,255,0.45) 0%, transparent 60%),
         linear-gradient(180deg, #fcd34d 0%, #fbbf24 50%, #f59e0b 100%) !important;
@@ -1163,7 +1252,7 @@
         0 3px 10px rgba(245, 158, 11, 0.65) !important;
     }
 
-    /* ── Tactile Micro-Switches (.ip-mini-btn, .ip-xbar-mode, .ip-sheet-xform-interp, .ip-sym-btn) ── */
+    /* ── Tactile Micro-Switches (.ip-mini-btn, .ip-xbar-mode, .ip-sheet-xform-interp, .ip-sym-btn, .ip-btn-quick-res) ── */
     [data-theme="skeuo"] .ip-mini-btn,
     body.theme-skeuo .ip-mini-btn,
     [data-theme="skeuo"] .ip-xbar-mode,
@@ -1171,7 +1260,9 @@
     [data-theme="skeuo"] .ip-sheet-xform-interp,
     body.theme-skeuo .ip-sheet-xform-interp,
     [data-theme="skeuo"] .ip-sym-btn,
-    body.theme-skeuo .ip-sym-btn {
+    body.theme-skeuo .ip-sym-btn,
+    [data-theme="skeuo"] .ip-btn-quick-res,
+    body.theme-skeuo .ip-btn-quick-res {
       background:
         linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 50%, transparent 51%),
         linear-gradient(180deg, #343a42 0%, #262a30 60%, #1d2025 100%) !important;
@@ -1184,6 +1275,7 @@
       color: #cbd5e1 !important;
       font-size: 9.5px !important;
       font-weight: 650 !important;
+      height: 22px !important;
       text-shadow: 0 -1px 0 #000 !important;
       transition: all 0.08s ease !important;
     }
@@ -1195,7 +1287,9 @@
     [data-theme="skeuo"] .ip-sheet-xform-interp:hover:not(.active),
     body.theme-skeuo .ip-sheet-xform-interp:hover:not(.active),
     [data-theme="skeuo"] .ip-sym-btn:hover:not(.active),
-    body.theme-skeuo .ip-sym-btn:hover:not(.active) {
+    body.theme-skeuo .ip-sym-btn:hover:not(.active),
+    [data-theme="skeuo"] .ip-btn-quick-res:hover:not(.active),
+    body.theme-skeuo .ip-btn-quick-res:hover:not(.active) {
       background:
         linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 50%, transparent 51%),
         linear-gradient(180deg, #404650 0%, #30353d 60%, #23272d 100%) !important;
@@ -1207,6 +1301,8 @@
 
     [data-theme="skeuo"] .ip-mini-btn.active,
     body.theme-skeuo .ip-mini-btn.active,
+    [data-theme="skeuo"] .dock-strip-btn.active,
+    body.theme-skeuo .dock-strip-btn.active,
     [data-theme="skeuo"] .ip-btn.active,
     body.theme-skeuo .ip-btn.active,
     [data-theme="skeuo"] .ip-xbar-mode.active,
@@ -1214,7 +1310,9 @@
     [data-theme="skeuo"] .ip-sheet-xform-interp.active,
     body.theme-skeuo .ip-sheet-xform-interp.active,
     [data-theme="skeuo"] .ip-sym-btn.active,
-    body.theme-skeuo .ip-sym-btn.active {
+    body.theme-skeuo .ip-sym-btn.active,
+    [data-theme="skeuo"] .ip-btn-quick-res.active,
+    body.theme-skeuo .ip-btn-quick-res.active {
       background:
         radial-gradient(circle at 50% 25%, rgba(255,255,255,0.25) 0%, transparent 60%),
         linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
@@ -1231,9 +1329,87 @@
 
     [data-theme="skeuo"] .ip-btn.active svg,
     body.theme-skeuo .ip-btn.active svg,
+    [data-theme="skeuo"] .dock-strip-btn.active svg,
+    body.theme-skeuo .dock-strip-btn.active svg,
     [data-theme="skeuo"] .ip-mini-btn.active svg,
     body.theme-skeuo .ip-mini-btn.active svg {
       stroke: #170f02 !important;
+    }
+
+    [data-theme="skeuo"] .ip-mini-btn.danger,
+    body.theme-skeuo .ip-mini-btn.danger {
+      color: #f87171 !important;
+    }
+
+    [data-theme="skeuo"] .ip-mini-btn.danger:hover,
+    body.theme-skeuo .ip-mini-btn.danger:hover {
+      background: linear-gradient(180deg, #b91c1c 0%, #7f1d1d 100%) !important;
+      color: #ffffff !important;
+      border-color: #450a0a !important;
+      box-shadow: 0 0 6px rgba(239, 68, 68, 0.5) !important;
+    }
+
+    /* ── Sleek Icon Buttons (.btn-icon in tree, toolbar, modals, tabs) ── */
+    [data-theme="skeuo"] .btn-icon,
+    body.theme-skeuo .btn-icon,
+    [data-theme="skeuo"] .ip-btn-icon,
+    body.theme-skeuo .ip-btn-icon,
+    [data-theme="skeuo"] .layer-btn-vis,
+    body.theme-skeuo .layer-btn-vis,
+    [data-theme="skeuo"] .layer-btn-action,
+    body.theme-skeuo .layer-btn-action {
+      background: transparent !important;
+      border: 1px solid transparent !important;
+      box-shadow: none !important;
+      color: #8894a4 !important;
+      text-shadow: none !important;
+      border-radius: 3px !important;
+      transition: all 0.1s ease !important;
+    }
+
+    [data-theme="skeuo"] .btn-icon:hover,
+    body.theme-skeuo .btn-icon:hover,
+    [data-theme="skeuo"] .ip-btn-icon:hover,
+    body.theme-skeuo .ip-btn-icon:hover,
+    [data-theme="skeuo"] .layer-btn-vis:hover,
+    body.theme-skeuo .layer-btn-vis:hover,
+    [data-theme="skeuo"] .layer-btn-action:hover,
+    body.theme-skeuo .layer-btn-action:hover {
+      background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%) !important;
+      border-color: rgba(255, 255, 255, 0.12) !important;
+      color: #ffffff !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+    }
+
+    [data-theme="skeuo"] .btn-icon.active,
+    body.theme-skeuo .btn-icon.active,
+    [data-theme="skeuo"] .ip-btn-icon.active,
+    body.theme-skeuo .ip-btn-icon.active,
+    [data-theme="skeuo"] .btn-icon.is-visible,
+    body.theme-skeuo .btn-icon.is-visible {
+      color: #f59e0b !important;
+      filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.85)) !important;
+    }
+
+    [data-theme="skeuo"] .modal-close,
+    body.theme-skeuo .modal-close,
+    [data-theme="skeuo"] .ip-sheet-close,
+    body.theme-skeuo .ip-sheet-close {
+      background: transparent !important;
+      border: 1px solid transparent !important;
+      box-shadow: none !important;
+      color: #8894a4 !important;
+      font-size: 14px !important;
+      border-radius: 3px !important;
+      transition: all 0.1s ease !important;
+    }
+
+    [data-theme="skeuo"] .modal-close:hover,
+    body.theme-skeuo .modal-close:hover,
+    [data-theme="skeuo"] .ip-sheet-close:hover,
+    body.theme-skeuo .ip-sheet-close:hover {
+      background: rgba(239, 68, 68, 0.18) !important;
+      color: #ef4444 !important;
     }
 
     /* ── Skeuomorphic Range Faders (Physical Console Sliders with Etched Graduations) ── */
@@ -3872,7 +4048,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.81 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.83  --x--  0,0  zoom 100%  rot 0.0°</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
