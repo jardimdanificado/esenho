@@ -4379,14 +4379,20 @@ async function main() {
       const dx = (h.x - x) * z, dy = (h.y - y) * z;
       if (Math.abs(dx) < hs && Math.abs(dy) < hs) return h.id;
     }
-    // Inside quad check (simple point-in-quad via cross products)
-    function cross(ax, ay, bx, by) { return ax * by - ay * bx; }
-    let inside = true;
-    for (let i = 0; i < 4; i++) {
-      const a = c[i], b = c[(i + 1) % 4];
-      if (cross(b.x - a.x, b.y - a.y, x - a.x, y - a.y) < 0) { inside = false; break; }
+
+    // Inside quad check (winding-number / ray casting or consistent sign cross product)
+    function pointInPolygon(px, py, poly) {
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i].x, yi = poly[i].y;
+        const xj = poly[j].x, yj = poly[j].y;
+        const intersect = ((yi > py) !== (yj > py)) &&
+                          (px < ((xj - xi) * (py - yi)) / (yj - yi || 1e-12) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
     }
-    if (inside) return 'move';
+    if (pointInPolygon(x, y, c)) return 'move';
     return null;
   }
 
@@ -4552,6 +4558,8 @@ async function main() {
     if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
     markCanvasDirty();
   }
+  window.bakeFtPreview = bakeFtPreview;
+  window.markCanvasDirty = markCanvasDirty;
 
   let penActive = false;
   host.mouseHover = { x: 0, y: 0, sx: 0, sy: 0, inside: false };
@@ -4603,7 +4611,7 @@ async function main() {
           e.preventDefault();
           return;
         }
-        // Click outside float → apply
+        // Click outside float → apply transform and end interaction without creating a new selection/stroke
         host.applyFloatTransform();
         syncUiFromHost();
         e.preventDefault();
@@ -5103,6 +5111,11 @@ async function main() {
           triggerHaptic(12);
           return;
         }
+        // Tap outside float → apply transform and end interaction cleanly
+        host.applyFloatTransform();
+        syncUiFromHost();
+        touch.pending = null;
+        return;
       }
 
       if (host.actionMode === 'vector') {

@@ -5431,9 +5431,11 @@ const COMMAND_RULES = [
       const deg = parseFloat(m.angle);
       if (isNaN(deg)) return;
       if (host.rotateFloatTransform(deg * Math.PI / 180)) {
-        if (typeof bakeFtPreview === 'function') bakeFtPreview();
+        if (typeof window !== 'undefined' && typeof window.bakeFtPreview === 'function') window.bakeFtPreview();
+        else if (typeof bakeFtPreview === 'function') bakeFtPreview();
         else if (host.canvasActor?.exports?.force_composite) host.canvasActor.exports.force_composite();
-        if (typeof markCanvasDirty === 'function') markCanvasDirty();
+        if (typeof window !== 'undefined' && typeof window.markCanvasDirty === 'function') window.markCanvasDirty();
+        else if (typeof markCanvasDirty === 'function') markCanvasDirty();
       }
     }
   },
@@ -5441,9 +5443,11 @@ const COMMAND_RULES = [
     pat: "transform flip h",
     run: (m, host) => {
       if (host.flipFloatTransformH()) {
-        if (typeof bakeFtPreview === 'function') bakeFtPreview();
+        if (typeof window !== 'undefined' && typeof window.bakeFtPreview === 'function') window.bakeFtPreview();
+        else if (typeof bakeFtPreview === 'function') bakeFtPreview();
         else if (host.canvasActor?.exports?.force_composite) host.canvasActor.exports.force_composite();
-        if (typeof markCanvasDirty === 'function') markCanvasDirty();
+        if (typeof window !== 'undefined' && typeof window.markCanvasDirty === 'function') window.markCanvasDirty();
+        else if (typeof markCanvasDirty === 'function') markCanvasDirty();
       }
     }
   },
@@ -5452,9 +5456,11 @@ const COMMAND_RULES = [
     pat: "transform flip v",
     run: (m, host) => {
       if (host.flipFloatTransformV()) {
-        if (typeof bakeFtPreview === 'function') bakeFtPreview();
+        if (typeof window !== 'undefined' && typeof window.bakeFtPreview === 'function') window.bakeFtPreview();
+        else if (typeof bakeFtPreview === 'function') bakeFtPreview();
         else if (host.canvasActor?.exports?.force_composite) host.canvasActor.exports.force_composite();
-        if (typeof markCanvasDirty === 'function') markCanvasDirty();
+        if (typeof window !== 'undefined' && typeof window.markCanvasDirty === 'function') window.markCanvasDirty();
+        else if (typeof markCanvasDirty === 'function') markCanvasDirty();
       }
     }
   },
@@ -5463,9 +5469,11 @@ const COMMAND_RULES = [
     pat: "transform reset",
     run: (m, host) => {
       if (host.resetFloatTransform()) {
-        if (typeof bakeFtPreview === 'function') bakeFtPreview();
+        if (typeof window !== 'undefined' && typeof window.bakeFtPreview === 'function') window.bakeFtPreview();
+        else if (typeof bakeFtPreview === 'function') bakeFtPreview();
         else if (host.canvasActor?.exports?.force_composite) host.canvasActor.exports.force_composite();
-        if (typeof markCanvasDirty === 'function') markCanvasDirty();
+        if (typeof window !== 'undefined' && typeof window.markCanvasDirty === 'function') window.markCanvasDirty();
+        else if (typeof markCanvasDirty === 'function') markCanvasDirty();
       }
     }
   },
