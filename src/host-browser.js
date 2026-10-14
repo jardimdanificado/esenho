@@ -4211,8 +4211,36 @@ async function main() {
     ]);
 
     addSep();
+    addItem('Undo', 'Ctrl+Z', () => runCmd('undo'));
+    addItem('Redo', 'Ctrl+Y', () => runCmd('redo'));
+    if (host.clipboardBuffer) addItem('Paste', 'Ctrl+V', () => runCmd('paste'));
 
-    // 9. Canvas & View Submenu
+    window.contextMenuService.showContextMenu({
+      getAnchor: () => ({ x: e.clientX, y: e.clientY }),
+      getActions: () => items
+    });
+  }
+  window.showPainterContextMenu = showPainterContextMenu;
+
+  function showPainterTitleBarContextMenu(e) {
+    if (!window.contextMenuService) return;
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const items = [];
+    const addSubmenu = (label, subItems) => {
+      if (subItems && subItems.length > 0) items.push({ type: 'submenu', label, items: subItems });
+    };
+    const addItem = (label, hotkey, action, opts = {}) => {
+      items.push({ type: 'item', label, hotkey, action, ...opts });
+    };
+    const addSep = () => {
+      if (items.length > 0 && items[items.length - 1].type !== 'sep') {
+        items.push({ type: 'sep' });
+      }
+    };
+
     const dockApi = window.painterDockviewApi;
     const isTabOpen = (id) => !!(dockApi && dockApi.getPanel(id));
     const curW = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : (host.docWidth || 1280);
@@ -4226,12 +4254,9 @@ async function main() {
       { val: '1.25', label: '125%' },
       { val: '1.5', label: '150% (Large)' }
     ];
+
+    // 1. Canvas & View Submenu
     addSubmenu('Canvas & View', [
-      { type: 'item', label: 'Pick Color Here (Eyedropper)', hotkey: 'I / Alt', action: () => { sampleEyedropperColor(p.x, p.y, e.clientX, e.clientY); setTimeout(hideEyedropper, 650); } },
-      { type: 'item', label: 'Undo', hotkey: 'Ctrl+Z', action: () => runCmd('undo') },
-      { type: 'item', label: 'Redo', hotkey: 'Ctrl+Y', action: () => runCmd('redo') },
-      ...(host.clipboardBuffer ? [{ type: 'item', label: 'Paste', hotkey: 'Ctrl+V', action: () => runCmd('paste') }] : []),
-      { type: 'sep' },
       { type: 'item', label: 'Zoom to Fit (Reset View)', hotkey: 'Ctrl+0', action: () => { host.zoom = 1.0; host.panX = 0; host.panY = 0; host.canvasRotation = 0; host.render(); } },
       { type: 'item', label: '100% Zoom (1:1)', action: () => { if (host.zoomTo100) host.zoomTo100(); } },
       { type: 'item', label: 'Reset Rotation (0°)', action: () => { if (host.resetRotation) host.resetRotation(); else { host.canvasRotation = 0; host.render(); } } },
@@ -4385,7 +4410,7 @@ async function main() {
       }
     ]);
 
-    // 10. Project & File Submenu
+    // 2. Project & File Submenu
     addSubmenu('Project & File', [
       {
         type: 'submenu',
@@ -4414,7 +4439,7 @@ async function main() {
       { type: 'item', label: 'Clear Project Storage...', danger: true, action: () => document.getElementById('btn-ip-recents-clear')?.click() }
     ]);
 
-    // 11. App Switcher & About
+    // 3. App Switcher & About
     addSep();
     addItem('Switch to Studio', '', () => {
       window.location.href = 'studio.html';
@@ -4434,11 +4459,20 @@ async function main() {
     });
 
     window.contextMenuService.showContextMenu({
-      getAnchor: () => ({ x: e.clientX, y: e.clientY }),
+      getAnchor: () => ({ x: e ? e.clientX : 10, y: e ? e.clientY : 30 }),
       getActions: () => items
     });
   }
-  window.showPainterContextMenu = showPainterContextMenu;
+  window.showPainterTitleBarContextMenu = showPainterTitleBarContextMenu;
+
+  const topBarEl = document.getElementById('ip-top-bar');
+  if (topBarEl) {
+    topBarEl.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showPainterTitleBarContextMenu(e);
+    });
+  }
 
   /* ── Mouse events ── */
   canvasEl.addEventListener('contextmenu', showPainterContextMenu);

@@ -3760,7 +3760,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.68 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.69 ready</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -9494,24 +9494,6 @@
             { type: 'item', label: 'Select All', hotkey: 'Ctrl+A', action: () => { doc.selectAll(); render(); drawOverlay(); updateInspector(); } }
           ]);
 
-          // Viewport Submenu
-          addSubmenu('Viewport', [
-            { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
-            { type: 'item', label: 'Zoom 100%', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } },
-            { type: 'item', label: 'Reset Viewport Rotation (0°)', action: () => { viewportRotation = 0; applyViewportTransform(); render(); } },
-            { type: 'sep' },
-            { type: 'item', label: viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', action: () => syncRenderMode('quadro') },
-            { type: 'item', label: viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', action: () => syncRenderMode('svg') },
-            { type: 'sep' },
-            { type: 'item', label: Math.abs(quadroRenderScale - 0.5) < 0.01 ? '✓ Scale: 0.5× (Fast Draft)' : 'Scale: 0.5× (Fast Draft)', action: () => { quadroRenderScale = 0.5; updateStageSize(); render(); updateRendererMenuUi(); } },
-            { type: 'item', label: Math.abs(quadroRenderScale - 1.0) < 0.01 ? '✓ Scale: 1.0× (Native 1:1)' : 'Scale: 1.0× (Native 1:1)', action: () => { quadroRenderScale = 1.0; updateStageSize(); render(); updateRendererMenuUi(); } },
-            { type: 'item', label: Math.abs(quadroRenderScale - 2.0) < 0.01 ? '✓ Scale: 2.0× (Hi-DPI Retina)' : 'Scale: 2.0× (Hi-DPI Retina)', action: () => { quadroRenderScale = 2.0; updateStageSize(); render(); updateRendererMenuUi(); } },
-            { type: 'sep' },
-            { type: 'item', label: viewportBilinear ? '✓ Filter: Bilinear (Smooth)' : 'Filter: Bilinear (Smooth)', action: () => setViewportBilinear(true, true) },
-            { type: 'item', label: !viewportBilinear ? '✓ Filter: Nearest (Crisp)' : 'Filter: Nearest (Crisp)', action: () => setViewportBilinear(false, true) },
-            { type: 'item', label: groupSelectMode ? '✓ Group Select: Enabled' : 'Group Select: Disabled', action: () => setGroupSelectMode(!groupSelectMode, true) }
-          ]);
-
           // Rulers & Guides Submenu
           const emptyGuideItems = [
             { type: 'item', label: (showRulers ? '✓ ' : '') + 'Show Rulers', hotkey: 'Shift+R', action: () => toggleRulers() },
@@ -9558,22 +9540,152 @@
           { type: 'item', label: (brushAutoTaper ? '✓ ' : '') + 'Brush Auto-Taper Ends', action: () => { brushAutoTaper = !brushAutoTaper; showNotification(brushAutoTaper ? 'Auto-Taper Ends: ON' : 'Auto-Taper Ends: OFF'); } }
         ]);
 
-        // Workspace Tabs & Dock Layout Submenu
-        addSubmenu('Workspace Tabs', [
-          { type: 'item', label: (dockviewApi?.getPanel('scene') ? '✓ ' : '') + 'Scene Tree', action: () => openDockPanel('scene') },
-          { type: 'item', label: (dockviewApi?.getPanel('tools') ? '✓ ' : '') + 'Tools & Ops', action: () => openDockPanel('tools') },
-          { type: 'item', label: (dockviewApi?.getPanel('inspect') ? '✓ ' : '') + 'Transform & Inspector', action: () => openDockPanel('inspect') },
-          { type: 'item', label: (dockviewApi?.getPanel('color') ? '✓ ' : '') + 'Materials & Color Studio', action: () => openDockPanel('color') },
-          { type: 'item', label: (dockviewApi?.getPanel('animation') ? '✓ ' : '') + 'Timeline (DopeSheet)', action: () => openDockPanel('animation') },
-          { type: 'item', label: (dockviewApi?.getPanel('curves') ? '✓ ' : '') + 'Curve Editor', action: () => openDockPanel('curves') },
-          { type: 'item', label: (dockviewApi?.getPanel('projects') ? '✓ ' : '') + 'Projects & Export', action: () => openDockPanel('projects') },
+        // ── Monaco / VS Code Context Menu Architecture (vs/base/browser/ui/contextview & menu) ──
+        if (window.contextMenuService) {
+          window.contextMenuService.showContextMenu({
+            getAnchor: () => ({ x: e.clientX, y: e.clientY }),
+            getActions: () => items
+          });
+        }
+      }
+
+      function showStudioTitleBarContextMenu(e) {
+        if (!window.contextMenuService) return;
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        const items = [];
+        const addItem = (label, hotkey, action, opts = {}) => {
+          items.push({ type: 'item', label, hotkey, action, danger: opts.danger, disabled: opts.disabled });
+        };
+        const addSubmenu = (label, subitems) => {
+          if (subitems && subitems.length > 0) {
+            items.push({ type: 'submenu', label, items: subitems });
+          }
+        };
+        const addSep = () => {
+          if (items.length > 0 && items[items.length - 1].type !== 'sep') {
+            items.push({ type: 'sep' });
+          }
+        };
+
+        const resizeStudioCanvas = (w, h) => {
+          doc.width = w;
+          doc.height = h;
+          const wInput = document.getElementById('prop-doc-w');
+          const hInput = document.getElementById('prop-doc-h');
+          if (wInput) wInput.value = w;
+          if (hInput) hInput.value = h;
+          const presetEl = document.getElementById('prop-canvas-preset');
+          if (presetEl) presetEl.value = 'custom';
+          updateStageSize();
+          zoomToFit();
+          render();
+          showNotification(`Canvas resized to ${w}×${h}`);
+        };
+
+        // 1. Canvas & View Submenu
+        addSubmenu('Canvas & View', [
+          { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
+          { type: 'item', label: 'Zoom 100%', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } },
+          { type: 'item', label: 'Reset Viewport Rotation (0°)', action: () => { viewportRotation = 0; applyViewportTransform(); render(); } },
           { type: 'sep' },
-          { type: 'item', label: 'Reset Dock Layout (Auto)', action: () => resetDockviewLayout('auto') },
-          { type: 'item', label: 'Portrait Layout (Bottom Tabs)', action: () => resetDockviewLayout('portrait') },
-          { type: 'item', label: 'Landscape Layout (Side + Bottom)', action: () => resetDockviewLayout('landscape') }
+          {
+            type: 'submenu',
+            label: `Canvas Size & Presets (${doc.width}×${doc.height})`,
+            items: [
+              {
+                type: 'custom',
+                render: () => {
+                  const row = document.createElement('div');
+                  row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;';
+                  const wInp = document.createElement('input');
+                  wInp.type = 'number';
+                  wInp.className = 'ui-input-num';
+                  wInp.value = String(doc.width);
+                  wInp.min = '16';
+                  wInp.max = '8192';
+                  wInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
+                  const sep = document.createElement('span');
+                  sep.textContent = '×';
+                  sep.style.cssText = 'color:var(--text-muted);font-weight:bold;';
+                  const hInp = document.createElement('input');
+                  hInp.type = 'number';
+                  hInp.className = 'ui-input-num';
+                  hInp.value = String(doc.height);
+                  hInp.min = '16';
+                  hInp.max = '8192';
+                  hInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
+                  const btn = document.createElement('button');
+                  btn.type = 'button';
+                  btn.className = 'ip-btn';
+                  btn.textContent = 'Resize';
+                  btn.style.cssText = 'flex:1;height:24px;padding:0 8px;font-size:10.5px;background:var(--primary);color:var(--bg-dark);font-weight:bold;';
+                  btn.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    const nw = parseInt(wInp.value, 10);
+                    const nh = parseInt(hInp.value, 10);
+                    if (nw >= 16 && nh >= 16) {
+                      resizeStudioCanvas(nw, nh);
+                      window.contextMenuService?.hideContextMenu();
+                    }
+                  });
+                  [wInp, hInp].forEach(inp => inp.addEventListener('keydown', (ke) => {
+                    ke.stopPropagation();
+                    if (ke.key === 'Enter') btn.click();
+                  }));
+                  row.appendChild(wInp);
+                  row.appendChild(sep);
+                  row.appendChild(hInp);
+                  row.appendChild(btn);
+                  return row;
+                }
+              },
+              { type: 'item', label: '640×480 (VGA)', action: () => resizeStudioCanvas(640, 480) },
+              { type: 'item', label: '1280×720 (720p HD)', action: () => resizeStudioCanvas(1280, 720) },
+              { type: 'item', label: '1920×1080 (1080p FHD)', action: () => resizeStudioCanvas(1920, 1080) },
+              { type: 'item', label: '1080×1080 (1:1 Square)', action: () => resizeStudioCanvas(1080, 1080) }
+            ]
+          },
+          {
+            type: 'submenu',
+            label: 'Renderer & Performance',
+            items: [
+              { type: 'item', label: viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', action: () => syncRenderMode('quadro') },
+              { type: 'item', label: viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', action: () => syncRenderMode('svg') },
+              { type: 'sep' },
+              { type: 'item', label: Math.abs(quadroRenderScale - 0.5) < 0.01 ? '✓ Scale: 0.5× (Fast Draft)' : 'Scale: 0.5× (Fast Draft)', action: () => { quadroRenderScale = 0.5; updateStageSize(); render(); updateRendererMenuUi(); } },
+              { type: 'item', label: Math.abs(quadroRenderScale - 1.0) < 0.01 ? '✓ Scale: 1.0× (Native 1:1)' : 'Scale: 1.0× (Native 1:1)', action: () => { quadroRenderScale = 1.0; updateStageSize(); render(); updateRendererMenuUi(); } },
+              { type: 'item', label: Math.abs(quadroRenderScale - 2.0) < 0.01 ? '✓ Scale: 2.0× (Hi-DPI Retina)' : 'Scale: 2.0× (Hi-DPI Retina)', action: () => { quadroRenderScale = 2.0; updateStageSize(); render(); updateRendererMenuUi(); } },
+              { type: 'sep' },
+              { type: 'item', label: viewportBilinear ? '✓ Filter: Bilinear (Smooth)' : 'Filter: Bilinear (Smooth)', action: () => setViewportBilinear(true, true) },
+              { type: 'item', label: !viewportBilinear ? '✓ Filter: Nearest (Crisp)' : 'Filter: Nearest (Crisp)', action: () => setViewportBilinear(false, true) },
+              { type: 'item', label: groupSelectMode ? '✓ Group Select: Enabled' : 'Group Select: Disabled', action: () => setGroupSelectMode(!groupSelectMode, true) }
+            ]
+          },
+          {
+            type: 'submenu',
+            label: 'Workspace Tabs',
+            items: [
+              { type: 'item', label: (dockviewApi?.getPanel('scene') ? '✓ ' : '') + 'Scene Tree', action: () => openDockPanel('scene') },
+              { type: 'item', label: (dockviewApi?.getPanel('tools') ? '✓ ' : '') + 'Tools & Ops', action: () => openDockPanel('tools') },
+              { type: 'item', label: (dockviewApi?.getPanel('inspect') ? '✓ ' : '') + 'Transform & Inspector', action: () => openDockPanel('inspect') },
+              { type: 'item', label: (dockviewApi?.getPanel('color') ? '✓ ' : '') + 'Materials & Color Studio', action: () => openDockPanel('color') },
+              { type: 'item', label: (dockviewApi?.getPanel('animation') ? '✓ ' : '') + 'Timeline (DopeSheet)', action: () => openDockPanel('animation') },
+              { type: 'item', label: (dockviewApi?.getPanel('curves') ? '✓ ' : '') + 'Curve Editor', action: () => openDockPanel('curves') },
+              { type: 'item', label: (dockviewApi?.getPanel('projects') ? '✓ ' : '') + 'Projects & Export', action: () => openDockPanel('projects') },
+              { type: 'sep' },
+              { type: 'item', label: 'Reset Dock Layout (Auto)', action: () => resetDockviewLayout('auto') },
+              { type: 'item', label: 'Portrait Layout (Bottom Tabs)', action: () => resetDockviewLayout('portrait') },
+              { type: 'item', label: 'Landscape Layout (Side + Bottom)', action: () => resetDockviewLayout('landscape') }
+            ]
+          },
+          { type: 'sep' },
+          { type: 'item', label: 'Toggle Theme (Dark / Light)', action: () => toggleTheme() }
         ]);
 
-        // Project, File & Export Submenu
+        // 2. Project & File Submenu
         addSubmenu('Project & File', [
           { type: 'item', label: 'New Project...', action: () => openNewProjectModal() },
           { type: 'item', label: 'Projects & Storage...', action: () => openRecentsModal() },
@@ -9583,12 +9695,10 @@
           { type: 'sep' },
           { type: 'item', label: 'Quick Export SVG (1×)', action: () => performExport('image/svg+xml', 1) },
           { type: 'item', label: 'Quick Export PNG (1×)', action: () => performExport('image/png', 1) },
-          { type: 'item', label: 'Export Center (Video / GIF / Scale)...', action: () => openDockPanel('export') },
-          { type: 'sep' },
-          { type: 'item', label: 'Toggle Theme (Dark / Light)', action: () => toggleTheme() }
+          { type: 'item', label: 'Export Center (Video / GIF / Scale)...', action: () => openDockPanel('export') }
         ]);
 
-        // App Switcher & About
+        // 3. App Switcher & About
         addSep();
         addItem('Switch to Painter', '', () => {
           window.location.href = 'painter.html';
@@ -9603,13 +9713,28 @@
           }
         });
 
-        // ── Monaco / VS Code Context Menu Architecture (vs/base/browser/ui/contextview & menu) ──
-        if (window.contextMenuService) {
-          window.contextMenuService.showContextMenu({
-            getAnchor: () => ({ x: e.clientX, y: e.clientY }),
-            getActions: () => items
-          });
-        }
+        window.contextMenuService.showContextMenu({
+          getAnchor: () => ({ x: e ? e.clientX : 10, y: e ? e.clientY : 30 }),
+          getActions: () => items
+        });
+      }
+      window.showStudioTitleBarContextMenu = showStudioTitleBarContextMenu;
+
+      const studioTopBar = document.getElementById('ip-top-bar');
+      if (studioTopBar) {
+        studioTopBar.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          showStudioTitleBarContextMenu(e);
+        });
+      }
+      const studioVsCodeTitlebar = document.getElementById('vscode-titlebar');
+      if (studioVsCodeTitlebar) {
+        studioVsCodeTitlebar.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          showStudioTitleBarContextMenu(e);
+        });
       }
 
       class MonacoMenu {
