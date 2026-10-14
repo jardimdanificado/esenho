@@ -3615,11 +3615,15 @@ async function main() {
   }
   window.openPanelInContextMenu = openPanelInContextMenu;
 
-  function showPainterContextMenu(e) {
-    if (e && typeof e.preventDefault === 'function') e.preventDefault();
-    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-
-    const p = clientPos(e);
+  function buildPainterContextMenuItems(e) {
+    const r = canvasEl?.getBoundingClientRect();
+    const evt = (e && e.clientX !== undefined && (r ? e.clientY >= r.top : true))
+      ? e
+      : {
+          clientX: r ? (r.left + r.width / 2) : (window.innerWidth / 2),
+          clientY: r ? (r.top + r.height / 2) : (window.innerHeight / 2)
+        };
+    const p = clientPos(evt);
     const items = [];
     const addItem = (label, hotkey, action, opts = {}) => {
       items.push({ type: 'item', label, hotkey, action, danger: opts.danger, disabled: opts.disabled, checked: opts.checked, keepOpen: opts.keepOpen });
@@ -3961,7 +3965,7 @@ async function main() {
         curChip.style.cssText = `width:22px;height:20px;border-radius:3px;background:${curHex};border:1.5px solid var(--text-bright);flex-shrink:0;padding:0;`;
         curChip.addEventListener('click', (ev) => {
           ev.stopPropagation();
-          const sampled = sampleEyedropperColor(p.x, p.y, e.clientX, e.clientY);
+          const sampled = sampleEyedropperColor(p.x, p.y, evt.clientX, evt.clientY);
           curChip.style.background = sampled;
           setTimeout(hideEyedropper, 500);
         });
@@ -4215,8 +4219,15 @@ async function main() {
     addItem('Redo', 'Ctrl+Y', () => runCmd('redo'));
     if (host.clipboardBuffer) addItem('Paste', 'Ctrl+V', () => runCmd('paste'));
 
+    return items;
+  }
+
+  function showPainterContextMenu(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    const items = buildPainterContextMenuItems(e);
     window.contextMenuService.showContextMenu({
-      getAnchor: () => ({ x: e.clientX, y: e.clientY }),
+      getAnchor: () => ({ x: e ? e.clientX : 10, y: e ? e.clientY : 10 }),
       getActions: () => items
     });
   }
@@ -4241,6 +4252,10 @@ async function main() {
       }
     };
 
+    // 1. Context Submenu (exact same contextual items as canvas long-press)
+    addSubmenu('Context', buildPainterContextMenuItems(e));
+    addSep();
+
     const dockApi = window.painterDockviewApi;
     const isTabOpen = (id) => !!(dockApi && dockApi.getPanel(id));
     const curW = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : (host.docWidth || 1280);
@@ -4255,7 +4270,7 @@ async function main() {
       { val: '1.5', label: '150% (Large)' }
     ];
 
-    // 1. Canvas & View Submenu
+    // 2. Canvas & View Submenu
     addSubmenu('Canvas & View', [
       { type: 'item', label: 'Zoom to Fit (Reset View)', hotkey: 'Ctrl+0', action: () => { host.zoom = 1.0; host.panX = 0; host.panY = 0; host.canvasRotation = 0; host.render(); } },
       { type: 'item', label: '100% Zoom (1:1)', action: () => { if (host.zoomTo100) host.zoomTo100(); } },
@@ -11717,7 +11732,7 @@ async function main() {
       e.stopPropagation();
       e.preventDefault();
       const rect = btnMenuLogo.getBoundingClientRect();
-      showPainterContextMenu({
+      showPainterTitleBarContextMenu({
         clientX: rect.left,
         clientY: rect.bottom + 2,
         preventDefault() {},

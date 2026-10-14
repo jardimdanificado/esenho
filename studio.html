@@ -3760,7 +3760,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.69 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.70 ready</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -8917,9 +8917,15 @@
       }
       window.removeGuide = removeGuide;
 
-      function showCanvasContextMenu(e, pt) {
-        e.preventDefault();
-        e.stopPropagation();
+      function buildCanvasContextMenuItems(e, pt) {
+        if (!pt) {
+          const rect = viewportContainer?.getBoundingClientRect();
+          if (rect && typeof screenToDoc === 'function') {
+            pt = screenToDoc(rect.left + rect.width / 2, rect.top + rect.height / 2);
+          } else {
+            pt = { x: doc.width / 2, y: doc.height / 2 };
+          }
+        }
 
         const selectedObjs = doc.getSelectedObjects();
         const isNodeTool = activeTool === 'node';
@@ -9540,10 +9546,16 @@
           { type: 'item', label: (brushAutoTaper ? '✓ ' : '') + 'Brush Auto-Taper Ends', action: () => { brushAutoTaper = !brushAutoTaper; showNotification(brushAutoTaper ? 'Auto-Taper Ends: ON' : 'Auto-Taper Ends: OFF'); } }
         ]);
 
-        // ── Monaco / VS Code Context Menu Architecture (vs/base/browser/ui/contextview & menu) ──
+        return items;
+      }
+
+      function showCanvasContextMenu(e, pt) {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        const items = buildCanvasContextMenuItems(e, pt);
         if (window.contextMenuService) {
           window.contextMenuService.showContextMenu({
-            getAnchor: () => ({ x: e.clientX, y: e.clientY }),
+            getAnchor: () => ({ x: e ? e.clientX : 10, y: e ? e.clientY : 10 }),
             getActions: () => items
           });
         }
@@ -9569,6 +9581,10 @@
             items.push({ type: 'sep' });
           }
         };
+
+        // 1. Context Submenu (exact same contextual items as canvas long-press)
+        addSubmenu('Context', buildCanvasContextMenuItems(e));
+        addSep();
 
         const resizeStudioCanvas = (w, h) => {
           doc.width = w;
@@ -10913,12 +10929,12 @@
         e.stopPropagation();
         e.preventDefault();
         const rect = btnMenuLogo.getBoundingClientRect();
-        showCanvasContextMenu({
+        showStudioTitleBarContextMenu({
           clientX: rect.left,
           clientY: rect.bottom + 2,
           preventDefault() {},
           stopPropagation() {}
-        }, { x: doc.width / 2, y: doc.height / 2 });
+        });
       });
 
       document.addEventListener('click', (e) => {
