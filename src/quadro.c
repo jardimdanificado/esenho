@@ -1804,6 +1804,27 @@ W_EXPORT int32_t w_layer_move_down(int32_t layer_idx) {
     return 0;
 }
 
+W_EXPORT int32_t w_layer_move_to_top(int32_t layer_idx) {
+    init_surface_if_needed();
+    int target = (layer_idx >= 0) ? layer_idx : active_layer;
+    int found = -1;
+    for (int i = 0; i < layer_order_count; i++) {
+        if (layer_order[i] == target) {
+            found = i;
+            break;
+        }
+    }
+    if (found >= 0 && found < layer_order_count - 1) {
+        for (int i = found; i < layer_order_count - 1; i++) {
+            layer_order[i] = layer_order[i + 1];
+        }
+        layer_order[layer_order_count - 1] = target;
+        force_composite();
+        return 1;
+    }
+    return 0;
+}
+
 W_EXPORT int32_t w_layer_merge_down(int32_t layer_idx) {
     init_surface_if_needed();
     int src = (layer_idx >= 0) ? layer_idx : active_layer;

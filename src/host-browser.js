@@ -2477,6 +2477,27 @@ async function main() {
         ctx.save();
         ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
 
+        // Hardware-accelerated live transform preview during active drag
+        if (ftDragging && ft.pixels) {
+          const pcvs = getFtPreviewCanvas(ft);
+          if (pcvs) {
+            ctx.save();
+            ctx.imageSmoothingEnabled = (host.transformInterpolation === 'bilinear');
+            const tMode = host.transformMode || 'scale';
+            if (tMode !== 'distort' && tMode !== 'perspective') {
+              const m00 = (c[1].x - c[0].x) * z / ft.width;
+              const m10 = (c[1].y - c[0].y) * z / ft.width;
+              const m01 = (c[3].x - c[0].x) * z / ft.height;
+              const m11 = (c[3].y - c[0].y) * z / ft.height;
+              ctx.transform(m00, m10, m01, m11, c[0].x * z, c[0].y * z);
+              ctx.drawImage(pcvs, 0, 0);
+            } else {
+              drawWarpedQuad(ctx, pcvs, c, z, ft.width, ft.height);
+            }
+            ctx.restore();
+          }
+        }
+
         // Draw quad outline
         ctx.beginPath();
         ctx.moveTo(c[0].x * z, c[0].y * z);
@@ -4557,6 +4578,59 @@ async function main() {
     return null;
   }
 
+  function getFtPreviewCanvas(ft) {
+    if (ft._previewCanvas && ft._previewCanvasWidth === ft.width && ft._previewCanvasHeight === ft.height) {
+      return ft._previewCanvas;
+    }
+    const cvs = (typeof OffscreenCanvas !== 'undefined')
+      ? new OffscreenCanvas(ft.width, ft.height)
+      : document.createElement('canvas');
+    cvs.width = ft.width;
+    cvs.height = ft.height;
+    const pctx = cvs.getContext('2d');
+    const img = pctx.createImageData(ft.width, ft.height);
+    new Uint32Array(img.data.buffer).set(ft.pixels);
+    pctx.putImageData(img, 0, 0);
+    ft._previewCanvas = cvs;
+    ft._previewCanvasWidth = ft.width;
+    ft._previewCanvasHeight = ft.height;
+    return cvs;
+  }
+
+  function drawWarpedQuad(targetCtx, img, c, z, fw, fh) {
+    // Triangle 1: (0,0), (fw,0), (0,fh) -> c[0], c[1], c[3]
+    targetCtx.save();
+    targetCtx.beginPath();
+    targetCtx.moveTo(c[0].x * z, c[0].y * z);
+    targetCtx.lineTo(c[1].x * z, c[1].y * z);
+    targetCtx.lineTo(c[3].x * z, c[3].y * z);
+    targetCtx.closePath();
+    targetCtx.clip();
+    const m00_1 = (c[1].x - c[0].x) * z / fw;
+    const m10_1 = (c[1].y - c[0].y) * z / fw;
+    const m01_1 = (c[3].x - c[0].x) * z / fh;
+    const m11_1 = (c[3].y - c[0].y) * z / fh;
+    targetCtx.transform(m00_1, m10_1, m01_1, m11_1, c[0].x * z, c[0].y * z);
+    targetCtx.drawImage(img, 0, 0);
+    targetCtx.restore();
+
+    // Triangle 2: (fw,fh), (0,fh), (fw,0) -> c[2], c[3], c[1]
+    targetCtx.save();
+    targetCtx.beginPath();
+    targetCtx.moveTo(c[2].x * z, c[2].y * z);
+    targetCtx.lineTo(c[3].x * z, c[3].y * z);
+    targetCtx.lineTo(c[1].x * z, c[1].y * z);
+    targetCtx.closePath();
+    targetCtx.clip();
+    const m00_2 = (c[3].x - c[2].x) * z / fw;
+    const m10_2 = (c[3].y - c[2].y) * z / fw;
+    const m01_2 = (c[1].x - c[2].x) * z / fh;
+    const m11_2 = (c[1].y - c[2].y) * z / fh;
+    targetCtx.transform(-m00_2, -m10_2, -m01_2, -m11_2, c[2].x * z, c[2].y * z);
+    targetCtx.drawImage(img, 0, 0);
+    targetCtx.restore();
+  }
+
   function updateFtCorners(sx, sy) {
     if (!ftDragging || !ftHandle || !ftDragStart || !ftDragOrigin) return;
     const ft = host.floatingTransform;
@@ -4653,7 +4727,8 @@ async function main() {
         ft.corners[bIdx].x = oc[bIdx].x + proj * ax; ft.corners[bIdx].y = oc[bIdx].y + proj * ay;
       }
     }
-    bakeFtPreview();
+    host._forceNextFrame = true;
+    if (typeof host.requestRender === 'function') host.requestRender();
   }
 
   function bakeFtPreview() {
@@ -4681,37 +4756,93 @@ async function main() {
       const x1 = Math.min(lw - 1, Math.ceil(maxX)), y1 = Math.min(lh - 1, Math.ceil(maxY));
       const fw = ft.width, fh = ft.height;
       const srcPixels = ft.pixels;
-      for (let oy = y0; oy <= y1; oy++) {
-        for (let ox = x0; ox <= x1; ox++) {
-          const W = H_inv[6] * (ox + 0.5) + H_inv[7] * (oy + 0.5) + H_inv[8];
-          const sxExact = (H_inv[0] * (ox + 0.5) + H_inv[1] * (oy + 0.5) + H_inv[2]) / W - 0.5;
-          const syExact = (H_inv[3] * (ox + 0.5) + H_inv[4] * (oy + 0.5) + H_inv[5]) / W - 0.5;
-          if (!useSmooth) {
-            const srcX = Math.round(sxExact);
-            const srcY = Math.round(syExact);
-            if (srcX < 0 || srcX >= fw || srcY < 0 || srcY >= fh) continue;
-            const sp = srcPixels[srcY * fw + srcX];
-            if (((sp >> 24) & 0xFF) === 0) continue;
-            tgtU32[oy * lw + ox] = sp;
-          } else {
-            if (sxExact < -0.5 || sxExact >= fw - 0.5 || syExact < -0.5 || syExact >= fh - 0.5) continue;
-            const ix0 = Math.max(0, Math.min(fw - 1, Math.floor(sxExact)));
-            const iy0 = Math.max(0, Math.min(fh - 1, Math.floor(syExact)));
-            const ix1 = Math.max(0, Math.min(fw - 1, ix0 + 1));
-            const iy1 = Math.max(0, Math.min(fh - 1, iy0 + 1));
-            const fx = Math.max(0, Math.min(1, sxExact - ix0));
-            const fy = Math.max(0, Math.min(1, syExact - iy0));
-            const p00 = srcPixels[iy0 * fw + ix0];
-            const p10 = srcPixels[iy0 * fw + ix1];
-            const p01 = srcPixels[iy1 * fw + ix0];
-            const p11 = srcPixels[iy1 * fw + ix1];
-            const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
-            const a = Math.round(((p00 >>> 24) * w00) + ((p10 >>> 24) * w10) + ((p01 >>> 24) * w01) + ((p11 >>> 24) * w11));
-            if (a === 0) continue;
-            const r = Math.round(((p00 & 0xFF) * w00) + ((p10 & 0xFF) * w10) + ((p01 & 0xFF) * w01) + ((p11 & 0xFF) * w11));
-            const g = Math.round((((p00 >> 8) & 0xFF) * w00) + (((p10 >> 8) & 0xFF) * w10) + (((p01 >> 8) & 0xFF) * w01) + (((p11 >> 8) & 0xFF) * w11));
-            const b = Math.round((((p00 >> 16) & 0xFF) * w00) + (((p10 >> 16) & 0xFF) * w10) + (((p01 >> 16) & 0xFF) * w01) + (((p11 >> 16) & 0xFF) * w11));
-            tgtU32[oy * lw + ox] = ((a & 0xFF) << 24) | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
+      const isAffine = Math.abs(H_inv[6]) < 1e-7 && Math.abs(H_inv[7]) < 1e-7;
+
+      if (isAffine) {
+        const invW = 1 / (H_inv[8] || 1);
+        const a = H_inv[0] * invW, b = H_inv[1] * invW, c = H_inv[2] * invW;
+        const d = H_inv[3] * invW, e = H_inv[4] * invW, f = H_inv[5] * invW;
+
+        for (let oy = y0; oy <= y1; oy++) {
+          const cy = oy + 0.5;
+          let sxExact = a * (x0 + 0.5) + b * cy + c - 0.5;
+          let syExact = d * (x0 + 0.5) + e * cy + f - 0.5;
+          const rowOffset = oy * lw;
+
+          for (let ox = x0; ox <= x1; ox++) {
+            if (!useSmooth) {
+              const srcX = Math.round(sxExact);
+              const srcY = Math.round(syExact);
+              if (srcX >= 0 && srcX < fw && srcY >= 0 && srcY < fh) {
+                const sp = srcPixels[srcY * fw + srcX];
+                if (((sp >> 24) & 0xFF) !== 0) {
+                  tgtU32[rowOffset + ox] = sp;
+                }
+              }
+            } else {
+              if (sxExact >= -0.5 && sxExact < fw - 0.5 && syExact >= -0.5 && syExact < fh - 0.5) {
+                const ix0 = Math.max(0, Math.min(fw - 1, Math.floor(sxExact)));
+                const iy0 = Math.max(0, Math.min(fh - 1, Math.floor(syExact)));
+                const ix1 = Math.max(0, Math.min(fw - 1, ix0 + 1));
+                const iy1 = Math.max(0, Math.min(fh - 1, iy0 + 1));
+                const fx = Math.max(0, Math.min(1, sxExact - ix0));
+                const fy = Math.max(0, Math.min(1, syExact - iy0));
+                const p00 = srcPixels[iy0 * fw + ix0];
+                const p10 = srcPixels[iy0 * fw + ix1];
+                const p01 = srcPixels[iy1 * fw + ix0];
+                const p11 = srcPixels[iy1 * fw + ix1];
+                const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+                const alpha = Math.round(((p00 >>> 24) * w00) + ((p10 >>> 24) * w10) + ((p01 >>> 24) * w01) + ((p11 >>> 24) * w11));
+                if (alpha !== 0) {
+                  const r = Math.round(((p00 & 0xFF) * w00) + ((p10 & 0xFF) * w10) + ((p01 & 0xFF) * w01) + ((p11 & 0xFF) * w11));
+                  const g = Math.round((((p00 >> 8) & 0xFF) * w00) + (((p10 >> 8) & 0xFF) * w10) + (((p01 >> 8) & 0xFF) * w01) + (((p11 >> 8) & 0xFF) * w11));
+                  const b = Math.round((((p00 >> 16) & 0xFF) * w00) + (((p10 >> 16) & 0xFF) * w10) + (((p01 >> 16) & 0xFF) * w01) + (((p11 >> 16) & 0xFF) * w11));
+                  tgtU32[rowOffset + ox] = ((alpha & 0xFF) << 24) | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
+                }
+              }
+            }
+            sxExact += a;
+            syExact += d;
+          }
+        }
+      } else {
+        for (let oy = y0; oy <= y1; oy++) {
+          const rowOffset = oy * lw;
+          for (let ox = x0; ox <= x1; ox++) {
+            const W = H_inv[6] * (ox + 0.5) + H_inv[7] * (oy + 0.5) + H_inv[8];
+            const sxExact = (H_inv[0] * (ox + 0.5) + H_inv[1] * (oy + 0.5) + H_inv[2]) / W - 0.5;
+            const syExact = (H_inv[3] * (ox + 0.5) + H_inv[4] * (oy + 0.5) + H_inv[5]) / W - 0.5;
+            if (!useSmooth) {
+              const srcX = Math.round(sxExact);
+              const srcY = Math.round(syExact);
+              if (srcX >= 0 && srcX < fw && srcY >= 0 && srcY < fh) {
+                const sp = srcPixels[srcY * fw + srcX];
+                if (((sp >> 24) & 0xFF) !== 0) {
+                  tgtU32[rowOffset + ox] = sp;
+                }
+              }
+            } else {
+              if (sxExact >= -0.5 && sxExact < fw - 0.5 && syExact >= -0.5 && syExact < fh - 0.5) {
+                const ix0 = Math.max(0, Math.min(fw - 1, Math.floor(sxExact)));
+                const iy0 = Math.max(0, Math.min(fh - 1, Math.floor(syExact)));
+                const ix1 = Math.max(0, Math.min(fw - 1, ix0 + 1));
+                const iy1 = Math.max(0, Math.min(fh - 1, iy0 + 1));
+                const fx = Math.max(0, Math.min(1, sxExact - ix0));
+                const fy = Math.max(0, Math.min(1, syExact - iy0));
+                const p00 = srcPixels[iy0 * fw + ix0];
+                const p10 = srcPixels[iy0 * fw + ix1];
+                const p01 = srcPixels[iy1 * fw + ix0];
+                const p11 = srcPixels[iy1 * fw + ix1];
+                const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+                const alpha = Math.round(((p00 >>> 24) * w00) + ((p10 >>> 24) * w10) + ((p01 >>> 24) * w01) + ((p11 >>> 24) * w11));
+                if (alpha !== 0) {
+                  const r = Math.round(((p00 & 0xFF) * w00) + ((p10 & 0xFF) * w10) + ((p01 & 0xFF) * w01) + ((p11 & 0xFF) * w11));
+                  const g = Math.round((((p00 >> 8) & 0xFF) * w00) + (((p10 >> 8) & 0xFF) * w10) + (((p01 >> 8) & 0xFF) * w01) + (((p11 >> 8) & 0xFF) * w11));
+                  const b = Math.round((((p00 >> 16) & 0xFF) * w00) + (((p10 >> 16) & 0xFF) * w10) + (((p01 >> 16) & 0xFF) * w01) + (((p11 >> 16) & 0xFF) * w11));
+                  tgtU32[rowOffset + ox] = ((alpha & 0xFF) << 24) | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
+                }
+              }
+            }
           }
         }
       }
@@ -4769,6 +4900,14 @@ async function main() {
             cy,
             startAngle: Math.atan2(y - cy, x - cx)
           };
+          const ptr = host.canvasActor?.exports?.w_layer_get_pixels ? host.canvasActor.exports.w_layer_get_pixels(ft.layerId) : 0;
+          if (ptr) {
+            const lw = host.canvasActor.exports.w_layer_get_width(ft.layerId);
+            const lh = host.canvasActor.exports.w_layer_get_height(ft.layerId);
+            new Uint32Array(host.canvasActor.memory.buffer, ptr, lw * lh).fill(0);
+            if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
+          }
+          host._forceNextFrame = true;
           e.preventDefault();
           return;
         }
@@ -5269,6 +5408,14 @@ async function main() {
             cy,
             startAngle: Math.atan2(y - cy, x - cx)
           };
+          const ptr = host.canvasActor?.exports?.w_layer_get_pixels ? host.canvasActor.exports.w_layer_get_pixels(ft.layerId) : 0;
+          if (ptr) {
+            const lw = host.canvasActor.exports.w_layer_get_width(ft.layerId);
+            const lh = host.canvasActor.exports.w_layer_get_height(ft.layerId);
+            new Uint32Array(host.canvasActor.memory.buffer, ptr, lw * lh).fill(0);
+            if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
+          }
+          host._forceNextFrame = true;
           touch.pending = null;
           triggerHaptic(12);
           return;

@@ -75,28 +75,28 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════════
-       ── COMPLETELY SKEUOMORPHIC ANALOG STUDIO THEME ──
-       Real tactile materials: brushed dark alloys, milled aluminum panels,
-       sunken inset wells, 3D beveled buttons, analog fader knobs with
-       specular sheen, glowing warm amber/ruby LEDs, debossed lettering,
-       and authentic hardware depth.
+       ── MASTER SKEUOMORPHIC ANALOG STUDIO THEME (SKEUO) ──
+       Authentic vintage & modern high-end audio/graphics hardware:
+       CNC-machined dark alloys, brushed aluminum faceplates, sunken inset wells,
+       chunky dual-shot tactile push keys, console faders with knurled grips,
+       jewel LED tally lamps, phosphor/VFD instrument displays, and true depth.
        ═══════════════════════════════════════════════════════════════════ */
     [data-theme="skeuo"], body.theme-skeuo,
     [data-theme="skeuomorphic"], body.theme-skeuomorphic {
-      --bg-dark: #191c20;
-      --bg-canvas: #121417;
-      --bg-panel: #292d33;
-      --bg-panel-sub: #212429;
-      --bg-input: #101215;
-      --bg-input-focus: #15181c;
-      --border: #16181b;
-      --border-bright: #444b54;
+      --bg-dark: #14171a;
+      --bg-canvas: #0e1013;
+      --bg-panel: #262a31;
+      --bg-panel-sub: #1e2228;
+      --bg-input: #0b0d10;
+      --bg-input-focus: #12151a;
+      --border: #131518;
+      --border-bright: #3c444f;
       --border-focus: #f59e0b;
       --border-subtle: rgba(255, 255, 255, 0.08);
       --text: #e2e8f0;
       --text-bright: #ffffff;
       --text-dim: #cbd5e1;
-      --text-muted: #8893a2;
+      --text-muted: #8894a4;
       --primary: #f59e0b;
       --primary-hover: #fbbf24;
       --primary-dim: rgba(245, 158, 11, 0.22);
@@ -110,22 +110,21 @@
       color-scheme: dark;
     }
 
-    /* ── Skeuomorphic Global Typography & Deep Engraved Depth ── */
+    /* ── Skeuomorphic Global Chassis Surface & Clean Lettering ── */
     body.theme-skeuo, [data-theme="skeuo"],
     [data-theme="skeuomorphic"], body.theme-skeuomorphic {
-      font-size: 13px !important;
-      letter-spacing: 0.25px;
+      letter-spacing: 0.15px;
       color: #e2e8f0;
-      text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.14);
-      background: radial-gradient(circle at 50% 0%, #262a30 0%, #17191d 100%);
+      background: radial-gradient(circle at 50% 0%, #292d35 0%, #15171b 100%);
     }
 
+    /* Stamped & Debossed Chassis Labels (Selective, never globally inherited) */
     [data-theme="skeuo"] .form-row label,
     body.theme-skeuo .form-row label {
-      font-size: 11px !important;
+      font-size: 10px !important;
       font-weight: 700 !important;
-      color: #9eb0c6 !important;
-      text-shadow: 0 -1px 1px #000000, 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+      color: #94a3b8 !important;
+      text-shadow: 0 -1px 0 #000000, 0 1px 0 rgba(255, 255, 255, 0.1) !important;
       letter-spacing: 0.35px !important;
     }
 
@@ -133,251 +132,255 @@
     body.theme-skeuo .section-header,
     [data-theme="skeuo"] details.section-accordion summary,
     body.theme-skeuo details.section-accordion summary {
-      font-size: 11.5px !important;
+      font-size: 11px !important;
       font-weight: 800 !important;
       letter-spacing: 0.65px !important;
       color: #cbd5e1 !important;
-      text-shadow: 0 -1px 2px #000000, 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+      text-shadow: 0 -1px 1px #000000, 0 1px 0 rgba(255, 255, 255, 0.15) !important;
     }
 
     [data-theme="skeuo"] .top-tool-group-label,
     body.theme-skeuo .top-tool-group-label {
-      font-size: 10.5px !important;
+      font-size: 10px !important;
       font-weight: 800 !important;
-      letter-spacing: 0.6px !important;
+      letter-spacing: 0.5px !important;
       color: #94a3b8 !important;
-      text-shadow: 0 -1px 1px #000000, 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+      text-shadow: 0 -1px 0 #000000, 0 1px 0 rgba(255, 255, 255, 0.1) !important;
     }
 
-    [data-theme="skeuo"] .titlebar-command-center,
-    body.theme-skeuo .titlebar-command-center {
-      font-size: 12px !important;
-      font-weight: 600 !important;
-      text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.9) !important;
-    }
-
-    [data-theme="skeuo"] #dock-panel-canvas,
-    [data-theme="skeuo"] #viewport-container {
-      background-color: #121417 !important;
-      background-image:
-        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.02) 0%, transparent 80%),
-        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px) !important;
-      background-size: 100% 100%, 20px 20px, 20px 20px !important;
-    }
-
-    [data-theme="skeuo"] #stage-wrapper {
-      box-shadow:
-        0 14px 40px rgba(0, 0, 0, 0.9),
-        0 4px 12px rgba(0, 0, 0, 0.7),
-        0 0 0 1px rgba(255, 255, 255, 0.12) !important;
-      border-radius: 3px !important;
-    }
-
-    /* ── Skeuomorphic Titlebar & Machined Faceplate ── */
-    [data-theme="skeuo"] .vscode-titlebar {
+    /* ── Skeuomorphic Top Header Faceplate (#ip-top-bar & Fallback Titlebar) ── */
+    [data-theme="skeuo"] #ip-top-bar,
+    body.theme-skeuo #ip-top-bar,
+    [data-theme="skeuo"] .vscode-titlebar,
+    body.theme-skeuo .vscode-titlebar {
       background:
-        repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, transparent 1px, transparent 2px),
-        linear-gradient(180deg, #3d434a 0%, #2e333a 50%, #23272c 100%) !important;
-      border-bottom: 1px solid #101214 !important;
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0px, transparent 1px, transparent 2px),
+        linear-gradient(180deg, #383e46 0%, #2b3037 50%, #20242a 100%) !important;
+      border-bottom: 1px solid #0f1114 !important;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
         inset 0 -1px 0 rgba(0, 0, 0, 0.6),
-        0 3px 8px rgba(0, 0, 0, 0.6) !important;
+        0 2px 6px rgba(0, 0, 0, 0.5) !important;
       position: relative;
     }
 
+    /* Header Brand Plate & Switch */
+    [data-theme="skeuo"] #ip-top-bar .brand-btn,
+    body.theme-skeuo #ip-top-bar .brand-btn {
+      background: linear-gradient(180deg, #3d444d 0%, #2b3037 100%) !important;
+      border: 1px solid #14171a !important;
+      border-radius: 4px !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+        0 2px 4px rgba(0, 0, 0, 0.5) !important;
+      color: #cbd5e1 !important;
+      transition: all 0.1s ease !important;
+    }
+
+    [data-theme="skeuo"] #ip-top-bar .brand-btn:hover,
+    body.theme-skeuo #ip-top-bar .brand-btn:hover {
+      background: linear-gradient(180deg, #49515b 0%, #343a42 100%) !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 2px 6px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    [data-theme="skeuo"] #ip-top-bar .brand-btn:active,
+    body.theme-skeuo #ip-top-bar .brand-btn:active {
+      background: linear-gradient(180deg, #181b1f 0%, #23272d 100%) !important;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8) !important;
+      transform: translateY(1px) !important;
+    }
+
+    /* Brand Jewel LED Lamp */
+    [data-theme="skeuo"] #ip-top-bar .brand-icon,
+    body.theme-skeuo #ip-top-bar .brand-icon {
+      background: radial-gradient(circle at 35% 35%, #ffffff 0%, #ffc848 35%, #f59e0b 70%, #b45309 100%) !important;
+      border: 1px solid #78350f !important;
+      color: #1a0f02 !important;
+      font-weight: 900 !important;
+      border-radius: 3px !important;
+      box-shadow:
+        0 0 6px rgba(245, 158, 11, 0.7),
+        inset 0 1px 1px rgba(255, 255, 255, 0.8),
+        inset 0 -1px 1px rgba(0, 0, 0, 0.4) !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+    }
+
+    /* Top Bar Phosphor Status Readout */
+    [data-theme="skeuo"] #ip-top-bar .ip-top-status-text,
+    body.theme-skeuo #ip-top-bar .ip-top-status-text {
+      background: #090b0e !important;
+      border: 1px solid #050709 !important;
+      border-radius: 3px !important;
+      padding: 2px 8px !important;
+      color: #38bdf8 !important;
+      box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.95),
+        0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      text-shadow: 0 0 6px rgba(56, 189, 248, 0.6), 0 -1px 0 #000 !important;
+      font-family: var(--font-mono) !important;
+      font-size: 10.5px !important;
+    }
+
+    /* Titlebar Recessed Command Center (Search Bay) */
     [data-theme="skeuo"] .titlebar-command-center {
       background:
-        linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 48%, rgba(0,0,0,0.2) 52%, transparent 100%),
+        linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.01) 48%, rgba(0,0,0,0.2) 52%, transparent 100%),
         linear-gradient(180deg, #090b0d 0%, #13161a 100%) !important;
       border: 1px solid #060709 !important;
       border-radius: 4px !important;
       box-shadow:
         inset 0 2px 6px rgba(0, 0, 0, 0.95),
-        inset 0 0 1px rgba(0, 0, 0, 0.8),
-        0 1px 0 rgba(255, 255, 255, 0.15) !important;
+        0 1px 0 rgba(255, 255, 255, 0.12) !important;
       color: #cbd5e1 !important;
+      font-size: 11.5px !important;
     }
 
     [data-theme="skeuo"] .titlebar-command-center:hover {
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 48%, rgba(0,0,0,0.15) 52%, transparent 100%),
-        linear-gradient(180deg, #0d0f12 0%, #181c22 100%) !important;
       border-color: #0c0e11 !important;
       box-shadow:
         inset 0 2px 6px rgba(0, 0, 0, 0.95),
-        0 0 6px rgba(245, 158, 11, 0.3),
-        0 1px 0 rgba(255, 255, 255, 0.2) !important;
+        0 0 8px rgba(245, 158, 11, 0.35),
+        0 1px 0 rgba(255, 255, 255, 0.18) !important;
     }
 
     [data-theme="skeuo"] .titlebar-command-center .cmd-title {
       color: #ffc848 !important;
-      text-shadow: 0 0 8px rgba(245, 158, 11, 0.5), 0 -1px 1px #000 !important;
+      text-shadow: 0 0 8px rgba(245, 158, 11, 0.5), 0 -1px 0 #000 !important;
       font-weight: 600;
     }
 
-    [data-theme="skeuo"] .menubar-item,
-    [data-theme="skeuo"] .titlebar-btn {
-      background: linear-gradient(180deg, #383e46 0%, #2a2e34 100%) !important;
-      border: 1px solid #181a1d !important;
-      border-radius: 4px !important;
-      color: #cbd5e1 !important;
-      font-size: 12px !important;
-      font-weight: 650 !important;
-      letter-spacing: 0.25px !important;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-        0 1px 2px rgba(0, 0, 0, 0.5) !important;
-      text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.2) !important;
-    }
-
+    /* Flush Debossed Menubar Labels */
     [data-theme="skeuo"] .menubar-item {
-      font-size: 12.5px !important;
+      background: transparent !important;
+      border: 1px solid transparent !important;
+      border-radius: 3px !important;
+      color: #cbd5e1 !important;
+      font-size: 11.5px !important;
+      font-weight: 600 !important;
+      padding: 2px 8px !important;
+      text-shadow: 0 -1px 0 #000, 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      transition: all 0.1s ease !important;
     }
 
-    [data-theme="skeuo"] .menubar-item:hover,
-    [data-theme="skeuo"] .titlebar-btn:hover {
-      background: linear-gradient(180deg, #485059 0%, #353b43 100%) !important;
+    [data-theme="skeuo"] .menubar-item:hover {
+      background: linear-gradient(180deg, #3d434c 0%, #2e333a 100%) !important;
+      border: 1px solid #16181b !important;
       color: #ffffff !important;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.35),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-        0 2px 5px rgba(0, 0, 0, 0.55) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        0 1px 3px rgba(0, 0, 0, 0.4) !important;
     }
 
     [data-theme="skeuo"] .menubar-item:active,
-    [data-theme="skeuo"] .titlebar-btn:active,
     [data-theme="skeuo"] .menubar-item.active {
-      background: linear-gradient(180deg, #181a1d 0%, #23272c 100%) !important;
+      background: linear-gradient(180deg, #16181b 0%, #22252a 100%) !important;
+      border-color: #0c0e10 !important;
+      border-bottom: 2px solid #f59e0b !important;
+      color: #ffc848 !important;
       box-shadow:
-        inset 0 2px 5px rgba(0, 0, 0, 0.85),
-        0 1px 0 rgba(255, 255, 255, 0.12) !important;
-      transform: translateY(1px);
+        inset 0 2px 4px rgba(0, 0, 0, 0.8),
+        0 1px 0 rgba(255, 255, 255, 0.08) !important;
     }
 
-    [data-theme="skeuo"] .titlebar-btn.primary-action {
-      background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%) !important;
-      color: #180f02 !important;
-      border-color: #78350f !important;
-      font-weight: 750 !important;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5), 0 -1px 0 rgba(0, 0, 0, 0.2) !important;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.6),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-        0 2px 6px rgba(245, 158, 11, 0.5),
-        0 1px 2px rgba(0, 0, 0, 0.4) !important;
-    }
-
-    [data-theme="skeuo"] .titlebar-btn.primary-action:hover {
-      background: linear-gradient(180deg, #fcd34d 0%, #fbbf24 50%, #f59e0b 100%) !important;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.7),
-        0 3px 10px rgba(245, 158, 11, 0.65) !important;
-    }
-
-    /* ── Skeuomorphic Statusbar ── */
+    /* ── Skeuomorphic Bottom Status Rail ── */
     [data-theme="skeuo"] .vscode-statusbar {
       background:
-        repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, transparent 1px, transparent 2px),
-        linear-gradient(180deg, #272b30 0%, #1c1f23 50%, #151719 100%) !important;
-      border-top: 1px solid #0f1113 !important;
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0px, transparent 1px, transparent 2px),
+        linear-gradient(180deg, #272b31 0%, #1c1f24 50%, #141618 100%) !important;
+      border-top: 1px solid #0d0f11 !important;
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.15),
-        0 -2px 5px rgba(0, 0, 0, 0.4) !important;
+        0 -2px 6px rgba(0, 0, 0, 0.5) !important;
       color: #94a3b8 !important;
-      font-size: 11.5px !important;
+      font-size: 11px !important;
       font-weight: 600 !important;
-      text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+      text-shadow: 0 -1px 0 #000 !important;
+    }
+
+    [data-theme="skeuo"] .vscode-statusbar .statusbar-item {
+      padding: 1px 6px !important;
+      border-radius: 3px !important;
+      transition: all 0.1s ease !important;
     }
 
     [data-theme="skeuo"] .vscode-statusbar .statusbar-item:hover {
-      background: linear-gradient(180deg, #383e46 0%, #282c32 100%) !important;
-      border-radius: 3px !important;
+      background: linear-gradient(180deg, #373d45 0%, #262a30 100%) !important;
+      border: 1px solid #14171a !important;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
         0 1px 2px rgba(0, 0, 0, 0.4) !important;
       color: #ffffff !important;
     }
 
-    /* ── Skeuomorphic Left Rack Toolbar ── */
+    /* ── Skeuomorphic Left Rack Toolbar & Tactile Tool Buttons ── */
     [data-theme="skeuo"] #toolbar {
       background:
-        repeating-linear-gradient(180deg, rgba(255,255,255,0.012) 0px, transparent 1px, transparent 2px),
-        linear-gradient(90deg, #30353c 0%, #24272d 100%) !important;
-      border-right: 1px solid #111315 !important;
+        repeating-linear-gradient(180deg, rgba(255,255,255,0.01) 0px, transparent 1px, transparent 2px),
+        linear-gradient(90deg, #2f343b 0%, #23272d 100%) !important;
+      border-right: 1px solid #101214 !important;
       box-shadow:
         inset -1px 0 0 rgba(255, 255, 255, 0.08),
-        inset 1px 0 0 rgba(255, 255, 255, 0.05),
+        inset 1px 0 0 rgba(255, 255, 255, 0.04),
         3px 0 10px rgba(0, 0, 0, 0.5) !important;
       position: relative;
     }
 
-    /* Top & bottom rack mount screws on toolbar */
-    [data-theme="skeuo"] #toolbar::before,
-    [data-theme="skeuo"] #toolbar::after {
-      content: '';
-      display: block;
-      width: 14px;
-      height: 14px;
-      margin: 4px auto;
-      border-radius: 50%;
-      background:
-        linear-gradient(45deg, transparent 42%, #121416 43%, #121416 57%, transparent 58%),
-        linear-gradient(-45deg, transparent 42%, #121416 43%, #121416 57%, transparent 58%),
-        radial-gradient(circle at 35% 30%, #cbd5e1 0%, #64748b 45%, #1e293b 85%, #0f172a 100%);
-      box-shadow:
-        inset 0 1px 1px rgba(255, 255, 255, 0.5),
-        inset 0 -1px 1px rgba(0, 0, 0, 0.9),
-        0 1px 1px rgba(255, 255, 255, 0.15),
-        0 -1px 1px rgba(0, 0, 0, 0.7);
-      flex-shrink: 0;
+    [data-theme="skeuo"] .toolbar-sep {
+      width: 32px !important;
+      height: 2px !important;
+      background: #0f1113 !important;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      margin: 4px 0 !important;
     }
 
-    /* ── Chunky MPC / Synthesizer Tactile Push Keys ── */
+    /* Chunky MPC Tactile Keys (.tool-btn) */
     [data-theme="skeuo"] .tool-btn {
       background:
-        linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.03) 50%, transparent 51%),
-        linear-gradient(180deg, #3c434b 0%, #2b3036 60%, #202428 100%) !important;
-      border: 1px solid #141618 !important;
+        linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.02) 50%, transparent 51%),
+        linear-gradient(180deg, #3a4048 0%, #2b3036 60%, #202328 100%) !important;
+      border: 1px solid #131518 !important;
       border-radius: 5px !important;
       color: #94a3b8 !important;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.3),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.5),
-        0 3px 5px rgba(0, 0, 0, 0.55),
-        0 1px 2px rgba(0, 0, 0, 0.4) !important;
-      text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.5),
+        0 2px 4px rgba(0, 0, 0, 0.5) !important;
+      text-shadow: 0 -1px 0 #000 !important;
       position: relative;
+      transition: all 0.08s ease;
     }
 
-    [data-theme="skeuo"] .tool-btn:hover {
+    [data-theme="skeuo"] .tool-btn:hover:not(.active) {
       background:
-        linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 50%, transparent 51%),
-        linear-gradient(180deg, #49515b 0%, #353b43 60%, #282c31 100%) !important;
+        linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.04) 50%, transparent 51%),
+        linear-gradient(180deg, #464e58 0%, #343a42 60%, #26292f 100%) !important;
       color: #ffffff !important;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.4),
-        0 4px 8px rgba(0, 0, 0, 0.6) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 3px 6px rgba(0, 0, 0, 0.6) !important;
     }
 
-    [data-theme="skeuo"] .tool-btn.active {
+    [data-theme="skeuo"] .tool-btn.active,
+    [data-theme="skeuo"] .tool-btn.active:hover {
       background:
-        radial-gradient(circle at 50% 30%, rgba(255,255,255,0.25) 0%, transparent 60%),
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.3) 0%, transparent 60%),
         linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
       color: #170f02 !important;
       border-color: #78350f !important;
       box-shadow:
-        inset 0 2px 5px rgba(0, 0, 0, 0.6),
+        inset 0 2px 4px rgba(0, 0, 0, 0.7),
         inset 0 -1px 0 rgba(255, 255, 255, 0.5),
-        0 0 14px rgba(245, 158, 11, 0.7),
+        0 0 12px rgba(245, 158, 11, 0.7),
         0 1px 2px rgba(0, 0, 0, 0.8) !important;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) !important;
-      transform: translateY(1.5px);
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+      transform: translateY(1.5px) !important;
     }
 
-    /* Active Tally Lamp (illuminated LED jewel dot on active tool) */
+    /* Active Tally Lamp on Toolbar Buttons */
     [data-theme="skeuo"] .tool-btn.active::before {
       content: '';
       position: absolute;
@@ -392,161 +395,408 @@
 
     [data-theme="skeuo"] .tool-btn.active span.hotkey {
       color: #170f02 !important;
-      font-weight: 750;
-      text-shadow: none;
+      font-weight: 750 !important;
+      text-shadow: none !important;
+      opacity: 0.9 !important;
     }
 
-    [data-theme="skeuo"] .toolbar-sep {
-      background: #121416 !important;
-      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    /* ── Tactile Tool Cards in Tools Panel (.ip-tool-card & .ip-actionmode-card) ── */
+    [data-theme="skeuo"] .ip-tool-card,
+    body.theme-skeuo .ip-tool-card,
+    [data-theme="skeuo"] .ip-actionmode-card,
+    body.theme-skeuo .ip-actionmode-card {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.02) 50%, transparent 51%),
+        linear-gradient(180deg, #373d45 0%, #292d34 60%, #1e2227 100%) !important;
+      border: 1px solid #131518 !important;
+      border-radius: 4px !important;
+      color: #cbd5e1 !important;
+      font-size: 9.5px !important;
+      font-weight: 650 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+        0 1px 3px rgba(0, 0, 0, 0.4) !important;
+      text-shadow: 0 -1px 0 #000 !important;
+      transition: all 0.08s ease !important;
+    }
+
+    [data-theme="skeuo"] .ip-tool-card:hover:not(.active),
+    body.theme-skeuo .ip-tool-card:hover:not(.active),
+    [data-theme="skeuo"] .ip-actionmode-card:hover:not(.active),
+    body.theme-skeuo .ip-actionmode-card:hover:not(.active) {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 50%, transparent 51%),
+        linear-gradient(180deg, #444b54 0%, #32373f 60%, #25282e 100%) !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 2px 5px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] .ip-tool-card.active,
+    body.theme-skeuo .ip-tool-card.active,
+    [data-theme="skeuo"] .ip-actionmode-card.active,
+    body.theme-skeuo .ip-actionmode-card.active,
+    [data-theme="skeuo"] .ip-tool-card.active:hover,
+    body.theme-skeuo .ip-tool-card.active:hover {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.3) 0%, transparent 60%),
+        linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
+      color: #170f02 !important;
+      border-color: #78350f !important;
+      font-weight: 800 !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.7),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.5),
+        0 0 10px rgba(245, 158, 11, 0.6) !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+      transform: translateY(1px) !important;
     }
 
     /* ── Skeuomorphic Dockview & Tabs ── */
     [data-theme="skeuo"] #dockview-container {
-      --dv-tabs-and-actions-container-background-color: #202428;
-      --dv-activegroup-visiblepanel-tab-background-color: #2d3238;
+      --dv-tabs-and-actions-container-background-color: #1c1f24;
+      --dv-activegroup-visiblepanel-tab-background-color: #2b3036;
       --dv-activegroup-visiblepanel-tab-color: #ffc848;
-      --dv-inactivegroup-visiblepanel-tab-background-color: #272b30;
-      --dv-inactivegroup-visiblepanel-tab-color: #cbd5e1;
-      --dv-group-view-background-color: #282c32;
-      --dv-background-color: #282c32;
-      --dv-tab-divider-color: #15171a;
-      --dv-separator-border: 1px solid #15171a;
+      --dv-inactivegroup-visiblepanel-tab-background-color: #23272d;
+      --dv-inactivegroup-visiblepanel-tab-color: #94a3b8;
+      --dv-group-view-background-color: #24282f;
+      --dv-background-color: #24282f;
+      --dv-tab-divider-color: #131518;
+      --dv-separator-border: 1px solid #131518;
       --dv-sash-hover-color: #f59e0b;
     }
 
     [data-theme="skeuo"] .dock-panel-content {
-      background: linear-gradient(180deg, #2c3036 0%, #24282e 100%) !important;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+      background: linear-gradient(180deg, #272b32 0%, #1e2227 100%) !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
     }
 
     [data-theme="skeuo"] #dockview-container .dv-tabs-and-actions-container {
-      background: linear-gradient(180deg, #22262b 0%, #1a1d21 100%) !important;
-      border-bottom: 1px solid #131518 !important;
+      background: linear-gradient(180deg, #1f2227 0%, #17191d 100%) !important;
+      border-bottom: 1px solid #111316 !important;
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.08),
         inset 0 -1px 3px rgba(0, 0, 0, 0.5) !important;
     }
 
     [data-theme="skeuo"] #dockview-container .dv-tab {
-      background: linear-gradient(180deg, #2d3238 0%, #212429 100%) !important;
-      border: 1px solid #15171a !important;
+      background: linear-gradient(180deg, #2a2e34 0%, #1e2227 100%) !important;
+      border: 1px solid #131518 !important;
       border-bottom: none !important;
       border-radius: 4px 4px 0 0 !important;
       margin-right: 2px !important;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.15),
-        0 -1px 2px rgba(0, 0, 0, 0.25) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        0 -1px 2px rgba(0, 0, 0, 0.3) !important;
       color: #94a3b8 !important;
-      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.3px !important;
+      text-shadow: 0 -1px 0 #000 !important;
+      transition: all 0.1s ease !important;
     }
 
     [data-theme="skeuo"] #dockview-container .dv-tab.dv-active-tab {
-      background: linear-gradient(180deg, #3d434c 0%, #2d3238 100%) !important;
+      background: linear-gradient(180deg, #3c424a 0%, #2b3036 100%) !important;
       color: #ffc848 !important;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.32),
         inset 0 -2px 0 #f59e0b,
-        0 -2px 6px rgba(0, 0, 0, 0.45) !important;
+        0 -2px 6px rgba(0, 0, 0, 0.5) !important;
       text-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.9),
-        0 0 8px rgba(245, 158, 11, 0.4) !important;
+        0 -1px 1px #000,
+        0 0 8px rgba(245, 158, 11, 0.45) !important;
     }
 
     [data-theme="skeuo"] #dockview-container .dv-tab:hover:not(.dv-active-tab) {
-      background: linear-gradient(180deg, #373d45 0%, #292d33 100%) !important;
+      background: linear-gradient(180deg, #343a42 0%, #25292f 100%) !important;
       color: #ffffff !important;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.25),
-        0 -1px 3px rgba(0, 0, 0, 0.35) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 -1px 3px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    /* Milled Knurled Sashes (Panel Divider Splitters) */
+    [data-theme="skeuo"] #dockview-container .dv-sash > .dv-sash-handle {
+      background: linear-gradient(180deg, #3e444d 0%, #282c32 100%) !important;
+      border: 1px solid #141618 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 1px 3px rgba(0, 0, 0, 0.6) !important;
+      color: #8894a4 !important;
+      opacity: 0.8 !important;
+    }
+
+    [data-theme="skeuo"] #dockview-container .dv-sash > .dv-sash-handle:hover,
+    [data-theme="skeuo"] #dockview-container .dv-sash > .dv-sash-handle:active {
+      background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%) !important;
+      color: #170e02 !important;
+      border-color: #78350f !important;
+      box-shadow:
+        0 0 10px rgba(245, 158, 11, 0.85),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+      opacity: 1 !important;
+    }
+
+    /* ── Skeuomorphic Buttons (Explicit & Non-Destructive) ── */
+    [data-theme="skeuo"] .btn,
+    body.theme-skeuo .btn,
+    [data-theme="skeuo"] .btn-sm,
+    body.theme-skeuo .btn-sm,
+    [data-theme="skeuo"] .top-tool-btn,
+    body.theme-skeuo .top-tool-btn,
+    [data-theme="skeuo"] .titlebar-btn,
+    body.theme-skeuo .titlebar-btn {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.02) 50%, transparent 51%),
+        linear-gradient(180deg, #3a4048 0%, #2b3036 60%, #1f2328 100%) !important;
+      border: 1px solid #131518 !important;
+      border-radius: 4px !important;
+      color: #cbd5e1 !important;
+      font-size: 11px !important;
+      font-weight: 650 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+        0 2px 4px rgba(0, 0, 0, 0.4) !important;
+      text-shadow: 0 -1px 0 #000, 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      transition: all 0.08s ease !important;
+    }
+
+    [data-theme="skeuo"] .btn:hover,
+    body.theme-skeuo .btn:hover,
+    [data-theme="skeuo"] .btn-sm:hover,
+    body.theme-skeuo .btn-sm:hover,
+    [data-theme="skeuo"] .top-tool-btn:hover,
+    body.theme-skeuo .top-tool-btn:hover,
+    [data-theme="skeuo"] .titlebar-btn:hover,
+    body.theme-skeuo .titlebar-btn:hover {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 50%, transparent 51%),
+        linear-gradient(180deg, #464d57 0%, #343a42 60%, #26292f 100%) !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.32),
+        0 2px 5px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] .btn:active,
+    body.theme-skeuo .btn:active,
+    [data-theme="skeuo"] .btn-sm:active,
+    body.theme-skeuo .btn-sm:active,
+    [data-theme="skeuo"] .top-tool-btn:active,
+    body.theme-skeuo .top-tool-btn:active,
+    [data-theme="skeuo"] .titlebar-btn:active,
+    body.theme-skeuo .titlebar-btn:active {
+      background: linear-gradient(180deg, #17191d 0%, #22252a 100%) !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.8),
+        0 1px 0 rgba(255, 255, 255, 0.08) !important;
+      transform: translateY(1px) !important;
+    }
+
+    /* Primary Action Button (Amber Illuminated Studio Switch) */
+    [data-theme="skeuo"] .btn-primary,
+    body.theme-skeuo .btn-primary,
+    [data-theme="skeuo"] .titlebar-btn.primary-action,
+    body.theme-skeuo .titlebar-btn.primary-action {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.35) 0%, transparent 60%),
+        linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%) !important;
+      border: 1px solid #78350f !important;
+      color: #170e02 !important;
+      font-weight: 750 !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.6),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+        0 2px 6px rgba(245, 158, 11, 0.5),
+        0 1px 2px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    [data-theme="skeuo"] .btn-primary:hover,
+    body.theme-skeuo .btn-primary:hover,
+    [data-theme="skeuo"] .titlebar-btn.primary-action:hover,
+    body.theme-skeuo .titlebar-btn.primary-action:hover {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.45) 0%, transparent 60%),
+        linear-gradient(180deg, #fcd34d 0%, #fbbf24 50%, #f59e0b 100%) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        0 3px 10px rgba(245, 158, 11, 0.65) !important;
+    }
+
+    /* Tactile Micro-Switches (.ip-mini-btn for alignment, boolean, path ops) */
+    [data-theme="skeuo"] .ip-mini-btn,
+    body.theme-skeuo .ip-mini-btn {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 50%, transparent 51%),
+        linear-gradient(180deg, #343a42 0%, #262a30 60%, #1d2025 100%) !important;
+      border: 1px solid #121417 !important;
+      border-radius: 3px !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+        0 1px 2px rgba(0, 0, 0, 0.35) !important;
+      color: #cbd5e1 !important;
+      font-size: 9.5px !important;
+      font-weight: 650 !important;
+      height: 22px !important;
+      text-shadow: 0 -1px 0 #000 !important;
+      transition: all 0.08s ease !important;
+    }
+
+    [data-theme="skeuo"] .ip-mini-btn:hover:not(.active),
+    body.theme-skeuo .ip-mini-btn:hover:not(.active) {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 50%, transparent 51%),
+        linear-gradient(180deg, #404650 0%, #30353d 60%, #23272d 100%) !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 2px 4px rgba(0, 0, 0, 0.45) !important;
+    }
+
+    [data-theme="skeuo"] .ip-mini-btn.active,
+    body.theme-skeuo .ip-mini-btn.active {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.25) 0%, transparent 60%),
+        linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
+      color: #170f02 !important;
+      border-color: #78350f !important;
+      font-weight: 800 !important;
+      box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.7),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.4),
+        0 0 8px rgba(245, 158, 11, 0.5) !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+      transform: translateY(1px) !important;
+    }
+
+    [data-theme="skeuo"] .ip-mini-btn.danger,
+    body.theme-skeuo .ip-mini-btn.danger {
+      color: #f87171 !important;
+    }
+
+    [data-theme="skeuo"] .ip-mini-btn.danger:hover,
+    body.theme-skeuo .ip-mini-btn.danger:hover {
+      background: linear-gradient(180deg, #b91c1c 0%, #7f1d1d 100%) !important;
+      color: #ffffff !important;
+      border-color: #450a0a !important;
+      box-shadow: 0 0 6px rgba(239, 68, 68, 0.5) !important;
+    }
+
+    /* Sleek Icon Buttons (.btn-icon in tree, toolbar, modals, tabs) */
+    [data-theme="skeuo"] .btn-icon,
+    body.theme-skeuo .btn-icon {
+      background: transparent !important;
+      border: 1px solid transparent !important;
+      box-shadow: none !important;
+      color: #8894a4 !important;
+      text-shadow: none !important;
+      border-radius: 3px !important;
+      transition: all 0.1s ease !important;
+    }
+
+    [data-theme="skeuo"] .btn-icon:hover,
+    body.theme-skeuo .btn-icon:hover {
+      background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%) !important;
+      border-color: rgba(255, 255, 255, 0.12) !important;
+      color: #ffffff !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+    }
+
+    [data-theme="skeuo"] .btn-icon.active,
+    body.theme-skeuo .btn-icon.active,
+    [data-theme="skeuo"] .btn-icon.is-visible,
+    body.theme-skeuo .btn-icon.is-visible {
+      color: #f59e0b !important;
+      filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.85)) !important;
+    }
+
+    [data-theme="skeuo"] .btn-icon.is-locked,
+    body.theme-skeuo .btn-icon.is-locked {
+      color: #ef4444 !important;
+      filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.85)) !important;
+    }
+
+    /* Modal Close Icon Pin */
+    [data-theme="skeuo"] .modal-close,
+    body.theme-skeuo .modal-close {
+      background: transparent !important;
+      border: 1px solid transparent !important;
+      box-shadow: none !important;
+      color: #8894a4 !important;
+      font-size: 14px !important;
+      border-radius: 3px !important;
+      transition: all 0.1s ease !important;
+    }
+
+    [data-theme="skeuo"] .modal-close:hover,
+    body.theme-skeuo .modal-close:hover {
+      background: rgba(239, 68, 68, 0.18) !important;
+      color: #ef4444 !important;
+      border-color: rgba(239, 68, 68, 0.35) !important;
+      box-shadow: 0 0 6px rgba(239, 68, 68, 0.5) !important;
     }
 
     /* ── Skeuomorphic Form Controls, Recessed Wells & Inputs ── */
     [data-theme="skeuo"] input[type="text"],
+    body.theme-skeuo input[type="text"],
     [data-theme="skeuo"] input[type="number"],
+    body.theme-skeuo input[type="number"],
     [data-theme="skeuo"] select,
+    body.theme-skeuo select,
     [data-theme="skeuo"] textarea,
-    [data-theme="skeuo"] #svg-code-editor {
-      background: linear-gradient(180deg, #101215 0%, #17191d 100%) !important;
-      border: 1px solid #0c0e10 !important;
-      border-radius: 4px !important;
+    body.theme-skeuo textarea,
+    [data-theme="skeuo"] #svg-code-editor,
+    body.theme-skeuo #svg-code-editor {
+      background: linear-gradient(180deg, #0b0d10 0%, #13161a 100%) !important;
+      border: 1px solid #07090b !important;
+      border-radius: 3px !important;
       color: #e2e8f0 !important;
+      font-size: 11px !important;
+      font-weight: 550 !important;
       box-shadow:
-        inset 0 2px 4px rgba(0, 0, 0, 0.85),
-        inset 0 1px 1px rgba(0, 0, 0, 0.6),
-        0 1px 0 rgba(255, 255, 255, 0.12) !important;
-      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
+        inset 0 2px 4px rgba(0, 0, 0, 0.95),
+        inset 0 1px 1px #000000,
+        0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      text-shadow: none !important;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease !important;
     }
 
     [data-theme="skeuo"] input[type="text"]:focus,
+    body.theme-skeuo input[type="text"]:focus,
     [data-theme="skeuo"] input[type="number"]:focus,
+    body.theme-skeuo input[type="number"]:focus,
     [data-theme="skeuo"] select:focus,
+    body.theme-skeuo select:focus,
     [data-theme="skeuo"] textarea:focus,
-    [data-theme="skeuo"] #svg-code-editor:focus {
+    body.theme-skeuo textarea:focus,
+    [data-theme="skeuo"] #svg-code-editor:focus,
+    body.theme-skeuo #svg-code-editor:focus {
       border-color: #f59e0b !important;
-      background: linear-gradient(180deg, #13161a 0%, #1a1e23 100%) !important;
+      background: linear-gradient(180deg, #0e1115 0%, #171b21 100%) !important;
       box-shadow:
-        inset 0 2px 4px rgba(0, 0, 0, 0.85),
+        inset 0 2px 4px rgba(0, 0, 0, 0.95),
         0 0 0 1px #f59e0b,
         0 0 8px rgba(245, 158, 11, 0.45),
-        0 1px 0 rgba(255, 255, 255, 0.15) !important;
+        0 1px 0 rgba(255, 255, 255, 0.12) !important;
     }
 
-    /* ── Skeuomorphic Buttons ── */
-    [data-theme="skeuo"] button:not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn),
-    [data-theme="skeuo"] .top-tool-btn {
-      background: linear-gradient(180deg, #3c424a 0%, #2b3036 60%, #22262a 100%) !important;
-      border: 1px solid #141618 !important;
-      border-radius: 4px !important;
-      color: #cbd5e1 !important;
-      font-size: 11.5px !important;
-      font-weight: 650 !important;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
-        0 2px 4px rgba(0, 0, 0, 0.4),
-        0 1px 1px rgba(0, 0, 0, 0.3) !important;
-      text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.18) !important;
-    }
-
-    [data-theme="skeuo"] button:not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):hover,
-    [data-theme="skeuo"] .top-tool-btn:hover {
-      background: linear-gradient(180deg, #484f58 0%, #343a41 60%, #282c31 100%) !important;
-      color: #ffffff !important;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.32),
-        0 2px 6px rgba(0, 0, 0, 0.5) !important;
-    }
-
-    [data-theme="skeuo"] button:not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):active,
-    [data-theme="skeuo"] .top-tool-btn:active {
-      background: linear-gradient(180deg, #181a1d 0%, #23272c 100%) !important;
-      box-shadow:
-        inset 0 2px 4px rgba(0, 0, 0, 0.8),
-        0 1px 0 rgba(255, 255, 255, 0.1) !important;
-      transform: translateY(1px);
-    }
-
-    [data-theme="skeuo"] button.btn-primary {
-      background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%) !important;
-      border: 1px solid #92400e !important;
-      color: #1a0f02 !important;
-      font-weight: 700 !important;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.55),
-        0 2px 6px rgba(245, 158, 11, 0.4),
-        0 1px 2px rgba(0, 0, 0, 0.5) !important;
-    }
-
-    [data-theme="skeuo"] button.btn-primary:hover {
-      background: linear-gradient(180deg, #fcd34d 0%, #fbbf24 50%, #f59e0b 100%) !important;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.65),
-        0 3px 9px rgba(245, 158, 11, 0.55) !important;
+    /* Number Spinners / Steppers */
+    [data-theme="skeuo"] input[type="number"]::-webkit-inner-spin-button,
+    body.theme-skeuo input[type="number"]::-webkit-inner-spin-button {
+      filter: invert(0.65) sepia(0.4) saturate(2.5) hue-rotate(170deg) brightness(1.15) !important;
+      opacity: 0.8 !important;
+      cursor: pointer;
     }
 
     /* ── Skeuomorphic Range Faders (Physical Console Sliders with Etched Graduations) ── */
-    [data-theme="skeuo"] input[type="range"] {
+    [data-theme="skeuo"] input[type="range"],
+    body.theme-skeuo input[type="range"] {
       -webkit-appearance: none;
       -moz-appearance: none;
       appearance: none;
@@ -561,19 +811,20 @@
       box-shadow:
         inset 0 2px 5px rgba(0, 0, 0, 0.95),
         inset 0 0 2px rgba(0, 0, 0, 0.7),
-        0 1px 0 rgba(255, 255, 255, 0.16) !important;
+        0 1px 0 rgba(255, 255, 255, 0.14) !important;
     }
 
-    [data-theme="skeuo"] input[type="range"]::-webkit-slider-runnable-track {
+    [data-theme="skeuo"] input[type="range"]::-webkit-slider-runnable-track,
+    body.theme-skeuo input[type="range"]::-webkit-slider-runnable-track {
       background: transparent !important;
       border: none !important;
-      border-radius: 5px !important;
       height: 10px !important;
       box-shadow: none !important;
     }
 
-    /* Chunky Cast Aluminum Knurled Fader Cap with Grip Ribs */
-    [data-theme="skeuo"] input[type="range"]::-webkit-slider-thumb {
+    /* Chunky Cast Aluminum Knurled Fader Cap */
+    [data-theme="skeuo"] input[type="range"]::-webkit-slider-thumb,
+    body.theme-skeuo input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
       width: 16px !important;
@@ -596,7 +847,8 @@
       cursor: grab;
     }
 
-    [data-theme="skeuo"] input[type="range"]:active::-webkit-slider-thumb {
+    [data-theme="skeuo"] input[type="range"]:active::-webkit-slider-thumb,
+    body.theme-skeuo input[type="range"]:active::-webkit-slider-thumb {
       cursor: grabbing;
       box-shadow:
         inset 0 1px 0 #ffffff,
@@ -606,7 +858,8 @@
       transform: scale(0.98);
     }
 
-    [data-theme="skeuo"] input[type="range"]:hover::-webkit-slider-thumb {
+    [data-theme="skeuo"] input[type="range"]:hover::-webkit-slider-thumb,
+    body.theme-skeuo input[type="range"]:hover::-webkit-slider-thumb {
       background:
         linear-gradient(90deg, transparent 40%, #ffc848 44%, #f59e0b 56%, transparent 60%),
         repeating-linear-gradient(180deg, rgba(255,255,255,0.25) 0px, transparent 1px, transparent 2px, rgba(0,0,0,0.3) 3px),
@@ -617,15 +870,16 @@
         0 0 8px rgba(245, 158, 11, 0.45) !important;
     }
 
-    /* Firefox slider track & thumb */
-    [data-theme="skeuo"] input[type="range"]::-moz-range-track {
+    /* Firefox range track & thumb */
+    [data-theme="skeuo"] input[type="range"]::-moz-range-track,
+    body.theme-skeuo input[type="range"]::-moz-range-track {
       background: transparent !important;
       border: none !important;
-      border-radius: 5px !important;
       height: 10px !important;
     }
 
-    [data-theme="skeuo"] input[type="range"]::-moz-range-thumb {
+    [data-theme="skeuo"] input[type="range"]::-moz-range-thumb,
+    body.theme-skeuo input[type="range"]::-moz-range-thumb {
       -moz-appearance: none;
       appearance: none;
       width: 16px !important;
@@ -641,17 +895,6 @@
         inset 0 -1px 0 rgba(0, 0, 0, 0.6),
         0 4px 8px rgba(0, 0, 0, 0.9) !important;
       cursor: grab;
-    }
-
-    [data-theme="skeuo"] input[type="range"]:hover::-moz-range-thumb {
-      background:
-        linear-gradient(90deg, transparent 40%, #ffc848 44%, #f59e0b 56%, transparent 60%),
-        repeating-linear-gradient(180deg, rgba(255,255,255,0.25) 0px, transparent 1px, transparent 2px, rgba(0,0,0,0.3) 3px),
-        linear-gradient(180deg, #ffffff 0%, #e2e8f0 35%, #cbd5e1 65%, #7a889b 100%) !important;
-      box-shadow:
-        inset 0 1px 0 #ffffff,
-        0 5px 10px rgba(0, 0, 0, 0.95),
-        0 0 8px rgba(245, 158, 11, 0.45) !important;
     }
 
     /* ── Skeuomorphic 3D Jewel Checkbox Rocker Switches ── */
@@ -724,11 +967,13 @@
       cursor: pointer;
     }
 
-    [data-theme="skeuo"] input[type="color"]::-webkit-color-swatch-wrapper {
+    [data-theme="skeuo"] input[type="color"]::-webkit-color-swatch-wrapper,
+    body.theme-skeuo input[type="color"]::-webkit-color-swatch-wrapper {
       padding: 2px;
     }
 
-    [data-theme="skeuo"] input[type="color"]::-webkit-color-swatch {
+    [data-theme="skeuo"] input[type="color"]::-webkit-color-swatch,
+    body.theme-skeuo input[type="color"]::-webkit-color-swatch {
       border: 1px solid rgba(0, 0, 0, 0.6);
       border-radius: 2px;
       box-shadow:
@@ -736,147 +981,102 @@
         inset 0 -1px 2px rgba(0, 0, 0, 0.5);
     }
 
-    /* ── Skeuomorphic Menus, Popovers, Modals ── */
-    [data-theme="skeuo"] .dropdown-menu,
-    [data-theme="skeuo"] .menu-submenu,
-    [data-theme="skeuo"] .monaco-menu-container,
-    [data-theme="skeuo"] .tool-flyout,
-    [data-theme="skeuo"] .tool-submenu,
-    [data-theme="skeuo"] .modal-card {
-      background: linear-gradient(180deg, #32373e 0%, #25282e 100%) !important;
-      border: 1px solid #484f58 !important;
-      border-radius: 6px !important;
+    /* ── Skeuomorphic Object & Layer Hierarchy List (#object-list) ── */
+    [data-theme="skeuo"] #object-list,
+    body.theme-skeuo #object-list {
+      background: linear-gradient(180deg, #0d0f12 0%, #14171b 100%) !important;
+      border: 1px solid #080a0d !important;
+      border-radius: 5px !important;
       box-shadow:
-        0 14px 32px rgba(0, 0, 0, 0.75),
-        0 4px 10px rgba(0, 0, 0, 0.5),
-        inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
-      font-size: 12.5px !important;
+        inset 0 2px 6px rgba(0, 0, 0, 0.95),
+        0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      padding: 3px !important;
     }
 
-    [data-theme="skeuo"] .monaco-menu .action-menu-item,
-    [data-theme="skeuo"] .menu-item {
-      font-size: 12.5px !important;
-      font-weight: 600 !important;
-      text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+    /* Individual Channel Strip Layer Item */
+    [data-theme="skeuo"] .object-item,
+    body.theme-skeuo .object-item {
+      background: linear-gradient(180deg, #272b32 0%, #1e2227 100%) !important;
+      border: 1px solid #14161a !important;
+      border-radius: 3px !important;
+      margin-bottom: 2px !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 1px 2px rgba(0, 0, 0, 0.3) !important;
+      transition: all 0.1s ease !important;
     }
 
-    [data-theme="skeuo"] .monaco-menu .action-item.focused > .action-menu-item,
-    [data-theme="skeuo"] .monaco-menu .action-item:hover > .action-menu-item,
-    [data-theme="skeuo"] .menu-item:hover {
-      background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%) !important;
-      color: #1a0f02 !important;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.15) !important;
+    [data-theme="skeuo"] .object-item:hover,
+    body.theme-skeuo .object-item:hover {
+      background: linear-gradient(180deg, #333841 0%, #252a31 100%) !important;
+      border-color: #3b434e !important;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
         0 1px 3px rgba(0, 0, 0, 0.4) !important;
     }
 
-    /* ── Skeuomorphic Dock Tab & Input Typography ── */
-    [data-theme="skeuo"] #dockview-container .dv-tab {
-      font-size: 11.5px !important;
-      font-weight: 700 !important;
-      letter-spacing: 0.4px !important;
-      text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.12) !important;
-    }
-
-    [data-theme="skeuo"] #dockview-container .dv-tab.dv-active-tab {
-      text-shadow:
-        0 -1px 2px rgba(0, 0, 0, 0.95),
-        0 1px 0 rgba(255, 255, 255, 0.15),
-        0 0 8px rgba(245, 158, 11, 0.4) !important;
-    }
-
-    [data-theme="skeuo"] input[type="text"],
-    [data-theme="skeuo"] input[type="number"],
-    [data-theme="skeuo"] select {
-      font-size: 11.5px !important;
-      font-weight: 600 !important;
-      text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.8) !important;
-    }
-
-    /* ── Skeuomorphic Object & Layer Hierarchy List ── */
-    [data-theme="skeuo"] #object-list {
-      background: linear-gradient(180deg, #0f1114 0%, #16191d 100%) !important;
-      border: 1px solid #0c0e10 !important;
-      border-radius: 6px !important;
-      box-shadow:
-        inset 0 2px 6px rgba(0, 0, 0, 0.9),
-        0 1px 0 rgba(255, 255, 255, 0.12) !important;
-    }
-
-    [data-theme="skeuo"] .object-item {
-      border-radius: 4px !important;
-      transition: all 0.1s ease;
-    }
-
-    [data-theme="skeuo"] .object-item:hover {
-      background: linear-gradient(180deg, #353b43 0%, #272b31 100%) !important;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.15),
-        0 1px 2px rgba(0, 0, 0, 0.3) !important;
-    }
-
-    [data-theme="skeuo"] .object-item.selected {
-      background: linear-gradient(180deg, #3d444d 0%, #2a2f36 100%) !important;
+    [data-theme="skeuo"] .object-item.selected,
+    body.theme-skeuo .object-item.selected {
+      background: linear-gradient(180deg, #3d3b2e 0%, #29251c 100%) !important;
       border: 1px solid #f59e0b !important;
       color: #ffffff !important;
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 2px 0 0 #f59e0b,
         0 0 8px rgba(245, 158, 11, 0.35),
         0 2px 4px rgba(0, 0, 0, 0.4) !important;
-      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9) !important;
-    }
-
-    [data-theme="skeuo"] .object-item .btn-icon.active,
-    body.theme-skeuo .object-item .btn-icon.active {
-      color: #f59e0b !important;
-      filter: drop-shadow(0 0 3px rgba(245, 158, 11, 0.7)) !important;
     }
 
     /* ── Skeuomorphic Analog Tape Deck Transport (Animation Timeline) ── */
     [data-theme="skeuo"] .anim-toolbar-card,
-    [data-theme="skeuo"] .anim-events-card {
+    body.theme-skeuo .anim-toolbar-card,
+    [data-theme="skeuo"] .anim-events-card,
+    body.theme-skeuo .anim-events-card {
       background:
         repeating-linear-gradient(90deg, rgba(255,255,255,0.01) 0px, transparent 1px, transparent 2px),
-        linear-gradient(180deg, #2b3036 0%, #202428 100%) !important;
-      border: 1px solid #121417 !important;
-      border-radius: 6px !important;
+        linear-gradient(180deg, #2b3037 0%, #1e2227 100%) !important;
+      border: 1px solid #111316 !important;
+      border-radius: 5px !important;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
         inset 0 -1px 0 rgba(0, 0, 0, 0.6),
-        0 3px 6px rgba(0, 0, 0, 0.45) !important;
+        0 2px 6px rgba(0, 0, 0, 0.5) !important;
     }
 
-    [data-theme="skeuo"] .anim-btn-group {
-      background: linear-gradient(180deg, #0d0f12 0%, #17191d 100%) !important;
-      border: 1px solid #090a0d !important;
-      border-radius: 5px !important;
+    [data-theme="skeuo"] .anim-btn-group,
+    body.theme-skeuo .anim-btn-group {
+      background: linear-gradient(180deg, #0b0d10 0%, #15181c 100%) !important;
+      border: 1px solid #08090c !important;
+      border-radius: 4px !important;
       padding: 2px !important;
       box-shadow:
         inset 0 2px 4px rgba(0, 0, 0, 0.95),
-        0 1px 0 rgba(255, 255, 255, 0.15) !important;
+        0 1px 0 rgba(255, 255, 255, 0.12) !important;
       gap: 2px !important;
     }
 
-    [data-theme="skeuo"] .anim-btn-group button {
-      background: linear-gradient(180deg, #444b54 0%, #2f343b 60%, #22262b 100%) !important;
-      border: 1px solid #141618 !important;
+    [data-theme="skeuo"] .anim-btn-group button,
+    body.theme-skeuo .anim-btn-group button {
+      background: linear-gradient(180deg, #444b54 0%, #2f343b 60%, #202428 100%) !important;
+      border: 1px solid #131518 !important;
       border-radius: 3px !important;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
         inset 0 -1px 0 rgba(0, 0, 0, 0.5),
         0 1px 3px rgba(0, 0, 0, 0.6) !important;
       cursor: pointer;
     }
 
-    [data-theme="skeuo"] .anim-btn-group button:active {
+    [data-theme="skeuo"] .anim-btn-group button:active,
+    body.theme-skeuo .anim-btn-group button:active {
       background: linear-gradient(180deg, #14171a 0%, #22262a 100%) !important;
       box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.9) !important;
       transform: translateY(1px);
     }
 
     /* Cassette Tape Deck Illuminated Emerald Green Play Key */
-    [data-theme="skeuo"] .anim-btn-group .btn-play {
+    [data-theme="skeuo"] .anim-btn-group .btn-play,
+    body.theme-skeuo .anim-btn-group .btn-play {
       background:
         radial-gradient(circle at 50% 25%, rgba(255,255,255,0.4) 0%, transparent 60%),
         linear-gradient(180deg, #10b981 0%, #059669 50%, #047857 100%) !important;
@@ -890,7 +1090,8 @@
     }
 
     /* Cassette Tape Deck Illuminated Cyan Loop Key */
-    [data-theme="skeuo"] .anim-btn-group .btn-loop {
+    [data-theme="skeuo"] .anim-btn-group .btn-loop,
+    body.theme-skeuo .anim-btn-group .btn-loop {
       background:
         radial-gradient(circle at 50% 25%, rgba(255,255,255,0.3) 0%, transparent 60%),
         linear-gradient(180deg, #0ea5e9 0%, #0284c7 50%, #0369a1 100%) !important;
@@ -903,73 +1104,233 @@
       text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6) !important;
     }
 
-    [data-theme="skeuo"] .anim-scrubber-wrap {
-      background: linear-gradient(180deg, #090a0d 0%, #15181c 100%) !important;
-      border: 1px solid #060709 !important;
+    /* Phosphor / VFD Digital Timecode Readout */
+    [data-theme="skeuo"] #scene-anim-time-badge,
+    body.theme-skeuo #scene-anim-time-badge {
+      background: #080b0f !important;
+      border: 1px solid #040608 !important;
+      color: #38bdf8 !important;
+      font-family: var(--font-mono) !important;
+      font-size: 10px !important;
+      font-weight: 700 !important;
+      padding: 2px 6px !important;
+      border-radius: 3px !important;
+      box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.95),
+        0 1px 0 rgba(255, 255, 255, 0.08) !important;
+      text-shadow: 0 0 6px rgba(56, 189, 248, 0.7) !important;
+    }
+
+    [data-theme="skeuo"] .anim-scrubber-wrap,
+    body.theme-skeuo .anim-scrubber-wrap {
+      background: linear-gradient(180deg, #080a0c 0%, #14171b 100%) !important;
+      border: 1px solid #050608 !important;
       border-radius: 4px !important;
       box-shadow:
         inset 0 2px 5px rgba(0, 0, 0, 0.95),
-        0 1px 0 rgba(255, 255, 255, 0.12) !important;
+        0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    }
+
+    /* ── Skeuomorphic Drafting Viewport & Stage Framing ── */
+    [data-theme="skeuo"] #dock-panel-canvas,
+    body.theme-skeuo #dock-panel-canvas,
+    [data-theme="skeuo"] #viewport-container,
+    body.theme-skeuo #viewport-container {
+      background-color: #0e1013 !important;
+      background-image:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.015) 0%, transparent 80%),
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px) !important;
+      background-size: 100% 100%, 20px 20px, 20px 20px !important;
+    }
+
+    /* Floating Artwork Stage with Photographic Depth */
+    [data-theme="skeuo"] #stage-wrapper,
+    body.theme-skeuo #stage-wrapper {
+      box-shadow:
+        0 18px 48px rgba(0, 0, 0, 0.95),
+        0 4px 14px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(255, 255, 255, 0.14) !important;
+      border-radius: 2px !important;
+    }
+
+    /* Drafting Canvas Rulers */
+    [data-theme="skeuo"] #ruler-corner,
+    body.theme-skeuo #ruler-corner {
+      background: linear-gradient(180deg, #2a2e34 0%, #1e2227 100%) !important;
+      border-color: #121417 !important;
+      color: #ffc848 !important;
+      font-weight: 700 !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    }
+
+    /* ── Skeuomorphic Menus, Popovers, Modals & Flyouts ── */
+    [data-theme="skeuo"] .dropdown-menu,
+    body.theme-skeuo .dropdown-menu,
+    [data-theme="skeuo"] .menu-submenu,
+    body.theme-skeuo .menu-submenu,
+    [data-theme="skeuo"] .monaco-menu-container,
+    body.theme-skeuo .monaco-menu-container,
+    [data-theme="skeuo"] .tool-flyout,
+    body.theme-skeuo .tool-flyout,
+    [data-theme="skeuo"] .tool-submenu,
+    body.theme-skeuo .tool-submenu {
+      background: linear-gradient(180deg, #2d3238 0%, #202429 100%) !important;
+      border: 1px solid #3c444f !important;
+      border-radius: 5px !important;
+      box-shadow:
+        0 16px 36px rgba(0, 0, 0, 0.8),
+        0 4px 12px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+    }
+
+    /* Modal Cards */
+    [data-theme="skeuo"] .modal-card,
+    body.theme-skeuo .modal-card {
+      background: linear-gradient(180deg, #2b3036 0%, #1f2328 100%) !important;
+      border: 1px solid #3e4652 !important;
+      border-radius: 6px !important;
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.85),
+        0 6px 18px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+    }
+
+    [data-theme="skeuo"] .modal-header,
+    body.theme-skeuo .modal-header {
+      background: linear-gradient(180deg, #373d45 0%, #292d34 100%) !important;
+      border-bottom: 1px solid #131518 !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+    }
+
+    [data-theme="skeuo"] .modal-header h3,
+    body.theme-skeuo .modal-header h3 {
+      color: #ffc848 !important;
+      text-shadow: 0 -1px 0 #000, 0 0 8px rgba(245, 158, 11, 0.3) !important;
+      font-weight: 750 !important;
+    }
+
+    [data-theme="skeuo"] .modal-footer,
+    body.theme-skeuo .modal-footer {
+      background: linear-gradient(180deg, #22262c 0%, #191c20 100%) !important;
+      border-top: 1px solid #131518 !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    }
+
+    [data-theme="skeuo"] .monaco-menu .action-menu-item,
+    body.theme-skeuo .monaco-menu .action-menu-item,
+    [data-theme="skeuo"] .menu-item,
+    body.theme-skeuo .menu-item {
+      font-size: 12px !important;
+      font-weight: 600 !important;
+      color: #cbd5e1 !important;
+      text-shadow: 0 -1px 0 #000 !important;
+      border-radius: 3px !important;
+    }
+
+    [data-theme="skeuo"] .monaco-menu .action-item.focused > .action-menu-item,
+    body.theme-skeuo .monaco-menu .action-item.focused > .action-menu-item,
+    [data-theme="skeuo"] .monaco-menu .action-item:hover > .action-menu-item,
+    body.theme-skeuo .monaco-menu .action-item:hover > .action-menu-item,
+    [data-theme="skeuo"] .menu-item:hover,
+    body.theme-skeuo .menu-item:hover {
+      background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%) !important;
+      color: #180e02 !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 1px 3px rgba(0, 0, 0, 0.4) !important;
     }
 
     /* ── Skeuomorphic Machined Knurled Scrollbars ── */
-    [data-theme="skeuo"] ::-webkit-scrollbar-track {
-      background: #0e1012 !important;
-      box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.9) !important;
+    [data-theme="skeuo"] ::-webkit-scrollbar-track,
+    body.theme-skeuo ::-webkit-scrollbar-track {
+      background: #0b0d0f !important;
+      box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.95) !important;
     }
 
-    [data-theme="skeuo"] ::-webkit-scrollbar-thumb {
+    [data-theme="skeuo"] ::-webkit-scrollbar-thumb,
+    body.theme-skeuo ::-webkit-scrollbar-thumb {
       background:
         repeating-linear-gradient(180deg, rgba(255,255,255,0.15) 0px, transparent 1px, transparent 2px, rgba(0,0,0,0.4) 3px),
-        linear-gradient(180deg, #535c67 0%, #353b43 50%, #25292f 100%) !important;
-      border: 1px solid #16181b !important;
+        linear-gradient(180deg, #4f5762 0%, #353b43 50%, #24282e 100%) !important;
+      border: 1px solid #141619 !important;
       border-radius: 3px !important;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
         inset 0 -1px 0 rgba(0, 0, 0, 0.6),
         0 1px 3px rgba(0, 0, 0, 0.7) !important;
     }
 
-    [data-theme="skeuo"] ::-webkit-scrollbar-thumb:hover {
+    [data-theme="skeuo"] ::-webkit-scrollbar-thumb:hover,
+    body.theme-skeuo ::-webkit-scrollbar-thumb:hover {
       background:
         repeating-linear-gradient(180deg, rgba(255,255,255,0.2) 0px, transparent 1px, transparent 2px, rgba(0,0,0,0.4) 3px),
-        linear-gradient(180deg, #626d7a 0%, #434a54 50%, #30353c 100%) !important;
+        linear-gradient(180deg, #5e6874 0%, #424952 50%, #2e333a 100%) !important;
     }
 
     /* ── Skeuomorphic Badges & Illuminated Phosphor Readouts ── */
-    [data-theme="skeuo"] .badge {
-      background: linear-gradient(180deg, #0a0b0e 0%, #14171b 100%) !important;
-      border: 1px solid #07080a !important;
+    [data-theme="skeuo"] .badge,
+    body.theme-skeuo .badge {
+      background: linear-gradient(180deg, #090b0e 0%, #13161a 100%) !important;
+      border: 1px solid #060709 !important;
       border-radius: 3px !important;
       color: #38bdf8 !important;
       box-shadow:
-        inset 0 1px 3px rgba(0, 0, 0, 0.9),
-        0 1px 0 rgba(255, 255, 255, 0.12) !important;
-      text-shadow: 0 0 6px rgba(56, 189, 248, 0.6), 0 -1px 1px #000 !important;
+        inset 0 1px 3px rgba(0, 0, 0, 0.95),
+        0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      text-shadow: 0 0 6px rgba(56, 189, 248, 0.6), 0 -1px 0 #000 !important;
     }
 
     /* ── Skeuomorphic Section Bins & Accordion Bay Drawers ── */
-    [data-theme="skeuo"] .section-card + .section-card {
-      border-top: 1px solid #141619 !important;
+    [data-theme="skeuo"] .section-card + .section-card,
+    body.theme-skeuo .section-card + .section-card,
+    [data-theme="skeuo"] details.section-accordion,
+    body.theme-skeuo details.section-accordion {
+      border-top: 1px solid #121417 !important;
       box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.08) !important;
     }
 
-    [data-theme="skeuo"] details.section-accordion {
-      border-top: 1px solid #141619 !important;
-      box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.08) !important;
-    }
-
-    [data-theme="skeuo"] details.section-accordion summary {
+    [data-theme="skeuo"] details.section-accordion summary,
+    body.theme-skeuo details.section-accordion summary {
       padding: 5px 6px !important;
       border-radius: 3px !important;
       background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%) !important;
       border-bottom: 1px solid rgba(0, 0, 0, 0.4) !important;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+      transition: all 0.1s ease !important;
     }
 
-    [data-theme="skeuo"] details.section-accordion summary:hover {
+    [data-theme="skeuo"] details.section-accordion summary:hover,
+    body.theme-skeuo details.section-accordion summary:hover {
       background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%) !important;
       color: #ffffff !important;
+    }
+
+    /* Recents / Projects Filter Pills & Search Box */
+    [data-theme="skeuo"] .recents-search-box,
+    body.theme-skeuo .recents-search-box {
+      background: linear-gradient(180deg, #0b0d10 0%, #13161a 100%) !important;
+      border: 1px solid #07090b !important;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    }
+
+    [data-theme="skeuo"] .recents-pill,
+    body.theme-skeuo .recents-pill {
+      background: linear-gradient(180deg, #32373f 0%, #24282e 100%) !important;
+      border: 1px solid #131518 !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+      color: #94a3b8 !important;
+      border-radius: 3px !important;
+    }
+
+    [data-theme="skeuo"] .recents-pill.active,
+    body.theme-skeuo .recents-pill.active {
+      background: linear-gradient(180deg, #b45309 0%, #d97706 50%, #f59e0b 100%) !important;
+      color: #170e02 !important;
+      border-color: #78350f !important;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7), 0 0 6px rgba(245, 158, 11, 0.5) !important;
+      font-weight: 750 !important;
     }
 
     * {
@@ -3760,7 +4121,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.75 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.77 ready</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->

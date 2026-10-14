@@ -7956,7 +7956,7 @@ class EsenhoScreenHost {
    * Applies lasso mask if active. Returns { pixels, width, height, originX, originY } or null.
    */
   _extractSelectionPixels() {
-    if (!this.canvasActor?.exports?.w_layer_get_pixels) return null;
+    if (!this.canvasActor?.exports?.w_layer_get_pixels || !this.hasSelection()) return null;
     const act = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
     const lw = this.canvasActor.exports.w_layer_get_width(act);
     const lh = this.canvasActor.exports.w_layer_get_height(act);
@@ -8072,29 +8072,31 @@ class EsenhoScreenHost {
     const lw = this.canvasActor.exports.w_layer_get_width(act);
     const lh = this.canvasActor.exports.w_layer_get_height(act);
 
-    const ex = this._extractSelectionPixels();
-    if (ex) {
-      this.pushUndoSnapshot('transform selection');
-      const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
-      const srcU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
-      const sx = Math.max(0, this.selection.x);
-      const sy = Math.max(0, this.selection.y);
-      const sw = Math.min(lw - sx, this.selection.w);
-      const sh = Math.min(lh - sy, this.selection.h);
-      const mask = (this.selection && this.selection.mask) ? this.selection.mask : null;
-      for (let dy = 0; dy < sh; dy++) {
-        const rowStart = (sy + dy) * lw + sx;
-        if (mask) {
-          for (let dx = 0; dx < sw; dx++) {
-            if (mask[dy * sw + dx]) srcU32[rowStart + dx] = 0;
+    if (this.hasSelection()) {
+      const ex = this._extractSelectionPixels();
+      if (ex) {
+        this.pushUndoSnapshot('transform selection');
+        const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
+        const srcU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+        const sx = Math.max(0, this.selection.x);
+        const sy = Math.max(0, this.selection.y);
+        const sw = Math.min(lw - sx, this.selection.w);
+        const sh = Math.min(lh - sy, this.selection.h);
+        const mask = (this.selection && this.selection.mask) ? this.selection.mask : null;
+        for (let dy = 0; dy < sh; dy++) {
+          const rowStart = (sy + dy) * lw + sx;
+          if (mask) {
+            for (let dx = 0; dx < sw; dx++) {
+              if (mask[dy * sw + dx]) srcU32[rowStart + dx] = 0;
+            }
+          } else {
+            srcU32.fill(0, rowStart, rowStart + sw);
           }
-        } else {
-          srcU32.fill(0, rowStart, rowStart + sw);
         }
+        this.clearSelection();
+        this._createFloatingLayer(ex, true, true);
+        return true;
       }
-      this.clearSelection();
-      this._createFloatingLayer(ex, true, true);
-      return true;
     }
 
     const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
@@ -8119,12 +8121,10 @@ class EsenhoScreenHost {
     const newId = this.canvasActor.exports.w_layer_add();
     if (newId < 0) return;
 
-    if (this.canvasActor.exports.w_layer_move_up) {
-      const orderCount = this.canvasActor.exports.w_layer_get_order_count
-        ? this.canvasActor.exports.w_layer_get_order_count() : 64;
-      for (let i = 0; i < orderCount; i++) {
-        this.canvasActor.exports.w_layer_move_up(newId);
-      }
+    if (this.canvasActor.exports.w_layer_move_to_top) {
+      this.canvasActor.exports.w_layer_move_to_top(newId);
+    } else if (this.canvasActor.exports.w_layer_move_up) {
+      while (this.canvasActor.exports.w_layer_move_up(newId) === 1) {}
     }
 
     const ptr = this.canvasActor.exports.w_layer_get_pixels(newId);
