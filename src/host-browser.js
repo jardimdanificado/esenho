@@ -3974,50 +3974,118 @@ async function main() {
       addSep();
     }
 
-    // 4. Inline Quick Mode & Color Bar + Brush Sliders
+    // 4. Inline Quick Tools & Color Bar + Brush Sliders (Mobile & Desktop)
     items.push({
       type: 'custom',
-      render: () => {
+      render: (menuInst) => {
         const wrap = document.createElement('div');
-        wrap.style.cssText = 'display:flex;flex-direction:column;gap:5px;padding:2px 0;';
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:5px;padding:2px 0;min-width:210px;';
 
-        // Row 1: Action Modes
-        const modeRow = document.createElement('div');
-        modeRow.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:3px;';
-        const modes = [
-          { id: 'draw', label: 'Draw', act: () => { host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); } },
-          { id: 'erase', label: 'Erase', act: () => { host.setActionMode('erase'); } },
-          { id: 'blend', label: 'Blend', act: () => { host.setActionMode('blend'); } },
-          { id: 'clone', label: 'Clone', act: () => { host.setActionMode('clone'); } },
-          { id: 'select', label: 'Select', act: () => { host.setActionMode('select'); host.currentTool = 'select_rect'; host.setBrushParam('mode', 9); } }
+        // Row 1: Quick Tools Strip (5x2 grid matching Studio)
+        const toolRow = document.createElement('div');
+        toolRow.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:3px;';
+
+        const isVecContext = isVecApp && (isVecMode || isVecLayer);
+        const quickTools = isVecContext ? [
+          { id: 'pen', label: '✒ Pen', title: 'Bézier Pen Tool (P)', act: () => {
+            host.vectorSubTool = 'pen'; host.setActionMode('vector'); if (host.enableVectorLayer) host.enableVectorLayer();
+            vecPenActivePathId = null; markCanvasDirty();
+          }, check: () => host.vectorSubTool === 'pen' },
+          { id: 'nodes', label: '◈ Node', title: 'Bézier Node Editor (V)', act: () => {
+            host.vectorSubTool = 'nodes'; host.setActionMode('vector'); if (host.enableVectorLayer) host.enableVectorLayer();
+            vecPenActivePathId = null; markCanvasDirty();
+          }, check: () => host.vectorSubTool === 'nodes' },
+          { id: 'marquee', label: '⬚ Marq', title: 'Multi-Node Marquee Selection', act: () => {
+            host.vectorSubTool = 'marquee'; host.setActionMode('vector'); if (host.enableVectorLayer) host.enableVectorLayer();
+            vecPenActivePathId = null; markCanvasDirty();
+          }, check: () => host.vectorSubTool === 'marquee' },
+          { id: 'width', label: '↔ Width', title: 'Stroke Width & Pressure', act: () => {
+            host.vectorSubTool = 'width'; host.setActionMode('vector'); if (host.enableVectorLayer) host.enableVectorLayer();
+            vecPenActivePathId = null; markCanvasDirty();
+          }, check: () => host.vectorSubTool === 'width' },
+          { id: 'brush', label: '🖌 Brsh', title: 'Vector Brush (B)', act: () => {
+            vecPenActivePathId = null; host.vectorSubTool = 'draw'; host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0);
+            if (host.enableVectorLayer) host.enableVectorLayer(); markCanvasDirty();
+          }, check: () => host.actionMode === 'draw' && (host.currentTool === 'brush' || host.vectorSubTool === 'draw') },
+          { id: 'line', label: '╱ Line', title: 'Vector Line Shape', act: () => {
+            vecPenActivePathId = null; host.vectorSubTool = 'line'; host.setActionMode('draw'); host.currentTool = 'line'; host.setBrushParam('mode', 6);
+            if (host.enableVectorLayer) host.enableVectorLayer(); markCanvasDirty();
+          }, check: () => host.vectorSubTool === 'line' || (host.currentTool === 'line' && host.actionMode === 'draw') },
+          { id: 'rect', label: '▭ Rect', title: 'Vector Rectangle', act: () => {
+            vecPenActivePathId = null; host.vectorSubTool = 'rect'; host.setActionMode('draw'); host.currentTool = 'rect'; host.setBrushParam('mode', 7);
+            if (host.enableVectorLayer) host.enableVectorLayer(); markCanvasDirty();
+          }, check: () => host.vectorSubTool === 'rect' || (host.currentTool === 'rect' && host.actionMode === 'draw') },
+          { id: 'ellipse', label: '○ Ellip', title: 'Vector Ellipse', act: () => {
+            vecPenActivePathId = null; host.vectorSubTool = 'ellipse'; host.setActionMode('draw'); host.currentTool = 'ellipse'; host.setBrushParam('mode', 8);
+            if (host.enableVectorLayer) host.enableVectorLayer(); markCanvasDirty();
+          }, check: () => host.vectorSubTool === 'ellipse' || (host.currentTool === 'ellipse' && host.actionMode === 'draw') },
+          { id: 'erase', label: '🧹 Erase', title: 'Vector Eraser (E)', act: () => {
+            vecPenActivePathId = null; host.vectorSubTool = 'erase'; host.setActionMode('erase');
+            if (host.enableVectorLayer) host.enableVectorLayer(); markCanvasDirty();
+          }, check: () => host.actionMode === 'erase' || host.vectorSubTool === 'erase' },
+          { id: 'fit', label: '⊡ Fit', title: 'Fit View to Screen (0)', act: () => {
+            runCmd('zoom fit');
+            if (menuInst && menuInst.service) menuInst.service.hideContextMenu();
+          }, check: () => false }
+        ] : [
+          { id: 'brush', label: '🖌 Brsh', title: 'Brush Tool / Draw Mode (B)', act: () => {
+            host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0);
+          }, check: () => (host.actionMode === 'draw' || !host.actionMode) && (host.currentTool === 'brush' || !host.currentTool) },
+          { id: 'erase', label: '🧹 Erase', title: 'Eraser Mode (E)', act: () => {
+            host.setActionMode('erase');
+          }, check: () => host.actionMode === 'erase' },
+          { id: 'blend', label: '💧 Blend', title: 'Smudge / Blend Mode', act: () => {
+            host.setActionMode('blend');
+          }, check: () => host.actionMode === 'blend' },
+          { id: 'clone', label: '⧉ Clone', title: 'Clone Stamp Mode', act: () => {
+            host.setActionMode('clone');
+          }, check: () => host.actionMode === 'clone' },
+          { id: 'fill', label: '🪣 Bucket', title: 'Flood Fill Bucket (G)', act: () => {
+            host.setActionMode('draw'); host.currentTool = 'fill'; host.setBrushParam('mode', 3);
+          }, check: () => host.currentTool === 'fill' },
+          { id: 'line', label: '╱ Line', title: 'Line Tool', act: () => {
+            host.setActionMode('draw'); host.currentTool = 'line'; host.setBrushParam('mode', 6);
+          }, check: () => host.currentTool === 'line' },
+          { id: 'rect', label: '▭ Rect', title: 'Rectangle Shape Tool', act: () => {
+            host.setActionMode('draw'); host.currentTool = 'rect'; host.setBrushParam('mode', 7);
+          }, check: () => host.currentTool === 'rect' },
+          { id: 'ellipse', label: '○ Ellip', title: 'Ellipse / Circle Tool', act: () => {
+            host.setActionMode('draw'); host.currentTool = 'ellipse'; host.setBrushParam('mode', 8);
+          }, check: () => host.currentTool === 'ellipse' },
+          { id: 'select', label: '⬚ Select', title: 'Rectangle Selection Marquee (M)', act: () => {
+            host.setActionMode('select'); host.currentTool = 'select_rect'; host.setBrushParam('mode', 9);
+          }, check: () => host.actionMode === 'select' },
+          { id: 'fit', label: '⊡ Fit', title: 'Fit View to Screen (0)', act: () => {
+            runCmd('zoom fit');
+            if (menuInst && menuInst.service) menuInst.service.hideContextMenu();
+          }, check: () => false }
         ];
-        const modeBtns = [];
-        const updateModeHighlight = () => {
-          const cur = host.actionMode || 'draw';
-          modeBtns.forEach(({ btn, id }) => {
-            const active = cur === id;
-            btn.style.background = active ? 'var(--primary)' : 'var(--bg-panel-sub)';
-            btn.style.color = active ? 'var(--bg-dark)' : 'var(--text)';
-            btn.style.borderColor = active ? 'var(--primary)' : 'var(--border)';
-            btn.style.fontWeight = active ? '800' : '600';
+
+        const toolBtns = [];
+        const updateToolHighlight = () => {
+          toolBtns.forEach(({ btn, check }) => {
+            btn.classList.toggle('active', !!check());
           });
         };
-        modes.forEach(m => {
+
+        quickTools.forEach(t => {
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.textContent = m.label;
-          btn.style.cssText = 'height:22px;font-size:10px;padding:0 2px;border-radius:3px;';
+          btn.className = 'ip-mini-btn' + (t.check() ? ' active' : '');
+          btn.style.cssText = 'height:22px;font-size:9.5px;padding:0 2px;';
+          btn.textContent = t.label;
+          btn.title = t.title || t.label;
           btn.addEventListener('click', (ev) => {
             ev.stopPropagation();
-            m.act();
+            t.act();
             if (typeof syncUiFromHost === 'function') syncUiFromHost();
-            updateModeHighlight();
+            updateToolHighlight();
           });
-          modeBtns.push({ btn, id: m.id });
-          modeRow.appendChild(btn);
+          toolBtns.push({ btn, check: t.check });
+          toolRow.appendChild(btn);
         });
-        updateModeHighlight();
-        wrap.appendChild(modeRow);
+        updateToolHighlight();
+        wrap.appendChild(toolRow);
 
         // Row 2: Active Color + Quick Swatches
         const colorRow = document.createElement('div');
@@ -4026,12 +4094,17 @@ async function main() {
         const curHex = rgbToHex(curC & 0xFF, (curC >> 8) & 0xFF, (curC >> 16) & 0xFF);
         const curChip = document.createElement('button');
         curChip.type = 'button';
+        curChip.className = 'touch-swatch-slot';
         curChip.title = `Current Color (${curHex}) — Click to sample here`;
-        curChip.style.cssText = `width:22px;height:20px;border-radius:3px;background:${curHex};border:1.5px solid var(--text-bright);flex-shrink:0;padding:0;`;
+        curChip.style.cssText = `width:22px;height:20px;border-radius:3px;background:${curHex};border:1.5px solid var(--text-bright);flex-shrink:0;padding:0;cursor:pointer;`;
         curChip.addEventListener('click', (ev) => {
           ev.stopPropagation();
           const sampled = sampleEyedropperColor(p.x, p.y, evt.clientX, evt.clientY);
-          curChip.style.background = sampled;
+          if (sampled) {
+            updateColorControlsFromHex(sampled);
+            runCmd(`set color ${sampled}`);
+            curChip.style.background = sampled;
+          }
           setTimeout(hideEyedropper, 500);
         });
         colorRow.appendChild(curChip);
@@ -4042,11 +4115,13 @@ async function main() {
         swatches.forEach(hex => {
           const sw = document.createElement('button');
           sw.type = 'button';
+          sw.className = 'touch-swatch-slot';
           sw.title = hex;
-          sw.style.cssText = `height:18px;border-radius:2px;background:${hex};border:1px solid rgba(255,255,255,0.2);padding:0;`;
+          sw.style.cssText = `height:18px;border-radius:2px;background:${hex};border:1px solid rgba(255,255,255,0.2);padding:0;cursor:pointer;`;
           sw.addEventListener('click', (ev) => {
             ev.stopPropagation();
             updateColorControlsFromHex(hex);
+            runCmd(`set color ${hex}`);
             curChip.style.background = hex;
           });
           swatchWrap.appendChild(sw);
@@ -4352,9 +4427,9 @@ async function main() {
                 hInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
                 const btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = 'ip-btn';
+                btn.className = 'ip-btn ip-mini-btn active';
                 btn.textContent = 'Resize';
-                btn.style.cssText = 'flex:1;height:24px;padding:0 8px;font-size:10.5px;background:var(--primary);color:var(--bg-dark);font-weight:bold;';
+                btn.style.cssText = 'flex:1;height:24px;padding:0 8px;font-size:10.5px;';
                 btn.addEventListener('click', (ev) => {
                   ev.stopPropagation();
                   const nw = parseInt(wInp.value, 10);

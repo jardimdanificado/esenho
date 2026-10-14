@@ -875,6 +875,7 @@
 
     [data-theme="skeuo"] .touch-swatch-slot,
     body.theme-skeuo .touch-swatch-slot {
+      background-image: none !important;
       border: 1px solid #101215 !important;
       border-radius: 3px !important;
       box-shadow:
@@ -1077,6 +1078,8 @@
       border: 3px solid #ffc848 !important;
       box-shadow: 0 0 12px rgba(245, 158, 11, 0.8), 0 4px 14px rgba(0, 0, 0, 0.8) !important;
     }
+
+
 
     /* ── Floating Artwork Canvas Lightbox ── */
     [data-theme="skeuo"] #cvswrap,
@@ -4048,7 +4051,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.83  --x--  0,0  zoom 100%  rot 0.0°</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.84  --x--  0,0  zoom 100%  rot 0.0°</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -4232,7 +4235,7 @@
             </div>
 
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 4px; padding: 2px 0; flex-shrink: 0;">
-              <button type="button" id="btn-ip-add-layer" class="ip-mini-btn" style="height: 26px; font-size: 10.5px; background: var(--primary); color: var(--bg-dark); font-weight: bold; border-radius: var(--radius-sm); padding: 0;" title="New Raster Layer">+ Layer</button>
+              <button type="button" id="btn-ip-add-layer" class="ip-mini-btn active" style="height: 26px; font-size: 10.5px; border-radius: var(--radius-sm); padding: 0;" title="New Raster Layer">+ Layer</button>
               <button type="button" id="btn-ip-add-folder" class="ip-mini-btn" style="height: 26px; font-size: 10.5px; border-radius: var(--radius-sm); padding: 0;" title="New Folder / Group">+ Group</button>
             </div>
 
@@ -4296,7 +4299,7 @@
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <span style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Selection</span>
                 <div style="display: flex; gap: 3px;">
-                  <button type="button" id="btn-ip-sel-paint-inside" class="ip-btn ip-mini-btn" style="height: 20px; padding: 0 6px; font-size: 9px; background: var(--primary); color: var(--bg-dark); font-weight: 800;" title="Switch to Brush keeping active selection mask">🖌 Paint Inside</button>
+                  <button type="button" id="btn-ip-sel-paint-inside" class="ip-btn ip-mini-btn active" style="height: 20px; padding: 0 6px; font-size: 9px;" title="Switch to Brush keeping active selection mask">🖌 Paint Inside</button>
                   <button type="button" id="btn-ip-sel-erase-inside" class="ip-btn ip-mini-btn" style="height: 20px; padding: 0 6px; font-size: 9px;" title="Switch to Eraser keeping active selection mask">🧹 Erase Inside</button>
                 </div>
               </div>
@@ -4348,7 +4351,7 @@
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <span style="font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Transform</span>
                 <div style="display: flex; gap: 3px;">
-                  <button type="button" id="btn-ip-tool-transform" data-tool="transform" class="ip-btn ip-mini-btn" style="height: 20px; padding: 0 7px; font-size: 9px; background: var(--primary); color: var(--bg-dark); font-weight: 800;">Transform (Ctrl+T)</button>
+                  <button type="button" id="btn-ip-tool-transform" data-tool="transform" class="ip-btn ip-mini-btn active" style="height: 20px; padding: 0 7px; font-size: 9px;">Transform (Ctrl+T)</button>
                   <button type="button" id="btn-ip-xform-apply" class="ip-btn ip-mini-btn" style="height: 20px; padding: 0 6px; font-size: 9px; font-weight: 800; color: var(--primary);">✓ Apply</button>
                   <button type="button" id="btn-ip-xform-cancel" class="ip-btn ip-mini-btn" style="height: 20px; padding: 0 6px; font-size: 9px; font-weight: 800; color: var(--danger);">✕</button>
                 </div>
@@ -4389,7 +4392,7 @@
                 <input type="number" id="ip-inp-cw" class="ui-input-num" value="1280" min="16" max="16384" style="flex: 1 1 52px; min-width: 48px; height: 22px; font-size: 10px; text-align: center;">
                 <span style="color: var(--text-muted); font-size: 10px; font-weight: bold;">×</span>
                 <input type="number" id="ip-inp-ch" class="ui-input-num" value="720" min="16" max="16384" style="flex: 1 1 52px; min-width: 48px; height: 22px; font-size: 10px; text-align: center;">
-                <button type="button" id="btn-ip-apply-resize" class="ip-btn ip-mini-btn" style="flex: 1 1 54px; height: 22px; padding: 0 6px; font-size: 9.5px; background: var(--primary); color: var(--bg-dark); font-weight: 800;">Resize</button>
+                <button type="button" id="btn-ip-apply-resize" class="ip-btn ip-mini-btn active" style="flex: 1 1 54px; height: 22px; padding: 0 6px; font-size: 9.5px;">Resize</button>
               </div>
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); gap: 3px;">
                 <button type="button" class="ip-btn ip-mini-btn ip-btn-quick-res" data-w="640" data-h="480" style="height: 20px; padding: 0; font-size: 8.5px;">640×480</button>
@@ -4420,7 +4423,7 @@
           <div style="display: flex; align-items: center; gap: 4px; padding: 4px 6px; border-bottom: 1px solid var(--border); background: var(--bg-panel-sub); flex-shrink: 0;">
             <select id="ui-select-brush-preset" class="ui-select" style="flex: 1; height: 22px; font-size: 10px; font-weight: 700; color: var(--primary); padding: 0 4px;" title="Select Brush Preset from Library"></select>
             <button type="button" id="btn-ip-lab-reset" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0 6px; font-size: 9.5px;" title="Reset Brush Parameters">Reset</button>
-            <button type="button" id="btn-ip-lab-save" class="ip-btn ip-mini-btn" style="height: 22px; padding: 0 6px; font-size: 9.5px; background: var(--primary); color: var(--bg-dark); font-weight: 800;" title="Save Custom Preset">+Save</button>
+            <button type="button" id="btn-ip-lab-save" class="ip-btn ip-mini-btn active" style="height: 22px; padding: 0 6px; font-size: 9.5px;" title="Save Custom Preset">+Save</button>
             <button type="button" id="ui-btn-del-preset" class="ip-btn ip-mini-btn" style="display: none; height: 22px; padding: 0 5px; font-size: 9.5px; color: var(--danger); border-color: var(--danger);" title="Delete Custom Preset">Del</button>
             <span id="ip-lab-brush-name" style="display: none;">(Inker)</span>
           </div>
@@ -4990,7 +4993,7 @@
               </div>
               <div id="ui-ctrl-filter-params" style="display: flex; flex-direction: column; gap: 3px;"></div>
               <div style="display: flex; gap: 3px; margin-top: 2px;">
-                <button type="button" id="ui-btn-apply-filter" class="ip-btn ip-mini-btn" style="flex: 2; height: 24px; background: var(--primary); color: var(--bg-dark); font-weight: 800; font-size: 10px;">Apply to Layer</button>
+                <button type="button" id="ui-btn-apply-filter" class="ip-btn ip-mini-btn active" style="flex: 2; height: 24px; font-size: 10px;">Apply to Layer</button>
                 <input type="file" id="ui-plugin-input" accept=".js,.wasm" style="display: none;">
                 <button type="button" id="ui-btn-load-plugin" class="ip-btn ip-mini-btn" style="flex: 1; height: 24px; font-size: 9.5px;" title="Load WASM / JS filter plugin">+ Plugin</button>
               </div>
