@@ -63,7 +63,7 @@ export class DopeSheetUI {
             <button id="ds-btn-play" class="ds-btn" title="Play / Pause (Space)" style="background: var(--primary); color: var(--bg-dark); font-weight: 700; border: 1px solid var(--primary); border-radius: 3px; padding: 2px 10px; cursor: pointer; font-size: 11px;">▶</button>
             <button id="ds-btn-step-next" class="ds-btn" title="Step 1 Frame Forward (Right)" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 10px;">▶</button>
             <button id="ds-btn-next-key" class="ds-btn" title="Jump to Next Keyframe (] or Alt+Right)" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 10px;">⏭</button>
-            <button id="ds-btn-loop" class="ds-btn" title="Toggle Loop" style="background: ${this.ds.loop ? '#b16286' : 'var(--bg-input)'}; color: ${this.ds.loop ? '#ffffff' : 'var(--text-muted)'}; border: 1px solid ${this.ds.loop ? '#d3869b' : 'var(--border)'}; border-radius: 3px; padding: 2px 8px; font-weight: ${this.ds.loop ? '700' : '600'}; font-size: 10px; cursor: pointer;">Loop</button>
+            <button id="ds-btn-loop" class="ds-btn ${this.ds.loop ? 'active' : ''}" title="Toggle Loop" style="background: ${this.ds.loop ? 'var(--primary-dim, #b16286)' : 'var(--bg-input)'}; color: ${this.ds.loop ? '#ffffff' : 'var(--text-muted)'}; border: 1px solid ${this.ds.loop ? 'var(--primary, #d3869b)' : 'var(--border)'}; border-radius: 3px; padding: 2px 8px; font-weight: ${this.ds.loop ? '700' : '600'}; font-size: 10px; cursor: pointer;">Loop</button>
           </div>
 
           <div style="height: 14px; width: 1px; background: var(--border); margin: 0 2px;"></div>
@@ -119,8 +119,8 @@ export class DopeSheetUI {
           <button id="ds-btn-add-kf" class="ds-btn" title="Add Keyframe at Current Frame" style="background: #2e7d32; color: #ffffff; font-weight: 700; border: 1px solid #4caf50; border-radius: 3px; padding: 2px 8px; cursor: pointer; font-size: 10.5px;">◆ Add</button>
           <button id="ds-btn-del-kf" class="ds-btn" title="Remove Keyframe" style="background: #c62828; color: #ffffff; font-weight: 700; border: 1px solid #ef5350; border-radius: 3px; padding: 2px 8px; cursor: pointer; font-size: 10.5px;">◇ Remove</button>
           
-          <button id="ds-btn-autokf" class="ds-btn" title="Toggle Auto-Keyframe Recording" style="background: ${this.ds.autoKeyframe ? 'var(--danger)' : 'var(--bg-panel)'}; color: ${this.ds.autoKeyframe ? '#ffffff' : 'var(--text)'}; border: 1px solid ${this.ds.autoKeyframe ? 'var(--danger)' : 'var(--border)'}; border-radius: 3px; padding: 2px 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 10.5px;">
-            <span id="ds-autokf-dot" style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: ${this.ds.autoKeyframe ? '#fb4934' : 'var(--text-muted)'}; box-shadow: ${this.ds.autoKeyframe ? '0 0 5px #fb4934' : 'none'};"></span>
+          <button id="ds-btn-autokf" class="ds-btn ${this.ds.autoKeyframe ? 'active' : ''}" title="Toggle Auto-Keyframe Recording" style="background: ${this.ds.autoKeyframe ? 'var(--danger)' : 'var(--bg-panel)'}; color: ${this.ds.autoKeyframe ? '#ffffff' : 'var(--text)'}; border: 1px solid ${this.ds.autoKeyframe ? 'var(--danger)' : 'var(--border)'}; border-radius: 3px; padding: 2px 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 10.5px;">
+            <span id="ds-autokf-dot" style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: ${this.ds.autoKeyframe ? 'var(--danger, #fb4934)' : 'var(--text-muted)'}; box-shadow: ${this.ds.autoKeyframe ? '0 0 5px var(--danger, #fb4934)' : 'none'};"></span>
             Auto
           </button>
 
@@ -295,9 +295,10 @@ export class DopeSheetUI {
     }
     loopBtn.onclick = () => {
       this.ds.loop = !this.ds.loop;
-      loopBtn.style.background = this.ds.loop ? '#b16286' : 'var(--bg-input)';
+      loopBtn.classList.toggle('active', this.ds.loop);
+      loopBtn.style.background = this.ds.loop ? 'var(--primary-dim, #b16286)' : 'var(--bg-input)';
       loopBtn.style.color = this.ds.loop ? '#ffffff' : 'var(--text-muted)';
-      loopBtn.style.border = this.ds.loop ? '1px solid #d3869b' : '1px solid var(--border)';
+      loopBtn.style.border = this.ds.loop ? '1px solid var(--primary, #d3869b)' : '1px solid var(--border)';
       loopBtn.style.fontWeight = this.ds.loop ? '700' : '600';
     };
     const zoomInBtn = this.container.querySelector('#ds-btn-zoom-in');
@@ -801,18 +802,20 @@ export class DopeSheetUI {
     if (totalInput) totalInput.value = this.ds.totalFrames || 60;
     if (fpsInput) fpsInput.value = this.ds.fps || 24;
     if (loopBtn) {
-      loopBtn.style.background = this.ds.loop ? '#b16286' : 'var(--bg-input)';
+      loopBtn.classList.toggle('active', !!this.ds.loop);
+      loopBtn.style.background = this.ds.loop ? 'var(--primary-dim, #b16286)' : 'var(--bg-input)';
       loopBtn.style.color = this.ds.loop ? '#ffffff' : 'var(--text-muted)';
-      loopBtn.style.border = this.ds.loop ? '1px solid #d3869b' : '1px solid var(--border)';
+      loopBtn.style.border = this.ds.loop ? '1px solid var(--primary, #d3869b)' : '1px solid var(--border)';
       loopBtn.style.fontWeight = this.ds.loop ? '700' : '600';
     }
     if (autoKfBtn && autoKfDot) {
       const active = !!this.ds.autoKeyframe;
-      autoKfBtn.style.background = active ? '#cc241d' : '#3c3836';
-      autoKfBtn.style.color = active ? '#ffffff' : '#ebdbb2';
-      autoKfBtn.style.borderColor = active ? '#fb4934' : '#504945';
-      autoKfDot.style.background = active ? '#fb4934' : '#7c6f64';
-      autoKfDot.style.boxShadow = active ? '0 0 6px #fb4934' : 'none';
+      autoKfBtn.classList.toggle('active', active);
+      autoKfBtn.style.background = active ? 'var(--danger, #cc241d)' : 'var(--bg-panel, #3c3836)';
+      autoKfBtn.style.color = active ? '#ffffff' : 'var(--text, #ebdbb2)';
+      autoKfBtn.style.borderColor = active ? 'var(--danger, #fb4934)' : 'var(--border, #504945)';
+      autoKfDot.style.background = active ? 'var(--danger, #fb4934)' : 'var(--text-muted, #7c6f64)';
+      autoKfDot.style.boxShadow = active ? '0 0 6px var(--danger, #fb4934)' : 'none';
     }
 
     this.updateAnimationClipsDropdown();
@@ -833,11 +836,12 @@ export class DopeSheetUI {
     const autoKfDot = this.container.querySelector('#ds-autokf-dot');
     if (autoKfBtn && autoKfDot) {
       const active = !!this.ds.autoKeyframe;
-      autoKfBtn.style.background = active ? '#cc241d' : '#3c3836';
-      autoKfBtn.style.color = active ? '#ffffff' : '#ebdbb2';
-      autoKfBtn.style.borderColor = active ? '#fb4934' : '#504945';
-      autoKfDot.style.background = active ? '#fb4934' : '#7c6f64';
-      autoKfDot.style.boxShadow = active ? '0 0 6px #fb4934' : 'none';
+      autoKfBtn.classList.toggle('active', active);
+      autoKfBtn.style.background = active ? 'var(--danger, #cc241d)' : 'var(--bg-panel, #3c3836)';
+      autoKfBtn.style.color = active ? '#ffffff' : 'var(--text, #ebdbb2)';
+      autoKfBtn.style.borderColor = active ? 'var(--danger, #fb4934)' : 'var(--border, #504945)';
+      autoKfDot.style.background = active ? 'var(--danger, #fb4934)' : 'var(--text-muted, #7c6f64)';
+      autoKfDot.style.boxShadow = active ? '0 0 6px var(--danger, #fb4934)' : 'none';
     }
   }
 
@@ -862,8 +866,9 @@ export class DopeSheetUI {
   updatePlayButton() {
     const playBtn = this.container.querySelector('#ds-btn-play');
     if (playBtn) {
+      playBtn.classList.toggle('playing', !!this.ds.isPlaying);
       playBtn.textContent = this.ds.isPlaying ? '⏸' : '▶';
-      playBtn.style.background = this.ds.isPlaying ? '#fe8019' : '#d79921';
+      playBtn.style.background = this.ds.isPlaying ? 'var(--primary-hover, #fe8019)' : 'var(--primary, #d79921)';
     }
   }
 

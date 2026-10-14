@@ -88,6 +88,7 @@ tasks.register('syncWebAssets', Sync) {
         include 'studio.html'
         include 'manifest.webmanifest'
         include 'icon.svg'
+        include 'icon-studio.svg'
         include 'data.json'
         include 'sw.js'
         include 'vendor/**'

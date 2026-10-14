@@ -5260,6 +5260,149 @@
           0 1px 3px rgba(0, 0, 0, 0.6) !important;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95) !important;
       }
+
+      /* Skeuomorphic Theme Overhauls for Cards, Wells, Inputs, & Tags */
+      [data-theme="skeuo"] .cs-card,
+      [data-theme="skeuomorphic"] .cs-card,
+      .theme-skeuo .cs-card {
+        background: linear-gradient(180deg, #22262c 0%, #1a1d22 100%) !important;
+        border: 1px solid #131518 !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
+        border-radius: 4px !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+      }
+
+      [data-theme="skeuo"] .cs-card-title,
+      [data-theme="skeuomorphic"] .cs-card-title,
+      .theme-skeuo .cs-card-title {
+        font-size: 9.5px !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.5px !important;
+        color: #94a3b8 !important;
+        text-shadow: 0 -1px 0 #000000, 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+      }
+
+      [data-theme="skeuo"] .cs-select,
+      [data-theme="skeuomorphic"] .cs-select,
+      .theme-skeuo .cs-select,
+      [data-theme="skeuo"] .cs-text-input,
+      [data-theme="skeuomorphic"] .cs-text-input,
+      .theme-skeuo .cs-text-input,
+      [data-theme="skeuo"] .cs-hex-input,
+      [data-theme="skeuomorphic"] .cs-hex-input,
+      .theme-skeuo .cs-hex-input {
+        background: #0b0d10 !important;
+        border: 1px solid #131518 !important;
+        border-radius: 3px !important;
+        color: #38bdf8 !important;
+        box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+        font-family: var(--font-mono, monospace) !important;
+      }
+
+      [data-theme="skeuo"] .cs-select:focus,
+      [data-theme="skeuomorphic"] .cs-select:focus,
+      .theme-skeuo .cs-select:focus,
+      [data-theme="skeuo"] .cs-text-input:focus,
+      [data-theme="skeuomorphic"] .cs-text-input:focus,
+      .theme-skeuo .cs-text-input:focus,
+      [data-theme="skeuo"] .cs-hex-input:focus,
+      [data-theme="skeuomorphic"] .cs-hex-input:focus,
+      .theme-skeuo .cs-hex-input:focus {
+        border-color: #f59e0b !important;
+        box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.8), 0 0 6px rgba(245, 158, 11, 0.4) !important;
+        color: #ffffff !important;
+      }
+
+      [data-theme="skeuo"] .cs-btn-mini,
+      [data-theme="skeuomorphic"] .cs-btn-mini,
+      .theme-skeuo .cs-btn-mini {
+        background: linear-gradient(180deg, #3a414b 0%, #292d35 60%, #1f2329 100%) !important;
+        border: 1px solid #101215 !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.22) !important;
+        border-radius: 3px !important;
+        color: #e2e8f0 !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+      }
+
+      [data-theme="skeuo"] .cs-btn-mini:hover,
+      [data-theme="skeuomorphic"] .cs-btn-mini:hover,
+      .theme-skeuo .cs-btn-mini:hover {
+        background: linear-gradient(180deg, #444c58 0%, #31363f 60%, #252a32 100%) !important;
+        border-color: #101215 !important;
+        color: #ffffff !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+      }
+
+      [data-theme="skeuo"] .cs-btn-mini:active,
+      [data-theme="skeuomorphic"] .cs-btn-mini:active,
+      .theme-skeuo .cs-btn-mini:active {
+        background: linear-gradient(180deg, #181b20 0%, #20242a 100%) !important;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+        transform: translateY(1px) !important;
+      }
+
+      [data-theme="skeuo"] .cs-chip-btn,
+      [data-theme="skeuomorphic"] .cs-chip-btn,
+      .theme-skeuo .cs-chip-btn {
+        background: linear-gradient(180deg, #323740 0%, #23272e 100%) !important;
+        border: 1px solid #131518 !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.14) !important;
+        border-radius: 3px !important;
+        color: #94a3b8 !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+      }
+
+      [data-theme="skeuo"] .cs-chip-btn.active,
+      [data-theme="skeuomorphic"] .cs-chip-btn.active,
+      .theme-skeuo .cs-chip-btn.active {
+        background: linear-gradient(180deg, #b45309 0%, #78350f 100%) !important;
+        border: 1px solid #451a03 !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.25) !important;
+        color: #fef3c7 !important;
+        box-shadow: 0 0 6px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+      }
+
+      [data-theme="skeuo"] .cs-bf-brush-tag,
+      [data-theme="skeuomorphic"] .cs-bf-brush-tag,
+      .theme-skeuo .cs-bf-brush-tag {
+        background: linear-gradient(180deg, #282d35 0%, #1b1e23 100%) !important;
+        border: 1px solid #131518 !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+        color: #e2e8f0 !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+      }
+
+      [data-theme="skeuo"] .cs-bf-brush-tag .cs-bf-brush-num,
+      [data-theme="skeuomorphic"] .cs-bf-brush-tag .cs-bf-brush-num,
+      .theme-skeuo .cs-bf-brush-tag .cs-bf-brush-num {
+        color: #f59e0b !important;
+        font-weight: 700 !important;
+      }
+
+      [data-theme="skeuo"] .cs-sv-box,
+      [data-theme="skeuomorphic"] .cs-sv-box,
+      .theme-skeuo .cs-sv-box {
+        border: 1px solid #101215 !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.7), 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+        border-radius: 4px !important;
+      }
+
+      [data-theme="skeuo"] .cs-slider-group,
+      [data-theme="skeuo"] .cs-hex-bar,
+      [data-theme="skeuo"] .cs-swatches-grid,
+      [data-theme="skeuomorphic"] .cs-slider-group,
+      [data-theme="skeuomorphic"] .cs-hex-bar,
+      [data-theme="skeuomorphic"] .cs-swatches-grid,
+      .theme-skeuo .cs-slider-group,
+      .theme-skeuo .cs-hex-bar,
+      .theme-skeuo .cs-swatches-grid {
+        background: #14171a !important;
+        border: 1px solid #0d0f11 !important;
+        box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+        border-radius: 4px !important;
+      }
     `;
     document.head.appendChild(style);
   }

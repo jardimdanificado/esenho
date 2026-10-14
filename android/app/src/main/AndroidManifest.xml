@@ -19,6 +19,26 @@
 
         <activity
             android:name=".MainActivity"
+            android:label="@string/app_name_painter"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:taskAffinity="app.esenho.painter"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|uiMode|smallestScreenSize|density"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".StudioActivity"
+            android:label="@string/app_name_studio"
+            android:icon="@mipmap/ic_launcher_studio"
+            android:roundIcon="@mipmap/ic_launcher_studio_round"
+            android:taskAffinity="app.esenho.studio"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|uiMode|smallestScreenSize|density"
             android:exported="true"
             android:launchMode="singleTask"

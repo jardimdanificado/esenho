@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>esenho</title>
-  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="icon" type="image/svg+xml" href="icon-studio.svg">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#1d2021">
   <meta name="color-scheme" content="dark">
@@ -1129,6 +1129,218 @@
       box-shadow:
         inset 0 2px 5px rgba(0, 0, 0, 0.95),
         0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    }
+
+    /* ── Skeuomorphic Master DopeSheet & Animation Console ── */
+    [data-theme="skeuo"] .dopesheet-panel,
+    body.theme-skeuo .dopesheet-panel {
+      background: radial-gradient(circle at 50% 0%, #262a31 0%, #17191d 100%) !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+      color: #e2e8f0 !important;
+    }
+
+    [data-theme="skeuo"] .ds-toolbar,
+    body.theme-skeuo .ds-toolbar {
+      background: linear-gradient(180deg, #2b3038 0%, #1e2228 100%) !important;
+      border-bottom: 1px solid #101215 !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    [data-theme="skeuo"] .ds-btn,
+    body.theme-skeuo .ds-btn {
+      background: linear-gradient(180deg, #3d444e 0%, #292d35 55%, #1e2228 100%) !important;
+      border: 1px solid #101215 !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.22) !important;
+      border-radius: 3px !important;
+      color: #e2e8f0 !important;
+      box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4) !important;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9) !important;
+      transition: all 0.1s ease !important;
+    }
+
+    [data-theme="skeuo"] .ds-btn:hover,
+    body.theme-skeuo .ds-btn:hover {
+      background: linear-gradient(180deg, #48515d 0%, #323842 55%, #242930 100%) !important;
+      border-color: #101215 !important;
+      color: #ffffff !important;
+      box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+    }
+
+    [data-theme="skeuo"] .ds-btn:active,
+    body.theme-skeuo .ds-btn:active {
+      background: linear-gradient(180deg, #15181c 0%, #20242a 100%) !important;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.85), 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+      transform: translateY(1px);
+    }
+
+    /* Transport Play Jewel Button */
+    [data-theme="skeuo"] #ds-btn-play,
+    body.theme-skeuo #ds-btn-play {
+      background: linear-gradient(180deg, #444c58 0%, #2c323a 100%) !important;
+      border: 1px solid #13161a !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.24) !important;
+      color: #ffc848 !important;
+    }
+
+    [data-theme="skeuo"] #ds-btn-play.playing,
+    body.theme-skeuo #ds-btn-play.playing {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.4) 0%, transparent 60%),
+        linear-gradient(180deg, #f59e0b 0%, #d97706 60%, #b45309 100%) !important;
+      border-color: #78350f !important;
+      color: #ffffff !important;
+      box-shadow:
+        0 0 12px rgba(245, 158, 11, 0.7),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        0 1px 3px rgba(0, 0, 0, 0.6) !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+    }
+
+    /* Loop Toggle Hardware Button */
+    [data-theme="skeuo"] #ds-btn-loop.active,
+    body.theme-skeuo #ds-btn-loop.active {
+      background: linear-gradient(180deg, #0284c7 0%, #0369a1 100%) !important;
+      border-color: #0c4a6e !important;
+      color: #ffffff !important;
+      box-shadow:
+        0 0 8px rgba(14, 165, 233, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+    }
+
+    /* Auto-Keyframe Ruby Recording Button */
+    [data-theme="skeuo"] #ds-btn-autokf.active,
+    body.theme-skeuo #ds-btn-autokf.active {
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.35) 0%, transparent 60%),
+        linear-gradient(180deg, #ef4444 0%, #dc2626 50%, #991b1b 100%) !important;
+      border-color: #7f1d1d !important;
+      color: #ffffff !important;
+      box-shadow:
+        0 0 12px rgba(239, 68, 68, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        0 1px 3px rgba(0, 0, 0, 0.7) !important;
+    }
+
+    /* Add / Delete Keyframe Hardware Keys */
+    [data-theme="skeuo"] #ds-btn-add-kf,
+    body.theme-skeuo #ds-btn-add-kf {
+      background: linear-gradient(180deg, #10b981 0%, #059669 60%, #047857 100%) !important;
+      border-color: #064e3b !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.3) !important;
+      box-shadow: 0 0 6px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+    }
+
+    [data-theme="skeuo"] #ds-btn-del-kf,
+    body.theme-skeuo #ds-btn-del-kf {
+      background: linear-gradient(180deg, #dc2626 0%, #b91c1c 60%, #7f1d1d 100%) !important;
+      border-color: #450a0a !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.25) !important;
+      box-shadow: 0 0 6px rgba(220, 38, 38, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+    }
+
+    /* VFD Phosphor Readout Displays for Frames & FPS */
+    [data-theme="skeuo"] #ds-input-frame,
+    body.theme-skeuo #ds-input-frame,
+    [data-theme="skeuo"] #ds-input-total,
+    body.theme-skeuo #ds-input-total,
+    [data-theme="skeuo"] #ds-input-fps,
+    body.theme-skeuo #ds-input-fps {
+      background: #080b0f !important;
+      border: 1px solid #05070a !important;
+      color: #38bdf8 !important;
+      font-family: var(--font-mono) !important;
+      box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+      text-shadow: 0 0 5px rgba(56, 189, 248, 0.6) !important;
+    }
+
+    /* Milled Selectors */
+    [data-theme="skeuo"] #ds-select-clip,
+    body.theme-skeuo #ds-select-clip,
+    [data-theme="skeuo"] #ds-select-easing,
+    body.theme-skeuo #ds-select-easing {
+      background: linear-gradient(180deg, #0b0d10 0%, #15181d 100%) !important;
+      border: 1px solid #090a0d !important;
+      border-radius: 3px !important;
+      color: #f59e0b !important;
+      box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+      font-weight: 600 !important;
+    }
+
+    /* Dopesheet Sidebar and Grid */
+    [data-theme="skeuo"] #ds-tree-sidebar,
+    body.theme-skeuo #ds-tree-sidebar {
+      background: #181b20 !important;
+      border-right: 1px solid #0e1012 !important;
+      box-shadow: inset -2px 0 5px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] #ds-timeline-scroll,
+    body.theme-skeuo #ds-timeline-scroll {
+      background: #0e1013 !important;
+    }
+
+    [data-theme="skeuo"] #ds-ruler-container,
+    body.theme-skeuo #ds-ruler-container {
+      background: #1c2025 !important;
+      border-bottom: 1px solid #0c0e10 !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    }
+
+    /* Curve Editor Presets & Oscilloscope Screen */
+    [data-theme="skeuo"] .ds-ce-preset,
+    body.theme-skeuo .ds-ce-preset,
+    [data-theme="skeuo"] .ds-ce-b-preset,
+    body.theme-skeuo .ds-ce-b-preset,
+    [data-theme="skeuo"] .ds-ce-s-preset,
+    body.theme-skeuo .ds-ce-s-preset {
+      background: linear-gradient(180deg, #323740 0%, #22252c 100%) !important;
+      border: 1px solid #101216 !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.16) !important;
+      border-radius: 3px !important;
+      color: #cbd5e1 !important;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    }
+
+    [data-theme="skeuo"] .ds-ce-preset:hover,
+    body.theme-skeuo .ds-ce-preset:hover,
+    [data-theme="skeuo"] .ds-ce-b-preset:hover,
+    body.theme-skeuo .ds-ce-b-preset:hover,
+    [data-theme="skeuo"] .ds-ce-s-preset:hover,
+    body.theme-skeuo .ds-ce-s-preset:hover {
+      background: linear-gradient(180deg, #3f4652 0%, #2b3038 100%) !important;
+      color: #ffffff !important;
+    }
+
+    [data-theme="skeuo"] .ds-ce-graph,
+    body.theme-skeuo .ds-ce-graph {
+      background: #090b0e !important;
+      border: 1px solid #050608 !important;
+      border-radius: 4px !important;
+      box-shadow:
+        inset 0 2px 6px rgba(0, 0, 0, 0.95),
+        0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    }
+
+    /* ── Skeuomorphic Toast Notification Chassis Bubble ── */
+    [data-theme="skeuo"] #studio-toast-bubble,
+    body.theme-skeuo #studio-toast-bubble {
+      background: linear-gradient(180deg, #2b3038 0%, #1c1f24 100%) !important;
+      border: 1px solid #3c4450 !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.22) !important;
+      border-radius: 5px !important;
+      color: #e2e8f0 !important;
+      font-weight: 600 !important;
+      box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 0 10px rgba(245, 158, 11, 0.25) !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9) !important;
+      letter-spacing: 0.25px !important;
     }
 
     /* ── Skeuomorphic Drafting Viewport & Stage Framing ── */
@@ -4121,7 +4333,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.77 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.80 ready</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -4831,7 +5043,6 @@
           <button type="button" class="ip-mini-btn" data-studio-cmd="toggle-renderer" title="Switch Quadro WASM / SVG Renderer">⚡ Renderer</button>
           <button type="button" class="ip-mini-btn" data-studio-cmd="import-svg" title="Import SVG File">📂 SVG</button>
           <button type="button" class="ip-mini-btn" data-studio-cmd="import-img" title="Import Raster Image">🖼 Image</button>
-          <button type="button" class="ip-mini-btn" data-studio-cmd="open-painter" title="Switch to Raster Painter">🎨 Painter</button>
         </div>
       </div>
     </div>
@@ -5532,8 +5743,9 @@
         saveStudioSettings({ snapEnabled });
         const snapBtn = document.getElementById('btn-toggle-snap');
         if (snapBtn) {
+          snapBtn.classList.toggle('active', snapEnabled);
           snapBtn.textContent = snapEnabled ? 'ON' : 'OFF';
-          snapBtn.style.color = snapEnabled ? '#fabd2f' : '#a89984';
+          snapBtn.style.color = snapEnabled ? 'var(--primary, #fabd2f)' : 'var(--text-muted, #a89984)';
         }
         activeSnapLines = [];
         drawOverlay();
@@ -6415,6 +6627,14 @@
       window.drawOverlay = drawOverlay;
 
       function renderOverlay() {
+        const isSkeuo = document.body && (document.body.getAttribute('data-theme') === 'skeuo' || document.body.classList.contains('theme-skeuo'));
+        const overlayPrimary = isSkeuo ? '#f59e0b' : '#fabd2f';
+        const overlayAccent = isSkeuo ? '#38bdf8' : '#83a598';
+        const overlayHighlight = isSkeuo ? '#fbbf24' : '#fe8019';
+        const overlayDarkBorder = isSkeuo ? '#07090b' : '#1d2021';
+        const overlayBoxStroke = isSkeuo ? '#38bdf8' : '#458588';
+        const overlaySuccess = isSkeuo ? '#10b981' : '#b8bb26';
+
         // 1. Draw User Guidelines (from rulers)
         if (userGuides) {
           ctx.save();
@@ -6423,7 +6643,7 @@
           if (userGuides.horizontal) {
             userGuides.horizontal.forEach((y, idx) => {
               const isSel = selectedGuide && selectedGuide.type === 'horizontal' && selectedGuide.index === idx;
-              ctx.strokeStyle = isSel ? '#fabd2f' : '#00e5ff';
+              ctx.strokeStyle = isSel ? overlayPrimary : '#00e5ff';
               ctx.lineWidth = isSel ? (2 / zoom) : (1 / zoom);
               ctx.beginPath();
               ctx.moveTo(-10000, y);
@@ -6434,7 +6654,7 @@
           if (userGuides.vertical) {
             userGuides.vertical.forEach((x, idx) => {
               const isSel = selectedGuide && selectedGuide.type === 'vertical' && selectedGuide.index === idx;
-              ctx.strokeStyle = isSel ? '#fabd2f' : '#00e5ff';
+              ctx.strokeStyle = isSel ? overlayPrimary : '#00e5ff';
               ctx.lineWidth = isSel ? (2 / zoom) : (1 / zoom);
               ctx.beginPath();
               ctx.moveTo(x, -10000);
@@ -6448,7 +6668,7 @@
         // 2. Draw Active Smart Snap Magnetic Guide Lines
         if (activeSnapLines && activeSnapLines.length > 0) {
           ctx.save();
-          ctx.strokeStyle = '#ff007f';
+          ctx.strokeStyle = isSkeuo ? '#f43f5e' : '#ff007f';
           ctx.lineWidth = 1.2 / zoom;
           ctx.setLineDash([3 / zoom, 3 / zoom]);
           for (const line of activeSnapLines) {
@@ -6473,9 +6693,9 @@
           const bh = Math.abs(marqueeBox.endY - marqueeBox.startY);
 
           ctx.save();
-          ctx.fillStyle = 'rgba(250, 189, 47, 0.12)';
+          ctx.fillStyle = isSkeuo ? 'rgba(245, 158, 11, 0.14)' : 'rgba(250, 189, 47, 0.12)';
           ctx.fillRect(bx, by, bw, bh);
-          ctx.strokeStyle = '#fabd2f';
+          ctx.strokeStyle = overlayPrimary;
           ctx.lineWidth = 1.2 / zoom;
           ctx.setLineDash([4 / zoom, 3 / zoom]);
           ctx.strokeRect(bx, by, bw, bh);
@@ -6490,9 +6710,9 @@
           const bh = Math.abs(nodeMarqueeBox.endY - nodeMarqueeBox.startY);
 
           ctx.save();
-          ctx.fillStyle = 'rgba(131, 165, 152, 0.15)';
+          ctx.fillStyle = isSkeuo ? 'rgba(56, 189, 248, 0.16)' : 'rgba(131, 165, 152, 0.15)';
           ctx.fillRect(bx, by, bw, bh);
-          ctx.strokeStyle = '#83a598';
+          ctx.strokeStyle = overlayAccent;
           ctx.lineWidth = 1.2 / zoom;
           ctx.setLineDash([4 / zoom, 3 / zoom]);
           ctx.strokeRect(bx, by, bw, bh);
@@ -6529,7 +6749,7 @@
               return;
             }
 
-            ctx.strokeStyle = '#458588';
+            ctx.strokeStyle = overlayBoxStroke;
             ctx.lineWidth = 1.5 / zoom;
             ctx.setLineDash([4 / zoom, 3 / zoom]);
             ctx.strokeRect(b.minX, b.minY, b.width, b.height);
@@ -6543,8 +6763,8 @@
             ];
 
             const hs = 6 / zoom;
-            ctx.fillStyle = '#fabd2f';
-            ctx.strokeStyle = '#1d2021';
+            ctx.fillStyle = overlayPrimary;
+            ctx.strokeStyle = overlayDarkBorder;
             ctx.lineWidth = 1 / zoom;
 
             for (const h of handles) {
@@ -6557,15 +6777,15 @@
             const rotX = b.minX + b.width / 2;
             const rotY = b.minY - rotDist;
 
-            ctx.strokeStyle = '#83a598';
+            ctx.strokeStyle = overlayAccent;
             ctx.lineWidth = 1.2 / zoom;
             ctx.beginPath();
             ctx.moveTo(rotX, b.minY);
             ctx.lineTo(rotX, rotY);
             ctx.stroke();
 
-            ctx.fillStyle = '#fe8019';
-            ctx.strokeStyle = '#1d2021';
+            ctx.fillStyle = overlayHighlight;
+            ctx.strokeStyle = overlayDarkBorder;
             ctx.lineWidth = 1.5 / zoom;
             ctx.beginPath();
             ctx.arc(rotX, rotY, 4.5 / zoom, 0, Math.PI * 2);
@@ -6573,15 +6793,15 @@
             ctx.stroke();
 
             // Center Anchor / Pivot Point Indicator
-            ctx.fillStyle = '#b8bb26';
-            ctx.strokeStyle = '#1d2021';
+            ctx.fillStyle = overlaySuccess;
+            ctx.strokeStyle = overlayDarkBorder;
             ctx.lineWidth = 1.2 / zoom;
             ctx.beginPath();
             ctx.arc(origin.x, origin.y, 4 / zoom, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
 
-            ctx.strokeStyle = '#1d2021';
+            ctx.strokeStyle = overlayDarkBorder;
             ctx.lineWidth = 1 / zoom;
             ctx.beginPath();
             ctx.moveTo(origin.x - 6 / zoom, origin.y);
@@ -6622,7 +6842,7 @@
               const origin = { x: cb.minX + cb.width / 2, y: cb.minY + cb.height / 2 };
 
               ctx.save();
-              ctx.strokeStyle = '#fabd2f';
+              ctx.strokeStyle = overlayPrimary;
               ctx.lineWidth = 1.5 / zoom;
               ctx.setLineDash([4 / zoom, 3 / zoom]);
               ctx.strokeRect(cb.minX, cb.minY, cb.width, cb.height);
@@ -6636,8 +6856,8 @@
               ];
 
               const hs = 6.5 / zoom;
-              ctx.fillStyle = '#fabd2f';
-              ctx.strokeStyle = '#1d2021';
+              ctx.fillStyle = overlayPrimary;
+              ctx.strokeStyle = overlayDarkBorder;
               ctx.lineWidth = 1 / zoom;
 
               for (const h of handles) {
@@ -6650,15 +6870,15 @@
               const rotX = cb.minX + cb.width / 2;
               const rotY = cb.minY - rotDist;
 
-              ctx.strokeStyle = '#fe8019';
+              ctx.strokeStyle = overlayHighlight;
               ctx.lineWidth = 1.2 / zoom;
               ctx.beginPath();
               ctx.moveTo(rotX, cb.minY);
               ctx.lineTo(rotX, rotY);
               ctx.stroke();
 
-              ctx.fillStyle = '#fe8019';
-              ctx.strokeStyle = '#1d2021';
+              ctx.fillStyle = overlayHighlight;
+              ctx.strokeStyle = overlayDarkBorder;
               ctx.lineWidth = 1.5 / zoom;
               ctx.beginPath();
               ctx.arc(rotX, rotY, 5 / zoom, 0, Math.PI * 2);
@@ -6666,8 +6886,8 @@
               ctx.stroke();
 
               // Center Pivot Indicator
-              ctx.fillStyle = '#b8bb26';
-              ctx.strokeStyle = '#1d2021';
+              ctx.fillStyle = overlaySuccess;
+              ctx.strokeStyle = overlayDarkBorder;
               ctx.lineWidth = 1.2 / zoom;
               ctx.beginPath();
               ctx.arc(origin.x, origin.y, 4 / zoom, 0, Math.PI * 2);
@@ -6691,7 +6911,7 @@
 
             // 1. Draw the vector path outline/wireframe in the overlay
             ctx.save();
-            ctx.strokeStyle = '#83a598';
+            ctx.strokeStyle = overlayAccent;
             ctx.lineWidth = 1.2 / zoom;
             ctx.setLineDash([4 / zoom, 3 / zoom]);
             ctx.beginPath();
@@ -6725,7 +6945,7 @@
               const hasOut = Math.hypot(node.cpOut.x, node.cpOut.y) > 0.5;
 
               // Handle Lines
-              ctx.strokeStyle = '#83a598';
+              ctx.strokeStyle = overlayAccent;
               ctx.lineWidth = 1 / zoom;
               if (hasIn) {
                 ctx.beginPath();
@@ -6733,7 +6953,7 @@
                 ctx.lineTo(cpIn.x, cpIn.y);
                 ctx.stroke();
 
-                ctx.fillStyle = '#83a598';
+                ctx.fillStyle = overlayAccent;
                 ctx.beginPath();
                 ctx.arc(cpIn.x, cpIn.y, 4 / zoom, 0, Math.PI * 2);
                 ctx.fill();
@@ -6744,7 +6964,7 @@
                 ctx.lineTo(cpOut.x, cpOut.y);
                 ctx.stroke();
 
-                ctx.fillStyle = '#83a598';
+                ctx.fillStyle = overlayAccent;
                 ctx.beginPath();
                 ctx.arc(cpOut.x, cpOut.y, 4 / zoom, 0, Math.PI * 2);
                 ctx.fill();
@@ -6757,12 +6977,12 @@
                 const sw = (obj.strokeWidth || 4) * wScale;
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, Math.max(3 / zoom, sw * 0.5), 0, Math.PI * 2);
-                ctx.strokeStyle = isSelNode ? 'rgba(254, 128, 25, 0.55)' : 'rgba(250, 189, 47, 0.35)';
+                ctx.strokeStyle = isSelNode ? (isSkeuo ? 'rgba(251, 191, 36, 0.65)' : 'rgba(254, 128, 25, 0.55)') : (isSkeuo ? 'rgba(245, 158, 11, 0.4)' : 'rgba(250, 189, 47, 0.35)');
                 ctx.lineWidth = 1.1 / zoom;
                 ctx.stroke();
               }
-              ctx.fillStyle = isSelNode ? '#fe8019' : '#fabd2f';
-              ctx.strokeStyle = isSelNode ? '#ffffff' : '#1d2021';
+              ctx.fillStyle = isSelNode ? overlayHighlight : overlayPrimary;
+              ctx.strokeStyle = isSelNode ? '#ffffff' : overlayDarkBorder;
               ctx.lineWidth = (isSelNode ? 2.0 : 1.5) / zoom;
               const as = (isSelNode ? 8.5 : 7.0) / zoom;
               ctx.fillRect(node.x - as / 2, node.y - as / 2, as, as);
@@ -6779,7 +6999,7 @@
             const isNearFirst = (nodes.length > 1 && Math.hypot(penCursorPos.x - firstNode.x, penCursorPos.y - firstNode.y) <= 12 / zoom);
 
             ctx.save();
-            ctx.strokeStyle = '#fabd2f';
+            ctx.strokeStyle = overlayPrimary;
             ctx.lineWidth = 1.5 / zoom;
             ctx.setLineDash([4 / zoom, 4 / zoom]);
             ctx.beginPath();
@@ -6800,14 +7020,14 @@
 
             if (isNearFirst) {
               // Draw close-path ring indicator
-              ctx.strokeStyle = '#b8bb26';
+              ctx.strokeStyle = overlaySuccess;
               ctx.lineWidth = 2.5 / zoom;
               ctx.beginPath();
               ctx.arc(firstNode.x, firstNode.y, 8 / zoom, 0, Math.PI * 2);
               ctx.stroke();
             } else {
               // Draw cursor tip point
-              ctx.fillStyle = '#fabd2f';
+              ctx.fillStyle = overlayPrimary;
               ctx.beginPath();
               ctx.arc(penCursorPos.x, penCursorPos.y, 3 / zoom, 0, Math.PI * 2);
               ctx.fill();
@@ -10038,11 +10258,8 @@
             { type: 'item', label: 'Export Center (Video / GIF / Scale)...', action: () => openDockPanel('export') }
           ]);
 
-          // App Switcher & About
+          // Version & About
           addSep();
-          addItem('Switch to Painter', '', () => {
-            window.location.href = 'painter.html';
-          });
           const vStudioStr = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.13.54';
           addItem(`v${vStudioStr}`, '', async () => {
             if (typeof saveCurrentProjectSnapshot === 'function') {
@@ -10997,7 +11214,6 @@
             break;
           case 'layout-portrait': resetDockviewLayout('portrait'); break;
           case 'layout-landscape': resetDockviewLayout('landscape'); break;
-          case 'open-painter': window.location.href = './painter.html'; break;
         }
       });
 
@@ -12831,8 +13047,9 @@
       });
 
       if (btnToggleSnap) {
+        btnToggleSnap.classList.toggle('active', snapEnabled);
         btnToggleSnap.textContent = snapEnabled ? 'ON' : 'OFF';
-        btnToggleSnap.style.color = snapEnabled ? '#fabd2f' : '#a89984';
+        btnToggleSnap.style.color = snapEnabled ? 'var(--primary, #fabd2f)' : 'var(--text-muted, #a89984)';
       }
 
       btnToggleSnap?.addEventListener('click', (e) => {

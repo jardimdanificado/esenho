@@ -4451,11 +4451,8 @@ async function main() {
         { type: 'item', label: 'Clear Project Storage...', danger: true, action: () => document.getElementById('btn-ip-recents-clear')?.click() }
       ]);
 
-      // App Switcher & About
+      // Version & About
       addSep();
-      addItem('Switch to Studio', '', () => {
-        window.location.href = 'studio.html';
-      });
       const pVersion = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.13.54';
       addItem(`v${pVersion}`, '', async () => {
         if (typeof performAutosave === 'function') {
@@ -7191,7 +7188,8 @@ async function main() {
       slot.style.flexShrink = '0';
       slot.style.background = hex;
       if (currentHex && hex.toUpperCase() === currentHex) {
-        slot.style.border = '2px solid #fabd2f';
+        slot.classList.add('active');
+        slot.style.border = '2px solid var(--primary)';
       }
       slot.title = hex;
       slot.addEventListener('click', () => {
@@ -7211,7 +7209,7 @@ async function main() {
     const isCustom = selectedPal === 'custom';
 
     if (colors.length === 0) {
-      touchModalSwatches.innerHTML = '<div style="grid-column: 1 / -1; color: #928374; font-size: 10px; font-style: italic; padding: 8px; text-align: center;">No custom swatches saved yet.<br>Click <strong>"+ Swatch"</strong> to add current color.</div>';
+      touchModalSwatches.innerHTML = '<div style="grid-column: 1 / -1; color: var(--text-muted); font-size: 10px; font-style: italic; padding: 8px; text-align: center;">No custom swatches saved yet.<br>Click <strong>"+ Swatch"</strong> to add current color.</div>';
       return;
     }
 
@@ -7225,7 +7223,8 @@ async function main() {
       if (studioDelMode && isCustom) slot.classList.add('del-mode');
       slot.style.background = hex;
       if (currentHex && hex.toUpperCase() === currentHex) {
-        slot.style.borderColor = '#fabd2f';
+        slot.classList.add('active');
+        slot.style.borderColor = 'var(--primary)';
       }
       slot.title = studioDelMode && isCustom ? `Click to delete ${hex}` : hex;
 
@@ -13945,42 +13944,42 @@ async function main() {
 
     async function loadPainterRecents() {
       if (!ipRecentsList || typeof EsenhoStore === 'undefined') return;
-      ipRecentsList.innerHTML = '<div style="padding: 24px; text-align: center; color: #a89984; grid-column: 1/-1;">Loading stored projects...</div>';
+      ipRecentsList.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>';
       try {
         const list = await EsenhoStore.listProjects();
         if (!list || list.length === 0) {
-          ipRecentsList.innerHTML = '<div style="padding: 24px; text-align: center; color: #a89984; grid-column: 1/-1;">No stored projects yet.</div>';
+          ipRecentsList.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">No stored projects yet.</div>';
           return;
         }
         ipRecentsList.innerHTML = list.map(p => {
           const dateStr = new Date(p.updatedAt).toLocaleDateString() + ' ' + new Date(p.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           const isVec = p.type === 'vector';
-          const badge = isVec ? '<span style="font-size:9px; background:#1d2021; border:1px solid #3c3836; color:#fabd2f; padding:1px 4px; border-radius:2px;">Vector</span>' : '<span style="font-size:9px; background:#1d2021; border:1px solid #3c3836; color:#83a598; padding:1px 4px; border-radius:2px;">Painter</span>';
+          const badge = isVec ? '<span class="ip-recent-badge ip-badge-vector">Vector</span>' : '<span class="ip-recent-badge ip-badge-painter">Painter</span>';
           const thumbHtml = p.thumbnail 
             ? (p.thumbnail.startsWith('data:image/svg+xml') ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:4px;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>` : `<img src="${p.thumbnail}" style="max-width:100%;max-height:100%;object-fit:contain;" alt="Thumb">`)
-            : `<span style="font-size: 20px; color: #504945;">🎨</span>`;
+            : `<span style="font-size: 20px; color: var(--text-muted);">🎨</span>`;
           return `
-            <div style="background: #181a1b; border: 1px solid #3c3836; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; cursor: pointer;" onclick="window.painterOpenRecent('${p.id}', '${p.type}')">
-              <div style="width: 100%; height: 90px; background: #121415; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #3c3836; overflow: hidden;">
+            <div class="ip-recent-card" onclick="window.painterOpenRecent('${p.id}', '${p.type}')">
+              <div class="ip-recent-thumb">
                 ${thumbHtml}
               </div>
-              <div style="padding: 6px; display: flex; flex-direction: column; gap: 2px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span style="font-size: 11px; font-weight: bold; color: #ebdbb2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px;">${p.name}</span>
+              <div class="ip-recent-body">
+                <div class="ip-recent-header">
+                  <span class="ip-recent-title">${p.name}</span>
                   ${badge}
                 </div>
-                <span style="font-size: 9px; color: #a89984;">${p.width}×${p.height} • ${dateStr}</span>
-                <div style="display: flex; justify-content: space-between; gap: 4px; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #3c3836;" onclick="event.stopPropagation();">
-                  <button type="button" class="ip-btn ip-mini-btn" style="background:#fabd2f; color:#1d2021; font-weight:bold; height:20px; padding:0 6px; font-size:10px;" onclick="window.painterOpenRecent('${p.id}', '${p.type}')">Open</button>
-                  ${isVec ? `<button type="button" class="ip-btn ip-mini-btn" style="color:#fabd2f; border: 1px solid #fabd2f; height:20px; padding:0 6px; font-size:10px;" onclick="window.painterInsertVectorLayer('${p.id}')">+ Layer</button>` : ''}
-                  <button type="button" class="ip-btn ip-mini-btn" style="color:#fb4934; height:20px; padding:0 6px; font-size:10px;" onclick="window.painterDeleteRecent('${p.id}')">Del</button>
+                <span class="ip-recent-meta">${p.width}×${p.height} • ${dateStr}</span>
+                <div class="ip-recent-actions" onclick="event.stopPropagation();">
+                  <button type="button" class="ip-btn ip-mini-btn ip-btn-open-recent" style="background:var(--primary); color:var(--bg-dark); font-weight:bold; height:20px; padding:0 6px; font-size:10px;" onclick="window.painterOpenRecent('${p.id}', '${p.type}')">Open</button>
+                  ${isVec ? `<button type="button" class="ip-btn ip-mini-btn ip-btn-addlayer-recent" style="color:var(--primary); border: 1px solid var(--primary); height:20px; padding:0 6px; font-size:10px;" onclick="window.painterInsertVectorLayer('${p.id}')">+ Layer</button>` : ''}
+                  <button type="button" class="ip-btn ip-mini-btn ip-btn-del-recent" style="color:var(--danger); height:20px; padding:0 6px; font-size:10px;" onclick="window.painterDeleteRecent('${p.id}')">Del</button>
                 </div>
               </div>
             </div>
           `;
         }).join('');
       } catch (e) {
-        ipRecentsList.innerHTML = `<div style="padding: 24px; text-align: center; color: #fb4934; grid-column: 1/-1;">Error loading recents: ${e.message}</div>`;
+        ipRecentsList.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--danger); grid-column: 1/-1;">Error loading recents: ${e.message}</div>`;
       }
     }
     window.loadPainterRecents = loadPainterRecents;

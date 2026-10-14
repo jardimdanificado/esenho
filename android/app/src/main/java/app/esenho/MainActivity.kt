@@ -29,14 +29,15 @@ import androidx.webkit.WebViewAssetLoader
 import java.io.File
 import java.io.FileOutputStream
 
-class MainActivity : Activity() {
+open class MainActivity : Activity() {
 
-    private lateinit var webView: WebView
+    protected lateinit var webView: WebView
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
+
+    protected open val startUrl: String = "https://appassets.androidplatform.net/assets/painter.html"
 
     companion object {
         private const val FILE_CHOOSER_REQUEST_CODE = 1001
-        private const val START_URL = "https://appassets.androidplatform.net/assets/painter.html"
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -141,7 +142,7 @@ class MainActivity : Activity() {
         }
 
         if (savedInstanceState == null) {
-            webView.loadUrl(START_URL)
+            webView.loadUrl(startUrl)
         } else {
             webView.restoreState(savedInstanceState)
         }
