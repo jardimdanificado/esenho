@@ -58,20 +58,21 @@
 
   /* ── Base64 ArrayBuffer helpers ── */
   function bytesToBase64(u8) {
+    if (!u8 || u8.byteLength === 0) return "";
     if (typeof Buffer !== "undefined") {
       return Buffer.from(u8.buffer, u8.byteOffset, u8.byteLength).toString("base64");
     }
     if (typeof Uint8Array.prototype.toBase64 === "function") {
       try { return u8.toBase64(); } catch (_) {}
     }
-    let binary = "";
+    const chunks = [];
     const len = u8.byteLength;
     const chunkSize = 0x8000;
     for (let i = 0; i < len; i += chunkSize) {
       const chunk = u8.subarray(i, Math.min(i + chunkSize, len));
-      binary += String.fromCharCode.apply(null, chunk);
+      chunks.push(String.fromCharCode.apply(null, chunk));
     }
-    return btoa(binary);
+    return btoa(chunks.join(""));
   }
 
   function base64ToBytes(b64) {
@@ -478,7 +479,7 @@
     /* ── Export & Import .esen file ── */
     exportEsenFile(project, filename) {
       if (!project) throw new Error("No project provided for export");
-      const jsonStr = JSON.stringify(project, null, 2);
+      const jsonStr = JSON.stringify(project);
       const safeName = (filename || project.name || "project").replace(/[/\\?%*:|"<>]/g, "_");
       const dlName = safeName.endsWith(".esen") ? safeName : (safeName + ".esen");
 

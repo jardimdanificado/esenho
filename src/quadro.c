@@ -5559,6 +5559,18 @@ static uint32_t g_gif_buffer_cap = 0;
 static uint8_t *g_gif_temp_indexed = 0;
 static uint32_t g_gif_temp_indexed_cap = 0;
 
+static uint8_t* quadro_gif_grow(w_gif_encoder_t *enc, uint32_t needed_capacity) {
+    uint8_t *new_buf = (uint8_t*)canvas_alloc(needed_capacity);
+    if (enc->buffer && enc->size > 0 && new_buf) {
+        for (uint32_t i = 0; i < enc->size; i++) {
+            new_buf[i] = enc->buffer[i];
+        }
+    }
+    g_gif_buffer = new_buf;
+    g_gif_buffer_cap = needed_capacity;
+    return new_buf;
+}
+
 W_EXPORT uint8_t* w_gif_get_buffer(uint32_t size) {
     if (size > g_gif_buffer_cap) {
         g_gif_buffer = (uint8_t*)canvas_alloc(size + 65536);
@@ -5581,6 +5593,7 @@ W_EXPORT int32_t w_gif_start(int32_t width, int32_t height, int32_t loop_count) 
     }
 
     w_gif_init(&g_gif_encoder, buf, g_gif_buffer_cap, width, height, loop_count);
+    g_gif_encoder.grow = quadro_gif_grow;
     return 1;
 }
 

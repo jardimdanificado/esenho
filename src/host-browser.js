@@ -331,8 +331,8 @@ async function main() {
 
   // Initialize Frame-by-Frame Raster Animator
   try {
-    const { RasterAnimator } = await import('./anim/raster_animator.js?v=2');
-    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js?v=5');
+    const { RasterAnimator } = await import('./anim/raster_animator.js?v=10');
+    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js?v=10');
     host.rasterAnimator = new RasterAnimator(host);
     const timelineDock = document.getElementById('raster-anim-timeline-dock');
     if (timelineDock) {
@@ -1023,7 +1023,7 @@ async function main() {
         return;
       }
     }
-    const blob = new Blob([JSON.stringify(proj, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(proj)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

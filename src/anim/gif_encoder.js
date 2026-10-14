@@ -12,12 +12,18 @@ export class GifEncoder {
     this.repeat = options.repeat !== undefined ? options.repeat : 0; // 0 = infinite loop
     this.quality = options.quality || 10; // 1-30 (lower = better quality/slower)
     this.frames = [];
-    this.out = [];
+    this.chunks = [];
+    this.currentChunk = new Uint8Array(65536);
+    this.chunkPos = 0;
     this.started = false;
+    this.finished = false;
   }
 
   start() {
-    this.out = [];
+    this.chunks = [];
+    this.currentChunk = new Uint8Array(65536);
+    this.chunkPos = 0;
+    this.finished = false;
     this.writeString('GIF89a');
     // Logical Screen Descriptor
     this.writeShort(this.width);
@@ -104,16 +110,33 @@ export class GifEncoder {
       this.writeByte(0x3b); // GIF File Terminator ';'
       this.finished = true;
     }
-    const u8 = new Uint8Array(this.out.length);
-    for (let i = 0; i < this.out.length; i++) {
-      u8[i] = this.out[i];
+    if (this.chunkPos > 0) {
+      this.chunks.push(this.currentChunk.subarray(0, this.chunkPos));
+      this.currentChunk = new Uint8Array(0);
+      this.chunkPos = 0;
+    }
+    let totalLen = 0;
+    for (let i = 0; i < this.chunks.length; i++) totalLen += this.chunks[i].byteLength;
+    const u8 = new Uint8Array(totalLen);
+    let offset = 0;
+    for (let i = 0; i < this.chunks.length; i++) {
+      u8.set(this.chunks[i], offset);
+      offset += this.chunks[i].byteLength;
     }
     return u8;
   }
 
   getBlob() {
-    const data = this.finish();
-    return new Blob([data], { type: 'image/gif' });
+    if (!this.finished) {
+      this.writeByte(0x3b);
+      this.finished = true;
+    }
+    if (this.chunkPos > 0) {
+      this.chunks.push(this.currentChunk.subarray(0, this.chunkPos));
+      this.currentChunk = new Uint8Array(0);
+      this.chunkPos = 0;
+    }
+    return new Blob(this.chunks, { type: 'image/gif' });
   }
 
   // Quantizer with palette generation and color reduction
@@ -209,7 +232,7 @@ export class GifEncoder {
     return { palette, indexedPixels, transparentIndex };
   }
 
-  // Standard GIF LZW compression algorithm
+  // Standard GIF LZW compression algorithm with zero-allocation numeric hashing
   writeLzw(pixels, minCodeSize) {
     this.writeByte(minCodeSize);
     const clearCode = 1 << minCodeSize;
@@ -217,12 +240,10 @@ export class GifEncoder {
     let codeSize = minCodeSize + 1;
     let maxCode = 1 << codeSize;
 
-    let dict = new Map();
+    // Use a Map with numeric key (prefix << 8) | c to avoid 150M+ string allocations
+    const dict = new Map();
     const resetDict = () => {
       dict.clear();
-      for (let i = 0; i < clearCode; i++) {
-        dict.set(String.fromCharCode(i), i);
-      }
       codeSize = minCodeSize + 1;
       maxCode = 1 << codeSize;
     };
@@ -231,49 +252,55 @@ export class GifEncoder {
 
     let curBits = 0;
     let curVal = 0;
-    const packet = [];
+    const packet = new Uint8Array(256);
+    let packetLen = 0;
 
     const emitBits = (code) => {
       curVal |= code << curBits;
       curBits += codeSize;
       while (curBits >= 8) {
-        packet.push(curVal & 0xff);
+        packet[packetLen++] = curVal & 0xff;
         curVal >>= 8;
         curBits -= 8;
-        if (packet.length === 254) {
+        if (packetLen === 254) {
           this.writeByte(254);
-          for (let b = 0; b < packet.length; b++) this.writeByte(packet[b]);
-          packet.length = 0;
+          for (let b = 0; b < 254; b++) this.writeByte(packet[b]);
+          packetLen = 0;
         }
       }
     };
 
     const flushBits = () => {
       if (curBits > 0) {
-        packet.push(curVal & 0xff);
+        packet[packetLen++] = curVal & 0xff;
       }
-      if (packet.length > 0) {
-        this.writeByte(packet.length);
-        for (let b = 0; b < packet.length; b++) this.writeByte(packet[b]);
-        packet.length = 0;
+      if (packetLen > 0) {
+        this.writeByte(packetLen);
+        for (let b = 0; b < packetLen; b++) this.writeByte(packet[b]);
+        packetLen = 0;
       }
       this.writeByte(0); // Block terminator
     };
 
     emitBits(clearCode);
 
-    let prefix = '';
+    let prefix = -1;
     let nextAvailableCode = eoiCode + 1;
 
     for (let i = 0; i < pixels.length; i++) {
-      const c = String.fromCharCode(pixels[i]);
-      const combined = prefix + c;
-      if (dict.has(combined)) {
-        prefix = combined;
+      const c = pixels[i];
+      if (prefix === -1) {
+        prefix = c;
+        continue;
+      }
+      const key = (prefix << 8) | c;
+      const code = dict.get(key);
+      if (code !== undefined) {
+        prefix = code;
       } else {
-        emitBits(dict.get(prefix));
+        emitBits(prefix);
         if (nextAvailableCode < 4096) {
-          dict.set(combined, nextAvailableCode++);
+          dict.set(key, nextAvailableCode++);
           if (nextAvailableCode > maxCode && codeSize < 12) {
             codeSize++;
             maxCode = 1 << codeSize;
@@ -287,25 +314,30 @@ export class GifEncoder {
       }
     }
 
-    if (prefix.length > 0) {
-      emitBits(dict.get(prefix));
+    if (prefix !== -1) {
+      emitBits(prefix);
     }
     emitBits(eoiCode);
     flushBits();
   }
 
   writeByte(b) {
-    this.out.push(b & 0xff);
+    if (this.chunkPos >= this.currentChunk.length) {
+      this.chunks.push(this.currentChunk);
+      this.currentChunk = new Uint8Array(65536);
+      this.chunkPos = 0;
+    }
+    this.currentChunk[this.chunkPos++] = b & 0xff;
   }
 
   writeShort(s) {
-    this.out.push(s & 0xff);
-    this.out.push((s >> 8) & 0xff);
+    this.writeByte(s & 0xff);
+    this.writeByte((s >> 8) & 0xff);
   }
 
   writeString(str) {
     for (let i = 0; i < str.length; i++) {
-      this.out.push(str.charCodeAt(i) & 0xff);
+      this.writeByte(str.charCodeAt(i));
     }
   }
 }

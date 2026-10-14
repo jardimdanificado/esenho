@@ -221,5 +221,58 @@ describe('Raster Frame-by-Frame Animator Engine', () => {
     // At tick 60: Layer 4 is on cel 2 (ticks 25..144)
     assert.strictEqual(anim.getCelAtTick(4, 60).celIndex, 2);
   });
+
+  it('9. Large project with 73 frames exports without OOM, uses compact RLE/empty compression, and round-trips correctly', async () => {
+    const w = 64;
+    const h = 64;
+    const host = createMockHost(w, h);
+    const anim = new RasterAnimator(host);
+
+    // Create 73 frames (some with drawings, some blank, some solid)
+    for (let f = 1; f < 73; f++) {
+      anim.addFrame(false);
+      if (f % 5 === 0) {
+        // Draw a small marker stroke in the frame
+        const ptr = host.canvasActor.exports.w_layer_get_pixels(3);
+        const buf = new Uint8Array(host.canvasActor.memory.buffer, ptr, w * h * 4);
+        buf[0] = f;
+        buf[1] = 128;
+        buf[2] = 255;
+        buf[3] = 255;
+        anim.saveActiveFrame();
+      }
+    }
+
+    assert.strictEqual(anim.frames.length, 73, 'Should have created exactly 73 frames');
+
+    // 1. Serialization without OOM
+    const t0 = Date.now();
+    const json = anim.toJSON();
+    const tElapsed = Date.now() - t0;
+    assert(tElapsed < 2000, `73 frames serialization took ${tElapsed}ms (must be under 2000ms)`);
+
+    const jsonStr = JSON.stringify(json);
+    // Uncompressed 73 frames of 64x64x4 would be ~1.2MB JSON. With RLE/empty, it's a few tens of KB!
+    assert(jsonStr.length < 200000, `Serialized JSON size is ${jsonStr.length} bytes (must be compact)`);
+
+    // 2. Round-trip restoration
+    const host2 = createMockHost(w, h);
+    const anim2 = new RasterAnimator(host2);
+    anim2.fromJSON(json);
+    assert.strictEqual(anim2.frames.length, 73, 'Restored animator must have 73 frames');
+
+    // Verify drawing data on frame 10 (f=10 % 5 === 0)
+    anim2.goToFrame(10);
+    const ptr2 = host2.canvasActor.exports.w_layer_get_pixels(3);
+    const buf2 = new Uint8Array(host2.canvasActor.memory.buffer, ptr2, w * h * 4);
+    assert.strictEqual(buf2[0], 10, 'Frame 10 drawing marker should be restored accurately');
+    assert.strictEqual(buf2[1], 128);
+
+    // 3. GIF Export of 73 frames succeeds without OOM
+    const gifBlob = await anim.exportGif(40);
+    assert(gifBlob instanceof Blob, '73-frame GIF export must return a Blob');
+    assert(gifBlob.size > 1000, '73-frame GIF should contain valid frame data');
+  });
 });
+
 

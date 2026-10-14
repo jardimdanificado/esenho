@@ -26,7 +26,11 @@ extern "C" {
 #define W_GIF_LZW_MAX_BITS 12
 #define W_GIF_LZW_TABLE_SIZE 4096
 
-typedef struct {
+typedef struct w_gif_encoder_s w_gif_encoder_t;
+
+typedef uint8_t* (*w_gif_grow_fn)(w_gif_encoder_t *enc, uint32_t needed_capacity);
+
+struct w_gif_encoder_s {
     uint8_t *buffer;
     uint32_t capacity;
     uint32_t size;
@@ -35,9 +39,19 @@ typedef struct {
     int32_t frame_count;
     int32_t loop_count;
     bool has_header;
-} w_gif_encoder_t;
+    w_gif_grow_fn grow;
+};
 
 static inline void w_gif_write_byte(w_gif_encoder_t *enc, uint8_t b) {
+    if (enc->size >= enc->capacity && enc->grow) {
+        uint32_t new_cap = enc->capacity ? enc->capacity * 2 : 65536;
+        if (new_cap < enc->size + 1024) new_cap = enc->size + 65536;
+        uint8_t *new_buf = enc->grow(enc, new_cap);
+        if (new_buf) {
+            enc->buffer = new_buf;
+            enc->capacity = new_cap;
+        }
+    }
     if (enc->size < enc->capacity) {
         enc->buffer[enc->size++] = b;
     }
