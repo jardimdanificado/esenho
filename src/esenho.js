@@ -9831,11 +9831,51 @@ class EsenhoScreenHost {
       }
 
       // Explicitly set texture from preset or default to none
-      const tex = preset.texture || 'none';
+      const tex = (typeof preset.texture === 'string') ? preset.texture : (preset.texture?.ref || 'none');
       this.setTexture(tex);
 
+      // Unpack nested tip/dynamics/wet/jitter schemas if present
+      if (preset.tip && typeof preset.tip === 'object') {
+        for (const [tk, tv] of Object.entries(preset.tip)) {
+          if (tk === 'ref') { if (typeof tv === 'string') this.setBrushParam('shape', tv); }
+          else if (typeof tv !== 'object') this.setBrushParam(tk, tv);
+        }
+      }
+      if (preset.dynamics && typeof preset.dynamics === 'object') {
+        for (const [dk, dv] of Object.entries(preset.dynamics)) {
+          if (dk === 'stabilizer' && typeof dv === 'object') {
+            if (dv.smoothing !== undefined) this.setBrushParam('smoothing', dv.smoothing);
+            if (dv.mode !== undefined) this.setBrushParam('stabilizer_mode', dv.mode);
+          } else if (dk === 'taper' && typeof dv === 'object') {
+            if (dv.in !== undefined) this.setBrushParam('taper_in', dv.in);
+            if (dv.out !== undefined) this.setBrushParam('taper_out', dv.out);
+          } else if (dk === 'pressureSize') {
+            this.setBrushParam('pressure_size', dv ? 1 : 0);
+          } else if (dk === 'pressureFlow') {
+            this.setBrushParam('pressure_flow', dv ? 1 : 0);
+          } else if (dk === 'tiltAngle') {
+            this.setBrushParam('tilt_angle', dv ? 1 : 0);
+          } else if (dk === 'velocityScaling') {
+            this.setBrushParam('velocity', dv);
+          } else if (typeof dv !== 'object') {
+            this.setBrushParam(dk, dv);
+          }
+        }
+      }
+      if (preset.wet && typeof preset.wet === 'object') {
+        for (const [wk, wv] of Object.entries(preset.wet)) {
+          if (typeof wv !== 'object') this.setBrushParam(wk, wv);
+        }
+      }
+      if (preset.jitter && typeof preset.jitter === 'object') {
+        for (const [jk, jv] of Object.entries(preset.jitter)) {
+          const mappedKey = jk === 'size' ? 'size_jitter' : (jk === 'angle' ? 'angle_jitter' : (jk === 'opacity' ? 'opacity_jitter' : (jk === 'color' ? 'color_jitter' : jk)));
+          if (typeof jv !== 'object') this.setBrushParam(mappedKey, jv);
+        }
+      }
+
       for (const [k, v] of Object.entries(preset)) {
-        if (k === 'name' || k === 'icon' || k === 'desc' || k === 'eraser' || k === 'category') continue;
+        if (k === 'name' || k === 'icon' || k === 'desc' || k === 'eraser' || k === 'category' || k === 'tip' || k === 'dynamics' || k === 'wet' || k === 'jitter') continue;
         if (k === 'texture') {
           if (typeof v === 'string') this.setTexture(v);
         } else if (k === 'size_min' || k === 'size_max') {

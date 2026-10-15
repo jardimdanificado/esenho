@@ -4435,8 +4435,6 @@ async function main() {
       { type: 'item', label: 'Reset Brush to Default', action: () => { runCmd('reset tool'); syncUiFromHost(); } }
     );
 
-    addSubmenu(`Brush: ${activeBrushTitle}`, brushLibraryItems);
-
     // 6. Tools, Shapes & Guides Submenu List
     const curMode = host.actionMode || 'draw';
     const curSym = host.brushParams?.symmetry || 0;
