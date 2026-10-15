@@ -38,6 +38,7 @@ test('Zero-Copy WASM Brush Protocol & Suite', async (t) => {
   };
   const canvasMod = new WebAssembly.Module(canvasBytes);
   const canvasActor = new WebAssembly.Instance(canvasMod, { env });
+  canvasActor.memory = canvasActor.exports.memory;
   canvasActor.exports.w_init(200, 200);
 
   const pixPtr = canvasActor.exports.get_active_layer_pixels();
@@ -136,5 +137,40 @@ test('Zero-Copy WASM Brush Protocol & Suite', async (t) => {
     }
     assert.ok(painted > 20, 'Pixel dither brush must stamp pixels according to Bayer matrix');
     console.log(`   ✔ Pixel Dither dynamic parameters verified (${painted} pixels stamped with Bayer grid)`);
+  });
+
+  await t.test('4. Custom WASM presets preserve and restore custom parameter values', async () => {
+    const { createRequire } = await import('node:module');
+    const req = createRequire(import.meta.url);
+    const { EsenhoScreenHost } = req('../src/esenho.js');
+    const host = new EsenhoScreenHost();
+    host.canvasActor = canvasActor;
+
+    const oilPath = path.resolve(rootDir, 'plugins/brushes/bristle_oil.wasm');
+    const oilBytes = fs.readFileSync(oilPath);
+    await host.loadWasmBrush('bristle_oil', oilBytes);
+
+    host.selectWasmBrush('bristle_oil');
+    assert.ok(host.activeWasmBrush, 'WASM brush must be active');
+    host.activeWasmBrush.setParam(0, 88);
+    host.activeWasmBrush.setParam(1, 95);
+    host.setBrushParam('size', 42);
+
+    host.executeCommand('preset save CustomOilSpecial');
+    const p = host.customBrushPresets['customoilspecial'];
+    assert.ok(p, 'Preset customoilspecial must be registered');
+    assert.equal(p.wasmBrush, 'bristle_oil');
+    assert.equal(p.wasmParams['0'], 88);
+    assert.equal(p.wasmParams['1'], 95);
+
+    host.selectBrushPreset('pencil');
+    assert.equal(host.activeWasmBrush, null);
+
+    host.selectBrushPreset('customoilspecial');
+    assert.ok(host.activeWasmBrush, 'Custom preset must reactivate WASM brush');
+    assert.equal(host.activeWasmBrush.name, 'bristle_oil');
+    assert.equal(host.activeWasmBrush.getParam(0), 88);
+    assert.equal(host.activeWasmBrush.getParam(1), 95);
+    console.log('   ✔ Custom WASM preset saving & restoring parameters verified');
   });
 });

@@ -321,7 +321,7 @@ function createDefaultWasmImports(options = {}, requiredImports = []) {
   const reqList = Array.isArray(requiredImports) ? requiredImports : [];
   if (options.canvasActor) {
     if ((reqList.length === 0 || reqList.some(i => i.module === 'env' && i.name === 'memory')) && !env.memory) {
-      env.memory = options.canvasActor.memory;
+      env.memory = options.canvasActor.memory || options.canvasActor.exports?.memory;
     }
     if ((reqList.length === 0 || reqList.some(i => i.module === 'env' && i.name === '__memory_base')) && !env.__memory_base) {
       const allocSize = options.allocSize || 65536;
@@ -350,7 +350,7 @@ class EsenhoModule {
     if (wasmPathOrBytes && wasmPathOrBytes.exports) {
       this.instance = wasmPathOrBytes;
       this.exports = this.instance.exports;
-      this.memory = this.exports.memory || (options.canvasActor ? options.canvasActor.memory : null);
+      this.memory = this.exports.memory || (options.canvasActor ? (options.canvasActor.memory || options.canvasActor.exports?.memory) : null);
       this.name = options.name || 'instance';
       this.wasmPath = options.name || 'instance';
       this.layerPtr = 0;
@@ -369,7 +369,7 @@ class EsenhoModule {
     const requiredImports = WebAssembly.Module.imports(this.wasmModule);
     this.instance = new WebAssembly.Instance(this.wasmModule, createDefaultWasmImports(options, requiredImports));
     this.exports = this.instance.exports;
-    this.memory = this.exports.memory || (options.canvasActor ? options.canvasActor.memory : null);
+    this.memory = this.exports.memory || (options.canvasActor ? (options.canvasActor.memory || options.canvasActor.exports?.memory) : null);
     this.layerPtr = 0;
     this.layerByteLen = 0;
     this.texPtr = 0;
@@ -1367,6 +1367,21 @@ class EsenhoWasmBrush {
 
   getParam(idx) {
     return this.params.get(idx);
+  }
+
+  getParamsObject() {
+    const obj = {};
+    for (const [k, v] of this.params.entries()) {
+      obj[k] = v;
+    }
+    return obj;
+  }
+
+  applyParams(paramsObj) {
+    if (!paramsObj || typeof paramsObj !== 'object') return;
+    for (const [k, v] of Object.entries(paramsObj)) {
+      this.setParam(parseInt(k, 10), v);
+    }
   }
 
   init(cw, ch) {
@@ -4756,11 +4771,15 @@ const COMMAND_RULES = [
       const presetData = {
         name: trimmed,
         category: 'custom',
-        desc: `Custom preset (${host.brushParams?.size || 12}px)`,
+        desc: host.activeWasmBrush ? `Custom WASM Preset (${host.activeWasmBrush.name})` : `Custom preset (${host.brushParams?.size || 12}px)`,
         ...JSON.parse(JSON.stringify(host.brushParams || {})),
         texture: host.activeTexture || (host.brushParams && host.brushParams.texture) || 'none',
         eraser: (host.strokeIsEraser || host.actionMode === 'erase') ? 1 : 0
       };
+      if (host.activeWasmBrush) {
+        presetData.wasmBrush = host.activeWasmBrush.name;
+        presetData.wasmParams = host.activeWasmBrush.getParamsObject ? host.activeWasmBrush.getParamsObject() : {};
+      }
       host.customBrushPresets[name] = presetData;
       if (typeof localStorage !== 'undefined') {
         try { localStorage.setItem('esenho_custom_brush_presets_v1', JSON.stringify(host.customBrushPresets)); } catch (_) {}
@@ -9714,9 +9733,10 @@ class EsenhoScreenHost {
       const id = this.canvasActor.exports.w_texture_create(tex.width, tex.height);
       if (id < 0) continue;
       tex.wasmId = id;
-      const ptr = this.canvasActor.exports.w_texture_get_pixels(id);
-      if (ptr && tex.data) {
-        new Uint8Array(this.canvasActor.memory.buffer, ptr, tex.width * tex.height * 4).set(tex.data);
+      const ptr = this.canvasActor.exports.w_texture_get_pixels ? this.canvasActor.exports.w_texture_get_pixels(id) : 0;
+      const mem = this.canvasActor.memory || this.canvasActor.exports?.memory;
+      if (ptr && tex.data && mem && mem.buffer) {
+        new Uint8Array(mem.buffer, ptr, tex.width * tex.height * 4).set(tex.data);
       }
     }
   }
@@ -10008,7 +10028,7 @@ class EsenhoScreenHost {
       }
 
       for (const [k, v] of Object.entries(preset)) {
-        if (k === 'name' || k === 'icon' || k === 'desc' || k === 'eraser' || k === 'category' || k === 'tip' || k === 'dynamics' || k === 'wet' || k === 'jitter') continue;
+        if (k === 'name' || k === 'icon' || k === 'desc' || k === 'eraser' || k === 'category' || k === 'tip' || k === 'dynamics' || k === 'wet' || k === 'jitter' || k === 'wasmBrush' || k === 'wasmParams') continue;
         if (k === 'texture') {
           if (typeof v === 'string') this.setTexture(v);
         } else if (k === 'size_min' || k === 'size_max') {
@@ -10017,6 +10037,15 @@ class EsenhoScreenHost {
           this.setBrushParam(k, v);
         }
       }
+
+      if (preset.wasmBrush && this.wasmBrushes && this.wasmBrushes.has(preset.wasmBrush)) {
+        const wb = this.wasmBrushes.get(preset.wasmBrush);
+        this.activeWasmBrush = wb;
+        if (preset.wasmParams && typeof wb.applyParams === 'function') {
+          wb.applyParams(preset.wasmParams);
+        }
+      }
+
       if (preset.size && preset.size > (this.brushParams.size_max || 300)) {
         this.brushParams.size_max = Math.max(300, Math.round(preset.size * 1.5));
       }

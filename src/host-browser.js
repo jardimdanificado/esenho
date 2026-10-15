@@ -6817,7 +6817,9 @@ async function main() {
   host.saveCurrentBrushPreset = async function (presetName) {
     let name = presetName;
     if (typeof name !== 'string' || !name.trim()) {
+      const wasmInfo = host.activeWasmBrush ? (host.activeWasmBrush.getInfo ? host.activeWasmBrush.getInfo() : host.activeWasmBrush.info) : null;
       const defaultName = (host.customBrushPresets && host.activeBrush && host.customBrushPresets[host.activeBrush]?.name)
+        || (wasmInfo ? `${wasmInfo.title || host.activeWasmBrush.name} Custom` : null)
         || (typeof BRUSH_PRESETS !== 'undefined' && host.activeBrush && BRUSH_PRESETS[host.activeBrush]?.name ? `${BRUSH_PRESETS[host.activeBrush].name} Copy` : 'My Custom Brush');
       name = await ui.prompt('Enter name for custom brush preset:', defaultName, { title: 'Save Custom Brush' });
     }
@@ -6831,11 +6833,15 @@ async function main() {
     const presetData = {
       name: trimmedName,
       category: 'custom',
-      desc: `User custom preset (${host.brushParams?.size || 12}px)`,
+      desc: host.activeWasmBrush ? `Custom WASM Preset (${host.activeWasmBrush.name})` : `User custom preset (${host.brushParams?.size || 12}px)`,
       ...JSON.parse(JSON.stringify(host.brushParams || {})),
       texture: host.activeTexture || (host.brushParams && host.brushParams.texture) || 'none',
       eraser: (host.strokeIsEraser || host.actionMode === 'erase') ? 1 : 0
     };
+    if (host.activeWasmBrush) {
+      presetData.wasmBrush = host.activeWasmBrush.name;
+      presetData.wasmParams = host.activeWasmBrush.getParamsObject ? host.activeWasmBrush.getParamsObject() : {};
+    }
 
     host.customBrushPresets[key] = presetData;
     saveCustomBrushPresets(host.customBrushPresets);
@@ -13605,6 +13611,17 @@ async function main() {
             paramsContainer.appendChild(wrap);
           });
         }
+      }
+
+      const saveBtn = document.getElementById('ui-btn-wasm-brush-save');
+      if (saveBtn) {
+        saveBtn.onclick = async () => {
+          const resKey = await host.saveCurrentBrushPreset?.();
+          if (resKey) {
+            if (typeof closeAllSheets === 'function') closeAllSheets();
+            document.getElementById('sheet-wasm-brush')?.classList.remove('active');
+          }
+        };
       }
 
       if (closeBtn) {
