@@ -2672,8 +2672,8 @@
             let px1 = Math.round((pts[1].x || 0) * scale);
             let py1 = Math.round((pts[1].y || 0) * scale);
             if (isFinite(px0) && isFinite(py0) && isFinite(px1) && isFinite(py1)) {
-              exp.w_brush_stroke_ext(0, px0, py0, px1, py1, sArgb, 0, 1000, 0, 0);
-              for (let i = 2; i < n; i++) {
+              exp.w_brush_stroke_ext(0, px0, py0, px0, py0, sArgb, 0, 1000, 0, 0);
+              for (let i = 1; i < n; i++) {
                 const cx = Math.round((pts[i].x || 0) * scale);
                 const cy = Math.round((pts[i].y || 0) * scale);
                 const px = Math.round((pts[i - 1].x || 0) * scale);
@@ -2684,10 +2684,8 @@
               }
               const lastX = Math.round((pts[n - 1].x || 0) * scale);
               const lastY = Math.round((pts[n - 1].y || 0) * scale);
-              const prevX = Math.round((pts[n - 2].x || 0) * scale);
-              const prevY = Math.round((pts[n - 2].y || 0) * scale);
-              if (isFinite(lastX) && isFinite(lastY) && isFinite(prevX) && isFinite(prevY)) {
-                exp.w_brush_stroke_ext(2, lastX, lastY, prevX, prevY, sArgb, 0, 1000, 0, 0);
+              if (isFinite(lastX) && isFinite(lastY)) {
+                exp.w_brush_stroke_ext(2, lastX, lastY, lastX, lastY, sArgb, 0, 1000, 0, 0);
               }
             }
           }
@@ -2704,11 +2702,11 @@
             });
           }
           if (poly.every(pt => isFinite(pt.x) && isFinite(pt.y))) {
-            exp.w_brush_stroke_ext(0, poly[0].x, poly[0].y, poly[1].x, poly[1].y, sArgb, 0, 1000, 0, 0);
-            for (let i = 2; i <= steps; i++) {
+            exp.w_brush_stroke_ext(0, poly[0].x, poly[0].y, poly[0].x, poly[0].y, sArgb, 0, 1000, 0, 0);
+            for (let i = 1; i <= steps; i++) {
               exp.w_brush_stroke_ext(1, poly[i].x, poly[i].y, poly[i - 1].x, poly[i - 1].y, sArgb, 0, 1000, 0, 0);
             }
-            exp.w_brush_stroke_ext(2, poly[steps].x, poly[steps].y, poly[steps - 1].x, poly[steps - 1].y, sArgb, 0, 1000, 0, 0);
+            exp.w_brush_stroke_ext(2, poly[steps].x, poly[steps].y, poly[steps].x, poly[steps].y, sArgb, 0, 1000, 0, 0);
           }
         } else if (stroke.type === 'curve' && stroke.cp && stroke.p0 && stroke.p1) {
           const p0 = stroke.p0, cp = stroke.cp, p1 = stroke.p1;
@@ -2723,11 +2721,11 @@
             });
           }
           if (poly.every(pt => isFinite(pt.x) && isFinite(pt.y))) {
-            exp.w_brush_stroke_ext(0, poly[0].x, poly[0].y, poly[1].x, poly[1].y, sArgb, 0, 1000, 0, 0);
-            for (let i = 2; i <= steps; i++) {
+            exp.w_brush_stroke_ext(0, poly[0].x, poly[0].y, poly[0].x, poly[0].y, sArgb, 0, 1000, 0, 0);
+            for (let i = 1; i <= steps; i++) {
               exp.w_brush_stroke_ext(1, poly[i].x, poly[i].y, poly[i - 1].x, poly[i - 1].y, sArgb, 0, 1000, 0, 0);
             }
-            exp.w_brush_stroke_ext(2, poly[steps].x, poly[steps].y, poly[steps - 1].x, poly[steps - 1].y, sArgb, 0, 1000, 0, 0);
+            exp.w_brush_stroke_ext(2, poly[steps].x, poly[steps].y, poly[steps].x, poly[steps].y, sArgb, 0, 1000, 0, 0);
           }
         } else if (stroke.type === 'dot') {
           const pt = stroke.p0 || { x: stroke.cx || 0, y: stroke.cy || 0 };
@@ -2744,8 +2742,9 @@
           const x1 = Math.round(stroke.p1.x * scale);
           const y1 = Math.round(stroke.p1.y * scale);
           if (isFinite(x0) && isFinite(y0) && isFinite(x1) && isFinite(y1)) {
-            exp.w_brush_stroke_ext(0, x0, y0, x1, y1, sArgb, 0, 1000, 0, 0);
-            exp.w_brush_stroke_ext(2, x1, y1, x0, y0, sArgb, 0, 1000, 0, 0);
+            exp.w_brush_stroke_ext(0, x0, y0, x0, y0, sArgb, 0, 1000, 0, 0);
+            exp.w_brush_stroke_ext(1, x1, y1, x0, y0, sArgb, 0, 1000, 0, 0);
+            exp.w_brush_stroke_ext(2, x1, y1, x1, y1, sArgb, 0, 1000, 0, 0);
           }
         }
       }
@@ -2823,8 +2822,8 @@
       }
 
       applyPtSize(pts[0]);
-      exp.w_brush_stroke_ext(0, pts[0].x, pts[0].y, pts[1].x, pts[1].y, argbColor, 0, getPress(pts[0]), getTiltX(pts[0]), getTiltY(pts[0]));
-      for (let i = 2; i < n; i++) {
+      exp.w_brush_stroke_ext(0, pts[0].x, pts[0].y, pts[0].x, pts[0].y, argbColor, 0, getPress(pts[0]), getTiltX(pts[0]), getTiltY(pts[0]));
+      for (let i = 1; i < n; i++) {
         applyPtSize(pts[i]);
         exp.w_brush_stroke_ext(1, pts[i].x, pts[i].y, pts[i - 1].x, pts[i - 1].y, argbColor, 0, getPress(pts[i]), getTiltX(pts[i]), getTiltY(pts[i]));
       }
@@ -2835,9 +2834,8 @@
       }
 
       const last = closed ? pts[0] : pts[n - 1];
-      const prev = closed ? pts[n - 1] : pts[n - 2];
       applyPtSize(last);
-      exp.w_brush_stroke_ext(2, last.x, last.y, prev.x, prev.y, argbColor, 0, getPress(last), getTiltX(last), getTiltY(last));
+      exp.w_brush_stroke_ext(2, last.x, last.y, last.x, last.y, argbColor, 0, getPress(last), getTiltX(last), getTiltY(last));
     }
 
     /** Alpha blending helper (ARGB Porter-Duff Source Over) */

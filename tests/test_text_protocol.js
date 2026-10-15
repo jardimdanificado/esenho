@@ -244,6 +244,28 @@ async function run() {
     throw new Error('Chisel tip should be thin and NOT cover (350, 358)');
   }
 
+  // Test Brush Spacing (discrete spaced dabs vs continuous stroke)
+  host.executeCommand('clear layer');
+  host.executeCommand('set shape circle');
+  host.executeCommand('set size 4');
+  host.executeCommand('set hardness 100');
+  host.executeCommand('set opacity 100');
+  host.executeCommand('set flow 100');
+  host.executeCommand('set spacing 300'); // step_size = 12px for radius 4
+  host.sendStroke(50, 200, 50, 200, 0, 0, 0xFFFFFFFF);
+  for (let x = 51; x <= 100; x++) {
+    host.sendStroke(x, 200, x - 1, 200, 1, 0, 0xFFFFFFFF);
+  }
+  host.sendStroke(100, 200, 100, 200, 2, 0, 0xFFFFFFFF);
+  if (pixels[200 * 640 + 50] !== 0xFFFFFFFF || pixels[200 * 640 + 62] !== 0xFFFFFFFF) {
+    throw new Error('Brush spacing: dab centers at x=50 and x=62 must be painted');
+  }
+  if (pixels[200 * 640 + 56] !== 0) {
+    throw new Error(`Brush spacing: gap at x=56 between dabs must be blank (0), got 0x${pixels[200 * 640 + 56].toString(16)}`);
+  }
+  host.executeCommand('set spacing 5');
+  host.executeCommand('clear layer');
+
   // Test Rotation & Texture Rotation / Scale properties & commands
   host.executeCommand('set rotate 45');
   if (host.brushParams.angle !== 45) {

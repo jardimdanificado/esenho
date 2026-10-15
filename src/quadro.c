@@ -2116,7 +2116,141 @@ W_EXPORT void w_brush_reset(void) {
 }
 
 static int32_t stroke_cum_dist = 0;
+static float stroke_spacing_dist = 0.0f;
 static uint32_t stroke_pickup_color = 0;
+
+static void render_stroke_dab(uint32_t *pix, int w, int h, int cx, int cy, int dx, int dy, int dist,
+                              uint32_t color, int32_t eraser, int move_dx, int move_dy,
+                              int cur_d, int32_t pressure, int32_t tilt_x, int32_t tilt_y) {
+    // Velocity Dynamics
+    int scale_factor = 100;
+    if (brush_config.velocity > 0 && dist > 0) {
+        int speed = dist;
+        if (speed > 100) speed = 100;
+        int v_mod = (speed * brush_config.velocity) / 100;
+        scale_factor = 100 - v_mod / 2;
+        if (scale_factor < 20) scale_factor = 20;
+    }
+
+    // Taper In
+    int taper_pct = 100;
+    if (brush_config.taper_in > 0 && cur_d < brush_config.taper_in) {
+        taper_pct = (cur_d * 100) / brush_config.taper_in;
+        if (taper_pct < 10) taper_pct = 10;
+    }
+
+    // Fade
+    int fade_pct = 100;
+    if (brush_config.fade > 0) {
+        if (cur_d >= brush_config.fade) {
+            fade_pct = 0;
+        } else {
+            fade_pct = ((brush_config.fade - cur_d) * 100) / brush_config.fade;
+        }
+    }
+    if (fade_pct == 0) return;
+
+    scale_factor = (scale_factor * taper_pct * fade_pct) / 10000;
+    if (scale_factor <= 0) return;
+
+    // Size with size_jitter and pressure sensitivity
+    int dab_r = (brush_config.size * scale_factor) / 100;
+    if (brush_config.pressure_size && pressure >= 0) {
+        int p = pressure > 1000 ? 1000 : pressure;
+        dab_r = (dab_r * p) / 1000;
+    }
+    if (brush_config.size_jitter > 0) {
+        int sj = (int)(next_random() % (brush_config.size_jitter + 1));
+        dab_r = (dab_r * (100 - sj)) / 100;
+    }
+    if (dab_r < 1) dab_r = 1;
+
+    // Angle with angle_jitter and stylus tilt dynamics
+    int dab_angle = brush_config.angle;
+    if (brush_config.tilt_angle && (tilt_x != 0 || tilt_y != 0)) {
+        int tilt_deg = w_atan2_deg(tilt_y, tilt_x);
+        dab_angle = (dab_angle + tilt_deg + 360) % 360;
+    }
+    if (brush_config.angle_jitter > 0) {
+        int aj = (int)(next_random() % (brush_config.angle_jitter + 1));
+        dab_angle = (dab_angle + aj) % 360;
+    }
+
+    // Flow with opacity_jitter, depletion and pressure sensitivity
+    int dab_flow_pct = scale_factor;
+    if (brush_config.pressure_flow && pressure >= 0) {
+        int p = pressure > 1000 ? 1000 : pressure;
+        dab_flow_pct = (dab_flow_pct * p) / 1000;
+    }
+    if (brush_config.opacity_jitter > 0) {
+        int oj = (int)(next_random() % (brush_config.opacity_jitter + 1));
+        dab_flow_pct = (dab_flow_pct * (100 - oj)) / 100;
+    }
+    if (brush_config.depletion > 0 && brush_config.type != W_MODE_BLEND) {
+        int dep_pct = (cur_d * brush_config.depletion) / 500;
+        if (dep_pct > 100) dep_pct = 100;
+        dab_flow_pct = (dab_flow_pct * (100 - dep_pct)) / 100;
+    }
+    if (dab_flow_pct <= 0) return;
+
+    // Color with color_jitter and continuous color_pickup
+    uint32_t dab_color = color;
+    if (brush_config.color_pickup > 0) {
+        if (cx >= 0 && cx < w && cy >= 0 && cy < h) {
+            uint32_t under_p = pix[cy * w + cx];
+            if (((under_p >> 24) & 0xFF) > 10) {
+                stroke_pickup_color = mix_color(under_p, stroke_pickup_color, brush_config.color_pickup);
+            }
+        }
+        dab_color = stroke_pickup_color;
+    }
+
+    if (brush_config.color_jitter > 0) {
+        int h_val = 0, s_val = 0, v_val = 0;
+        w_rgb_to_hsv(dab_color, &h_val, &s_val, &v_val);
+        int cj = brush_config.color_jitter;
+        int h_j = ((int)(next_random() % (cj * 2 + 1))) - cj;
+        int s_j = ((int)(next_random() % (cj + 1))) - (cj / 2);
+        int v_j = ((int)(next_random() % (cj + 1))) - (cj / 2);
+        h_val = (h_val + h_j) % 360; if (h_val < 0) h_val += 360;
+        s_val = s_val + (s_j * 255) / 100; if (s_val < 0) s_val = 0; if (s_val > 255) s_val = 255;
+        v_val = v_val + (v_j * 255) / 100; if (v_val < 0) v_val = 0; if (v_val > 255) v_val = 255;
+        dab_color = w_hsv_to_rgb(h_val, s_val, v_val, (color >> 24) & 0xFF);
+    }
+
+    // Perpendicular Scatter
+    if (brush_config.scatter > 0) {
+        int max_j = (brush_config.size * brush_config.scatter) / 100;
+        if (max_j > 0) {
+            int offset = ((int)(next_random() % (2 * max_j + 1))) - max_j;
+            if (dist > 0) {
+                int nx = (-dy * 1024) / dist;
+                int ny = (dx * 1024) / dist;
+                cx += (nx * offset) / 1024;
+                cy += (ny * offset) / 1024;
+            } else {
+                cx += offset;
+                cy += ((int)(next_random() % (2 * max_j + 1))) - max_j;
+            }
+        }
+    }
+
+    render_parametric_dab(pix, w, h, cx, cy, dab_color, eraser, move_dx, move_dy, dab_r, dab_angle, dab_flow_pct, cur_d);
+
+    if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
+        int sym_x = w - 1 - cx;
+        render_parametric_dab(pix, w, h, sym_x, cy, dab_color, eraser, -move_dx, move_dy, dab_r, 180 - dab_angle, dab_flow_pct, cur_d);
+    }
+    if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
+        int sym_y = h - 1 - cy;
+        render_parametric_dab(pix, w, h, cx, sym_y, dab_color, eraser, move_dx, -move_dy, dab_r, -dab_angle, dab_flow_pct, cur_d);
+    }
+    if (brush_config.symmetry == 3) {
+        int sym_x = w - 1 - cx;
+        int sym_y = h - 1 - cy;
+        render_parametric_dab(pix, w, h, sym_x, sym_y, dab_color, eraser, -move_dx, -move_dy, dab_r, 180 + dab_angle, dab_flow_pct, cur_d);
+    }
+}
 
 /**
  * Universal Brush Stroke Executor (interpolates dabs, handles smudge, fill, lasso, pressure, tilt).
@@ -2138,6 +2272,7 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
             stroke_generation = 1;
         }
         stroke_cum_dist = 0;
+        stroke_spacing_dist = 0.0f;
         stroke_pickup_color = color;
     }
 
@@ -2152,7 +2287,6 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
             w_vector_stroke_end(0);
         }
     }
-
 
     // 1. FLOOD FILL MODE
     if (brush_config.type == W_MODE_FILL) {
@@ -2206,192 +2340,113 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
     }
 
     // 3. CONTINUOUS DAB INTERPOLATION (Draw, Smudge, Blend)
+    int d_bound = (brush_config.size * 142) / 100 + 4;
+
+    if (state == 0) {
+        // Stamp initial touch dab at (x0, y0)
+        render_stroke_dab(pix, w, h, x0, y0, 0, 0, 0, color, eraser, 0, 0, 0, pressure, tilt_x, tilt_y);
+        stroke_spacing_dist = 0.0f;
+        int d_x0 = x0 - d_bound;
+        int d_y0 = y0 - d_bound;
+        int d_x1 = x0 + d_bound;
+        int d_y1 = y0 + d_bound;
+        if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
+            d_x0 = 0; d_x1 = w - 1;
+        }
+        if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
+            d_y0 = 0; d_y1 = h - 1;
+        }
+        composite_region(d_x0, d_y0, d_x1, d_y1);
+        if (epoch_before_stroke == composited_epoch) composited_epoch = layer_epoch;
+        return;
+    }
+
     int dx = x0 - x1;
     int dy = y0 - y1;
     int dist = w_isqrt(dx * dx + dy * dy);
+
+    if (dist <= 0) {
+        if (state == 1 && brush_config.buildup) {
+            render_stroke_dab(pix, w, h, x0, y0, 0, 0, 0, color, eraser, 0, 0, stroke_cum_dist, pressure, tilt_x, tilt_y);
+            int d_x0 = x0 - d_bound;
+            int d_y0 = y0 - d_bound;
+            int d_x1 = x0 + d_bound;
+            int d_y1 = y0 + d_bound;
+            if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
+                d_x0 = 0; d_x1 = w - 1;
+            }
+            if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
+                d_y0 = 0; d_y1 = h - 1;
+            }
+            composite_region(d_x0, d_y0, d_x1, d_y1);
+            if (epoch_before_stroke == composited_epoch) composited_epoch = layer_epoch;
+        }
+        return;
+    }
 
     if (dist > 1) {
         last_trajectory_angle = w_atan2_deg(dy, dx);
     }
 
     // Spacing calculation based on brush size
-    int step_size = (brush_config.size * brush_config.spacing) / 100;
-    if (brush_config.size > 150) {
-        int min_step = brush_config.size / 10;
-        if (min_step < 15) min_step = 15;
+    float step_size = ((float)brush_config.size * (float)brush_config.spacing) / 100.0f;
+    if (brush_config.size > 200) {
+        float min_step = (float)brush_config.size * 0.04f;
         if (step_size < min_step) step_size = min_step;
     }
-    if (step_size < 1) step_size = 1;
-
-    int steps = (dist + step_size - 1) / step_size;
-    if (steps < 1) steps = 1;
+    if (step_size < 1.0f) step_size = 1.0f;
 
     int move_dx = 0, move_dy = 0;
-    if (dist > 0) {
-        int sm_step = (brush_config.size > 8) ? (brush_config.size / 4) : 2;
-        if (sm_step < 1) sm_step = 1;
-        if (sm_step > 8) sm_step = 8;
-        move_dx = (dx * sm_step) / dist;
-        move_dy = (dy * sm_step) / dist;
-        if (move_dx == 0 && dx != 0) move_dx = (dx > 0 ? 1 : -1);
-        if (move_dy == 0 && dy != 0) move_dy = (dy > 0 ? 1 : -1);
+    int sm_step = (brush_config.size > 8) ? (brush_config.size / 4) : 2;
+    if (sm_step < 1) sm_step = 1;
+    if (sm_step > 8) sm_step = 8;
+    move_dx = (dx * sm_step) / dist;
+    move_dy = (dy * sm_step) / dist;
+    if (move_dx == 0 && dx != 0) move_dx = (dx > 0 ? 1 : -1);
+    if (move_dy == 0 && dy != 0) move_dy = (dy > 0 ? 1 : -1);
+
+    if (stroke_spacing_dist >= step_size) {
+        stroke_spacing_dist = step_size * 0.5f;
+    }
+    if (stroke_spacing_dist < 0.0f) {
+        stroke_spacing_dist = 0.0f;
     }
 
-    int d_bound = (brush_config.size * 142) / 100 + 4;
-    int d_x0 = (x0 < x1 ? x0 : x1) - d_bound;
-    int d_y0 = (y0 < y1 ? y0 : y1) - d_bound;
-    int d_x1 = (x0 > x1 ? x0 : x1) + d_bound;
-    int d_y1 = (y0 > y1 ? y0 : y1) + d_bound;
+    float d = step_size - stroke_spacing_dist;
+    int dabs_stamped = 0;
 
-    for (int i = 0; i < steps; i++) {
-        int cur_d = stroke_cum_dist + (steps > 0 ? (dist * i) / steps : 0);
+    while (d <= (float)dist) {
+        float t = d / (float)dist;
+        int cx = (int)((float)x1 + (float)dx * t + (dx >= 0 ? 0.5f : -0.5f));
+        int cy = (int)((float)y1 + (float)dy * t + (dy >= 0 ? 0.5f : -0.5f));
+        int cur_d = stroke_cum_dist + (int)d;
 
-        // Velocity Dynamics
-        int scale_factor = 100;
-        if (brush_config.velocity > 0 && dist > 0) {
-            int speed = dist;
-            if (speed > 100) speed = 100;
-            int v_mod = (speed * brush_config.velocity) / 100;
-            scale_factor = 100 - v_mod / 2;
-            if (scale_factor < 20) scale_factor = 20;
-        }
+        render_stroke_dab(pix, w, h, cx, cy, dx, dy, dist, color, eraser, move_dx, move_dy, cur_d, pressure, tilt_x, tilt_y);
 
-        // Taper In
-        int taper_pct = 100;
-        if (brush_config.taper_in > 0 && cur_d < brush_config.taper_in) {
-            taper_pct = (cur_d * 100) / brush_config.taper_in;
-            if (taper_pct < 10) taper_pct = 10;
-        }
+        d += step_size;
+        dabs_stamped++;
+    }
 
-        // Fade
-        int fade_pct = 100;
-        if (brush_config.fade > 0) {
-            if (cur_d >= brush_config.fade) {
-                fade_pct = 0;
-            } else {
-                fade_pct = ((brush_config.fade - cur_d) * 100) / brush_config.fade;
-            }
-        }
-        if (fade_pct == 0) continue;
+    stroke_spacing_dist = (float)dist - (d - step_size);
+    if (stroke_spacing_dist < 0.0f) stroke_spacing_dist = 0.0f;
+    if (stroke_spacing_dist >= step_size) stroke_spacing_dist = 0.0f;
+    stroke_cum_dist += dist;
 
-        scale_factor = (scale_factor * taper_pct * fade_pct) / 10000;
-        if (scale_factor <= 0) continue;
-
-        // Size with size_jitter and pressure sensitivity
-        int dab_r = (brush_config.size * scale_factor) / 100;
-        if (brush_config.pressure_size && pressure >= 0) {
-            int p = pressure > 1000 ? 1000 : pressure;
-            dab_r = (dab_r * p) / 1000;
-        }
-        if (brush_config.size_jitter > 0) {
-            int sj = (int)(next_random() % (brush_config.size_jitter + 1));
-            dab_r = (dab_r * (100 - sj)) / 100;
-        }
-        if (dab_r < 1) dab_r = 1;
-
-        // Angle with angle_jitter and stylus tilt dynamics
-        int dab_angle = brush_config.angle;
-        if (brush_config.tilt_angle && (tilt_x != 0 || tilt_y != 0)) {
-            int tilt_deg = w_atan2_deg(tilt_y, tilt_x);
-            dab_angle = (dab_angle + tilt_deg + 360) % 360;
-        }
-        if (brush_config.angle_jitter > 0) {
-            int aj = (int)(next_random() % (brush_config.angle_jitter + 1));
-            dab_angle = (dab_angle + aj) % 360;
-        }
-
-        // Flow with opacity_jitter, depletion and pressure sensitivity
-        int dab_flow_pct = scale_factor;
-        if (brush_config.pressure_flow && pressure >= 0) {
-            int p = pressure > 1000 ? 1000 : pressure;
-            dab_flow_pct = (dab_flow_pct * p) / 1000;
-        }
-        if (brush_config.opacity_jitter > 0) {
-            int oj = (int)(next_random() % (brush_config.opacity_jitter + 1));
-            dab_flow_pct = (dab_flow_pct * (100 - oj)) / 100;
-        }
-        if (brush_config.depletion > 0 && brush_config.type != W_MODE_BLEND) {
-            int dep_pct = (cur_d * brush_config.depletion) / 500;
-            if (dep_pct > 100) dep_pct = 100;
-            dab_flow_pct = (dab_flow_pct * (100 - dep_pct)) / 100;
-        }
-        if (dab_flow_pct <= 0) continue;
-
-        int cx = (steps <= 1) ? x0 : (x1 + (dx * (i + 1)) / steps);
-        int cy = (steps <= 1) ? y0 : (y1 + (dy * (i + 1)) / steps);
-
-        // Color with color_jitter and continuous color_pickup
-        uint32_t dab_color = color;
-        if (brush_config.color_pickup > 0) {
-            if (cx >= 0 && cx < w && cy >= 0 && cy < h) {
-                uint32_t under_p = pix[cy * w + cx];
-                if (((under_p >> 24) & 0xFF) > 10) {
-                    stroke_pickup_color = mix_color(under_p, stroke_pickup_color, brush_config.color_pickup);
-                }
-            }
-            dab_color = stroke_pickup_color;
-        }
-
-        if (brush_config.color_jitter > 0) {
-            int h = 0, s = 0, v = 0;
-            w_rgb_to_hsv(dab_color, &h, &s, &v);
-            int cj = brush_config.color_jitter;
-            int h_j = ((int)(next_random() % (cj * 2 + 1))) - cj;
-            int s_j = ((int)(next_random() % (cj + 1))) - (cj / 2);
-            int v_j = ((int)(next_random() % (cj + 1))) - (cj / 2);
-            h = (h + h_j) % 360; if (h < 0) h += 360;
-            s = s + (s_j * 255) / 100; if (s < 0) s = 0; if (s > 255) s = 255;
-            v = v + (v_j * 255) / 100; if (v < 0) v = 0; if (v > 255) v = 255;
-            dab_color = w_hsv_to_rgb(h, s, v, (color >> 24) & 0xFF);
-        }
-
-        // Perpendicular Scatter
-        if (brush_config.scatter > 0) {
-            int max_j = (brush_config.size * brush_config.scatter) / 100;
-            if (max_j > 0) {
-                int offset = ((int)(next_random() % (2 * max_j + 1))) - max_j;
-                if (dist > 0) {
-                    int nx = (-dy * 1024) / dist;
-                    int ny = (dx * 1024) / dist;
-                    cx += (nx * offset) / 1024;
-                    cy += (ny * offset) / 1024;
-                } else {
-                    cx += offset;
-                    cy += ((int)(next_random() % (2 * max_j + 1))) - max_j;
-                }
-            }
-        }
-
-        render_parametric_dab(pix, w, h, cx, cy, dab_color, eraser, move_dx, move_dy, dab_r, dab_angle, dab_flow_pct, cur_d);
+    if (dabs_stamped > 0) {
+        int d_x0 = (x0 < x1 ? x0 : x1) - d_bound;
+        int d_y0 = (y0 < y1 ? y0 : y1) - d_bound;
+        int d_x1 = (x0 > x1 ? x0 : x1) + d_bound;
+        int d_y1 = (y0 > y1 ? y0 : y1) + d_bound;
 
         if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
-            int sym_x = w - 1 - cx;
-            render_parametric_dab(pix, w, h, sym_x, cy, dab_color, eraser, -move_dx, move_dy, dab_r, 180 - dab_angle, dab_flow_pct, cur_d);
+            d_x0 = 0; d_x1 = w - 1;
         }
         if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
-            int sym_y = h - 1 - cy;
-            render_parametric_dab(pix, w, h, cx, sym_y, dab_color, eraser, move_dx, -move_dy, dab_r, -dab_angle, dab_flow_pct, cur_d);
+            d_y0 = 0; d_y1 = h - 1;
         }
-        if (brush_config.symmetry == 3) {
-            int sym_x = w - 1 - cx;
-            int sym_y = h - 1 - cy;
-            render_parametric_dab(pix, w, h, sym_x, sym_y, dab_color, eraser, -move_dx, -move_dy, dab_r, 180 + dab_angle, dab_flow_pct, cur_d);
-        }
+        composite_region(d_x0, d_y0, d_x1, d_y1);
+        if (epoch_before_stroke == composited_epoch) composited_epoch = layer_epoch;
     }
-
-    stroke_cum_dist += dist;
-    if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
-        d_x0 = 0; d_x1 = w - 1;
-    }
-    if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
-        d_y0 = 0; d_y1 = h - 1;
-    }
-    composite_region(d_x0, d_y0, d_x1, d_y1);
-    /* The bbox composite above reflects the stroke. Advance the composed epoch
-     * only if the output was already current before this stroke: an earlier
-     * unreflected write (direct JS memory write, no composite yet) must keep
-     * forcing a full rebuild. */
-    if (epoch_before_stroke == composited_epoch) composited_epoch = layer_epoch;
 }
 
 W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser) {
@@ -2999,11 +3054,9 @@ W_EXPORT void w_vector_replay_layer(int32_t layer_idx, int32_t scale_pct, int32_
             } else {
                 int sx0 = (st->points[0].x * scale_pct) / 100 + off_x;
                 int sy0 = (st->points[0].y * scale_pct) / 100 + off_y;
-                int sx1 = (st->points[1].x * scale_pct) / 100 + off_x;
-                int sy1 = (st->points[1].y * scale_pct) / 100 + off_y;
-                w_brush_stroke_ext(0, sx0, sy0, sx1, sy1, st->color, st->eraser, st->points[0].pressure, st->points[0].tilt_x, st->points[0].tilt_y);
+                w_brush_stroke_ext(0, sx0, sy0, sx0, sy0, st->color, st->eraser, st->points[0].pressure, st->points[0].tilt_x, st->points[0].tilt_y);
 
-                for (int p = 2; p < count; p++) {
+                for (int p = 1; p < count; p++) {
                     int px = (st->points[p - 1].x * scale_pct) / 100 + off_x;
                     int py = (st->points[p - 1].y * scale_pct) / 100 + off_y;
                     int cx = (st->points[p].x * scale_pct) / 100 + off_x;
@@ -3020,12 +3073,9 @@ W_EXPORT void w_vector_replay_layer(int32_t layer_idx, int32_t scale_pct, int32_
                 }
 
                 int last_p = st->closed ? 0 : (count - 1);
-                int prev_p = st->closed ? (count - 1) : (count > 1 ? count - 2 : 0);
-                int lpx = (st->points[prev_p].x * scale_pct) / 100 + off_x;
-                int lpy = (st->points[prev_p].y * scale_pct) / 100 + off_y;
                 int lcx = (st->points[last_p].x * scale_pct) / 100 + off_x;
                 int lcy = (st->points[last_p].y * scale_pct) / 100 + off_y;
-                w_brush_stroke_ext(2, lcx, lcy, lpx, lpy, st->color, st->eraser, st->points[last_p].pressure, st->points[last_p].tilt_x, st->points[last_p].tilt_y);
+                w_brush_stroke_ext(2, lcx, lcy, lcx, lcy, st->color, st->eraser, st->points[last_p].pressure, st->points[last_p].tilt_x, st->points[last_p].tilt_y);
             }
         }
     }

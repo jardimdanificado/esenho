@@ -6831,8 +6831,8 @@ class EsenhoScreenHost {
       0,
       Math.round(pts[0].x),
       Math.round(pts[0].y),
-      Math.round(pts[1].x),
-      Math.round(pts[1].y),
+      Math.round(pts[0].x),
+      Math.round(pts[0].y),
       col,
       0,
       mapPress(pts[0]),
@@ -6873,14 +6873,13 @@ class EsenhoScreenHost {
     }
 
     const last = path.closed ? pts[0] : pts[n - 1];
-    const prev = path.closed ? pts[n - 1] : pts[n - 2];
     applyPtWidth(last);
     exports.w_brush_stroke_ext(
       2,
       Math.round(last.x),
       Math.round(last.y),
-      Math.round(prev.x),
-      Math.round(prev.y),
+      Math.round(last.x),
+      Math.round(last.y),
       col,
       0,
       mapPress(last),
