@@ -3517,14 +3517,20 @@ async function main() {
       this.activeMenu = null;
       this.activeDelegate = null;
       this.openedAt = 0;
+      this._dismissTimestamp = 0;
       this._suppressNextPointer = false;
       this._suppressTimer = null;
       this.registerListeners();
     }
 
+    isDismissing() {
+      return this._suppressNextPointer || (performance.now() - (this._dismissTimestamp || 0) < 350);
+    }
+
     registerListeners() {
       const suppressEvent = (e) => {
         if (this._suppressNextPointer) {
+          if (e.button === 2) return; // Allow right click to reposition context menu
           if (e.cancelable) e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
@@ -3532,6 +3538,13 @@ async function main() {
       };
 
       const onOutsideDown = (e) => {
+        if (this._suppressNextPointer) {
+          if (e.button === 2) return;
+          if (e.cancelable) e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          return;
+        }
         if (!this.activeMenu) return;
         if (e.button === 2) return; // Allow right click to reposition/open context menu
         if (performance.now() - (this.openedAt || 0) < 40) return;
@@ -3542,20 +3555,39 @@ async function main() {
         e.stopPropagation();
         e.stopImmediatePropagation();
         this._suppressNextPointer = true;
+        this._dismissTimestamp = performance.now();
         if (this._suppressTimer) clearTimeout(this._suppressTimer);
         this._suppressTimer = setTimeout(() => {
           this._suppressNextPointer = false;
           this._suppressTimer = null;
-        }, 120);
+        }, 350);
         this.hideContextMenu();
+      };
+
+      const onTouchOrPointerUp = (e) => {
+        if (this._suppressNextPointer) {
+          suppressEvent(e);
+          if (e.touches && e.touches.length === 0) {
+            if (this._suppressTimer) clearTimeout(this._suppressTimer);
+            this._suppressTimer = setTimeout(() => {
+              this._suppressNextPointer = false;
+              this._suppressTimer = null;
+            }, 80);
+          }
+        }
       };
 
       window.addEventListener('pointerdown', onOutsideDown, true);
       window.addEventListener('touchstart', onOutsideDown, { capture: true, passive: false });
+      window.addEventListener('pointermove', suppressEvent, true);
+      window.addEventListener('touchmove', suppressEvent, { capture: true, passive: false });
       window.addEventListener('mousedown', suppressEvent, true);
-      window.addEventListener('pointerup', suppressEvent, true);
+      window.addEventListener('pointerup', onTouchOrPointerUp, true);
       window.addEventListener('mouseup', suppressEvent, true);
-      window.addEventListener('touchend', suppressEvent, true);
+      window.addEventListener('touchend', onTouchOrPointerUp, { capture: true, passive: false });
+      window.addEventListener('pointercancel', suppressEvent, true);
+      window.addEventListener('touchcancel', suppressEvent, { capture: true, passive: false });
+      window.addEventListener('contextmenu', suppressEvent, true);
       window.addEventListener('click', (e) => {
         if (this._suppressNextPointer) {
           if (e.cancelable) e.preventDefault();
@@ -3626,6 +3658,9 @@ async function main() {
         this.activeDelegate.onHide();
       }
       this.activeDelegate = null;
+      if (typeof host?.clearPendingTouch === 'function') {
+        host.clearPendingTouch();
+      }
     }
   }
 
@@ -5081,8 +5116,9 @@ async function main() {
   });
 
   canvasEl.addEventListener('pointerdown', e => {
-    if (window.contextMenuService && window.contextMenuService.activeMenu) {
+    if (window.contextMenuService && (window.contextMenuService.activeMenu || window.contextMenuService.isDismissing?.())) {
       window.contextMenuService.hideContextMenu();
+      clearPendingTouch();
       e.preventDefault();
       e.stopPropagation();
       return;
@@ -5493,6 +5529,7 @@ async function main() {
     touch.pending = null;
     touch.coalescedQueue.length = 0;
   }
+  host.clearPendingTouch = clearPendingTouch;
 
   const _scratchTouch = { sx: 0, sy: 0, x: 0, y: 0 };
   function touchDocPos(t) {
@@ -5530,8 +5567,9 @@ async function main() {
 
   canvasEl.addEventListener('touchstart', e => {
     e.preventDefault();
-    if (window.contextMenuService && window.contextMenuService.activeMenu) {
+    if (window.contextMenuService && (window.contextMenuService.activeMenu || window.contextMenuService.isDismissing?.())) {
       window.contextMenuService.hideContextMenu();
+      clearPendingTouch();
       return;
     }
     _cachedCanvasRect = canvasEl.getBoundingClientRect();

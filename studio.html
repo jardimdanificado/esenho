@@ -4333,7 +4333,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.13.98)</span>
+    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.13.99)</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -8242,11 +8242,13 @@
         }
         touchLongPressStart = null;
       }
+      window._clearStudioTouchLongPress = clearTouchLongPress;
 
       viewportContainer.addEventListener('pointerdown', async (e) => {
         clearTouchLongPress();
-        if (window.contextMenuService && window.contextMenuService.activeMenu) {
+        if (window.contextMenuService && (window.contextMenuService.activeMenu || window.contextMenuService.isDismissing?.())) {
           window.contextMenuService.hideContextMenu();
+          clearTouchLongPress();
           e.preventDefault();
           e.stopPropagation();
           return;
@@ -10850,14 +10852,20 @@
           this.activeMenu = null;
           this.activeDelegate = null;
           this.openedAt = 0;
+          this._dismissTimestamp = 0;
           this._suppressNextPointer = false;
           this._suppressTimer = null;
           this.registerListeners();
         }
 
+        isDismissing() {
+          return this._suppressNextPointer || (performance.now() - (this._dismissTimestamp || 0) < 350);
+        }
+
         registerListeners() {
           const suppressEvent = (e) => {
             if (this._suppressNextPointer) {
+              if (e.button === 2) return; // Allow right click to reposition context menu
               if (e.cancelable) e.preventDefault();
               e.stopPropagation();
               e.stopImmediatePropagation();
@@ -10865,6 +10873,13 @@
           };
 
           const onOutsideDown = (e) => {
+            if (this._suppressNextPointer) {
+              if (e.button === 2) return;
+              if (e.cancelable) e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              return;
+            }
             if (!this.activeMenu) return;
             if (e.button === 2) return;
             if (performance.now() - (this.openedAt || 0) < 40) return;
@@ -10875,20 +10890,39 @@
             e.stopPropagation();
             e.stopImmediatePropagation();
             this._suppressNextPointer = true;
+            this._dismissTimestamp = performance.now();
             if (this._suppressTimer) clearTimeout(this._suppressTimer);
             this._suppressTimer = setTimeout(() => {
               this._suppressNextPointer = false;
               this._suppressTimer = null;
-            }, 120);
+            }, 350);
             this.hideContextMenu();
+          };
+
+          const onTouchOrPointerUp = (e) => {
+            if (this._suppressNextPointer) {
+              suppressEvent(e);
+              if (e.touches && e.touches.length === 0) {
+                if (this._suppressTimer) clearTimeout(this._suppressTimer);
+                this._suppressTimer = setTimeout(() => {
+                  this._suppressNextPointer = false;
+                  this._suppressTimer = null;
+                }, 80);
+              }
+            }
           };
 
           window.addEventListener('pointerdown', onOutsideDown, true);
           window.addEventListener('touchstart', onOutsideDown, { capture: true, passive: false });
+          window.addEventListener('pointermove', suppressEvent, true);
+          window.addEventListener('touchmove', suppressEvent, { capture: true, passive: false });
           window.addEventListener('mousedown', suppressEvent, true);
-          window.addEventListener('pointerup', suppressEvent, true);
+          window.addEventListener('pointerup', onTouchOrPointerUp, true);
           window.addEventListener('mouseup', suppressEvent, true);
-          window.addEventListener('touchend', suppressEvent, true);
+          window.addEventListener('touchend', onTouchOrPointerUp, { capture: true, passive: false });
+          window.addEventListener('pointercancel', suppressEvent, true);
+          window.addEventListener('touchcancel', suppressEvent, { capture: true, passive: false });
+          window.addEventListener('contextmenu', suppressEvent, true);
           window.addEventListener('click', (e) => {
             if (this._suppressNextPointer) {
               if (e.cancelable) e.preventDefault();
@@ -10974,6 +11008,9 @@
             this.activeDelegate.onHide();
           }
           this.activeDelegate = null;
+          if (typeof window._clearStudioTouchLongPress === 'function') {
+            window._clearStudioTouchLongPress();
+          }
         }
       }
 
