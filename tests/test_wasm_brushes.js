@@ -173,4 +173,33 @@ test('Zero-Copy WASM Brush Protocol & Suite', async (t) => {
     assert.equal(host.activeWasmBrush.getParam(1), 95);
     console.log('   ✔ Custom WASM preset saving & restoring parameters verified');
   });
+
+  await t.test('5. WASM brushes are registered in brush presets and listed in REPL', async () => {
+    const { createRequire } = await import('node:module');
+    const req = createRequire(import.meta.url);
+    const { EsenhoScreenHost, BRUSH_PRESETS } = req('../src/esenho.js');
+    const host = new EsenhoScreenHost();
+    host.canvasActor = canvasActor;
+
+    const oilPath = path.resolve(rootDir, 'plugins/brushes/bristle_oil.wasm');
+    const oilBytes = fs.readFileSync(oilPath);
+    await host.loadWasmBrush('bristle_oil', oilBytes);
+
+    // Verify presence in BRUSH_PRESETS proxy
+    assert.ok(BRUSH_PRESETS['wasm_bristle_oil'], 'wasm_bristle_oil must exist in BRUSH_PRESETS');
+    assert.equal(BRUSH_PRESETS['wasm_bristle_oil'].category, 'wasm');
+
+    // Verify selectBrushPreset activates it
+    host.selectBrushPreset('wasm_bristle_oil');
+    assert.ok(host.activeWasmBrush, 'selectBrushPreset(wasm_bristle_oil) must activate WASM brush');
+    assert.equal(host.activeWasmBrush.name, 'bristle_oil');
+
+    // Verify REPL presets listing
+    let logs = [];
+    host.sendConsoleLog = (text) => logs.push(text);
+    host.executeCommand('presets');
+    assert.ok(logs.some(l => l.includes('Zero-Copy WASM Brushes')), 'REPL presets must include Zero-Copy WASM Brushes section');
+    assert.ok(logs.some(l => l.includes('wasm_bristle_oil')), 'REPL presets must list wasm_bristle_oil');
+    console.log('   ✔ WASM brush preset registration and REPL listing verified');
+  });
 });

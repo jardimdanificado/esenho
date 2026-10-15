@@ -22,7 +22,7 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"name\":\"particle_spray\","
         "\"title\":\"Particle Airbrush Splatter\","
         "\"category\":\"Airbrush\","
-        "\"spacing\":0.20,"
+        "\"spacing\":0.05,"
         "\"minRadius\":8,"
         "\"maxRadius\":150,"
         "\"params\":["
@@ -104,7 +104,8 @@ W_EXPORT void w_brush_render_dab(
         if (px - drop_r < x0 || px + drop_r >= x1 || py - drop_r < y0 || py + drop_r >= y1) continue;
 
         float drop_alpha_factor = 0.5f + w_brush_randf() * 0.5f;
-        uint32_t alpha_step = (uint32_t)(drop_alpha_factor * base_flow * (float)base_a);
+        uint32_t alpha_step = (uint32_t)(drop_alpha_factor * base_flow * 255.0f);
+        if (alpha_step > 255) alpha_step = 255;
         if (alpha_step == 0) continue;
 
         if (drop_r <= 1) {

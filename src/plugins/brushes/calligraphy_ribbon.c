@@ -22,7 +22,7 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"name\":\"calligraphy_ribbon\","
         "\"title\":\"Calligraphy Ribbon Nib\","
         "\"category\":\"Inking\","
-        "\"spacing\":0.12,"
+        "\"spacing\":0.04,"
         "\"minRadius\":4,"
         "\"maxRadius\":100,"
         "\"params\":["
@@ -99,9 +99,10 @@ W_EXPORT void w_brush_render_dab(
             if (ellipse_eq > 1.0f) continue;
 
             float edge_dist = 1.0f - ellipse_eq;
-            float aa = (edge_dist > 0.2f) ? 1.0f : (edge_dist * 5.0f);
+            float aa = w_smoothstep(0.0f, 0.25f, edge_dist);
 
-            uint32_t alpha_step = (uint32_t)(aa * flow_mult * (float)base_a);
+            uint32_t alpha_step = (uint32_t)(aa * flow_mult * 255.0f);
+            if (alpha_step > 255) alpha_step = 255;
             if (alpha_step == 0) continue;
 
             uint32_t dst = row[x];

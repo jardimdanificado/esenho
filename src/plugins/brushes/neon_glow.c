@@ -21,7 +21,7 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"name\":\"neon_glow\","
         "\"title\":\"Neon Glow & Plasma\","
         "\"category\":\"Special FX\","
-        "\"spacing\":0.20,"
+        "\"spacing\":0.05,"
         "\"minRadius\":4,"
         "\"maxRadius\":140,"
         "\"params\":["
@@ -91,14 +91,11 @@ W_EXPORT void w_brush_render_dab(
             float dist_sq = dx * dx + dy_sq;
             if (dist_sq > rad_sq) continue;
 
-            float norm_sq = dist_sq * inv_rad_sq; // 0.0 at center to 1.0 at edge
-            float glow_falloff = 1.0f - norm_sq;
-            glow_falloff = glow_falloff * glow_falloff;
+            float glow_falloff = w_brush_falloff_smooth(dist_sq, inv_rad_sq);
 
             float core_factor = 0.0f;
             if (dist_sq <= core_radius_sq && inv_core_sq > 0.0f) {
-                float ct = 1.0f - (dist_sq * inv_core_sq);
-                core_factor = ct * ct;
+                core_factor = w_brush_falloff_smooth(dist_sq, inv_core_sq);
             }
 
             uint32_t r = (uint32_t)((float)base_r + (255.0f - (float)base_r) * core_factor);

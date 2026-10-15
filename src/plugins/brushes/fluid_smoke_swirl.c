@@ -161,7 +161,7 @@ const char* w_brush_get_info(void) {
         "\"name\":\"fluid_smoke_swirl\","
         "\"title\":\"Navier-Stokes Fluid Swirl\","
         "\"category\":\"Fluid Dynamics\","
-        "\"spacing\":0.20,"
+        "\"spacing\":0.05,"
         "\"minRadius\":4,"
         "\"maxRadius\":140,"
         "\"params\":["
@@ -308,7 +308,7 @@ void w_brush_render_dab(
                     row[x] = (na << 24) | (dst & 0x00FFFFFF);
                 }
             } else {
-                row[x] = w_brush_blend_over(stamp_col, row[x], alpha_u8);
+                row[x] = w_brush_blend_over(stamp_col, row[x], 255);
             }
         }
     }

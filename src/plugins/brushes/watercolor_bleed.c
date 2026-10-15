@@ -22,7 +22,7 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"name\":\"watercolor_bleed\","
         "\"title\":\"Watercolor Bleed Wash\","
         "\"category\":\"Watercolor\","
-        "\"spacing\":0.22,"
+        "\"spacing\":0.05,"
         "\"minRadius\":6,"
         "\"maxRadius\":160,"
         "\"params\":["
@@ -113,7 +113,13 @@ W_EXPORT void w_brush_render_dab(
             float noise = (float)(hash & 0xFF) * (1.0f / 255.0f);
             float gran_factor = 1.0f + (noise - 0.5f) * gran_amount;
 
-            float final_flow = wash_density * gran_factor * water_flow;
+            float edge_feather = 1.0f;
+            if (dist_ratio > 0.65f) {
+                float ef = (1.0f - dist_ratio) / 0.35f;
+                edge_feather = ef * ef * (3.0f - 2.0f * ef);
+            }
+
+            float final_flow = wash_density * gran_factor * water_flow * edge_feather;
             if (final_flow > 1.0f) final_flow = 1.0f;
 
             uint32_t alpha_step = (uint32_t)(final_flow * (float)base_a);

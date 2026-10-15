@@ -22,7 +22,7 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"name\":\"charcoal_chalk\","
         "\"title\":\"Charcoal & Rough Chalk\","
         "\"category\":\"Sketch\","
-        "\"spacing\":0.20,"
+        "\"spacing\":0.05,"
         "\"minRadius\":4,"
         "\"maxRadius\":120,"
         "\"params\":["
@@ -96,7 +96,7 @@ W_EXPORT void w_brush_render_dab(
             if (dist_sq > rad_sq) continue;
 
             float dist_ratio = dist_sq * inv_rad_sq; // 0.0 to 1.0
-            float radial_falloff = 1.0f - dist_ratio;
+            float radial_falloff = w_brush_falloff_smooth(dist_sq, inv_rad_sq);
 
             float tooth = get_paper_tooth(x, y, scale);
 
@@ -114,7 +114,8 @@ W_EXPORT void w_brush_render_dab(
             deposit *= radial_falloff * (0.5f + eff_p * 0.5f);
             if (deposit > 1.0f) deposit = 1.0f;
 
-            uint32_t alpha_step = (uint32_t)(deposit * (float)base_a);
+            uint32_t alpha_step = (uint32_t)(deposit * 255.0f);
+            if (alpha_step > 255) alpha_step = 255;
             if (alpha_step == 0) continue;
 
             uint32_t dst = row[x];

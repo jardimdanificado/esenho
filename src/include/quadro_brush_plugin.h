@@ -44,6 +44,31 @@ static inline float w_brush_rand_symf(void) {
     return w_brush_randf() * 2.0f - 1.0f;
 }
 
+/** Fast freestanding power function for smooth curve shaping */
+static inline float w_fast_powf(float base, float exp) {
+    if (base <= 0.0f) return 0.0f;
+    if (base >= 1.0f) return 1.0f;
+    int iexp = (int)exp;
+    if (iexp < 0) return 0.0f;
+    float res = 1.0f;
+    float cur = base;
+    while (iexp > 0) {
+        if (iexp & 1) res *= cur;
+        cur *= cur;
+        iexp >>= 1;
+    }
+    float frac = exp - (float)((int)exp);
+    if (frac > 0.01f) {
+        res *= (1.0f - frac + frac * base);
+    }
+    return res;
+}
+
+static inline float w_floorf(float x) {
+    int i = (int)x;
+    return (x < 0.0f && x != (float)i) ? (float)(i - 1) : (float)i;
+}
+
 /* ── Color Component Extraction & Packing (32-bit ARGB/ABGR) ── */
 static inline uint32_t w_color_get_a(uint32_t c) { return (c >> 24) & 0xFF; }
 static inline uint32_t w_color_get_b(uint32_t c) { return (c >> 16) & 0xFF; }
@@ -132,6 +157,22 @@ static inline uint32_t w_brush_blend_pigment(uint32_t src, uint32_t dst, uint32_
     uint32_t out_a = ((src >> 24) & 0xFF) > ((dst >> 24) & 0xFF) ? ((src >> 24) & 0xFF) : ((dst >> 24) & 0xFF);
 
     return (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
+}
+
+/**
+ * Smooth Hermite Falloff (zero derivative at edge, eliminating visible circular contours).
+ */
+static inline float w_brush_falloff_smooth(float dist_sq, float inv_rad_sq) {
+    float u = 1.0f - (dist_sq * inv_rad_sq);
+    if (u <= 0.0f) return 0.0f;
+    return u * u * (3.0f - 2.0f * u);
+}
+
+static inline float w_smoothstep(float edge0, float edge1, float x) {
+    float t = (x - edge0) / (edge1 - edge0);
+    if (t < 0.0f) return 0.0f;
+    if (t > 1.0f) return 1.0f;
+    return t * t * (3.0f - 2.0f * t);
 }
 
 /**

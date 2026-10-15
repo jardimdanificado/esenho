@@ -465,8 +465,16 @@ async function main() {
       if (typeof populateBrushPresetsUI === 'function') {
         populateBrushPresetsUI();
       }
-      if (typeof renderBrushShelf === 'function') {
+      if (typeof window.renderBrushShelf === 'function') {
+        window.renderBrushShelf();
+      } else if (typeof renderBrushShelf === 'function') {
         renderBrushShelf();
+      }
+      if (typeof syncUiFromHost === 'function') {
+        syncUiFromHost();
+      }
+      if (typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('esenho:wasm-brushes-loaded'));
       }
     }
   };
@@ -4412,6 +4420,7 @@ async function main() {
     };
     const brushCatMap = new Map();
     for (const [k, preset] of Object.entries(BRUSH_PRESETS)) {
+      if (!preset.name || k.startsWith('wasm_') || preset.category === 'wasm') continue;
       const cat = preset.category || 'sketch';
       if (!brushCatMap.has(cat)) brushCatMap.set(cat, []);
       brushCatMap.get(cat).push([k, preset]);
@@ -4426,7 +4435,8 @@ async function main() {
             const wKey = k.replace(/^wasm[:_]/i, '');
             const wb = host.wasmBrushes?.get(wKey);
             const info = wb?.getInfo?.() || wb?.info;
-            return { key: k, name: info?.title || wKey, size: null, isWasm: true };
+            const p = presetsMap[k];
+            return { key: k, name: info?.title || p?.name || wKey, size: null, isWasm: true };
           }
           return null;
         })
@@ -4456,8 +4466,8 @@ async function main() {
         }))
       });
     }
+    const wasmItems = [];
     if (host.wasmBrushes && host.wasmBrushes.size > 0) {
-      const wasmItems = [];
       for (const [k, wb] of host.wasmBrushes.entries()) {
         const info = wb.getInfo ? wb.getInfo() : wb.info;
         const title = info?.title || k;
@@ -4472,6 +4482,22 @@ async function main() {
           }
         });
       }
+    } else {
+      for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
+        if (!k.startsWith('wasm_') && p.category !== 'wasm') continue;
+        const isAct = host.activeBrush === k;
+        wasmItems.push({
+          type: 'item',
+          label: (isAct ? '✓ ' : '') + (p.name || k),
+          action: () => {
+            host.selectBrushPreset(k);
+            syncUiFromHost();
+            populateBrushPresetsUI();
+          }
+        });
+      }
+    }
+    if (wasmItems.length > 0) {
       brushLibraryItems.push({
         type: 'submenu',
         label: 'WASM Brushes',
@@ -6749,7 +6775,7 @@ async function main() {
 
       const byCat = new Map();
       for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
-        if (!p.name) continue;
+        if (!p.name || k.startsWith('wasm_') || p.category === 'wasm') continue;
         const cat = p.category || 'paint';
         if (!byCat.has(cat)) byCat.set(cat, []);
         byCat.get(cat).push([k, p]);
@@ -6768,15 +6794,23 @@ async function main() {
         sel.appendChild(grp);
       }
 
-      if (host.wasmBrushes && host.wasmBrushes.size > 0) {
+      const wasmEntries = (host.wasmBrushes && host.wasmBrushes.size > 0)
+        ? Array.from(host.wasmBrushes.entries()).map(([k, wb]) => {
+            const info = wb.getInfo ? wb.getInfo() : wb.info;
+            return { key: `wasm_${k}`, title: info?.title || k, rawKey: k };
+          })
+        : Object.entries(BRUSH_PRESETS)
+            .filter(([k, p]) => k.startsWith('wasm_') || p.category === 'wasm')
+            .map(([k, p]) => ({ key: k, title: p.name || k, rawKey: k.replace(/^wasm[:_]/i, '') }));
+
+      if (wasmEntries.length > 0) {
         const grpWasm = document.createElement('optgroup');
         grpWasm.label = 'WASM Brushes (Zero-Copy)';
-        for (const [k, wb] of host.wasmBrushes.entries()) {
-          const info = wb.getInfo ? wb.getInfo() : wb.info;
+        for (const item of wasmEntries) {
           const opt = document.createElement('option');
-          opt.value = `wasm_${k}`;
-          opt.textContent = info?.title || k;
-          if (host.activeBrush === `wasm_${k}` || (host.activeWasmBrush && host.activeWasmBrush.name === k)) opt.selected = true;
+          opt.value = item.key;
+          opt.textContent = item.title;
+          if (host.activeBrush === item.key || (host.activeWasmBrush && host.activeWasmBrush.name === item.rawKey)) opt.selected = true;
           grpWasm.appendChild(opt);
         }
         sel.appendChild(grpWasm);
@@ -9146,21 +9180,51 @@ async function main() {
           } else if (cfg.type === 'select_preset') {
             const pSel = document.createElement('select');
             pSel.className = 'tb-select';
-            pSel.innerHTML = '<option value="" disabled selected>-- Presets --</option>';
-            for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
-              if (!p.name) continue;
-              const opt = document.createElement('option');
-              opt.value = k;
-              opt.textContent = p.name;
-              pSel.appendChild(opt);
-            }
-            const custom = host.customBrushPresets || {};
-            for (const [k, p] of Object.entries(custom)) {
-              const opt = document.createElement('option');
-              opt.value = k;
-              opt.textContent = p.name || k;
-              pSel.appendChild(opt);
-            }
+            const populateSel = () => {
+              pSel.innerHTML = '<option value="" disabled selected>-- Presets --</option>';
+              for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
+                if (!p.name || k.startsWith('wasm_') || p.category === 'wasm') continue;
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.textContent = p.name;
+                pSel.appendChild(opt);
+              }
+              const wasmEntries = (host.wasmBrushes && host.wasmBrushes.size > 0)
+                ? Array.from(host.wasmBrushes.entries()).map(([k, wb]) => {
+                    const info = wb.getInfo ? wb.getInfo() : wb.info;
+                    return { key: `wasm_${k}`, title: info?.title || k };
+                  })
+                : Object.entries(BRUSH_PRESETS)
+                    .filter(([k, p]) => k.startsWith('wasm_') || p.category === 'wasm')
+                    .map(([k, p]) => ({ key: k, title: p.name || k }));
+
+              if (wasmEntries.length > 0) {
+                const grpWasm = document.createElement('optgroup');
+                grpWasm.label = 'WASM Brushes (Zero-Copy)';
+                for (const item of wasmEntries) {
+                  const opt = document.createElement('option');
+                  opt.value = item.key;
+                  opt.textContent = item.title;
+                  grpWasm.appendChild(opt);
+                }
+                pSel.appendChild(grpWasm);
+              }
+              const custom = host.customBrushPresets || {};
+              if (Object.keys(custom).length > 0) {
+                const grpCustom = document.createElement('optgroup');
+                grpCustom.label = 'Custom Presets';
+                for (const [k, p] of Object.entries(custom)) {
+                  const opt = document.createElement('option');
+                  opt.value = k;
+                  opt.textContent = p.name || k;
+                  grpCustom.appendChild(opt);
+                }
+                pSel.appendChild(grpCustom);
+              }
+            };
+            populateSel();
+            pSel.addEventListener('pointerdown', populateSel);
+            pSel.addEventListener('focus', populateSel);
             pSel.addEventListener('change', () => {
               if (pSel.value) {
                 host.selectBrushPreset(pSel.value);
@@ -9358,13 +9422,35 @@ async function main() {
           const optGrpBuiltin = document.createElement('optgroup');
           optGrpBuiltin.label = 'Built-in Presets';
           for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
-            if (!p.name) continue;
+            if (!p.name || k.startsWith('wasm_') || p.category === 'wasm') continue;
             const opt = document.createElement('option');
             opt.value = k;
             opt.textContent = p.name;
             optGrpBuiltin.appendChild(opt);
           }
           sel.appendChild(optGrpBuiltin);
+
+          const wasmEntries = (host.wasmBrushes && host.wasmBrushes.size > 0)
+            ? Array.from(host.wasmBrushes.entries()).map(([k, wb]) => {
+                const info = wb.getInfo ? wb.getInfo() : wb.info;
+                return { key: `wasm_${k}`, title: info?.title || k };
+              })
+            : Object.entries(BRUSH_PRESETS)
+                .filter(([k, p]) => k.startsWith('wasm_') || p.category === 'wasm')
+                .map(([k, p]) => ({ key: k, title: p.name || k }));
+
+          if (wasmEntries.length > 0) {
+            const grpWasm = document.createElement('optgroup');
+            grpWasm.label = 'WASM Brushes (Zero-Copy)';
+            for (const item of wasmEntries) {
+              const opt = document.createElement('option');
+              opt.value = item.key;
+              opt.textContent = item.title;
+              grpWasm.appendChild(opt);
+            }
+            sel.appendChild(grpWasm);
+          }
+
           const custom = host.customBrushPresets || {};
           if (Object.keys(custom).length > 0) {
             const grpCustom = document.createElement('optgroup');
@@ -13500,7 +13586,7 @@ async function main() {
       }
 
       for (const [key, preset] of Object.entries(presetsMap)) {
-        if (!preset.name) continue;
+        if (!preset.name || key.startsWith('wasm_') || preset.category === 'wasm') continue;
 
         let cat = preset.category || 'paint';
         if (host.customBrushPresets && host.customBrushPresets[key]) cat = 'custom';
@@ -13525,25 +13611,38 @@ async function main() {
       }
 
       // ── Zero-Copy WASM Brushes ──
-      if (host.wasmBrushes && host.wasmBrushes.size > 0 && (activeBrushCat === 'all' || activeBrushCat === 'wasm')) {
-        for (const [key, wb] of host.wasmBrushes.entries()) {
-          const info = wb.getInfo ? wb.getInfo() : wb.info;
-          const isAct = host.activeBrush === `wasm_${key}` || host.activeWasmBrush === wb;
+      if (activeBrushCat === 'all' || activeBrushCat === 'wasm') {
+        const wasmList = (host.wasmBrushes && host.wasmBrushes.size > 0)
+          ? Array.from(host.wasmBrushes.entries()).map(([k, wb]) => {
+              const info = wb.getInfo ? wb.getInfo() : wb.info;
+              return { key: k, title: info?.title || k, category: info?.category || 'Kernel', paramsCount: (info?.params || []).length, wb };
+            })
+          : Object.entries(presetsMap)
+              .filter(([k, p]) => k.startsWith('wasm_') || p.category === 'wasm')
+              .map(([k, p]) => {
+                const cleanK = k.replace(/^wasm[:_]/i, '');
+                return { key: cleanK, title: p.name || cleanK, category: p.category || 'Kernel', paramsCount: 4, wb: null };
+              });
+
+        for (const item of wasmList) {
+          const isAct = host.activeBrush === `wasm_${item.key}` || (host.activeWasmBrush && host.activeWasmBrush.name === item.key);
           const card = document.createElement('div');
           card.className = `ip-brush-card${isAct ? ' active' : ''}`;
           card.style.borderColor = isAct ? '#fabd2f' : 'rgba(250, 189, 47, 0.25)';
           card.innerHTML = `
             <div class="ip-brush-card-top">
-              <span class="ip-brush-card-title" style="color: #fabd2f;">${info?.title || key}</span>
+              <span class="ip-brush-card-title" style="color: #fabd2f;">${item.title}</span>
               <span style="font-size: 8.5px; background: #d79921; color: #1d2021; padding: 1px 4px; border-radius: 3px; font-weight: bold;">WASM</span>
             </div>
-            <div class="ip-brush-card-desc">${info?.category ? info.category + ' • ' : ''}Zero-Copy Kernel (${(info?.params || []).length} params)</div>
+            <div class="ip-brush-card-desc">${item.category ? item.category + ' • ' : ''}Zero-Copy Kernel (${item.paramsCount} params)</div>
           `;
           card.addEventListener('click', () => {
-            host.selectWasmBrush(key);
+            host.selectWasmBrush(item.key);
             syncUiFromHost();
             renderBrushShelf();
-            openWasmBrushModal(key);
+            if (item.wb || host.getWasmBrush(item.key)) {
+              openWasmBrushModal(item.key);
+            }
             triggerHaptic(15);
           });
           brushShelfGrid.appendChild(card);
@@ -13645,6 +13744,11 @@ async function main() {
     };
     window.setBrushShelfCategory = setShelfCategory;
     window.renderBrushShelf = renderBrushShelf;
+    window.addEventListener('esenho:wasm-brushes-loaded', () => {
+      renderBrushShelf();
+      if (typeof populateBrushPresetsUI === 'function') populateBrushPresetsUI();
+      if (typeof syncUiFromHost === 'function') syncUiFromHost();
+    });
 
     catPills.forEach(pill => {
       pill.addEventListener('click', () => {
@@ -15267,8 +15371,15 @@ async function main() {
     const activeKey = host.activeBrush;
     if (_lastSyncedBrushKey !== activeKey) {
       _lastSyncedBrushKey = activeKey;
-      const p = BRUSH_PRESETS[activeKey] || (host.customBrushPresets && host.customBrushPresets[activeKey]);
-      const activeBrushDisplayName = p?.name || activeKey || 'Studio Inker';
+      let activeBrushDisplayName = null;
+      if (activeKey && (activeKey.startsWith('wasm_') || (host.wasmBrushes && host.wasmBrushes.has(activeKey)))) {
+        const wKey = activeKey.replace(/^wasm[:_]/i, '');
+        const wb = host.wasmBrushes?.get(wKey);
+        activeBrushDisplayName = wb?.getInfo?.()?.title || wb?.info?.title || BRUSH_PRESETS[activeKey]?.name || wKey;
+      } else {
+        const p = BRUSH_PRESETS[activeKey] || (host.customBrushPresets && host.customBrushPresets[activeKey]);
+        activeBrushDisplayName = p?.name || activeKey || 'Studio Inker';
+      }
       document.querySelectorAll('.ip-hud-brush-name, #ip-active-brush-name').forEach(el => {
         el.textContent = activeBrushDisplayName;
       });
@@ -15786,8 +15897,16 @@ async function main() {
       const labName = document.getElementById('ip-lab-brush-name');
       if (labName) {
         const activeKey = host.activeBrush;
-        const p = BRUSH_PRESETS[activeKey] || (host.customBrushPresets && host.customBrushPresets[activeKey]);
-        labName.textContent = `(${p?.name || activeKey || 'Custom'})`;
+        let displayName = null;
+        if (activeKey && (activeKey.startsWith('wasm_') || (host.wasmBrushes && host.wasmBrushes.has(activeKey)))) {
+          const wKey = activeKey.replace(/^wasm[:_]/i, '');
+          const wb = host.wasmBrushes?.get(wKey);
+          displayName = wb?.getInfo?.()?.title || wb?.info?.title || BRUSH_PRESETS[activeKey]?.name || wKey;
+        } else {
+          const p = BRUSH_PRESETS[activeKey] || (host.customBrushPresets && host.customBrushPresets[activeKey]);
+          displayName = p?.name || activeKey || 'Custom';
+        }
+        labName.textContent = `(${displayName})`;
       }
       // Brush Size Range (Infinite Painter style)
       const curRange = typeof host.getBrushSizeRange === 'function' ? host.getBrushSizeRange() : { min: 1, max: 300 };

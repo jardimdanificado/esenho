@@ -33,7 +33,7 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"name\":\"bristle_oil\","
         "\"title\":\"Bristle Oil Paint\","
         "\"category\":\"Paint\","
-        "\"spacing\":0.20,"
+        "\"spacing\":0.05,"
         "\"minRadius\":4,"
         "\"maxRadius\":120,"
         "\"params\":["
@@ -144,9 +144,10 @@ W_EXPORT void w_brush_render_dab(
                 float dist_sq = dx * dx + dy_sq;
                 if (dist_sq > b_rad_sq) continue;
 
-                float falloff = 1.0f - (dist_sq * inv_b_rad_sq);
+                float falloff = w_brush_falloff_smooth(dist_sq, inv_b_rad_sq);
                 float bristle_flow = falloff * g_paint_charge * b->wetness * eff_p;
-                uint32_t alpha_step = (uint32_t)(bristle_flow * (float)base_a);
+                uint32_t alpha_step = (uint32_t)(bristle_flow * 255.0f);
+                if (alpha_step > 255) alpha_step = 255;
                 if (alpha_step == 0) continue;
 
                 uint32_t dst = row[px];

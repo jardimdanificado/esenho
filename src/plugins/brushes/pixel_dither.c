@@ -40,7 +40,7 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"name\":\"pixel_dither\","
         "\"title\":\"Pixel Dither Shading\","
         "\"category\":\"Pixel Art\","
-        "\"spacing\":0.20,"
+        "\"spacing\":0.05,"
         "\"minRadius\":2,"
         "\"maxRadius\":80,"
         "\"params\":["
@@ -110,8 +110,8 @@ W_EXPORT void w_brush_render_dab(
             if (dist_sq > rad_sq) continue;
 
             // Compute distance falloff factor from center
-            float dist_ratio = dist_sq / rad_sq;
-            float local_density = target_density * (1.0f - dist_ratio * 0.7f);
+            float smooth_falloff = w_brush_falloff_smooth(dist_sq, 1.0f / rad_sq);
+            float local_density = target_density * (0.25f + 0.75f * smooth_falloff);
 
             // Bayer threshold lookup
             float bayer_val = 0.0f;

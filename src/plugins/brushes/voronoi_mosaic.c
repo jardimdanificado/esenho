@@ -3,9 +3,9 @@
  * Cellular Voronoi Stained Glass & Crystal Fractures (voronoi_mosaic.c)
  *
  * Real-time Worley/Voronoi cellular decomposition & facetization in C99:
- * - Scatters dynamic seed sites based on stroke dynamics and pressure
- * - Computes dual-order distances (F1, F2) to generate lead came fractures
- * - Samples underlying canvas paint to create instant faceted stained glass
+ * - Continuous spatial Worley lattice eliminating circular dab seams
+ * - Dual-order distance came borders (F2 - F1)
+ * - Hermite cubic boundary feathering
  * =========================================================================
  */
 
@@ -16,7 +16,6 @@
 typedef struct {
     float x, y;
     uint32_t color;
-    float nx, ny;
 } VoronoiSeed;
 
 static VoronoiSeed _seeds[MAX_SEEDS];
@@ -32,7 +31,7 @@ const char* w_brush_get_info(void) {
         "\"name\":\"voronoi_mosaic\","
         "\"title\":\"Voronoi Crystal Stained Glass\","
         "\"category\":\"Cellular Geometry\","
-        "\"spacing\":0.22,"
+        "\"spacing\":0.06,"
         "\"minRadius\":8,"
         "\"maxRadius\":160,"
         "\"params\":["
@@ -58,7 +57,7 @@ void w_brush_set_param(int param_idx, int val) {
 }
 
 void w_brush_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int is_eraser) {
-    w_brush_srand(0x76543210 ^ (uint32_t)(x * 43.0f + y * 47.0f));
+    _num_seeds = 0;
 }
 
 void w_brush_render_dab(
@@ -78,53 +77,59 @@ void w_brush_render_dab(
 
     int density = _param_density;
     if (density < 6) density = 6;
-    if (density > MAX_SEEDS) density = MAX_SEEDS;
+    if (density > 48) density = 48;
 
     uint32_t tint_r = color & 0xFF;
     uint32_t tint_g = (color >> 8) & 0xFF;
     uint32_t tint_b = (color >> 16) & 0xFF;
 
-    /* Scatter Voronoi seed points inside the circular dab */
-    _num_seeds = density;
-    for (int i = 0; i < _num_seeds; i++) {
-        float r = radius * (0.15f + 0.85f * w_brush_randf());
-        float theta = w_brush_randf() * 6.283185f;
-        float sx = cx + r * w_cosf(theta);
-        float sy = cy + r * w_sinf(theta);
-
-        int isx = (int)sx; if (isx < 0) isx = 0; else if (isx >= canvas_w) isx = canvas_w - 1;
-        int isy = (int)sy; if (isy < 0) isy = 0; else if (isy >= canvas_h) isy = canvas_h - 1;
-
-        _seeds[i].x = sx;
-        _seeds[i].y = sy;
-
-        /* Sample underlying canvas color at seed location */
-        uint32_t sampled = pixels[isy * canvas_w + isx];
-        uint32_t sa = (sampled >> 24) & 0xFF;
-
-        if (sa > 30) {
-            /* Blend sampled canvas paint with brush tint */
-            uint32_t sr = sampled & 0xFF;
-            uint32_t sg = (sampled >> 8) & 0xFF;
-            uint32_t sb = (sampled >> 16) & 0xFF;
-            uint32_t mr = (sr * 60 + tint_r * 40) / 100;
-            uint32_t mg = (sg * 60 + tint_g * 40) / 100;
-            uint32_t mb = (sb * 60 + tint_b * 40) / 100;
-            _seeds[i].color = w_color_pack(mr, mg, mb, 255);
-        } else {
-            /* Random facet shade offset around brush tint */
-            int jitter = (int)(w_brush_rand_symf() * 25.0f);
-            int fr = (int)tint_r + jitter; if (fr < 0) fr = 0; else if (fr > 255) fr = 255;
-            int fg = (int)tint_g + jitter; if (fg < 0) fg = 0; else if (fg > 255) fg = 255;
-            int fb = (int)tint_b + jitter; if (fb < 0) fb = 0; else if (fb > 255) fb = 255;
-            _seeds[i].color = w_color_pack((uint32_t)fr, (uint32_t)fg, (uint32_t)fb, 255);
-        }
-    }
+    float cell_size = radius * (20.0f / (float)density);
+    if (cell_size < 10.0f) cell_size = 10.0f;
 
     int x0 = (int)(cx - radius); if (x0 < 0) x0 = 0;
     int y0 = (int)(cy - radius); if (y0 < 0) y0 = 0;
     int x1 = (int)(cx + radius); if (x1 >= canvas_w) x1 = canvas_w - 1;
     int y1 = (int)(cy + radius); if (y1 >= canvas_h) y1 = canvas_h - 1;
+
+    /* Continuous spatial grid seed generation ensuring seamless stroke overlap */
+    int gx0 = (int)w_floorf((float)x0 / cell_size) - 1;
+    int gy0 = (int)w_floorf((float)y0 / cell_size) - 1;
+    int gx1 = (int)w_floorf((float)x1 / cell_size) + 1;
+    int gy1 = (int)w_floorf((float)y1 / cell_size) + 1;
+
+    _num_seeds = 0;
+    for (int gy = gy0; gy <= gy1 && _num_seeds < MAX_SEEDS; gy++) {
+        for (int gx = gx0; gx <= gx1 && _num_seeds < MAX_SEEDS; gx++) {
+            uint32_t h = ((uint32_t)gx * 1597334677U) ^ ((uint32_t)gy * 3812015801U);
+            float ox = 0.15f + 0.70f * (float)(h & 0x3FF) * (1.0f / 1024.0f);
+            float oy = 0.15f + 0.70f * (float)((h >> 10) & 0x3FF) * (1.0f / 1024.0f);
+            float sx = ((float)gx + ox) * cell_size;
+            float sy = ((float)gy + oy) * cell_size;
+
+            int isx = (int)sx; if (isx < 0) isx = 0; else if (isx >= canvas_w) isx = canvas_w - 1;
+            int isy = (int)sy; if (isy < 0) isy = 0; else if (isy >= canvas_h) isy = canvas_h - 1;
+
+            _seeds[_num_seeds].x = sx;
+            _seeds[_num_seeds].y = sy;
+
+            uint32_t sampled = pixels[isy * canvas_w + isx];
+            uint32_t sa = (sampled >> 24) & 0xFF;
+            if (sa > 30) {
+                uint32_t sr = sampled & 0xFF, sg = (sampled >> 8) & 0xFF, sb = (sampled >> 16) & 0xFF;
+                uint32_t mr = (sr * 55 + tint_r * 45) / 100;
+                uint32_t mg = (sg * 55 + tint_g * 45) / 100;
+                uint32_t mb = (sb * 55 + tint_b * 45) / 100;
+                _seeds[_num_seeds].color = w_color_pack(mr, mg, mb, 255);
+            } else {
+                int jitter = (int)(((int)((h >> 20) & 0x3F) - 32) * 0.75f);
+                int fr = (int)tint_r + jitter; if (fr < 0) fr = 0; else if (fr > 255) fr = 255;
+                int fg = (int)tint_g + jitter; if (fg < 0) fg = 0; else if (fg > 255) fg = 255;
+                int fb = (int)tint_b + jitter; if (fb < 0) fb = 0; else if (fb > 255) fb = 255;
+                _seeds[_num_seeds].color = w_color_pack((uint32_t)fr, (uint32_t)fg, (uint32_t)fb, 255);
+            }
+            _num_seeds++;
+        }
+    }
 
     float inv_r_sq = 1.0f / (radius * radius);
     float border_th = (float)_param_border_th;
@@ -140,7 +145,7 @@ void w_brush_render_dab(
             float dist_sq = dx * dx + dy_sq;
             if (dist_sq > radius * radius) continue;
 
-            float falloff = 1.0f - (dist_sq * inv_r_sq);
+            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
             float weight = falloff * pressure;
 
             /* Compute two closest Voronoi seeds (F1 and F2) */
@@ -162,7 +167,6 @@ void w_brush_render_dab(
                 }
             }
 
-            /* Approximate Euclidean distances using fast linear root estimate */
             float dist_f1 = w_sqrtf(f1);
             float dist_f2 = w_sqrtf(f2);
             float delta_f = dist_f2 - dist_f1;
@@ -227,7 +231,7 @@ void w_brush_render_dab(
                     row[x] = (na << 24) | (dst & 0x00FFFFFF);
                 }
             } else {
-                row[x] = w_brush_blend_over(out_pixel, row[x], (out_pixel >> 24) & 0xFF);
+                row[x] = w_brush_blend_over(out_pixel, row[x], 255);
             }
         }
     }

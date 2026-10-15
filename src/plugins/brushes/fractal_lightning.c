@@ -25,7 +25,7 @@ const char* w_brush_get_info(void) {
         "\"name\":\"fractal_lightning\","
         "\"title\":\"Lichtenberg Lightning Bolt\","
         "\"category\":\"Physical Simulation\","
-        "\"spacing\":0.25,"
+        "\"spacing\":0.08,"
         "\"minRadius\":4,"
         "\"maxRadius\":120,"
         "\"params\":["
@@ -128,8 +128,7 @@ static void draw_glow_segment(
                 uint32_t ca = (uint32_t)(core_alpha * 255.0f);
                 row[x] = w_brush_blend_add(core_color, row[x], ca);
             } else {
-                float glow_falloff = (1.0f - (dist_sq * inv_glow_sq));
-                glow_falloff = glow_falloff * glow_falloff; /* quadratic falloff */
+                float glow_falloff = w_brush_falloff_smooth(dist_sq, inv_glow_sq);
                 uint32_t ga = (uint32_t)(glow_falloff * alpha_scale * 160.0f);
                 row[x] = w_brush_blend_add(glow_color, row[x], ga);
             }

@@ -35,7 +35,7 @@ const char* w_brush_get_info(void) {
         "\"name\":\"reaction_diffusion\","
         "\"title\":\"Turing Reaction-Diffusion\","
         "\"category\":\"Organic Simulation\","
-        "\"spacing\":0.18,"
+        "\"spacing\":0.05,"
         "\"minRadius\":6,"
         "\"maxRadius\":160,"
         "\"params\":["
@@ -199,8 +199,8 @@ void w_brush_render_dab(
             float v = _V[RD_IX(gi, gj)];
             if (v < 0.15f) continue;
 
-            /* Smooth edge falloff */
-            float circular_falloff = 1.0f - (dist_sq * inv_r_sq);
+            /* Smooth Hermite edge falloff */
+            float circular_falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
             float pattern_intensity = (v - 0.15f) * 1.4f;
             if (pattern_intensity > 1.0f) pattern_intensity = 1.0f;
 
@@ -217,7 +217,7 @@ void w_brush_render_dab(
                     row[x] = (na << 24) | (dst & 0x00FFFFFF);
                 }
             } else {
-                row[x] = w_brush_blend_over(stamp_col, row[x], alpha);
+                row[x] = w_brush_blend_over(stamp_col, row[x], 255);
             }
         }
     }

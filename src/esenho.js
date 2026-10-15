@@ -4747,7 +4747,14 @@ const COMMAND_RULES = [
     run: (m, host) => {
       host.sendConsoleLog("--- Built-in Brush Presets ---");
       for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
-        if (p.name) host.sendConsoleLog(`  ${k.padEnd(14)} - ${p.name}: ${p.desc || ''}`);
+        if (p.name && !k.startsWith('wasm_')) host.sendConsoleLog(`  ${k.padEnd(14)} - ${p.name}: ${p.desc || ''}`);
+      }
+      if (host.wasmBrushes && host.wasmBrushes.size > 0) {
+        host.sendConsoleLog("--- Zero-Copy WASM Brushes ---");
+        for (const [k, wb] of host.wasmBrushes.entries()) {
+          const info = wb.getInfo ? wb.getInfo() : wb.info;
+          host.sendConsoleLog(`  ${('wasm_' + k).padEnd(14)} - ${info?.title || k}: ${info?.category || 'Kernel'} (${(info?.params || []).length} params)`);
+        }
       }
       if (host.customBrushPresets && Object.keys(host.customBrushPresets).length > 0) {
         host.sendConsoleLog("--- Custom Presets ---");
@@ -10359,9 +10366,10 @@ class EsenhoScreenHost {
 
         const baseSize = (this.brushParams && this.brushParams.size) ? this.brushParams.size : 16;
         const radius = Math.max(1.0, baseSize / 2.0);
-        const info = b.getInfo();
-        const spacingPct = (info && info.spacing) ? info.spacing : 0.10;
-        const stepSize = Math.max(1.0, radius * 2.0 * spacingPct);
+        const info = b.getInfo ? b.getInfo() : b.info;
+        const spacingParam = (this.brushParams && typeof this.brushParams.spacing === 'number') ? (this.brushParams.spacing / 100.0) : null;
+        const spacingPct = spacingParam ?? ((info && typeof info.spacing === 'number') ? info.spacing : 0.05);
+        const stepSize = Math.max(0.75, radius * 2.0 * Math.max(0.02, Math.min(0.25, spacingPct)));
         const sym = this.brushParams?.symmetry || 0;
 
         let dirtyX0 = 999999, dirtyY0 = 999999, dirtyX1 = -1, dirtyY1 = -1;
@@ -10377,19 +10385,19 @@ class EsenhoScreenHost {
           if (y1 > dirtyY1) dirtyY1 = y1;
         };
 
-        const stampDabAt = (cx, cy, spd, ang) => {
-          b.renderDab(pixPtr, cw, ch, cx, cy, radius, mappedPressure, ang, spd, col >>> 0, eraser);
+        const stampDabAt = (cx, cy, spd, ang, pPress) => {
+          b.renderDab(pixPtr, cw, ch, cx, cy, radius, pPress, ang, spd, col >>> 0, eraser);
           markDirty(cx, cy);
           if (sym === 1 || sym === 3) {
-            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, cy, radius, mappedPressure, 180 - ang, spd, col >>> 0, eraser);
+            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, cy, radius, pPress, 180 - ang, spd, col >>> 0, eraser);
             markDirty(cw - 1 - cx, cy);
           }
           if (sym === 2 || sym === 3) {
-            b.renderDab(pixPtr, cw, ch, cx, ch - 1 - cy, radius, mappedPressure, -ang, spd, col >>> 0, eraser);
+            b.renderDab(pixPtr, cw, ch, cx, ch - 1 - cy, radius, pPress, -ang, spd, col >>> 0, eraser);
             markDirty(cx, ch - 1 - cy);
           }
           if (sym === 3) {
-            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, ch - 1 - cy, radius, mappedPressure, 180 + ang, spd, col >>> 0, eraser);
+            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, ch - 1 - cy, radius, pPress, 180 + ang, spd, col >>> 0, eraser);
             markDirty(cw - 1 - cx, ch - 1 - cy);
           }
         };
@@ -10397,8 +10405,9 @@ class EsenhoScreenHost {
         if (s === 0) {
           this._wasmSpacingDist = 0.0;
           this._wasmLastTime = performance.now();
+          this._wasmPrevPressure = mappedPressure;
           b.strokeBegin(curX, curY, mappedPressure, tx, ty, col >>> 0, eraser);
-          stampDabAt(curX, curY, 0.0, 0.0);
+          stampDabAt(curX, curY, 0.0, 0.0, mappedPressure);
         } else if (s === 1) {
           const dx = curX - pX;
           const dy = curY - pY;
@@ -10409,21 +10418,25 @@ class EsenhoScreenHost {
             const spd = dist / dt;
             this._wasmLastTime = now;
             const ang = (Math.atan2(dy, dx) * 180.0) / Math.PI;
+            const prevP = (this._wasmPrevPressure !== undefined) ? this._wasmPrevPressure : mappedPressure;
 
             let d = stepSize - (this._wasmSpacingDist || 0.0);
             while (d <= dist) {
               const t = d / dist;
               const cx = pX + dx * t;
               const cy = pY + dy * t;
-              stampDabAt(cx, cy, spd, ang);
+              const interpP = prevP + (mappedPressure - prevP) * t;
+              stampDabAt(cx, cy, spd, ang, interpP);
               d += stepSize;
             }
             this._wasmSpacingDist = dist - (d - stepSize);
             if (this._wasmSpacingDist < 0.0) this._wasmSpacingDist = 0.0;
             if (this._wasmSpacingDist >= stepSize) this._wasmSpacingDist = 0.0;
+            this._wasmPrevPressure = mappedPressure;
           }
         } else if (s === 2) {
           b.strokeEnd();
+          this._wasmSpacingDist = 0.0;
         }
 
         if (dirtyX0 <= dirtyX1 && dirtyY0 <= dirtyY1) {
@@ -10754,6 +10767,32 @@ class EsenhoScreenHost {
         brush.init(cw, ch);
       }
       this.wasmBrushes.set(brushName, brush);
+
+      // Register in EsenhoRegistry so standard preset queries discover it
+      let reg = (typeof EsenhoRegistry !== 'undefined') ? EsenhoRegistry : null;
+      if (!reg && typeof require === 'function') {
+        try { reg = require('./resource_registry.js'); } catch (_) {}
+      }
+      if (reg && typeof reg.register === 'function') {
+        try {
+          const info = brush.getInfo ? brush.getInfo() : brush.info;
+          reg.register('brush', {
+            id: `wasm_${brushName}`,
+            name: info?.title || brushName,
+            category: 'wasm',
+            desc: `${info?.category || 'Kernel'} Zero-Copy WASM Brush (${(info?.params || []).length} params)`,
+            isWasm: true,
+            wasmBrush: brushName,
+            size: 15,
+            opacity: 100
+          });
+        } catch (_) {}
+      }
+
+      if (typeof this.onWasmBrushLoaded === 'function') {
+        try { this.onWasmBrushLoaded(brushName, brush); } catch (_) {}
+      }
+
       return brush;
     } catch (err) {
       console.warn(`[EsenhoHost] Failed to load WASM brush "${brushName}":`, err);

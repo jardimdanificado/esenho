@@ -24,7 +24,7 @@ const char* w_brush_get_info(void) {
         "\"name\":\"chromatic_holo_warp\","
         "\"title\":\"Molten Mercury Holograph\","
         "\"category\":\"Optics & Liquid\","
-        "\"spacing\":0.15,"
+        "\"spacing\":0.05,"
         "\"minRadius\":5,"
         "\"maxRadius\":150,"
         "\"params\":["
@@ -131,7 +131,7 @@ void w_brush_render_dab(
             float dist_sq = fdx * fdx + dy_sq;
             if (dist_sq > radius * radius) continue;
 
-            float falloff = 1.0f - (dist_sq * inv_r_sq);
+            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
             float weight = falloff * pressure;
 
             /* Sobel luminance normal extraction */
@@ -214,7 +214,7 @@ void w_brush_render_dab(
                     row[x] = (na << 24) | (dst & 0x00FFFFFF);
                 }
             } else {
-                row[x] = w_brush_blend_over(out_pixel, row[x], eff_alpha);
+                row[x] = w_brush_blend_over(out_pixel, row[x], 255);
             }
         }
     }

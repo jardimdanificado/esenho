@@ -21,7 +21,7 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"name\":\"sand_sim\","
         "\"title\":\"Falling Sand Physics\","
         "\"category\":\"Special FX\","
-        "\"spacing\":0.12,"
+        "\"spacing\":0.05,"
         "\"minRadius\":6,"
         "\"maxRadius\":100,"
         "\"params\":["
