@@ -648,7 +648,11 @@ export class RasterAnimatorUI {
         URL.revokeObjectURL(url);
       }
     } catch (err) {
-      alert('GIF export failed: ' + err.message);
+      if (typeof uiToast === 'function') {
+        uiToast('GIF export failed: ' + err.message, 'danger');
+      } else if (typeof alert === 'function') {
+        alert('GIF export failed: ' + err.message);
+      }
     }
   }
 
@@ -671,7 +675,11 @@ export class RasterAnimatorUI {
         URL.revokeObjectURL(url);
       }
     } catch (err) {
-      alert('WebM export failed: ' + err.message);
+      if (typeof uiToast === 'function') {
+        uiToast('WebM export failed: ' + err.message, 'danger');
+      } else if (typeof alert === 'function') {
+        alert('WebM export failed: ' + err.message);
+      }
     }
   }
 
@@ -932,9 +940,11 @@ export class RasterAnimatorUI {
       grpNameSpan.style.cssText = 'font-weight: 700; color: var(--text-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
       grpNameSpan.textContent = grp.name;
       grpNameSpan.title = grp.name;
-      grpNameSpan.addEventListener('dblclick', (e) => {
+      grpNameSpan.addEventListener('dblclick', async (e) => {
         e.stopPropagation();
-        const newName = prompt('Rename folder:', grp.name);
+        const newName = typeof uiPrompt === 'function'
+          ? await uiPrompt('Rename folder:', grp.name, { title: 'Rename Folder' })
+          : (typeof prompt === 'function' ? prompt('Rename folder:', grp.name) : null);
         if (newName && newName.trim()) {
           grp.name = newName.trim();
           if (host?.syncUiFromHost) host.syncUiFromHost();
@@ -1053,9 +1063,11 @@ export class RasterAnimatorUI {
       nameSpan.style.cssText = `font-size: 9.5px; font-weight: ${isLayerActive ? '800' : '600'}; color: ${isLayerActive ? 'var(--primary)' : 'var(--text)'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;`;
       nameSpan.textContent = layerName;
       nameSpan.title = layerName;
-      nameSpan.addEventListener('dblclick', (e) => {
+      nameSpan.addEventListener('dblclick', async (e) => {
         e.stopPropagation();
-        const newName = prompt(`Rename layer #${lid}:`, layerName);
+        const newName = typeof uiPrompt === 'function'
+          ? await uiPrompt(`Rename layer #${lid}:`, layerName, { title: 'Rename Layer' })
+          : (typeof prompt === 'function' ? prompt(`Rename layer #${lid}:`, layerName) : null);
         if (newName && newName.trim()) {
           if (!host.layerNames) host.layerNames = new Map();
           host.layerNames.set(lid, newName.trim());

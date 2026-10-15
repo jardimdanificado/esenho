@@ -2401,7 +2401,7 @@
       });
 
       // Save Palette
-      d.btnSaveBfPalette?.addEventListener('click', () => {
+      d.btnSaveBfPalette?.addEventListener('click', async () => {
         const swatches = this.brushFillConfig.colorPalette || [];
         if (swatches.length === 0) {
           if (typeof showNotification === 'function') {
@@ -2409,7 +2409,9 @@
           }
           return;
         }
-        const name = prompt('Enter a name for this new color palette:', 'Brush Palette');
+        const name = typeof uiPrompt === 'function'
+          ? await uiPrompt('Enter a name for this new color palette:', 'Brush Palette', { title: 'Save Color Palette' })
+          : (typeof window !== 'undefined' && window.prompt ? window.prompt('Enter a name for this new color palette:', 'Brush Palette') : 'Brush Palette');
         if (name && name.trim()) {
           const newPal = PaletteManager.createPalette(name.trim(), swatches);
           if (newPal) {
@@ -3054,8 +3056,10 @@
 
     // ── Material Presets System ──
 
-    saveCurrentAsMaterialPreset() {
-      const name = typeof window !== 'undefined' && window.prompt ? window.prompt('Enter name for new Material preset:') : 'Custom Material';
+    async saveCurrentAsMaterialPreset() {
+      const name = typeof uiPrompt === 'function'
+        ? await uiPrompt('Enter name for new Material preset:', 'Custom Material', { title: 'New Material Preset' })
+        : (typeof window !== 'undefined' && window.prompt ? window.prompt('Enter name for new Material preset:') : 'Custom Material');
       if (!name || !name.trim()) return;
 
       const isBrushFillMode = (this.activeMode === 'brushfill' || (this.brushFillConfig && this.brushFillConfig.enabled));
@@ -3659,22 +3663,49 @@
       }
 
       if (!isDoc && pal) {
-        createItem('Clear All Swatches', '🗑️', () => {
-          if (typeof window !== 'undefined' && window.confirm && !window.confirm(`Clear all swatches in palette "${pal.name}"?`)) return;
+        createItem('Clear All Swatches', '🗑️', async () => {
+          if (typeof uiConfirm === 'function') {
+            const confirmed = await uiConfirm(`Clear all swatches in palette "${pal.name}"?`, {
+              title: 'Clear Palette',
+              danger: true,
+              confirmText: 'Clear Swatches'
+            });
+            if (!confirmed) return;
+          } else if (typeof window !== 'undefined' && window.confirm && !window.confirm(`Clear all swatches in palette "${pal.name}"?`)) {
+            return;
+          }
           PaletteManager.clearPalette(palId);
           this.renderPalettes();
         });
 
-        createItem('Delete Palette', '❌', () => {
-          if (typeof window !== 'undefined' && window.confirm && !window.confirm(`Delete palette "${pal.name}"?`)) return;
+        createItem('Delete Palette', '❌', async () => {
+          if (typeof uiConfirm === 'function') {
+            const confirmed = await uiConfirm(`Delete palette "${pal.name}"?`, {
+              title: 'Delete Palette',
+              danger: true,
+              confirmText: 'Delete'
+            });
+            if (!confirmed) return;
+          } else if (typeof window !== 'undefined' && window.confirm && !window.confirm(`Delete palette "${pal.name}"?`)) {
+            return;
+          }
           PaletteManager.deletePalette(palId);
           this.renderPalettes();
           if (typeof showNotification === 'function') showNotification(`Palette "${pal.name}" deleted.`);
         }, true);
       }
 
-      createItem('Restore Factory Defaults', '🔄', () => {
-        if (typeof window !== 'undefined' && window.confirm && !window.confirm('Restore all default palettes to factory swatches?')) return;
+      createItem('Restore Factory Defaults', '🔄', async () => {
+        if (typeof uiConfirm === 'function') {
+          const confirmed = await uiConfirm('Restore all default palettes to factory swatches?', {
+            title: 'Restore Defaults',
+            danger: true,
+            confirmText: 'Restore'
+          });
+          if (!confirmed) return;
+        } else if (typeof window !== 'undefined' && window.confirm && !window.confirm('Restore all default palettes to factory swatches?')) {
+          return;
+        }
         PaletteManager.resetAllToFactory();
         this.renderPalettes();
         if (typeof showNotification === 'function') showNotification('Palettes reset to factory defaults.');
@@ -3698,14 +3729,14 @@
       }
     }
 
-    promptEditSwatchColor(palId, idx, initialColor) {
+    async promptEditSwatchColor(palId, idx, initialColor) {
       if (palId === 'document') {
         if (typeof showNotification === 'function') showNotification('Cannot edit live document color directly.');
         return;
       }
-      const val = typeof window !== 'undefined' && window.prompt
-        ? window.prompt(`Edit color for swatch #${idx + 1} (HEX):`, initialColor)
-        : null;
+      const val = typeof uiPrompt === 'function'
+        ? await uiPrompt(`Edit color for swatch #${idx + 1} (HEX):`, initialColor, { title: 'Edit Swatch Color' })
+        : (typeof window !== 'undefined' && window.prompt ? window.prompt(`Edit color for swatch #${idx + 1} (HEX):`, initialColor) : null);
       if (val) {
         let clean = val.trim();
         if (!clean.startsWith('#')) clean = '#' + clean;
@@ -3718,10 +3749,10 @@
       }
     }
 
-    promptCreatePalette() {
-      const name = typeof window !== 'undefined' && window.prompt
-        ? window.prompt('Enter name for new Palette:', 'My Palette')
-        : 'New Palette';
+    async promptCreatePalette() {
+      const name = typeof uiPrompt === 'function'
+        ? await uiPrompt('Enter name for new Palette:', 'My Palette', { title: 'New Palette' })
+        : (typeof window !== 'undefined' && window.prompt ? window.prompt('Enter name for new Palette:', 'My Palette') : 'New Palette');
       if (!name || !name.trim()) return;
       const created = PaletteManager.createPalette(name.trim(), [this.currentHex || '#fabd2f']);
       if (this.dom.palSelect) this.dom.palSelect.value = created.id;
@@ -3729,12 +3760,12 @@
       if (typeof showNotification === 'function') showNotification(`Palette "${created.name}" created!`);
     }
 
-    promptRenamePalette(palId) {
+    async promptRenamePalette(palId) {
       const pal = PaletteManager.getPalette(palId);
       if (!pal) return;
-      const newName = typeof window !== 'undefined' && window.prompt
-        ? window.prompt(`Rename palette "${pal.name}":`, pal.name)
-        : null;
+      const newName = typeof uiPrompt === 'function'
+        ? await uiPrompt(`Rename palette "${pal.name}":`, pal.name, { title: 'Rename Palette' })
+        : (typeof window !== 'undefined' && window.prompt ? window.prompt(`Rename palette "${pal.name}":`, pal.name) : null);
       if (newName && newName.trim()) {
         PaletteManager.renamePalette(palId, newName.trim());
         this.renderPalettes();
@@ -3742,16 +3773,30 @@
       }
     }
 
-    promptGenerateHarmony(palId) {
-      const chosen = typeof window !== 'undefined' && window.prompt
-        ? window.prompt(`Choose Color Harmony type based on ${this.currentHex}:\n1 = Analogous\n2 = Complementary\n3 = Split-Complementary\n4 = Triadic\n5 = Tetradic\n6 = Monochromatic`, '1')
-        : '1';
+    async promptGenerateHarmony(palId) {
+      let type = 'analogous';
+      if (typeof uiSelect === 'function') {
+        const harmonyOptions = [
+          { value: 'analogous', label: 'Analogous', description: 'Adjacent hues on the color wheel' },
+          { value: 'complementary', label: 'Complementary', description: 'Opposite hues across the color wheel' },
+          { value: 'split_complementary', label: 'Split-Complementary', description: 'Base hue plus two adjacent to complement' },
+          { value: 'triadic', label: 'Triadic', description: 'Three evenly spaced hues (120° apart)' },
+          { value: 'tetradic', label: 'Tetradic', description: 'Four hues arranged into two complementary pairs' },
+          { value: 'monochromatic', label: 'Monochromatic', description: 'Variations in lightness and saturation' }
+        ];
+        const selected = await uiSelect(`Choose harmony style based on ${this.currentHex}:`, harmonyOptions, { title: 'Color Harmony' });
+        if (!selected) return;
+        type = selected;
+      } else {
+        const chosen = typeof window !== 'undefined' && window.prompt
+          ? window.prompt(`Choose Color Harmony type based on ${this.currentHex}:\n1 = Analogous\n2 = Complementary\n3 = Split-Complementary\n4 = Triadic\n5 = Tetradic\n6 = Monochromatic`, '1')
+          : '1';
+        if (!chosen) return;
+        const map = { '1': 'analogous', '2': 'complementary', '3': 'split_complementary', '4': 'triadic', '5': 'tetradic', '6': 'monochromatic' };
+        type = map[chosen.trim()] || 'analogous';
+      }
 
-      if (!chosen) return;
-      const map = { '1': 'analogous', '2': 'complementary', '3': 'split_complementary', '4': 'triadic', '5': 'tetradic', '6': 'monochromatic' };
-      const type = map[chosen.trim()] || 'analogous';
       const colors = PaletteManager.generateHarmony(this.currentHex, type);
-
       const targetId = palId === 'document' ? 'custom' : palId;
       colors.forEach(c => PaletteManager.addColor(targetId, c));
       if (palId === 'document' && this.dom.palSelect) this.dom.palSelect.value = 'custom';
@@ -4320,9 +4365,11 @@
         chip.style.backgroundColor = col;
         chip.title = `Color #${idx + 1}: ${col} (Click to edit, Double-click to remove)`;
 
-        chip.addEventListener('click', (e) => {
+        chip.addEventListener('click', async (e) => {
           e.stopPropagation();
-          const newColor = prompt(`Edit color #${idx + 1}:`, col);
+          const newColor = typeof uiPrompt === 'function'
+            ? await uiPrompt(`Edit color #${idx + 1} (HEX):`, col, { title: 'Edit Palette Color' })
+            : (typeof window !== 'undefined' && window.prompt ? window.prompt(`Edit color #${idx + 1}:`, col) : null);
           if (newColor && /^#[0-9a-fA-F]{3,8}$/.test(newColor.trim())) {
             this.brushFillConfig.colorPalette[idx] = newColor.trim();
             this.renderBrushFillPalette();
@@ -4428,8 +4475,10 @@
       this.applyBrushFillToSelected(true);
     }
 
-    saveCurrentAsBrushFillPreset() {
-      const name = prompt('Enter a name for this Brush Fill Preset:', 'My Custom Brush Fill');
+    async saveCurrentAsBrushFillPreset() {
+      const name = typeof uiPrompt === 'function'
+        ? await uiPrompt('Enter a name for this Brush Fill Preset:', 'My Custom Brush Fill', { title: 'Save Brush Fill Preset' })
+        : (typeof window !== 'undefined' && window.prompt ? window.prompt('Enter a name for this Brush Fill Preset:', 'My Custom Brush Fill') : 'My Custom Brush Fill');
       if (!name || !name.trim()) return;
 
       const id = 'custom_bf_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);

@@ -4333,7 +4333,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.13.95)</span>
+    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.13.97)</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -5322,6 +5322,7 @@
 
   <!-- Scripts -->
   <script src="src/version.js"></script>
+  <script src="src/ui_dialog.js"></script>
   <script src="vendor/dockview-core.js"></script>
   <script src="src/project_store.js"></script>
   <script src="src/resource_registry.js"></script>
@@ -6046,10 +6047,10 @@
         showNotification('All ruler guides cleared');
       });
 
-      const clearGuidesFromRuler = (e) => {
+      const clearGuidesFromRuler = async (e) => {
         e.preventDefault();
         if ((userGuides.horizontal && userGuides.horizontal.length > 0) || (userGuides.vertical && userGuides.vertical.length > 0)) {
-          if (confirm('Clear all ruler guides?')) {
+          if (await uiConfirm('Clear all ruler guides?', { title: 'Clear Guides', danger: true })) {
             userGuides = { horizontal: [], vertical: [] };
             selectedGuide = null;
             drawOverlay();
@@ -8242,7 +8243,7 @@
         touchLongPressStart = null;
       }
 
-      viewportContainer.addEventListener('pointerdown', (e) => {
+      viewportContainer.addEventListener('pointerdown', async (e) => {
         clearTouchLongPress();
         if (window.contextMenuService && window.contextMenuService.activeMenu) {
           window.contextMenuService.hideContextMenu();
@@ -8714,7 +8715,7 @@
           doc.select(currentDraftObj.id);
           scheduleFastRender();
         } else if (activeTool === 'text') {
-          const textVal = prompt('Enter text for vector typography:', 'Esenho Vector');
+          const textVal = await uiPrompt('Enter text for vector typography:', 'Esenho Vector', { title: 'Vector Typography' });
           if (textVal) {
             let fillVal = document.getElementById('prop-fill-text')?.value;
             if (!fillVal || fillVal === 'none') {
@@ -11875,7 +11876,7 @@
       // Render with Quadro WASM
       document.getElementById('btn-render-quadro')?.addEventListener('click', () => {
         if (!quadroRenderer) {
-          alert('Quadro WASM module initializing or offline.');
+          uiToast('Quadro WASM module initializing or offline.', 'warning');
           return;
         }
         try {
@@ -11897,10 +11898,11 @@
               a.download = `quadro_raster_${Date.now()}.png`;
               a.click();
               URL.revokeObjectURL(url);
+              uiToast('Quadro render exported successfully!', 'success');
             });
           }
         } catch (err) {
-          alert('Quadro render error: ' + err.message);
+          uiToast('Quadro render error: ' + err.message, 'danger');
         }
       });
 
@@ -12227,12 +12229,12 @@
         }
       });
 
-      document.getElementById('btn-save-fill-preset')?.addEventListener('click', () => {
+      document.getElementById('btn-save-fill-preset')?.addEventListener('click', async () => {
         const selected = doc.getSelectedObjects();
         const obj = selected[0];
         const ft = obj ? (obj.fillTexture || {}) : {};
         const ff = obj ? (obj.fillFilter || (ft.wasmFilter && ft.wasmFilter.enabled ? ft.wasmFilter : (obj.wasmFilter && obj.wasmFilter.enabled ? obj.wasmFilter : null))) : null;
-        const name = window.prompt('Enter name for custom fill preset:');
+        const name = await uiPrompt('Enter name for custom fill preset:', '', { title: 'Save Fill Preset' });
         if (name && name.trim()) {
           const configToSave = {
             name: name.trim(),
@@ -12674,12 +12676,12 @@
         }
       });
 
-      document.getElementById('btn-save-brush-preset')?.addEventListener('click', () => {
+      document.getElementById('btn-save-brush-preset')?.addEventListener('click', async () => {
         const selected = doc.getSelectedObjects();
         const obj = selected[0];
         const bc = obj ? (obj.brushConfig || {}) : {};
         const st = obj ? (obj.strokeTexture || {}) : {};
-        const name = window.prompt('Enter name for custom brush preset:');
+        const name = await uiPrompt('Enter name for custom brush preset:', '', { title: 'Save Brush Preset' });
         if (name && name.trim()) {
           const strokeFilt = (obj && obj.strokeFilter && obj.strokeFilter.enabled) ? obj.strokeFilter : (bc.wasmFilter && bc.wasmFilter.enabled ? bc.wasmFilter : null);
           const configToSave = {
@@ -14307,8 +14309,8 @@
           {
             type: 'item',
             label: '+ New Animation Clip',
-            action: () => {
-              if (window.createAnimation) window.createAnimation();
+            action: async () => {
+              if (window.createAnimation) await window.createAnimation();
             }
           },
           {
@@ -14321,8 +14323,8 @@
           {
             type: 'item',
             label: 'Rename Active Clip...',
-            action: () => {
-              if (window.renameAnimation) window.renameAnimation();
+            action: async () => {
+              if (window.renameAnimation) await window.renameAnimation();
             }
           },
           {
@@ -14330,8 +14332,8 @@
             label: 'Delete Active Clip',
             danger: true,
             disabled: clips.length <= 1,
-            action: () => {
-              if (window.deleteAnimation) window.deleteAnimation();
+            action: async () => {
+              if (window.deleteAnimation) await window.deleteAnimation();
             }
           }
         );
@@ -15916,7 +15918,7 @@
         const selected = doc.getSelectedObjects();
         const imgObj = selected.find(o => o.type === 'image');
         if (!imgObj || !imgObj.src) return;
-        const name = window.prompt('Texture Asset Name:', imgObj.id || 'Custom Texture') || 'Custom Texture';
+        const name = (await uiPrompt('Texture Asset Name:', imgObj.id || 'Custom Texture', { title: 'Texture Asset Name' })) || 'Custom Texture';
         const texKey = `tex_${Date.now()}`;
 
         const img = imgObj._imgElement || new Image();
@@ -15954,7 +15956,7 @@
         const selected = doc.getSelectedObjects();
         const imgObj = selected.find(o => o.type === 'image');
         if (!imgObj || !imgObj.src) return;
-        const name = window.prompt('Brush Tip Shape Name:', imgObj.id || 'Custom Tip') || 'Custom Tip';
+        const name = (await uiPrompt('Brush Tip Shape Name:', imgObj.id || 'Custom Tip', { title: 'Brush Tip Shape Name' })) || 'Custom Tip';
         const tipKey = `tip_${Date.now()}`;
 
         const img = imgObj._imgElement || new Image();
@@ -16059,7 +16061,8 @@
         const selected = doc.getSelectedObjects();
         const imgObj = selected.find(o => o.type === 'image');
         if (!imgObj || !imgObj._imgElement) {
-          alert('Please select a raster image on canvas to trace.');
+          if (typeof uiToast === 'function') uiToast('Please select a raster image on canvas to trace.', 'warning');
+          else alert('Please select a raster image on canvas to trace.');
           return;
         }
 
@@ -16088,7 +16091,8 @@
         });
 
         if (!traced) {
-          alert('Could not trace any vector contours from this image with current settings.');
+          if (typeof uiToast === 'function') uiToast('Could not trace any vector contours from this image with current settings.', 'warning');
+          else alert('Could not trace any vector contours from this image with current settings.');
           return;
         }
 
@@ -16526,11 +16530,14 @@
         scheduleAutosave();
       };
 
-      window.createAnimation = function(name = null, totalFrames = 60, fps = 24) {
+      window.createAnimation = async function(name = null, totalFrames = 60, fps = 24) {
         if (!window.DopeSheet) return null;
         let animName = name;
         if (!animName) {
-          animName = prompt('Enter new animation clip name:', `Animation ${(window.animationClips?.length || 0) + 1}`);
+          const defaultName = `Animation ${(window.animationClips?.length || 0) + 1}`;
+          animName = typeof uiPrompt === 'function'
+            ? await uiPrompt('Enter new animation clip name:', defaultName, { title: 'New Clip' })
+            : prompt('Enter new animation clip name:', defaultName);
           if (!animName) return null;
           animName = animName.trim();
         }
@@ -16577,14 +16584,17 @@
         return cloned;
       };
 
-      window.renameAnimation = function(clipId, newName = null) {
+      window.renameAnimation = async function(clipId, newName = null) {
+        if (!clipId && window.dopeSheet) clipId = window.dopeSheet.id;
         if (!clipId || !window.animationClips) return false;
         const clip = window.animationClips.find(c => c.id === clipId) || window.dopeSheet;
         if (!clip) return false;
 
         let name = newName;
         if (!name) {
-          name = prompt('Rename animation clip:', clip.name);
+          name = typeof uiPrompt === 'function'
+            ? await uiPrompt('Rename animation clip:', clip.name, { title: 'Rename Clip' })
+            : prompt('Rename animation clip:', clip.name);
           if (!name) return false;
           name = name.trim();
         }
@@ -16603,7 +16613,8 @@
         return true;
       };
 
-      window.deleteAnimation = function(clipId) {
+      window.deleteAnimation = async function(clipId) {
+        if (!clipId && window.dopeSheet) clipId = window.dopeSheet.id;
         if (!clipId || !window.animationClips) return false;
         if (window.animationClips.length <= 1) {
           showNotification('Cannot delete the only animation clip in the project', 2600);
@@ -16612,7 +16623,10 @@
         const clip = window.animationClips.find(c => c.id === clipId);
         if (!clip) return false;
 
-        if (!confirm(`Delete animation clip "${clip.name}"?`)) return false;
+        const ok = typeof uiConfirm === 'function'
+          ? await uiConfirm(`Delete animation clip "${clip.name}"?`, { title: 'Delete Clip', danger: true })
+          : confirm(`Delete animation clip "${clip.name}"?`);
+        if (!ok) return false;
 
         const idx = window.animationClips.findIndex(c => c.id === clipId);
         if (idx !== -1) {
@@ -17338,7 +17352,11 @@
       window.handleDuplicateRecent = async function(id) {
         try {
           const proj = await EsenhoStore.getProject(id);
-          if (!proj) return alert('Project not found');
+          if (!proj) {
+            if (typeof uiToast === 'function') uiToast('Project not found', 'error');
+            else alert('Project not found');
+            return;
+          }
           const cloneId = 'proj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
           const clone = {
             ...proj,
@@ -17352,14 +17370,19 @@
           await openRecentsModal();
           updateRecentProjectsMenu();
         } catch (err) {
-          alert('Failed to duplicate project: ' + err.message);
+          if (typeof uiToast === 'function') uiToast('Failed to duplicate project: ' + err.message, 'error');
+          else alert('Failed to duplicate project: ' + err.message);
         }
       };
 
       window.handleExportRecentFile = async function(id) {
         try {
           const proj = await EsenhoStore.getProject(id);
-          if (!proj) return alert('Project not found');
+          if (!proj) {
+            if (typeof uiToast === 'function') uiToast('Project not found', 'error');
+            else alert('Project not found');
+            return;
+          }
           if (typeof EsenhoStore.exportEsenFile === 'function') {
             EsenhoStore.exportEsenFile(proj, `${proj.name || 'project'}.esen`);
             showNotification(`Exported ${proj.name || 'project'}.esen`);
@@ -17374,12 +17397,15 @@
             showNotification(`Exported ${proj.name || 'project'}.esen`);
           }
         } catch (err) {
-          alert('Failed to export project: ' + err.message);
+          if (typeof uiToast === 'function') uiToast('Failed to export project: ' + err.message, 'error');
+          else alert('Failed to export project: ' + err.message);
         }
       };
 
       window.handleRenameRecent = async function(id, currentName) {
-        const newName = prompt('Rename project:', currentName || '');
+        const newName = typeof uiPrompt === 'function'
+          ? await uiPrompt('Rename project:', currentName || '', { title: 'Rename Project' })
+          : prompt('Rename project:', currentName || '');
         if (!newName || !newName.trim() || newName.trim() === currentName) return;
         try {
           await EsenhoStore.renameProject(id, newName.trim());
@@ -17394,16 +17420,25 @@
           updateRecentProjectsMenu();
           showNotification('Project renamed');
         } catch (err) {
-          alert('Failed to rename project: ' + err.message);
+          if (typeof uiToast === 'function') uiToast('Failed to rename project: ' + err.message, 'error');
+          else alert('Failed to rename project: ' + err.message);
         }
       };
 
       window.handleInsertPainterImage = async function(id) {
         try {
           const proj = await EsenhoStore.getProject(id);
-          if (!proj) return alert('Project not found');
+          if (!proj) {
+            if (typeof uiToast === 'function') uiToast('Project not found', 'error');
+            else alert('Project not found');
+            return;
+          }
           const pngUrl = EsenhoStore.compositeRasterProjectToDataUrl(proj) || proj.thumbnail;
-          if (!pngUrl) return alert('Could not render raster project');
+          if (!pngUrl) {
+            if (typeof uiToast === 'function') uiToast('Could not render raster project', 'warning');
+            else alert('Could not render raster project');
+            return;
+          }
           const img = new Image();
           img.onload = () => {
             const w = Math.min(doc.width, proj.width || img.width || 400);
@@ -17430,11 +17465,13 @@
             if (modalRecents) modalRecents.style.display = 'none';
           };
           img.onerror = () => {
-            alert('Failed to decode painter project PNG');
+            if (typeof uiToast === 'function') uiToast('Failed to decode painter project PNG', 'error');
+            else alert('Failed to decode painter project PNG');
           };
           img.src = pngUrl;
         } catch (err) {
-          alert('Failed to insert painter image: ' + err.message);
+          if (typeof uiToast === 'function') uiToast('Failed to insert painter image: ' + err.message, 'error');
+          else alert('Failed to insert painter image: ' + err.message);
         }
       };
 
@@ -17457,7 +17494,10 @@
       };
 
       window.handleDeleteRecent = async function(id) {
-        if (!confirm('Delete this project from local memory?')) return;
+        const ok = typeof uiConfirm === 'function'
+          ? await uiConfirm('Delete this project from local memory?', { title: 'Delete Project', danger: true })
+          : confirm('Delete this project from local memory?');
+        if (!ok) return;
         await EsenhoStore.deleteProject(id);
         await openRecentsModal();
         updateRecentProjectsMenu();
@@ -17528,7 +17568,8 @@
             updateRecentProjectsMenu();
           }
         } catch (err) {
-          alert('Failed to import file: ' + err.message);
+          if (typeof uiToast === 'function') uiToast('Failed to import file: ' + err.message, 'error');
+          else alert('Failed to import file: ' + err.message);
         }
         e.target.value = '';
       });
@@ -17564,9 +17605,16 @@
       });
 
       async function handleClearStorage() {
-        if (!confirm('Are you sure you want to clear ALL saved projects and local cache? This cannot be undone.')) return;
+        const ok = typeof uiConfirm === 'function'
+          ? await uiConfirm('Are you sure you want to clear ALL saved projects and local cache? This cannot be undone.', { title: 'Clear All Storage', danger: true, confirmText: 'Clear All' })
+          : confirm('Are you sure you want to clear ALL saved projects and local cache? This cannot be undone.');
+        if (!ok) return;
         await EsenhoStore.clearAll();
-        alert('Local storage cleared successfully.');
+        if (typeof uiAlert === 'function') {
+          await uiAlert('Local storage cleared successfully.', { title: 'Storage Cleared' });
+        } else {
+          alert('Local storage cleared successfully.');
+        }
         if (modalRecents) modalRecents.style.display = 'none';
         location.reload();
       }

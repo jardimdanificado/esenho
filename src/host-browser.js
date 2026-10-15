@@ -28,6 +28,16 @@ const inputEl     = document.getElementById('wcmd');
 const statusEl    = document.getElementById('wstatus');
 const toggleBtn   = document.getElementById('toggle-panel');
 
+/* ── UI Dialog & Notification Helpers ── */
+const ui = {
+  toast: (msg, type = 'info', dur = 2600) => (typeof uiToast === 'function' ? uiToast(msg, type, dur) : console.log(msg)),
+  alert: (msg, opts) => (typeof uiAlert === 'function' ? uiAlert(msg, opts) : (typeof alert === 'function' ? Promise.resolve(alert(msg)) : Promise.resolve())),
+  confirm: (msg, opts) => (typeof uiConfirm === 'function' ? uiConfirm(msg, opts) : (typeof confirm === 'function' ? Promise.resolve(confirm(msg)) : Promise.resolve(true))),
+  prompt: (msg, def, opts) => (typeof uiPrompt === 'function' ? uiPrompt(msg, def, opts) : (typeof prompt === 'function' ? Promise.resolve(prompt(msg, def)) : Promise.resolve(def))),
+  promptMulti: (title, fields, opts) => (typeof uiPromptMulti === 'function' ? uiPromptMulti(title, fields, opts) : Promise.resolve(null)),
+  select: (msg, options, opts) => (typeof uiSelect === 'function' ? uiSelect(msg, options, opts) : Promise.resolve(null))
+};
+
 /* ── Helpers ── */
 function log(msg, cls = '') {
   const str = String(msg).replace(/\x1b\[[^m]*m/g, '');
@@ -1055,7 +1065,7 @@ async function main() {
       }
     } catch (err) {
       log(`err: GIF export failed: ${err.message}`, 'err');
-      alert('GIF export failed: ' + err.message);
+      ui.toast('GIF export failed: ' + err.message, 'danger');
     }
   }
 
@@ -1079,10 +1089,11 @@ async function main() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         log(`WebM video exported as ${a.download} [ok]`);
+        ui.toast(`Exported ${safeName}.webm`, 'success');
       }
     } catch (err) {
       log(`err: WebM export failed: ${err.message}`, 'err');
-      alert('WebM export failed: ' + err.message);
+      ui.toast('WebM export failed: ' + err.message, 'danger');
     }
   }
 
@@ -6521,8 +6532,8 @@ async function main() {
 
   const btnSavePreset = document.getElementById('ui-btn-save-preset');
   if (btnSavePreset) {
-    btnSavePreset.addEventListener('click', () => {
-      const name = window.prompt('Enter name for custom brush preset:');
+    btnSavePreset.addEventListener('click', async () => {
+      const name = await ui.prompt('Enter name for custom brush preset:', '', { title: 'Save Custom Brush' });
       if (name && name.trim()) {
         const key = name.trim().toLowerCase().replace(/\s+/g, '_');
         if (!host.customBrushPresets) host.customBrushPresets = {};
@@ -6537,6 +6548,7 @@ async function main() {
         host.activeBrush = key;
         populateBrushPresetsUI();
         log(`Saved custom brush preset: ${name.trim()}`);
+        ui.toast(`Saved brush "${name.trim()}"`, 'success');
         triggerHaptic(20);
       }
     });
@@ -6544,16 +6556,18 @@ async function main() {
 
   const btnDelPreset = document.getElementById('ui-btn-del-preset');
   if (btnDelPreset) {
-    btnDelPreset.addEventListener('click', () => {
+    btnDelPreset.addEventListener('click', async () => {
       const cur = host.activeBrush;
       if (cur && host.customBrushPresets && host.customBrushPresets[cur]) {
-        if (window.confirm(`Delete custom preset "${host.customBrushPresets[cur].name || cur}"?`)) {
+        const targetName = host.customBrushPresets[cur].name || cur;
+        if (await ui.confirm(`Delete custom preset "${targetName}"?`, { title: 'Delete Preset', danger: true })) {
           delete host.customBrushPresets[cur];
           saveCustomBrushPresets(host.customBrushPresets);
           host.selectBrushPreset('pencil');
           populateBrushPresetsUI();
           syncUiFromHost();
           log(`Deleted custom preset: ${cur}`);
+          ui.toast(`Deleted preset "${targetName}"`, 'info');
           triggerHaptic(20);
         }
       }
@@ -6688,10 +6702,10 @@ async function main() {
   }
 
   if (btnDelScript) {
-    btnDelScript.addEventListener('click', () => {
+    btnDelScript.addEventListener('click', async () => {
       const name = scriptNameInp ? scriptNameInp.value.trim() : '';
       if (!name) return;
-      if (confirm(`Delete script '${name}'?`)) {
+      if (await ui.confirm(`Delete script '${name}'?`, { title: 'Delete Script', danger: true })) {
         let list = getSavedScripts().filter(s => s.name !== name);
         if (list.length === 0) list = DEFAULT_SCRIPTS.slice();
         saveScriptsList(list);
@@ -6699,6 +6713,7 @@ async function main() {
         if (scriptNameInp) scriptNameInp.value = '';
         if (scriptEditor) scriptEditor.value = '';
         log(`Script '${name}' deleted [ok]`, 'ok');
+        ui.toast(`Deleted script '${name}'`, 'info');
       }
     });
   }
@@ -7620,9 +7635,10 @@ async function main() {
       if (hex) {
         navigator.clipboard.writeText(hex).then(() => {
           log(`copied ${hex} to clipboard [ok]`);
+          ui.toast(`Copied ${hex} to clipboard`, 'success');
           triggerHaptic(10);
         }).catch(() => {
-          window.prompt('Color Hex:', hex);
+          ui.prompt('Color Hex:', hex, { title: 'Copy Color Hex' });
         });
       }
     });
@@ -9275,7 +9291,7 @@ async function main() {
               runScriptCode(found.code);
               triggerHaptic(15);
             } else {
-              alert(`Script "${item.scriptName}" not found.`);
+              ui.toast(`Script "${item.scriptName}" not found.`, 'warning');
             }
           });
           row.appendChild(btn);
@@ -9661,8 +9677,9 @@ async function main() {
   }
 
   if (tbMgrBtnAddBar) {
-    tbMgrBtnAddBar.addEventListener('click', () => {
-      const name = window.prompt('New Toolbar Name:', `Custom Bar ${(currentModularToolbars ? currentModularToolbars.length : 0) + 1}`);
+    tbMgrBtnAddBar.addEventListener('click', async () => {
+      const defaultName = `Custom Bar ${(currentModularToolbars ? currentModularToolbars.length : 0) + 1}`;
+      const name = await ui.prompt('New Toolbar Name:', defaultName, { title: 'New Toolbar' });
       if (name && name.trim()) {
         if (!currentModularToolbars) currentModularToolbars = [];
         const newId = `bar_${Date.now()}`;
@@ -9675,37 +9692,41 @@ async function main() {
         saveModularToolbars();
         renderModularToolbars();
         renderToolbarManagerUI();
+        ui.toast(`Created toolbar "${name.trim()}"`, 'success');
         triggerHaptic(15);
       }
     });
   }
 
   if (tbMgrBtnRenameBar) {
-    tbMgrBtnRenameBar.addEventListener('click', () => {
+    tbMgrBtnRenameBar.addEventListener('click', async () => {
       if (!currentModularToolbars || selectedBarIndex < 0) return;
       const currentBar = currentModularToolbars[selectedBarIndex];
       if (!currentBar) return;
-      const name = window.prompt('Rename Toolbar:', currentBar.name || '');
+      const name = await ui.prompt('Rename Toolbar:', currentBar.name || '', { title: 'Rename Toolbar' });
       if (name && name.trim()) {
         currentBar.name = name.trim();
         saveModularToolbars();
         renderModularToolbars();
         renderToolbarManagerUI();
+        ui.toast(`Renamed toolbar to "${name.trim()}"`, 'info');
         triggerHaptic(10);
       }
     });
   }
 
   if (tbMgrBtnDelBar) {
-    tbMgrBtnDelBar.addEventListener('click', () => {
+    tbMgrBtnDelBar.addEventListener('click', async () => {
       if (!currentModularToolbars || currentModularToolbars.length === 0 || selectedBarIndex < 0) return;
       const barToDelete = currentModularToolbars[selectedBarIndex];
-      if (confirm(`Delete toolbar "${barToDelete?.name || 'Toolbar'}"?`)) {
+      const barName = barToDelete?.name || 'Toolbar';
+      if (await ui.confirm(`Delete toolbar "${barName}"?`, { title: 'Delete Toolbar', danger: true })) {
         currentModularToolbars.splice(selectedBarIndex, 1);
         selectedBarIndex = Math.max(-1, currentModularToolbars.length - 1);
         saveModularToolbars();
         renderModularToolbars();
         renderToolbarManagerUI();
+        ui.toast(`Deleted toolbar "${barName}"`, 'info');
         triggerHaptic(15);
       }
     });
@@ -9744,13 +9765,14 @@ async function main() {
   }
 
   if (tbMgrBtnResetDefault) {
-    tbMgrBtnResetDefault.addEventListener('click', () => {
-      if (confirm('Reset toolbars to default factory layout?')) {
+    tbMgrBtnResetDefault.addEventListener('click', async () => {
+      if (await ui.confirm('Reset toolbars to default factory layout?', { title: 'Reset Toolbars', danger: true, confirmText: 'Reset' })) {
         currentModularToolbars = JSON.parse(JSON.stringify(DEFAULT_MODULAR_TOOLBARS));
         selectedBarIndex = 0;
         saveModularToolbars();
         renderModularToolbars();
         renderToolbarManagerUI();
+        ui.toast('Toolbars reset to factory layout', 'info');
         triggerHaptic(20);
       }
     });
@@ -9760,16 +9782,16 @@ async function main() {
     tbMgrBtnExport.addEventListener('click', () => {
       const jsonStr = JSON.stringify(currentModularToolbars || [], null, 2);
       navigator.clipboard.writeText(jsonStr).then(() => {
-        alert('Toolbar configuration JSON copied to clipboard!');
+        ui.toast('Toolbar JSON copied to clipboard!', 'success');
       }).catch(() => {
-        window.prompt('Copy Toolbar JSON configuration:', jsonStr);
+        ui.prompt('Copy Toolbar JSON configuration:', jsonStr, { title: 'Export Toolbars', multiline: true });
       });
     });
   }
 
   if (tbMgrBtnImport) {
-    tbMgrBtnImport.addEventListener('click', () => {
-      const jsonStr = window.prompt('Paste Toolbar JSON configuration:');
+    tbMgrBtnImport.addEventListener('click', async () => {
+      const jsonStr = await ui.prompt('Paste Toolbar JSON configuration:', '', { title: 'Import Toolbars', multiline: true, placeholder: '[ ... ]' });
       if (jsonStr && jsonStr.trim()) {
         try {
           const parsed = JSON.parse(jsonStr.trim());
@@ -9779,13 +9801,13 @@ async function main() {
             saveModularToolbars();
             renderModularToolbars();
             renderToolbarManagerUI();
-            alert('Toolbars imported successfully!');
+            ui.toast('Toolbars imported successfully!', 'success');
             triggerHaptic(20);
           } else {
-            alert('Invalid toolbar JSON format.');
+            ui.toast('Invalid toolbar JSON format.', 'danger');
           }
         } catch (err) {
-          alert(`Failed to import JSON: ${err.message}`);
+          ui.toast(`Failed to import JSON: ${err.message}`, 'danger');
         }
       }
     });
@@ -10060,8 +10082,8 @@ async function main() {
     }
     const newGroupBtn = document.getElementById('ui-btn-new-group');
     if (newGroupBtn) {
-      newGroupBtn.addEventListener('click', () => {
-        const name = prompt('Folder name (or leave empty):', '');
+      newGroupBtn.addEventListener('click', async () => {
+        const name = await ui.prompt('Folder name (or leave empty):', '', { title: 'New Folder' });
         if (name !== null) {
           if (name.trim()) runCmd(`group new ${name.trim()}`);
           else runCmd('group new');
@@ -11400,8 +11422,8 @@ async function main() {
           { type: 'item', label: '+ New Folder / Group', action: () => runCmd('group create') },
           { type: 'sep' },
           { type: 'item', label: (grp.visible ? '✓ ' : '') + 'Folder Visible', action: () => runCmd(`group toggle ${grp.id}`) },
-          { type: 'item', label: 'Rename Folder...', action: () => {
-            const newName = prompt('Rename folder:', grp.name);
+          { type: 'item', label: 'Rename Folder...', action: async () => {
+            const newName = await ui.prompt('Rename folder:', grp.name, { title: 'Rename Folder' });
             if (newName && newName.trim()) {
               grp.name = newName.trim();
               syncUiFromHost();
@@ -11411,12 +11433,17 @@ async function main() {
           { type: 'item', label: '▲ Move Folder Up', action: () => runCmd(`group move up ${grp.id}`) },
           { type: 'item', label: '▼ Move Folder Down', action: () => runCmd(`group move down ${grp.id}`) },
           { type: 'sep' },
-          { type: 'item', label: 'Delete Folder...', danger: true, action: () => {
+          { type: 'item', label: 'Delete Folder...', danger: true, action: async () => {
             const hasChildren = (grp.children && grp.children.length > 0);
             if (!hasChildren) {
               runCmd(`group delete ${grp.id}`);
             } else {
-              const delContent = confirm(`Delete folder '${grp.name}' AND all layers inside? (Click Cancel to delete folder only)`);
+              const delContent = await ui.confirm(`Delete folder '${grp.name}' AND all layers inside? (Click Cancel to delete folder only)`, {
+                title: 'Delete Folder',
+                danger: true,
+                confirmText: 'Delete All',
+                cancelText: 'Folder Only'
+              });
               host.deleteGroup(grp.id, delContent);
               syncUiFromHost();
             }
@@ -11520,9 +11547,9 @@ async function main() {
           grp.collapsed = !grp.collapsed;
           syncUiFromHost();
         });
-        titleSpan.addEventListener('dblclick', (e) => {
+        titleSpan.addEventListener('dblclick', async (e) => {
           e.stopPropagation();
-          const newName = prompt('Rename folder:', grp.name);
+          const newName = await ui.prompt('Rename folder:', grp.name, { title: 'Rename Folder' });
           if (newName && newName.trim()) {
             grp.name = newName.trim();
             syncUiFromHost();
@@ -11656,8 +11683,8 @@ async function main() {
           { type: 'item', label: '+ New Folder / Group', action: () => runCmd('group create') },
           { type: 'item', label: 'Import Image as Layer...', action: () => { fileInput?.click(); } },
           { type: 'sep' },
-          { type: 'item', label: 'Rename Layer...', action: () => {
-            const newName = prompt(`Rename layer #${i}:`, name);
+          { type: 'item', label: 'Rename Layer...', action: async () => {
+            const newName = await ui.prompt(`Rename layer #${i}:`, name, { title: 'Rename Layer' });
             if (newName && newName.trim()) {
               if (!host.layerNames) host.layerNames = new Map();
               host.layerNames.set(i, newName.trim());
@@ -11713,8 +11740,10 @@ async function main() {
 
         layerActions.push(
           { type: 'item', label: isVecLyr ? 'Clear Vector Layer' : 'Clear Layer', danger: true, action: () => runCmd('clear') },
-          { type: 'item', label: 'Delete Layer', danger: true, action: () => {
-            if (confirm(`Delete layer [${i}] ${name}?`)) runCmd(`delete layer ${i}`);
+          { type: 'item', label: 'Delete Layer', danger: true, action: async () => {
+            if (await ui.confirm(`Delete layer [${i}] ${name}?`, { title: 'Delete Layer', danger: true })) {
+              runCmd(`delete layer ${i}`);
+            }
           }}
         );
 
@@ -11854,9 +11883,9 @@ async function main() {
           e.stopPropagation();
           runCmd(`layer select ${i}`);
         });
-        infoCell.addEventListener('dblclick', (e) => {
+        infoCell.addEventListener('dblclick', async (e) => {
           e.stopPropagation();
-          const newName = prompt(`Rename layer #${i}:`, name);
+          const newName = await ui.prompt(`Rename layer #${i}:`, name, { title: 'Rename Layer' });
           if (newName && newName.trim()) {
             if (!host.layerNames) host.layerNames = new Map();
             host.layerNames.set(i, newName.trim());
@@ -12037,13 +12066,13 @@ async function main() {
             menuDropdown?.classList.remove('active');
             btnMenuLogo?.classList.remove('active');
             if (p.type === 'vector') {
-              alert('This project was created in Studio. Open the Recents panel to import it as a layer into Painter.');
+              ui.toast('This project was created in Studio. Open Recents to import it as a layer.', 'info');
               return;
             }
             const fullProj = await EsenhoStore.getProject(p.id);
             if (fullProj) {
               if (fullProj.type === 'vector' || (!fullProj.layers && (fullProj.jsonDoc || fullProj.svgData))) {
-                alert('This project was created in Studio. Open the Recents panel to import it as a layer into Painter.');
+                ui.toast('This project was created in Studio. Open Recents to import it as a layer.', 'info');
                 return;
               }
               try {
@@ -12333,12 +12362,15 @@ async function main() {
       log('Zoom reset to fit [ok]');
     });
 
-    document.getElementById('btn-menu-resize-canvas')?.addEventListener('click', () => {
-      const w = prompt('New Width (px):', host.docWidth || 1280);
-      if (!w) return;
-      const h = prompt('New Height (px):', host.docHeight || 720);
-      if (!h) return;
-      runCmd(`resize ${parseInt(w, 10)} ${parseInt(h, 10)}`);
+    document.getElementById('btn-menu-resize-canvas')?.addEventListener('click', async () => {
+      const res = await ui.promptMulti('Resize Canvas', [
+        { key: 'width', label: 'Width (px)', value: host.docWidth || 1280, type: 'number', min: 1, max: 16384 },
+        { key: 'height', label: 'Height (px)', value: host.docHeight || 720, type: 'number', min: 1, max: 16384 }
+      ], { confirmText: 'Resize' });
+      if (res && res.width > 0 && res.height > 0) {
+        runCmd(`resize ${parseInt(res.width, 10)} ${parseInt(res.height, 10)}`);
+        ui.toast(`Resized canvas to ${parseInt(res.width, 10)}×${parseInt(res.height, 10)}`, 'success');
+      }
     });
     document.getElementById('btn-menu-crop-selection')?.addEventListener('click', () => { runCmd('crop'); });
     document.getElementById('btn-menu-clear-layer')?.addEventListener('click', () => { runCmd('clear'); });
@@ -12635,8 +12667,10 @@ async function main() {
         } else if (aDef.id === 'redo') {
           btn.addEventListener('click', () => { handleRedo(); triggerHaptic(12); });
         } else if (aDef.id === 'clear_layer') {
-          btn.addEventListener('click', () => {
-            if (confirm('Clear current active layer?')) runCmd('clear');
+          btn.addEventListener('click', async () => {
+            if (await ui.confirm('Clear current active layer?', { title: 'Clear Layer', danger: true, confirmText: 'Clear' })) {
+              runCmd('clear');
+            }
             triggerHaptic(15);
           });
         } else if (aDef.id === 'brush_lab') {
@@ -12942,8 +12976,8 @@ async function main() {
 
     const btnSaveCustomBrush = document.getElementById('btn-ip-save-brush-preset');
     if (btnSaveCustomBrush) {
-      btnSaveCustomBrush.addEventListener('click', () => {
-        const name = prompt('Preset Name:', 'Custom Brush');
+      btnSaveCustomBrush.addEventListener('click', async () => {
+        const name = await ui.prompt('Preset Name:', 'Custom Brush', { title: 'Save Custom Brush' });
         if (name && name.trim() && host.brushParams) {
           const key = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
           const custom = host.customBrushPresets || {};
@@ -14066,10 +14100,12 @@ async function main() {
     if (btnIpClearLayer) btnIpClearLayer.addEventListener('click', () => { runCmd('clear'); });
     const btnIpDelLayer = document.getElementById('btn-ip-del-layer');
     if (btnIpDelLayer) {
-      btnIpDelLayer.addEventListener('click', () => {
+      btnIpDelLayer.addEventListener('click', async () => {
         const getActive = host.canvasActor?.exports?.w_layer_get_active || host.canvasActor?.exports?.get_active_layer;
         const activeIdx = getActive ? getActive() : 0;
-        if (confirm(`Delete active layer ${activeIdx}?`)) runCmd(`delete layer ${activeIdx}`);
+        if (await ui.confirm(`Delete active layer ${activeIdx}?`, { title: 'Delete Layer', danger: true })) {
+          runCmd(`delete layer ${activeIdx}`);
+        }
       });
     }
 
@@ -14143,9 +14179,9 @@ async function main() {
       if (!host.canvasActor || !host.canvasActor.exports) return;
       try {
         const proj = await EsenhoStore.getProject(id);
-        if (!proj) return alert('Vector project not found');
+        if (!proj) return ui.toast('Vector project not found', 'danger');
         const pngUrl = await EsenhoStore.compositeVectorProjectToDataUrl(proj);
-        if (!pngUrl) return alert('Could not render vector project');
+        if (!pngUrl) return ui.toast('Could not render vector project', 'danger');
         const img = new Image();
         img.onload = () => {
           try {
@@ -14153,7 +14189,7 @@ async function main() {
             const ch = host.canvasActor.exports.get_canvas_height();
             const wasmId = host.canvasActor.exports.w_layer_add ? host.canvasActor.exports.w_layer_add() : -1;
             if (wasmId < 0) {
-              alert('Max layers reached in Painter canvas');
+              ui.toast('Max layers reached in Painter canvas', 'warning');
               return;
             }
             const off = document.createElement('canvas');
@@ -14178,27 +14214,29 @@ async function main() {
             closeAllSheets();
             if (typeof markCanvasDirty === 'function') markCanvasDirty();
             log(`Imported vector project '${proj.name}' as layer [${wasmId}]`);
+            ui.toast(`Imported '${proj.name}' as layer`, 'success');
           } catch (err) {
-            alert('Error adding vector layer: ' + err.message);
+            ui.toast('Error adding vector layer: ' + err.message, 'danger');
           }
         };
         img.src = pngUrl;
       } catch (err) {
-        alert('Failed importing vector project: ' + err.message);
+        ui.toast('Failed importing vector project: ' + err.message, 'danger');
       }
     };
 
     window.painterOpenRecent = function(id, type) {
       if (type === 'vector') {
-        alert('This project was created in Studio. Click "+ Layer" to import its rendered image as a layer in Painter.');
+        ui.toast('This project was created in Studio. Click "+ Layer" to import its rendered image as a layer in Painter.', 'info');
         return;
       }
       window.location.href = `painter.html?project=${id}`;
     };
 
     window.painterDeleteRecent = async function(id) {
-      if (!confirm('Delete this project from memory?')) return;
+      if (!await ui.confirm('Delete this project from memory?', { title: 'Delete Project', danger: true })) return;
       await EsenhoStore.deleteProject(id);
+      ui.toast('Project deleted from memory', 'info');
       loadPainterRecents();
     };
 
@@ -14214,10 +14252,12 @@ async function main() {
     });
 
     async function handleClearAllStorage() {
-      if (!confirm('Clear ALL projects and stored data? This cannot be undone.')) return;
+      if (!await ui.confirm('Clear ALL projects and stored data? This cannot be undone.', { title: 'Clear All Storage', danger: true, confirmText: 'Clear All' })) return;
       if (typeof EsenhoStore !== 'undefined') await EsenhoStore.clearAll();
-      alert('Storage cleared.');
-      window.location.href = 'painter.html';
+      ui.toast('Storage cleared.', 'success');
+      setTimeout(() => {
+        window.location.href = 'painter.html';
+      }, 500);
     }
 
     document.getElementById('btn-ip-clear-storage')?.addEventListener('click', handleClearAllStorage);
@@ -14428,36 +14468,40 @@ async function main() {
     // Tip & Grain creation buttons
     const btnTipFromLayer = document.getElementById('btn-ip-tip-from-layer');
     if (btnTipFromLayer) {
-      btnTipFromLayer.addEventListener('click', () => {
-        const name = prompt('Custom Tip Name:', 'Layer Tip') || 'Layer Tip';
+      btnTipFromLayer.addEventListener('click', async () => {
+        const name = (await ui.prompt('Custom Tip Name:', 'Layer Tip', { title: 'New Brush Tip' })) || 'Layer Tip';
         if (typeof host.createTipFromLayer === 'function') host.createTipFromLayer(name);
+        ui.toast(`Created tip "${name}"`, 'success');
         triggerHaptic(15);
       });
     }
 
     const btnTipFromSel = document.getElementById('btn-ip-tip-from-selection');
     if (btnTipFromSel) {
-      btnTipFromSel.addEventListener('click', () => {
-        const name = prompt('Custom Tip Name:', 'Selection Tip') || 'Selection Tip';
+      btnTipFromSel.addEventListener('click', async () => {
+        const name = (await ui.prompt('Custom Tip Name:', 'Selection Tip', { title: 'New Brush Tip' })) || 'Selection Tip';
         if (typeof host.createTipFromSelection === 'function') host.createTipFromSelection(name);
+        ui.toast(`Created tip "${name}"`, 'success');
         triggerHaptic(15);
       });
     }
 
     const btnGrainFromLayer = document.getElementById('btn-ip-grain-from-layer');
     if (btnGrainFromLayer) {
-      btnGrainFromLayer.addEventListener('click', () => {
-        const name = prompt('Custom Grain Name:', 'Layer Grain') || 'Layer Grain';
+      btnGrainFromLayer.addEventListener('click', async () => {
+        const name = (await ui.prompt('Custom Grain Name:', 'Layer Grain', { title: 'New Grain Texture' })) || 'Layer Grain';
         if (typeof host.createGrainFromLayer === 'function') host.createGrainFromLayer(name);
+        ui.toast(`Created grain "${name}"`, 'success');
         triggerHaptic(15);
       });
     }
 
     const btnGrainFromSel = document.getElementById('btn-ip-grain-from-selection');
     if (btnGrainFromSel) {
-      btnGrainFromSel.addEventListener('click', () => {
-        const name = prompt('Custom Grain Name:', 'Selection Grain') || 'Selection Grain';
+      btnGrainFromSel.addEventListener('click', async () => {
+        const name = (await ui.prompt('Custom Grain Name:', 'Selection Grain', { title: 'New Grain Texture' })) || 'Selection Grain';
         if (typeof host.createGrainFromSelection === 'function') host.createGrainFromSelection(name);
+        ui.toast(`Created grain "${name}"`, 'success');
         triggerHaptic(15);
       });
     }
@@ -14474,8 +14518,8 @@ async function main() {
 
     const btnLabSave = document.getElementById('btn-ip-lab-save');
     if (btnLabSave) {
-      btnLabSave.addEventListener('click', () => {
-        const name = prompt('Enter custom brush preset name:', 'My Custom Brush');
+      btnLabSave.addEventListener('click', async () => {
+        const name = await ui.prompt('Enter custom brush preset name:', 'My Custom Brush', { title: 'Save Custom Brush' });
         if (name && name.trim()) {
           const key = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
           if (!host.customBrushPresets) host.customBrushPresets = {};
@@ -14493,7 +14537,8 @@ async function main() {
           if (typeof renderBrushShelf === 'function') renderBrushShelf();
           syncInfinitePainterUI();
           syncUiFromHost();
-          triggerHaptic(15);
+          ui.toast(`Saved brush "${name.trim()}"`, 'success');
+          triggerHaptic(20);
         }
       });
     }
