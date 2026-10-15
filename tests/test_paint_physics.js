@@ -22,6 +22,7 @@ test('Paint Physics & Watercolor System Suite', async (t) => {
     assert.strictEqual(PARAM_IDS.pigment_mode, 54);
     assert.strictEqual(PARAM_IDS.impasto, 55);
     assert.strictEqual(PARAM_IDS.drying_rate, 56);
+    assert.strictEqual(PARAM_IDS.tex_scale_with_size, 57);
 
     host.setBrushParam('water', 75);
     assert.strictEqual(host.brushParams.water, 75);
@@ -43,6 +44,12 @@ test('Paint Physics & Watercolor System Suite', async (t) => {
 
     host.setBrushParam('drying_rate', 25);
     assert.strictEqual(host.brushParams.drying_rate, 25);
+
+    host.setBrushParam('tex_scale_with_size', 1);
+    assert.strictEqual(host.brushParams.tex_scale_with_size, 1);
+
+    host.setBrushParam('scale_texture_with_brush', 'off');
+    assert.strictEqual(host.brushParams.tex_scale_with_size, 0);
   });
 
   await t.test('2. Water map deposition and dryLayer()', () => {
@@ -168,5 +175,39 @@ test('Paint Physics & Watercolor System Suite', async (t) => {
     host.selectBrushPreset('oil_impasto');
     assert.strictEqual(host.brushParams.impasto, 85);
     assert.strictEqual(host.brushParams.pigment_mode, 1);
+  });
+
+  await t.test('8. Texture scaling with brush size (tex_scale_with_size)', () => {
+    host.resetTool();
+    host.setBrushParam('tex_mode', 1); // paper texture
+    host.setBrushParam('texture_scale', 100);
+    host.setBrushParam('tex_scale_with_size', 1);
+    assert.strictEqual(host.brushParams.tex_scale_with_size, 1);
+
+    // Test aliases
+    host.setBrushParam('scale_texture_with_brush', 'on');
+    assert.strictEqual(host.brushParams.tex_scale_with_size, 1);
+    host.setBrushParam('scale_with_size', 'off');
+    assert.strictEqual(host.brushParams.tex_scale_with_size, 0);
+    host.setBrushParam('tex_scale_size', 1);
+    assert.strictEqual(host.brushParams.tex_scale_with_size, 1);
+
+    // Draw with size 16 (reference size)
+    host.setBrushParam('size', 16);
+    host.sendStroke(20, 20, 20, 20, 0, false, 0xFFFFFFFF, 1.0);
+    host.sendStroke(20, 20, 20, 20, 2, false, 0xFFFFFFFF, 1.0);
+
+    // Draw with size 64 (4x larger brush)
+    host.setBrushParam('size', 64);
+    host.sendStroke(80, 80, 80, 80, 0, false, 0xFFFFFFFF, 1.0);
+    host.sendStroke(80, 80, 80, 80, 2, false, 0xFFFFFFFF, 1.0);
+
+    const pixPtr = host.canvasActor.exports.get_layer_pixels(3);
+    const pix = new Uint32Array(host.canvasActor.memory.buffer, pixPtr, 128 * 128);
+    // Both areas should have rendered textured strokes
+    const p1 = pix[20 * 128 + 20];
+    const p2 = pix[80 * 128 + 80];
+    assert.ok((p1 >>> 24) > 0, 'Stroke 1 rendered');
+    assert.ok((p2 >>> 24) > 0, 'Stroke 2 rendered');
   });
 });

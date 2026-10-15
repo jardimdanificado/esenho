@@ -14960,6 +14960,7 @@ async function main() {
     bindToggleBtn('btn-ip-lab-tilt-angle', 'chk-ip-lab-tilt-angle', 'tilt_angle');
     bindToggleBtn('btn-ip-lab-buildup', 'chk-ip-lab-buildup', 'buildup');
     bindToggleBtn('btn-ip-lab-pigment-mode', 'chk-ip-lab-pigment-mode', 'pigment_mode');
+    bindToggleBtn('btn-ip-lab-tex-scale-size', 'chk-ip-lab-tex-scale-size', 'tex_scale_with_size');
 
     const btnDry = document.getElementById('btn-ip-lab-dry');
     if (btnDry) {
@@ -15680,6 +15681,7 @@ async function main() {
       setChk('chk-ip-lab-tilt-angle', bp.tilt_angle ?? 1);
       setChk('chk-ip-lab-buildup', bp.buildup);
       setChk('chk-ip-lab-pigment-mode', bp.pigment_mode);
+      setChk('chk-ip-lab-tex-scale-size', bp.tex_scale_with_size);
 
       // Selects
       const setSel = (id, val) => {

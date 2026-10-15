@@ -236,7 +236,14 @@ const PARAM_IDS = {
   relief: 55,
   drying_rate: 56,
   dry_rate: 56,
-  evaporation: 56
+  evaporation: 56,
+  tex_scale_with_size: 57,
+  texture_scale_with_size: 57,
+  scale_with_size: 57,
+  scale_texture_with_size: 57,
+  scale_texture_with_brush: 57,
+  grain_scale_with_size: 57,
+  tex_scale_size: 57
 };
 
 /**
@@ -6041,7 +6048,8 @@ class EsenhoScreenHost {
       fringe: 0,
       pigment_mode: 0,
       impasto: 0,
-      drying_rate: 0
+      drying_rate: 0,
+      tex_scale_with_size: 0
     };
 
     // Canvas Viewport Flip
@@ -8883,7 +8891,8 @@ class EsenhoScreenHost {
       fringe: 0,
       pigment_mode: 0,
       impasto: 0,
-      drying_rate: 0
+      drying_rate: 0,
+      tex_scale_with_size: 0
     };
     if (this.canvasActor && this.canvasActor.exports) {
       if (typeof this.canvasActor.exports.w_brush_reset === 'function') {
@@ -9502,7 +9511,13 @@ class EsenhoScreenHost {
         edge_darkening: 'fringe', coffee_ring: 'fringe',
         subtractive: 'pigment_mode',
         paint_thickness: 'impasto', relief: 'impasto',
-        dry_rate: 'drying_rate', evaporation: 'drying_rate'
+        dry_rate: 'drying_rate', evaporation: 'drying_rate',
+        texture_scale_with_size: 'tex_scale_with_size',
+        scale_with_size: 'tex_scale_with_size',
+        scale_texture_with_size: 'tex_scale_with_size',
+        scale_texture_with_brush: 'tex_scale_with_size',
+        grain_scale_with_size: 'tex_scale_with_size',
+        tex_scale_size: 'tex_scale_with_size'
       };
       const canonKey = canonMap[key] || key;
       if (canonKey === 'stabilizer_mode') {

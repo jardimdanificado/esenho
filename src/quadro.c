@@ -817,6 +817,7 @@ typedef struct {
     int32_t pigment_mode;    // 0=digital RGB, 1=subtractive physical pigment
     int32_t impasto;         // 0..100 % (3D oil/acrylic paint thickness relief)
     int32_t drying_rate;     // 0..100 % (evaporation rate)
+    int32_t tex_scale_with_size; // 0=fixed texture scale, 1=scale texture proportionally with brush size
 } w_brush_config_t;
 
 static w_brush_config_t brush_config = {
@@ -867,7 +868,8 @@ static w_brush_config_t brush_config = {
     .fringe = 0,
     .pigment_mode = 0,
     .impasto = 0,
-    .drying_rate = 0
+    .drying_rate = 0,
+    .tex_scale_with_size = 0
 };
 
 static uint32_t stroke_generation = 0;
@@ -1152,7 +1154,12 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
                 if (is_pixel_clipped(x, y)) continue;
                 uint32_t a = DIV255(dab_flow_a * max_stroke_a);
                 if (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0)) {
-                    uint32_t tex_a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, brush_config.tex_contrast, a);
+                    int eff_tex_scale = brush_config.tex_scale;
+                    if (brush_config.tex_scale_with_size && brush_config.size > 0) {
+                        eff_tex_scale = (brush_config.tex_scale * brush_config.size) / 16;
+                        if (eff_tex_scale < 1) eff_tex_scale = 1;
+                    }
+                    uint32_t tex_a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, eff_tex_scale, brush_config.tex_contrast, a);
                     int g = brush_config.grain;
                     if (g <= 0) g = 100;
                     if (g > 100) g = 100;
@@ -1406,7 +1413,12 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
             }
 
             if (has_tex) {
-                uint32_t tex_a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, brush_config.tex_contrast, a);
+                int eff_tex_scale = brush_config.tex_scale;
+                if (brush_config.tex_scale_with_size) {
+                    eff_tex_scale = (brush_config.tex_scale * r) / 16;
+                    if (eff_tex_scale < 1) eff_tex_scale = 1;
+                }
+                uint32_t tex_a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, eff_tex_scale, brush_config.tex_contrast, a);
                 int g = brush_config.grain;
                 if (g <= 0) g = 100;
                 if (g > 100) g = 100;
@@ -1426,7 +1438,12 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
 
             // Granulation (pigment settling into micro-valleys)
             if (brush_config.granulation > 0) {
-                uint32_t grain_h = w_sample_texture(1 /* paper */, x, y, 0, 100, 100, 128);
+                int eff_gran_scale = 100;
+                if (brush_config.tex_scale_with_size) {
+                    eff_gran_scale = (100 * r) / 16;
+                    if (eff_gran_scale < 1) eff_gran_scale = 1;
+                }
+                uint32_t grain_h = w_sample_texture(1 /* paper */, x, y, 0, eff_gran_scale, 100, 128);
                 int gran_factor = 256 + ((128 - (int)grain_h) * brush_config.granulation) / 50;
                 if (gran_factor < 20) gran_factor = 20;
                 if (gran_factor > 512) gran_factor = 512;
@@ -2277,8 +2294,9 @@ W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
         case W_PARAM_GRANULATION:    if (val >= 0 && val <= 100) brush_config.granulation = val; break;
         case W_PARAM_FRINGE:         if (val >= 0 && val <= 100) brush_config.fringe = val; break;
         case W_PARAM_PIGMENT_MODE:   brush_config.pigment_mode = val ? 1 : 0; break;
-        case W_PARAM_IMPASTO:        if (val >= 0 && val <= 100) brush_config.impasto = val; break;
-        case W_PARAM_DRYING_RATE:    if (val >= 0 && val <= 100) brush_config.drying_rate = val; break;
+        case W_PARAM_IMPASTO:             if (val >= 0 && val <= 100) brush_config.impasto = val; break;
+        case W_PARAM_DRYING_RATE:         if (val >= 0 && val <= 100) brush_config.drying_rate = val; break;
+        case W_PARAM_TEX_SCALE_WITH_SIZE: brush_config.tex_scale_with_size = val ? 1 : 0; break;
     }
 }
 
@@ -2328,6 +2346,7 @@ W_EXPORT void w_brush_reset(void) {
     brush_config.pigment_mode = 0;
     brush_config.impasto = 0;
     brush_config.drying_rate = 0;
+    brush_config.tex_scale_with_size = 0;
     g_texture.pixels = 0;
     g_texture.width = 0;
     g_texture.height = 0;

@@ -4167,7 +4167,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.104  --x--  0,0  zoom 100%  rot 0.0°</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.105  --x--  0,0  zoom 100%  rot 0.0°</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -4842,7 +4842,10 @@
             <div style="display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); padding-top: 5px;">
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
                 <span style="font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px;">Texture &amp; Grain</span>
-                <div style="display: flex; gap: 3px;">
+                <div style="display: flex; gap: 3px; align-items: center;">
+                  <button type="button" id="btn-ip-lab-tex-scale-size" class="ip-btn ip-mini-btn" style="height: 18px; padding: 0 4px; font-size: 8.5px;" title="Scale texture pattern proportionally with brush size">
+                    <input type="checkbox" id="chk-ip-lab-tex-scale-size" style="margin-right: 2px; pointer-events: none;"> Scale w/ Size
+                  </button>
                   <button type="button" id="btn-ip-grain-from-layer" class="ip-btn ip-mini-btn" style="height: 18px; padding: 0 5px; font-size: 8.5px; color: var(--primary);">+Grain Layer</button>
                   <button type="button" id="btn-ip-grain-from-selection" class="ip-btn ip-mini-btn" style="height: 18px; padding: 0 5px; font-size: 8.5px; color: var(--primary);">+Grain Sel</button>
                 </div>

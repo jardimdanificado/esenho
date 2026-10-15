@@ -87,8 +87,9 @@ enum {
     W_PARAM_GRANULATION    = 52, /* watercolor pigment granulation settling % (0..100) */
     W_PARAM_FRINGE         = 53, /* edge darkening / coffee ring effect % (0..100) */
     W_PARAM_PIGMENT_MODE   = 54, /* color mixing mode: 0=digital RGB, 1=subtractive physical pigment */
-    W_PARAM_IMPASTO        = 55, /* 3D oil/acrylic paint thickness relief % (0..100) */
-    W_PARAM_DRYING_RATE    = 56  /* natural water evaporation rate % (0..100, default 0=infinite wetness) */
+    W_PARAM_IMPASTO             = 55, /* 3D oil/acrylic paint thickness relief % (0..100) */
+    W_PARAM_DRYING_RATE         = 56, /* natural water evaporation rate % (0..100, default 0=infinite wetness) */
+    W_PARAM_TEX_SCALE_WITH_SIZE = 57  /* scale texture proportionally with brush size: 0=off, 1=on */
 };
 
 enum {
