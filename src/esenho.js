@@ -300,7 +300,7 @@ const BRUSH_PRESETS = new Proxy({}, {
   }
 });
 
-function createDefaultWasmImports(options = {}) {
+function createDefaultWasmImports(options = {}, requiredImports = []) {
   const env = {
     sinf: (x) => Math.sin(x),
     cosf: (x) => Math.cos(x),
@@ -317,6 +317,24 @@ function createDefaultWasmImports(options = {}) {
     logf: (x) => Math.log(x),
     ...(options.env || {})
   };
+
+  const reqList = Array.isArray(requiredImports) ? requiredImports : [];
+  if (options.canvasActor) {
+    if ((reqList.length === 0 || reqList.some(i => i.module === 'env' && i.name === 'memory')) && !env.memory) {
+      env.memory = options.canvasActor.memory;
+    }
+    if ((reqList.length === 0 || reqList.some(i => i.module === 'env' && i.name === '__memory_base')) && !env.__memory_base) {
+      const allocSize = options.allocSize || 65536;
+      const memBase = (typeof options.canvasActor.exports?.w_canvas_alloc === 'function')
+        ? options.canvasActor.exports.w_canvas_alloc(allocSize)
+        : (options.memoryBase || 70000000);
+      env.__memory_base = new WebAssembly.Global({ value: 'i32', mutable: false }, memBase);
+    }
+    if ((reqList.length === 0 || reqList.some(i => i.module === 'env' && i.name === '__table_base')) && !env.__table_base) {
+      env.__table_base = new WebAssembly.Global({ value: 'i32', mutable: false }, options.tableBase || 1);
+    }
+  }
+
   return { env, ...(options.imports || {}) };
 }
 
@@ -332,7 +350,7 @@ class EsenhoModule {
     if (wasmPathOrBytes && wasmPathOrBytes.exports) {
       this.instance = wasmPathOrBytes;
       this.exports = this.instance.exports;
-      this.memory = this.exports.memory;
+      this.memory = this.exports.memory || (options.canvasActor ? options.canvasActor.memory : null);
       this.name = options.name || 'instance';
       this.wasmPath = options.name || 'instance';
       this.layerPtr = 0;
@@ -348,9 +366,10 @@ class EsenhoModule {
     this.name = options.name || (typeof this.wasmPath === 'string' ? path.basename(String(this.wasmPath), '.wasm') : 'module');
     const wasmBytes = isBytes ? wasmPathOrBytes : fs.readFileSync(wasmPathOrBytes);
     this.wasmModule = new WebAssembly.Module(wasmBytes);
-    this.instance = new WebAssembly.Instance(this.wasmModule, createDefaultWasmImports(options));
+    const requiredImports = WebAssembly.Module.imports(this.wasmModule);
+    this.instance = new WebAssembly.Instance(this.wasmModule, createDefaultWasmImports(options, requiredImports));
     this.exports = this.instance.exports;
-    this.memory = this.exports.memory;
+    this.memory = this.exports.memory || (options.canvasActor ? options.canvasActor.memory : null);
     this.layerPtr = 0;
     this.layerByteLen = 0;
     this.texPtr = 0;
@@ -365,8 +384,10 @@ class EsenhoModule {
    */
   static async fromBytes(bytes, options = {}) {
     const u8 = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes);
-    const res = await WebAssembly.instantiate(u8, createDefaultWasmImports(options));
-    const instance = res.instance || res;
+    const wasmModule = await WebAssembly.compile(u8);
+    const requiredImports = WebAssembly.Module.imports(wasmModule);
+    const imports = createDefaultWasmImports(options, requiredImports);
+    const instance = await WebAssembly.instantiate(wasmModule, imports);
     return new EsenhoModule(instance, options);
   }
 
@@ -1276,6 +1297,103 @@ class EsenhoModule {
   applyFilter(p1 = 0, p2 = 0) {
     if (typeof this.exports.w_filter_apply === 'function') {
       this.exports.w_filter_apply(p1, p2);
+    }
+  }
+}
+
+/**
+ * Zero-Copy WebAssembly Brush Controller.
+ * Manages native lifecycle, real-time parameters, and direct pixel-dab stamping
+ * on the canvas active layer with zero memory copying overhead.
+ */
+class EsenhoWasmBrush {
+  constructor(mod, options = {}) {
+    this.module = mod;
+    this.exports = mod.exports;
+    this.memory = mod.memory || (options.canvasActor ? options.canvasActor.memory : null);
+    this.name = options.name || mod.name || 'wasm_brush';
+    this.canvasActor = options.canvasActor || null;
+    this.params = new Map();
+    this._info = null;
+    this.getInfo();
+    if (this._info && Array.isArray(this._info.params)) {
+      this._info.params.forEach((p, idx) => {
+        this.setParam(idx, p.default !== undefined ? p.default : 0);
+      });
+    }
+  }
+
+  readCString(ptr) {
+    if (!ptr || !this.memory) return '';
+    const u8 = new Uint8Array(this.memory.buffer);
+    let end = ptr;
+    while (end < u8.length && u8[end] !== 0) end++;
+    return new TextDecoder('utf-8').decode(u8.subarray(ptr, end));
+  }
+
+  getInfo() {
+    if (this._info) return this._info;
+    if (typeof this.exports.w_brush_get_info === 'function') {
+      try {
+        const ptr = this.exports.w_brush_get_info();
+        const jsonStr = this.readCString(ptr);
+        if (jsonStr) {
+          this._info = JSON.parse(jsonStr);
+          return this._info;
+        }
+      } catch (err) {
+        console.warn(`[WasmBrush] Error parsing info for ${this.name}:`, err);
+      }
+    }
+    const defTitle = this.name.charAt(0).toUpperCase() + this.name.slice(1);
+    this._info = {
+      name: this.name,
+      title: defTitle,
+      category: 'WASM',
+      spacing: 0.10,
+      minRadius: 2,
+      maxRadius: 100,
+      params: []
+    };
+    return this._info;
+  }
+
+  setParam(idx, val) {
+    this.params.set(idx, val);
+    if (typeof this.exports.w_brush_set_param === 'function') {
+      this.exports.w_brush_set_param(idx, val);
+    }
+  }
+
+  getParam(idx) {
+    return this.params.get(idx);
+  }
+
+  init(cw, ch) {
+    if (typeof this.exports.w_brush_init === 'function') {
+      this.exports.w_brush_init(cw, ch);
+    }
+  }
+
+  strokeBegin(x, y, pressure, tiltX, tiltY, color, isEraser) {
+    if (typeof this.exports.w_brush_stroke_begin === 'function') {
+      this.exports.w_brush_stroke_begin(x, y, pressure, tiltX, tiltY, color >>> 0, isEraser ? 1 : 0);
+    }
+  }
+
+  renderDab(pixelsPtr, canvasW, canvasH, cx, cy, radius, pressure, angleDeg, speed, color, isEraser) {
+    if (typeof this.exports.w_brush_render_dab === 'function') {
+      this.exports.w_brush_render_dab(
+        pixelsPtr, canvasW, canvasH,
+        cx, cy, radius, pressure, angleDeg, speed,
+        color >>> 0, isEraser ? 1 : 0
+      );
+    }
+  }
+
+  strokeEnd() {
+    if (typeof this.exports.w_brush_stroke_end === 'function') {
+      this.exports.w_brush_stroke_end();
     }
   }
 }
@@ -6108,6 +6226,8 @@ class EsenhoScreenHost {
 
     this.canvasActor = null;
     this.plugins = new Map(); // name -> { type, module }
+    this.wasmBrushes = new Map(); // name -> EsenhoWasmBrush
+    this.activeWasmBrush = null;  // currently active EsenhoWasmBrush
 
     // Animation & Timeline State
     this.animPlaying = false;
@@ -9807,7 +9927,20 @@ class EsenhoScreenHost {
    * Activates a predefined brush preset and sends all its parameters to canvas.wasm.
    */
   selectBrushPreset(name) {
-    const key = name.toLowerCase().trim();
+    if (!name) return;
+    const strName = String(name).trim();
+    if (strName.startsWith('wasm_') || strName.startsWith('wasm:')) {
+      const wName = strName.replace(/^wasm[:_]/i, '');
+      if (this.wasmBrushes && this.wasmBrushes.has(wName)) {
+        return this.selectWasmBrush(wName);
+      }
+    }
+    if (this.wasmBrushes && this.wasmBrushes.has(strName.toLowerCase())) {
+      return this.selectWasmBrush(strName);
+    }
+    this.activeWasmBrush = null;
+
+    const key = strName.toLowerCase().trim();
     const preset = BRUSH_PRESETS[key] || (this.customBrushPresets && this.customBrushPresets[key]);
     const wasVectorMode = (this.actionMode === 'vector');
     this.activeBrush = key;
@@ -10188,6 +10321,73 @@ class EsenhoScreenHost {
                       (typeof this.canvasActor.exports.w_brush_dyn_stroke_to === 'function' || typeof this.canvasActor.exports.w_mypaint_brush_stroke_to === 'function');
 
     const invokeStroke = (s, curX, curY, pX, pY) => {
+      if (this.activeWasmBrush) {
+        const b = this.activeWasmBrush;
+        const pixPtr = this.canvasActor.exports.get_active_layer_pixels();
+        const cw = this.canvasActor.exports.get_canvas_width();
+        const ch = this.canvasActor.exports.get_canvas_height();
+        if (!pixPtr || cw <= 0 || ch <= 0) return;
+
+        const baseSize = (this.brushParams && this.brushParams.size) ? this.brushParams.size : 16;
+        const radius = Math.max(1.0, baseSize / 2.0);
+        const info = b.getInfo();
+        const spacingPct = (info && info.spacing) ? info.spacing : 0.10;
+        const stepSize = Math.max(1.0, radius * 2.0 * spacingPct);
+        const sym = this.brushParams?.symmetry || 0;
+
+        const stampDabAt = (cx, cy, spd, ang) => {
+          b.renderDab(pixPtr, cw, ch, cx, cy, radius, mappedPressure, ang, spd, col >>> 0, eraser);
+          if (sym === 1 || sym === 3) {
+            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, cy, radius, mappedPressure, 180 - ang, spd, col >>> 0, eraser);
+          }
+          if (sym === 2 || sym === 3) {
+            b.renderDab(pixPtr, cw, ch, cx, ch - 1 - cy, radius, mappedPressure, -ang, spd, col >>> 0, eraser);
+          }
+          if (sym === 3) {
+            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, ch - 1 - cy, radius, mappedPressure, 180 + ang, spd, col >>> 0, eraser);
+          }
+        };
+
+        if (s === 0) {
+          this._wasmSpacingDist = 0.0;
+          this._wasmLastTime = performance.now();
+          b.strokeBegin(curX, curY, mappedPressure, tx, ty, col >>> 0, eraser);
+          stampDabAt(curX, curY, 0.0, 0.0);
+        } else if (s === 1) {
+          const dx = curX - pX;
+          const dy = curY - pY;
+          const dist = Math.hypot(dx, dy);
+          if (dist >= 0.001) {
+            const now = performance.now();
+            const dt = Math.max(1.0, now - (this._wasmLastTime || now));
+            const spd = dist / dt;
+            this._wasmLastTime = now;
+            const ang = (Math.atan2(dy, dx) * 180.0) / Math.PI;
+
+            let d = stepSize - (this._wasmSpacingDist || 0.0);
+            while (d <= dist) {
+              const t = d / dist;
+              const cx = pX + dx * t;
+              const cy = pY + dy * t;
+              stampDabAt(cx, cy, spd, ang);
+              d += stepSize;
+            }
+            this._wasmSpacingDist = dist - (d - stepSize);
+            if (this._wasmSpacingDist < 0.0) this._wasmSpacingDist = 0.0;
+            if (this._wasmSpacingDist >= stepSize) this._wasmSpacingDist = 0.0;
+          }
+        } else if (s === 2) {
+          b.strokeEnd();
+        }
+
+        if (typeof this.canvasActor.exports.w_force_composite === 'function') {
+          this.canvasActor.exports.w_force_composite();
+        } else if (typeof this.canvasActor.exports.force_composite === 'function') {
+          this.canvasActor.exports.force_composite();
+        }
+        return;
+      }
+
       if (isDynamic) {
         const strokeFn = this.canvasActor.exports.w_brush_dyn_stroke_to || this.canvasActor.exports.w_mypaint_brush_stroke_to;
         const resetFn = this.canvasActor.exports.w_brush_dyn_reset_state || this.canvasActor.exports.w_mypaint_brush_reset_state;
@@ -10469,6 +10669,87 @@ class EsenhoScreenHost {
       this.canvasActor.exports.force_composite();
     }
     return true;
+  }
+
+  /**
+   * Asynchronously loads a Zero-Copy WebAssembly Brush plugin.
+   * The plugin shares linear memory directly with canvasActor, allowing
+   * full per-pixel control without copying buffers across boundaries.
+   * @param {string} name
+   * @param {string|Uint8Array|ArrayBuffer} urlOrBytes
+   * @returns {Promise<EsenhoWasmBrush|null>}
+   */
+  async loadWasmBrush(name, urlOrBytes) {
+    if (!this.canvasActor) {
+      console.warn('[EsenhoHost] Cannot load WASM brush: canvasActor not initialized');
+      return null;
+    }
+    const brushName = name.replace(/\.wasm$/i, '').trim();
+    let mod;
+    const isBytes = (urlOrBytes instanceof Uint8Array) || (urlOrBytes instanceof ArrayBuffer);
+    const options = {
+      name: brushName,
+      canvasActor: this.canvasActor
+    };
+    try {
+      if (isBytes) {
+        mod = await EsenhoModule.fromBytes(urlOrBytes, options);
+      } else {
+        mod = await EsenhoModule.fromURL(urlOrBytes, options);
+      }
+      const brush = new EsenhoWasmBrush(mod, options);
+      if (typeof brush.init === 'function') {
+        const cw = (typeof this.canvasActor.exports.get_canvas_width === 'function') ? this.canvasActor.exports.get_canvas_width() : DOC_WIDTH;
+        const ch = (typeof this.canvasActor.exports.get_canvas_height === 'function') ? this.canvasActor.exports.get_canvas_height() : DOC_HEIGHT;
+        brush.init(cw, ch);
+      }
+      this.wasmBrushes.set(brushName, brush);
+      return brush;
+    } catch (err) {
+      console.warn(`[EsenhoHost] Failed to load WASM brush "${brushName}":`, err);
+      return null;
+    }
+  }
+
+  /**
+   * Activates a zero-copy WASM brush by name.
+   * @param {string} name
+   * @returns {EsenhoWasmBrush|null}
+   */
+  selectWasmBrush(name) {
+    if (!name || name === 'none') {
+      this.activeWasmBrush = null;
+      return null;
+    }
+    const key = String(name).toLowerCase().replace(/^wasm[:_]/i, '').replace(/\.wasm$/i, '').trim();
+    const brush = this.wasmBrushes.get(key);
+    if (!brush) return null;
+    this.activeWasmBrush = brush;
+    this.activeBrush = `wasm_${key}`;
+    this.pushBrushHistory(`wasm_${key}`);
+    return brush;
+  }
+
+  /**
+   * Updates a custom parameter for an active or named WASM brush.
+   */
+  setWasmBrushParam(name, paramIdx, val) {
+    const key = String(name || '').toLowerCase().replace(/^wasm[:_]/i, '').replace(/\.wasm$/i, '').trim();
+    const brush = key ? this.wasmBrushes.get(key) : this.activeWasmBrush;
+    if (brush) {
+      brush.setParam(paramIdx, val);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Retrieves an active or named WASM brush instance.
+   */
+  getWasmBrush(name) {
+    if (!name && this.activeWasmBrush) return this.activeWasmBrush;
+    const key = String(name || '').toLowerCase().replace(/^wasm[:_]/i, '').replace(/\.wasm$/i, '').trim();
+    return this.wasmBrushes.get(key) || null;
   }
 
   /**

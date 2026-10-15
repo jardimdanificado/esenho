@@ -439,6 +439,36 @@ async function main() {
     if (typeof populateFilterSelect === 'function') {
       populateFilterSelect();
     }
+
+    // Discover & load Zero-Copy WASM Brushes
+    try {
+      const bRes = await fetch('plugins/brushes/manifest.json');
+      if (bRes.ok) {
+        const bList = await bRes.json();
+        const bTasks = bList.map(async (item) => {
+          const file = typeof item === 'string' ? item : item.file || item.name;
+          if (!file || !file.endsWith('.wasm')) return;
+          const name = file.replace(/\.wasm$/i, '');
+          try {
+            await host.loadWasmBrush(name, `plugins/brushes/${file}`);
+          } catch (e) {
+            console.warn(`[WasmBrush] ${file} — ${e.message}`);
+          }
+        });
+        await Promise.allSettled(bTasks);
+      }
+    } catch (e) {
+      console.warn('[WasmBrushes] discovery:', e.message);
+    }
+    if (host.wasmBrushes && host.wasmBrushes.size > 0) {
+      log(`${host.wasmBrushes.size} wasm brushes ready [ok]`);
+      if (typeof populateBrushPresetsUI === 'function') {
+        populateBrushPresetsUI();
+      }
+      if (typeof renderBrushShelf === 'function') {
+        renderBrushShelf();
+      }
+    }
   };
 
   host.loadPluginsPromise = loadPluginsAsync();
@@ -6697,6 +6727,20 @@ async function main() {
           grp.appendChild(opt);
         }
         sel.appendChild(grp);
+      }
+
+      if (host.wasmBrushes && host.wasmBrushes.size > 0) {
+        const grpWasm = document.createElement('optgroup');
+        grpWasm.label = '⚡ WASM Brushes (Zero-Copy Kernel)';
+        for (const [k, wb] of host.wasmBrushes.entries()) {
+          const info = wb.getInfo ? wb.getInfo() : wb.info;
+          const opt = document.createElement('option');
+          opt.value = `wasm_${k}`;
+          opt.textContent = `✦ ${info?.title || k}`;
+          if (host.activeBrush === `wasm_${k}` || (host.activeWasmBrush && host.activeWasmBrush.name === k)) opt.selected = true;
+          grpWasm.appendChild(opt);
+        }
+        sel.appendChild(grpWasm);
       }
     };
 
@@ -13434,7 +13478,107 @@ async function main() {
         });
         brushShelfGrid.appendChild(card);
       }
+
+      // ── Zero-Copy WASM Brushes ──
+      if (host.wasmBrushes && host.wasmBrushes.size > 0 && (activeBrushCat === 'all' || activeBrushCat === 'wasm')) {
+        for (const [key, wb] of host.wasmBrushes.entries()) {
+          const info = wb.getInfo ? wb.getInfo() : wb.info;
+          const isAct = host.activeBrush === `wasm_${key}` || host.activeWasmBrush === wb;
+          const card = document.createElement('div');
+          card.className = `ip-brush-card${isAct ? ' active' : ''}`;
+          card.style.borderColor = isAct ? '#fabd2f' : 'rgba(250, 189, 47, 0.25)';
+          card.innerHTML = `
+            <div class="ip-brush-card-top">
+              <span class="ip-brush-card-title" style="color: #fabd2f;">✦ ${info?.title || key}</span>
+              <span style="font-size: 8.5px; background: #d79921; color: #1d2021; padding: 1px 4px; border-radius: 3px; font-weight: bold;">WASM</span>
+            </div>
+            <div class="ip-brush-card-desc">${info?.category ? info.category + ' • ' : ''}Zero-Copy Kernel (${(info?.params || []).length} params)</div>
+          `;
+          card.addEventListener('click', () => {
+            host.selectWasmBrush(key);
+            syncUiFromHost();
+            renderBrushShelf();
+            openWasmBrushModal(key);
+            triggerHaptic(15);
+          });
+          brushShelfGrid.appendChild(card);
+        }
+      }
     };
+
+    const openWasmBrushModal = (key) => {
+      const wb = host.getWasmBrush(key);
+      if (!wb) return;
+      const info = wb.getInfo();
+      const titleEl = document.getElementById('ui-wasm-brush-title');
+      const badgeEl = document.getElementById('ui-wasm-brush-badge');
+      const paramsContainer = document.getElementById('ui-ctrl-wasm-brush-params');
+      const closeBtn = document.getElementById('ui-btn-wasm-brush-close');
+
+      if (titleEl) titleEl.textContent = info?.title || key;
+      if (badgeEl) badgeEl.textContent = `${info?.category || 'Kernel'} • ${(info?.params || []).length}p`;
+
+      if (paramsContainer) {
+        paramsContainer.innerHTML = '';
+        const params = (info && Array.isArray(info.params)) ? info.params : [];
+        if (params.length === 0) {
+          paramsContainer.innerHTML = '<div style="font-size: 10px; color: var(--text-muted); font-style: italic; padding: 12px; text-align: center;">No tunable parameters for this brush.</div>';
+        } else {
+          params.forEach((param, idx) => {
+            const wrap = document.createElement('div');
+            wrap.className = 'ip-touch-control';
+            wrap.style.cssText = 'padding: 4px 6px; background: rgba(0,0,0,0.18); border-radius: 4px; margin-bottom: 2px;';
+
+            const labelRow = document.createElement('div');
+            labelRow.className = 'ip-touch-label-row';
+            labelRow.style.cssText = 'display: flex; justify-content: space-between; font-size: 9.5px; font-weight: 700; color: #ebdbb2; margin-bottom: 2px;';
+
+            const lbl = document.createElement('span');
+            const unit = param.unit ? ` (${param.unit})` : '';
+            lbl.textContent = (param.name || `Parameter ${idx + 1}`) + unit;
+
+            const valSpan = document.createElement('span');
+            valSpan.className = 'ip-touch-val';
+            valSpan.style.cssText = 'color: #fabd2f; font-family: monospace;';
+            const curVal = wb.getParam(idx) !== undefined ? wb.getParam(idx) : (param.default !== undefined ? param.default : (param.min || 0));
+            valSpan.textContent = String(curVal);
+
+            labelRow.appendChild(lbl);
+            labelRow.appendChild(valSpan);
+
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.className = 'ip-touch-slider';
+            slider.style.cssText = 'width: 100%; height: 16px; accent-color: #fabd2f; cursor: pointer;';
+            slider.min = param.min !== undefined ? param.min : 0;
+            slider.max = param.max !== undefined ? param.max : 100;
+            slider.step = param.step !== undefined ? param.step : 1;
+            slider.value = curVal;
+
+            slider.addEventListener('input', () => {
+              const val = parseInt(slider.value, 10);
+              valSpan.textContent = String(val);
+              wb.setParam(idx, val);
+            });
+
+            wrap.appendChild(labelRow);
+            wrap.appendChild(slider);
+            paramsContainer.appendChild(wrap);
+          });
+        }
+      }
+
+      if (closeBtn) {
+        closeBtn.onclick = () => {
+          if (typeof closeAllSheets === 'function') closeAllSheets();
+          document.getElementById('sheet-wasm-brush')?.classList.remove('active');
+          if (typeof uiToast === 'function') uiToast(`Active: ${info?.title || key}`, 'success', 1600);
+        };
+      }
+
+      openSheet('sheet-wasm-brush');
+    };
+    window.openWasmBrushModal = openWasmBrushModal;
 
     const setShelfCategory = (cat) => {
       activeBrushCat = cat || 'all';

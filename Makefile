@@ -6,7 +6,12 @@ CORE_WASM = plugins/canvas.wasm
 PLUGIN_SRCS = $(wildcard src/plugins/*.c)
 PLUGINS = $(patsubst src/plugins/%.c,plugins/%.wasm,$(PLUGIN_SRCS))
 
-all: $(CORE_WASM) $(PLUGINS) plugins/manifest.json bin/quadro-svg
+BRUSH_CFLAGS = --target=wasm32 -nostdlib -fPIC -fno-builtin -fno-delete-null-pointer-checks -O3 -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -w -Isrc/include
+BRUSH_LDFLAGS = -Wl,--no-entry -Wl,--export-all -Wl,--allow-undefined -Wl,--import-memory -Wl,--pie
+BRUSH_SRCS = $(wildcard src/plugins/brushes/*.c)
+BRUSH_PLUGINS = $(patsubst src/plugins/brushes/%.c,plugins/brushes/%.wasm,$(BRUSH_SRCS))
+
+all: $(CORE_WASM) $(PLUGINS) plugins/manifest.json $(BRUSH_PLUGINS) plugins/brushes/manifest.json bin/quadro-svg
 
 plugins/canvas.wasm: src/quadro.c $(wildcard src/include/*.h)
 	mkdir -p plugins
@@ -16,9 +21,17 @@ plugins/%.wasm: src/plugins/%.c src/include/quadro.h
 	mkdir -p plugins
 	$(CLANG) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
+plugins/brushes/%.wasm: src/plugins/brushes/%.c src/include/quadro_brush_plugin.h src/include/quadro.h
+	mkdir -p plugins/brushes
+	$(CLANG) $(BRUSH_CFLAGS) $(BRUSH_LDFLAGS) -o $@ $<
+
 plugins/manifest.json: $(PLUGINS)
 	@mkdir -p plugins
 	@node -e "const fs=require('fs'); const files=fs.readdirSync('plugins').filter(f=>f.endsWith('.wasm') && f !== 'canvas.wasm').sort(); fs.writeFileSync('plugins/manifest.json', JSON.stringify(files, null, 2));"
+
+plugins/brushes/manifest.json: $(BRUSH_PLUGINS)
+	@mkdir -p plugins/brushes
+	@node -e "const fs=require('fs'); const files=fs.existsSync('plugins/brushes') ? fs.readdirSync('plugins/brushes').filter(f=>f.endsWith('.wasm')).sort() : []; fs.writeFileSync('plugins/brushes/manifest.json', JSON.stringify(files, null, 2));"
 
 # =========================================================================
 # Native C Standalone Targets (Zero Browser Dependency)
@@ -64,6 +77,6 @@ apk: $(CORE_WASM) $(PLUGINS) plugins/manifest.json
 	echo "Built signed APK: esenho-v$${VERSION}.apk"
 
 clean:
-	rm -rf plugins/*.wasm plugins/manifest.json roms bin android/.gradle android/build android/app/build android/app/src/main/assets
+	rm -rf plugins/*.wasm plugins/brushes/*.wasm plugins/manifest.json plugins/brushes/manifest.json roms bin android/.gradle android/build android/app/build android/app/src/main/assets
 
 .PHONY: all run clean native test-native test-brush-dyn apk

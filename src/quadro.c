@@ -75,6 +75,10 @@ static void *canvas_alloc(uint32_t size) {
 }
 #endif
 
+W_EXPORT void *w_canvas_alloc(uint32_t size) {
+    return canvas_alloc(size);
+}
+
 /* =========================================================================
  * Selection Clipping
  * Constrains all brush strokes, fills, shapes, and layer adjustments
