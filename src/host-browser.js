@@ -286,6 +286,31 @@ async function main() {
         }
       }
     }
+    try {
+      const savedColHist = localStorage.getItem('esenho_color_history');
+      if (savedColHist) {
+        const parsed = JSON.parse(savedColHist);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          host.colorHistory = parsed;
+        }
+      }
+    } catch (_) {}
+    if (!host.colorHistory || host.colorHistory.length === 0) {
+      host.colorHistory = ['#EBDBB2', '#FABD2F', '#FB4934', '#FE8019', '#B8BB26', '#8EC07C', '#83A598', '#D3869B', '#458588', '#282828'];
+    }
+
+    try {
+      const savedBrushHist = localStorage.getItem('esenho_brush_history');
+      if (savedBrushHist) {
+        const parsed = JSON.parse(savedBrushHist);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          host.brushHistory = parsed;
+        }
+      }
+    } catch (_) {}
+    if (!host.brushHistory || host.brushHistory.length === 0) {
+      host.brushHistory = ['ink_pen', 'pencil', 'charcoal_soft', 'airbrush_soft', 'gouache'];
+    }
     const savedBP = localStorage.getItem('esenho_saved_brush_params');
     if (savedBP) {
       const parsedBP = JSON.parse(savedBP);
@@ -472,6 +497,8 @@ async function main() {
       if (host.activeBrush) localStorage.setItem('esenho_last_brush_preset', String(host.activeBrush));
       if (host.activeTexture) localStorage.setItem('esenho_last_texture', String(host.activeTexture));
       if (host.currentColor !== undefined) localStorage.setItem('esenho_last_color', String(host.currentColor >>> 0));
+      if (host.colorHistory) localStorage.setItem('esenho_color_history', JSON.stringify(host.colorHistory));
+      if (host.brushHistory) localStorage.setItem('esenho_brush_history', JSON.stringify(host.brushHistory));
       if (host.brushParams) localStorage.setItem('esenho_saved_brush_params', JSON.stringify(host.brushParams));
       if (host.wandTolerance !== undefined) localStorage.setItem('esenho_wand_tolerance', String(host.wandTolerance));
       if (host.wandAdjacent !== undefined) localStorage.setItem('esenho_wand_adjacent', host.wandAdjacent ? '1' : '0');
@@ -3036,6 +3063,9 @@ async function main() {
   function sampleEyedropperColor(x, y, cx, cy) {
     const hex = host.pickColor(x, y, true);
     updateColorControlsFromHex(hex);
+    if (typeof host.pushColorHistory === 'function') {
+      host.pushColorHistory(hex);
+    }
     showEyedropper(cx, cy, hex);
     return hex;
   }
@@ -3528,8 +3558,18 @@ async function main() {
     }
 
     registerListeners() {
+      const isModalOrToast = (el) => {
+        return !!(el && typeof el.closest === 'function' && (
+          el.closest('.esenho-modal-backdrop') ||
+          el.closest('.esenho-modal-card') ||
+          el.closest('.esenho-toast-container') ||
+          el.closest('.esenho-toast')
+        ));
+      };
+
       const suppressEvent = (e) => {
         if (this._suppressNextPointer) {
+          if (isModalOrToast(e.target)) return;
           if (e.button === 2) return; // Allow right click to reposition context menu
           if (e.cancelable) e.preventDefault();
           e.stopPropagation();
@@ -3538,6 +3578,10 @@ async function main() {
       };
 
       const onOutsideDown = (e) => {
+        if (isModalOrToast(e.target)) {
+          if (this.activeMenu) this.hideContextMenu();
+          return;
+        }
         if (this._suppressNextPointer) {
           if (e.button === 2) return;
           if (e.cancelable) e.preventDefault();
@@ -3566,6 +3610,7 @@ async function main() {
 
       const onTouchOrPointerUp = (e) => {
         if (this._suppressNextPointer) {
+          if (isModalOrToast(e.target)) return;
           suppressEvent(e);
           if (e.touches && e.touches.length === 0) {
             if (this._suppressTimer) clearTimeout(this._suppressTimer);
@@ -4237,7 +4282,8 @@ async function main() {
         });
         colorRow.appendChild(curChip);
 
-        const swatches = (typeof getActivePaletteColors === 'function' ? getActivePaletteColors() : PALETTE_PRESETS.gruvbox).slice(0, 9);
+        const histSwatches = (host.colorHistory && host.colorHistory.length > 0) ? host.colorHistory.slice(0, 9) : null;
+        const swatches = histSwatches || (typeof getActivePaletteColors === 'function' ? getActivePaletteColors() : PALETTE_PRESETS.gruvbox).slice(0, 9);
         const swatchWrap = document.createElement('div');
         swatchWrap.style.cssText = 'display:grid;grid-template-columns:repeat(9,1fr);gap:2px;flex:1;';
         swatches.forEach(hex => {
@@ -4331,6 +4377,25 @@ async function main() {
       brushCatMap.get(cat).push([k, preset]);
     }
     const brushLibraryItems = [];
+    if (host.brushHistory && host.brushHistory.length > 0) {
+      const presetsMap = { ...BRUSH_PRESETS, ...(host.customBrushPresets || {}) };
+      const recentItems = host.brushHistory
+        .map(k => presetsMap[k] ? [k, presetsMap[k]] : null)
+        .filter(Boolean)
+        .slice(0, 8);
+      if (recentItems.length > 0) {
+        brushLibraryItems.push({
+          type: 'submenu',
+          label: '⏱ Recent Brushes',
+          items: recentItems.map(([k, preset]) => ({
+            type: 'item',
+            label: (host.activeBrush === k ? '✓ ' : '') + `${preset.name} (${preset.size || 10}px)`,
+            action: () => { host.selectBrushPreset(k); syncUiFromHost(); populateBrushPresetsUI(); }
+          }))
+        });
+        brushLibraryItems.push({ type: 'sep' });
+      }
+    }
     if (host.customBrushPresets && Object.keys(host.customBrushPresets).length > 0) {
       brushLibraryItems.push({
         type: 'submenu',
@@ -4355,7 +4420,16 @@ async function main() {
     }
     brushLibraryItems.push(
       { type: 'sep' },
-      { type: 'item', label: '+ Save Current Brush Preset...', action: () => document.getElementById('ui-btn-save-preset')?.click() },
+      { type: 'item', label: '+ Save Current Brush Preset...', action: () => { host.saveCurrentBrushPreset?.(); } }
+    );
+    if (host.customBrushPresets && host.customBrushPresets[host.activeBrush]) {
+      brushLibraryItems.push({
+        type: 'item',
+        label: `🗑 Delete Custom Preset "${activeBrushTitle}"`,
+        action: () => { host.deleteCustomBrushPreset?.(host.activeBrush); }
+      });
+    }
+    brushLibraryItems.push(
       { type: 'item', label: 'Reset Brush to Default', action: () => { runCmd('reset tool'); syncUiFromHost(); } }
     );
 
@@ -6630,47 +6704,96 @@ async function main() {
     });
   }
 
+  host.saveCurrentBrushPreset = async function (presetName) {
+    let name = presetName;
+    if (typeof name !== 'string' || !name.trim()) {
+      const defaultName = (host.customBrushPresets && host.activeBrush && host.customBrushPresets[host.activeBrush]?.name)
+        || (typeof BRUSH_PRESETS !== 'undefined' && host.activeBrush && BRUSH_PRESETS[host.activeBrush]?.name ? `${BRUSH_PRESETS[host.activeBrush].name} Copy` : 'My Custom Brush');
+      name = await ui.prompt('Enter name for custom brush preset:', defaultName, { title: 'Save Custom Brush' });
+    }
+    if (!name || !name.trim()) return null;
+
+    const trimmedName = name.trim();
+    const key = trimmedName.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    if (!key) return null;
+
+    if (!host.customBrushPresets) host.customBrushPresets = {};
+    const presetData = {
+      name: trimmedName,
+      category: 'custom',
+      desc: `User custom preset (${host.brushParams?.size || 12}px)`,
+      ...JSON.parse(JSON.stringify(host.brushParams || {})),
+      texture: host.activeTexture || (host.brushParams && host.brushParams.texture) || 'none',
+      eraser: (host.strokeIsEraser || host.actionMode === 'erase') ? 1 : 0
+    };
+
+    host.customBrushPresets[key] = presetData;
+    saveCustomBrushPresets(host.customBrushPresets);
+
+    if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomBrushPreset) {
+      try {
+        EsenhoStore.saveCustomBrushPreset(trimmedName, presetData);
+      } catch (_) {}
+    }
+
+    host.activeBrush = key;
+    if (typeof host.selectBrushPreset === 'function') {
+      host.selectBrushPreset(key);
+    }
+
+    populateBrushPresetsUI();
+
+    if (typeof window.setBrushShelfCategory === 'function') {
+      window.setBrushShelfCategory('custom');
+    } else if (typeof window.renderBrushShelf === 'function') {
+      window.renderBrushShelf();
+    }
+
+    if (typeof syncInfinitePainterUI === 'function') syncInfinitePainterUI();
+    if (typeof syncUiFromHost === 'function') syncUiFromHost();
+
+    log(`Saved custom brush preset: ${trimmedName}`);
+    ui.toast(`Saved brush "${trimmedName}"`, 'success');
+    triggerHaptic(20);
+    return key;
+  };
+
+  host.deleteCustomBrushPreset = async function (targetKey) {
+    const cur = targetKey || host.activeBrush;
+    if (!cur || !host.customBrushPresets || !host.customBrushPresets[cur]) return false;
+    const targetName = host.customBrushPresets[cur].name || cur;
+    const confirmed = await ui.confirm(`Delete custom preset "${targetName}"?`, { title: 'Delete Preset', danger: true });
+    if (!confirmed) return false;
+
+    delete host.customBrushPresets[cur];
+    saveCustomBrushPresets(host.customBrushPresets);
+    if (typeof EsenhoStore !== 'undefined' && EsenhoStore.deleteCustomBrushPreset) {
+      try {
+        EsenhoStore.deleteCustomBrushPreset(targetName);
+      } catch (_) {}
+    }
+    host.selectBrushPreset('pencil');
+    populateBrushPresetsUI();
+    if (typeof window.renderBrushShelf === 'function') window.renderBrushShelf();
+    syncUiFromHost();
+    if (typeof syncInfinitePainterUI === 'function') syncInfinitePainterUI();
+    log(`Deleted custom preset: ${cur}`);
+    ui.toast(`Deleted preset "${targetName}"`, 'info');
+    triggerHaptic(20);
+    return true;
+  };
+
   const btnSavePreset = document.getElementById('ui-btn-save-preset');
   if (btnSavePreset) {
-    btnSavePreset.addEventListener('click', async () => {
-      const name = await ui.prompt('Enter name for custom brush preset:', '', { title: 'Save Custom Brush' });
-      if (name && name.trim()) {
-        const key = name.trim().toLowerCase().replace(/\s+/g, '_');
-        if (!host.customBrushPresets) host.customBrushPresets = {};
-        host.customBrushPresets[key] = {
-          name: name.trim(),
-          desc: 'Custom user brush preset',
-          ...JSON.parse(JSON.stringify(host.brushParams || {})),
-          texture: host.activeTexture || (host.brushParams && host.brushParams.texture) || 'none',
-          eraser: host.strokeIsEraser ? 1 : 0
-        };
-        saveCustomBrushPresets(host.customBrushPresets);
-        host.activeBrush = key;
-        populateBrushPresetsUI();
-        log(`Saved custom brush preset: ${name.trim()}`);
-        ui.toast(`Saved brush "${name.trim()}"`, 'success');
-        triggerHaptic(20);
-      }
+    btnSavePreset.addEventListener('click', () => {
+      host.saveCurrentBrushPreset?.();
     });
   }
 
   const btnDelPreset = document.getElementById('ui-btn-del-preset');
   if (btnDelPreset) {
-    btnDelPreset.addEventListener('click', async () => {
-      const cur = host.activeBrush;
-      if (cur && host.customBrushPresets && host.customBrushPresets[cur]) {
-        const targetName = host.customBrushPresets[cur].name || cur;
-        if (await ui.confirm(`Delete custom preset "${targetName}"?`, { title: 'Delete Preset', danger: true })) {
-          delete host.customBrushPresets[cur];
-          saveCustomBrushPresets(host.customBrushPresets);
-          host.selectBrushPreset('pencil');
-          populateBrushPresetsUI();
-          syncUiFromHost();
-          log(`Deleted custom preset: ${cur}`);
-          ui.toast(`Deleted preset "${targetName}"`, 'info');
-          triggerHaptic(20);
-        }
-      }
+    btnDelPreset.addEventListener('click', () => {
+      host.deleteCustomBrushPreset?.();
     });
   }
 
@@ -7168,6 +7291,8 @@ async function main() {
   const btnTouchAddSwatch = document.getElementById('btn-touch-add-swatch');
   const btnTouchDelSwatch = document.getElementById('btn-touch-del-swatch');
   const touchQuickSwatchesRow = document.getElementById('touch-quick-swatches-row');
+  const touchColorHistoryRow = document.getElementById('touch-color-history-row');
+  const btnTouchClearColorHistory = document.getElementById('btn-touch-clear-color-history');
 
   // Studio State
   let studioPrevHex = '#EBDBB2';
@@ -7321,6 +7446,9 @@ async function main() {
     if (name === 'custom') {
       return getCustomSwatches();
     }
+    if (name === 'history') {
+      return (host.colorHistory && host.colorHistory.length > 0) ? host.colorHistory : [];
+    }
     return PALETTE_PRESETS[name] || PALETTE_PRESETS.gruvbox;
   }
 
@@ -7329,7 +7457,7 @@ async function main() {
   }
 
   function setActivePalette(name) {
-    if (name !== 'custom' && !PALETTE_PRESETS[name]) name = 'gruvbox';
+    if (name !== 'custom' && name !== 'history' && !PALETTE_PRESETS[name]) name = 'gruvbox';
     activePaletteName = name;
     localStorage.setItem('esenho_active_palette', name);
     if (touchPaletteSelect && touchPaletteSelect.value !== name) {
@@ -7438,6 +7566,7 @@ async function main() {
     renderSwatches();
     renderTouchModalSwatches();
     renderTouchQuickSwatches();
+    renderTouchColorHistory();
     syncModularToolbars();
   }
 
@@ -7476,9 +7605,14 @@ async function main() {
     const selectedPal = touchPaletteSelect ? touchPaletteSelect.value : activePaletteName;
     const colors = getPaletteColors(selectedPal);
     const isCustom = selectedPal === 'custom';
+    const isHistory = selectedPal === 'history';
 
     if (colors.length === 0) {
-      touchModalSwatches.innerHTML = '<div style="grid-column: 1 / -1; color: var(--text-muted); font-size: 10px; font-style: italic; padding: 8px; text-align: center;">No custom swatches saved yet.<br>Click <strong>"+ Swatch"</strong> to add current color.</div>';
+      if (isHistory) {
+        touchModalSwatches.innerHTML = '<div style="grid-column: 1 / -1; color: var(--text-muted); font-size: 10px; font-style: italic; padding: 8px; text-align: center;">No color history yet.<br>Draw on canvas or pick colors to populate history.</div>';
+      } else {
+        touchModalSwatches.innerHTML = '<div style="grid-column: 1 / -1; color: var(--text-muted); font-size: 10px; font-style: italic; padding: 8px; text-align: center;">No custom swatches saved yet.<br>Click <strong>"+ Swatch"</strong> to add current color.</div>';
+      }
       return;
     }
 
@@ -7489,17 +7623,23 @@ async function main() {
     colors.forEach((hex, idx) => {
       const slot = document.createElement('div');
       slot.className = 'touch-swatch-slot';
-      if (studioDelMode && isCustom) slot.classList.add('del-mode');
+      if (studioDelMode && (isCustom || isHistory)) slot.classList.add('del-mode');
       slot.style.background = hex;
       if (currentHex && hex.toUpperCase() === currentHex) {
         slot.classList.add('active');
         slot.style.borderColor = 'var(--primary)';
       }
-      slot.title = studioDelMode && isCustom ? `Click to delete ${hex}` : hex;
+      slot.title = studioDelMode && (isCustom || isHistory) ? `Click to delete ${hex}` : hex;
 
       slot.addEventListener('click', () => {
-        if (studioDelMode && isCustom) {
-          removeCustomSwatch(idx);
+        if (studioDelMode && (isCustom || isHistory)) {
+          if (isCustom) removeCustomSwatch(idx);
+          else if (isHistory) {
+            host.colorHistory.splice(idx, 1);
+            try { localStorage.setItem('esenho_color_history', JSON.stringify(host.colorHistory)); } catch (_) {}
+            renderTouchModalSwatches();
+            renderTouchColorHistory();
+          }
           triggerHaptic(15);
         } else {
           applyColorFromStudio(hex);
@@ -7511,12 +7651,92 @@ async function main() {
     });
   }
 
+  function renderTouchColorHistory() {
+    if (!touchColorHistoryRow) return;
+    touchColorHistoryRow.innerHTML = '';
+    const history = (host.colorHistory && host.colorHistory.length > 0) ? host.colorHistory : [];
+    const currentHex = (host.currentColor !== undefined)
+      ? rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase()
+      : '';
+
+    if (history.length === 0) {
+      touchColorHistoryRow.innerHTML = '<span style="font-size: 10px; color: var(--text-muted); font-style: italic; padding: 2px 0;">No color history yet</span>';
+      return;
+    }
+
+    history.forEach((hex, idx) => {
+      const slot = document.createElement('div');
+      slot.className = 'touch-swatch-slot';
+      slot.style.width = '24px';
+      slot.style.height = '20px';
+      slot.style.flexShrink = '0';
+      slot.style.background = hex;
+      if (currentHex && hex.toUpperCase() === currentHex) {
+        slot.classList.add('active');
+        slot.style.border = '2px solid var(--primary)';
+      }
+      slot.title = `Color History: ${hex} (Click to apply)`;
+      slot.addEventListener('click', () => {
+        applyColorFromStudio(hex);
+        triggerHaptic(10);
+      });
+      touchColorHistoryRow.appendChild(slot);
+    });
+  }
+
+  if (btnTouchClearColorHistory) {
+    btnTouchClearColorHistory.addEventListener('click', async () => {
+      const ok = (typeof ui !== 'undefined' && ui.confirm)
+        ? await ui.confirm('Clear color history?', { title: 'Clear Color History' })
+        : confirm('Clear color history?');
+      if (ok) {
+        host.colorHistory = [];
+        try { localStorage.setItem('esenho_color_history', '[]'); } catch (_) {}
+        renderTouchColorHistory();
+        if (touchPaletteSelect && touchPaletteSelect.value === 'history') {
+          renderTouchModalSwatches();
+        }
+        triggerHaptic(10);
+      }
+    });
+  }
+
+  host.onColorHistoryChanged = (history) => {
+    try { localStorage.setItem('esenho_color_history', JSON.stringify(history)); } catch (_) {}
+    renderTouchColorHistory();
+    if (touchPaletteSelect && touchPaletteSelect.value === 'history') {
+      renderTouchModalSwatches();
+    }
+  };
+
+  if (touchColorPrevChip) {
+    touchColorPrevChip.style.cursor = 'pointer';
+    touchColorPrevChip.addEventListener('click', () => {
+      if (studioPrevHex) {
+        applyColorFromStudio(studioPrevHex);
+        triggerHaptic(12);
+      }
+    });
+  }
+
   function applyColorFromStudio(hex, skipHostCmd = false) {
     hex = (hex || '').trim();
     if (!hex.startsWith('#')) hex = '#' + hex;
     if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
 
     hex = hex.toUpperCase();
+    const curHex = (host.currentColor !== undefined)
+      ? rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase()
+      : '';
+
+    if (curHex && curHex !== hex) {
+      studioPrevHex = curHex;
+      if (touchColorPrevChip) {
+        touchColorPrevChip.style.background = studioPrevHex;
+        touchColorPrevChip.title = `Previous Color (${studioPrevHex}) — Click to restore`;
+      }
+    }
+
     const [r, g, b] = hexToRgb(hex);
     const [h, s, v] = rgbToHsv(r, g, b);
 
@@ -7528,7 +7748,10 @@ async function main() {
       runCmd(`color ${hex}`);
     }
 
-    if (touchColorCurrChip) touchColorCurrChip.style.background = hex;
+    if (touchColorCurrChip) {
+      touchColorCurrChip.style.background = hex;
+      touchColorCurrChip.title = `Current Color (${hex})`;
+    }
     if (touchColorHexInput && document.activeElement !== touchColorHexInput) {
       touchColorHexInput.value = hex;
     }
@@ -7557,6 +7780,7 @@ async function main() {
 
     updateSvBoxCursor();
     renderTouchQuickSwatches();
+    renderTouchColorHistory();
     if (typeof updateColorControlsFromHex === 'function') {
       updateColorControlsFromHex(hex);
     }
@@ -7781,6 +8005,7 @@ async function main() {
     switchStudioMode((typeof forceMode === 'string' && forceMode) ? forceMode : (studioActiveMode || 'wheel'));
     renderTouchModalSwatches();
     renderTouchQuickSwatches();
+    renderTouchColorHistory();
   }
   window.refreshTouchColorStudio = refreshTouchColorStudio;
 
@@ -10044,6 +10269,9 @@ async function main() {
       colorPicker.value = cleanHex;
     }
     if (colorHex && document.activeElement !== colorHex) colorHex.value = cleanHex;
+    if (host && typeof host.pushColorHistory === 'function') {
+      host.pushColorHistory(cleanHex);
+    }
 
     const rgb = hexToRgb(cleanHex);
     const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
@@ -11070,6 +11298,24 @@ async function main() {
     if (delPresetBtn) {
       const isCustomActive = host.customBrushPresets && host.customBrushPresets[curPreset];
       delPresetBtn.style.display = isCustomActive ? 'inline-block' : 'none';
+    }
+
+    // Sync active state on brush history chips
+    document.querySelectorAll('.ip-brush-history-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.brush === host.activeBrush);
+    });
+
+    // Sync active state on color history row
+    const curActiveHex = (host.currentColor !== undefined)
+      ? rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase()
+      : '';
+    if (curActiveHex) {
+      document.querySelectorAll('#touch-color-history-row .touch-swatch-slot').forEach(slot => {
+        const isActive = slot.title.includes(curActiveHex);
+        slot.classList.toggle('active', isActive);
+        if (isActive) slot.style.border = '2px solid var(--primary)';
+        else slot.style.border = '';
+      });
     }
 
     const chkAdj = document.getElementById('ui-chk-adjacent');
@@ -13045,14 +13291,98 @@ async function main() {
 
     // 4. Brush Shelf Grid Population
     const brushShelfGrid = document.getElementById('ip-brush-cards-grid');
+    const brushHistoryChips = document.getElementById('ip-brush-history-chips');
+    const btnClearBrushHistory = document.getElementById('btn-ip-clear-brush-history');
     const catPills = document.querySelectorAll('#ip-brush-cat-pills .ip-pill-btn');
     let activeBrushCat = 'all';
+
+    const renderBrushHistoryChips = () => {
+      if (!brushHistoryChips) return;
+      brushHistoryChips.innerHTML = '';
+      const presetsMap = { ...BRUSH_PRESETS, ...(host.customBrushPresets || {}) };
+      const historyKeys = (host.brushHistory && host.brushHistory.length > 0) ? host.brushHistory : [];
+
+      if (historyKeys.length === 0) {
+        brushHistoryChips.innerHTML = '<span style="font-size: 10px; color: var(--text-muted); font-style: italic; padding: 3px 0;">No recent brushes yet</span>';
+        return;
+      }
+
+      historyKeys.forEach(key => {
+        const preset = presetsMap[key];
+        if (!preset || !preset.name) return;
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = `ip-mini-btn ip-brush-history-chip${host.activeBrush === key ? ' active' : ''}`;
+        chip.dataset.brush = key;
+        chip.style.cssText = 'height: 24px; padding: 0 8px; font-size: 10px; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; white-space: nowrap;';
+        chip.title = `${preset.name} (${preset.size || 12}px)`;
+        chip.innerHTML = `<span>${preset.name}</span><span style="font-size: 8.5px; opacity: 0.7;">${preset.size || 12}px</span>`;
+        chip.addEventListener('click', () => {
+          host.selectBrushPreset(key);
+          syncUiFromHost();
+          triggerHaptic(12);
+        });
+        brushHistoryChips.appendChild(chip);
+      });
+    };
+
+    if (btnClearBrushHistory) {
+      btnClearBrushHistory.addEventListener('click', async () => {
+        const ok = (typeof ui !== 'undefined' && ui.confirm)
+          ? await ui.confirm('Clear recent brushes history?', { title: 'Clear Brush History' })
+          : confirm('Clear recent brushes history?');
+        if (ok) {
+          host.brushHistory = [];
+          try { localStorage.setItem('esenho_brush_history', '[]'); } catch (_) {}
+          renderBrushHistoryChips();
+          if (activeBrushCat === 'recent') renderBrushShelf();
+          triggerHaptic(10);
+        }
+      });
+    }
+
+    host.onBrushHistoryChanged = (history) => {
+      try { localStorage.setItem('esenho_brush_history', JSON.stringify(history)); } catch (_) {}
+      renderBrushHistoryChips();
+      if (activeBrushCat === 'recent') renderBrushShelf();
+    };
 
     const renderBrushShelf = () => {
       if (!brushShelfGrid) return;
       brushShelfGrid.innerHTML = '';
 
+      renderBrushHistoryChips();
+
       const presetsMap = { ...BRUSH_PRESETS, ...(host.customBrushPresets || {}) };
+
+      if (activeBrushCat === 'recent') {
+        const historyKeys = (host.brushHistory && host.brushHistory.length > 0) ? host.brushHistory : [];
+        if (historyKeys.length === 0) {
+          brushShelfGrid.innerHTML = '<div style="grid-column: 1 / -1; color: var(--text-muted); font-size: 11px; font-style: italic; padding: 16px; text-align: center;">No recent brushes yet.<br>Select any brush from the categories above to add it to your history.</div>';
+          return;
+        }
+        for (const key of historyKeys) {
+          const preset = presetsMap[key];
+          if (!preset || !preset.name) continue;
+          const card = document.createElement('div');
+          card.className = `ip-brush-card${host.activeBrush === key ? ' active' : ''}`;
+          card.innerHTML = `
+            <div class="ip-brush-card-top">
+              <span class="ip-brush-card-title">${preset.name}</span>
+              <span style="font-size: 9px; color: #a89984; font-weight: bold;">${preset.size || 12}px</span>
+            </div>
+            <div class="ip-brush-card-desc">${preset.desc || 'Recent brush preset'}</div>
+          `;
+          card.addEventListener('click', () => {
+            host.selectBrushPreset(key);
+            syncUiFromHost();
+            triggerHaptic(15);
+          });
+          brushShelfGrid.appendChild(card);
+        }
+        return;
+      }
+
       for (const [key, preset] of Object.entries(presetsMap)) {
         if (!preset.name) continue;
 
@@ -13079,12 +13409,19 @@ async function main() {
       }
     };
 
+    const setShelfCategory = (cat) => {
+      activeBrushCat = cat || 'all';
+      catPills.forEach(p => {
+        p.classList.toggle('active', (p.dataset.bcat || 'all') === activeBrushCat);
+      });
+      renderBrushShelf();
+    };
+    window.setBrushShelfCategory = setShelfCategory;
+    window.renderBrushShelf = renderBrushShelf;
+
     catPills.forEach(pill => {
       pill.addEventListener('click', () => {
-        catPills.forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        activeBrushCat = pill.dataset.bcat || 'all';
-        renderBrushShelf();
+        setShelfCategory(pill.dataset.bcat || 'all');
         triggerHaptic(8);
       });
     });
@@ -13093,24 +13430,8 @@ async function main() {
 
     const btnSaveCustomBrush = document.getElementById('btn-ip-save-brush-preset');
     if (btnSaveCustomBrush) {
-      btnSaveCustomBrush.addEventListener('click', async () => {
-        const name = await ui.prompt('Preset Name:', 'Custom Brush', { title: 'Save Custom Brush' });
-        if (name && name.trim() && host.brushParams) {
-          const key = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
-          const custom = host.customBrushPresets || {};
-          custom[key] = {
-            ...JSON.parse(JSON.stringify(host.brushParams || {})),
-            texture: host.activeTexture || (host.brushParams && host.brushParams.texture) || 'none',
-            name: name.trim(),
-            category: 'custom',
-            desc: `User custom preset (${host.brushParams.size}px)`
-          };
-          host.customBrushPresets = custom;
-          saveCustomBrushPresets(custom);
-          populateBrushPresetsUI();
-          renderBrushShelf();
-          triggerHaptic(15);
-        }
+      btnSaveCustomBrush.addEventListener('click', () => {
+        host.saveCurrentBrushPreset?.();
       });
     }
 
@@ -14670,28 +14991,8 @@ async function main() {
 
     const btnLabSave = document.getElementById('btn-ip-lab-save');
     if (btnLabSave) {
-      btnLabSave.addEventListener('click', async () => {
-        const name = await ui.prompt('Enter custom brush preset name:', 'My Custom Brush', { title: 'Save Custom Brush' });
-        if (name && name.trim()) {
-          const key = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
-          if (!host.customBrushPresets) host.customBrushPresets = {};
-          host.customBrushPresets[key] = {
-            name: name.trim(),
-            category: 'custom',
-            desc: `Custom preset (${host.brushParams?.size || 12}px)`,
-            ...JSON.parse(JSON.stringify(host.brushParams || {})),
-            texture: host.activeTexture || (host.brushParams && host.brushParams.texture) || 'none',
-            eraser: host.strokeIsEraser ? 1 : 0
-          };
-          saveCustomBrushPresets(host.customBrushPresets);
-          host.activeBrush = key;
-          populateBrushPresetsUI();
-          if (typeof renderBrushShelf === 'function') renderBrushShelf();
-          syncInfinitePainterUI();
-          syncUiFromHost();
-          ui.toast(`Saved brush "${name.trim()}"`, 'success');
-          triggerHaptic(20);
-        }
+      btnLabSave.addEventListener('click', () => {
+        host.saveCurrentBrushPreset?.();
       });
     }
   }

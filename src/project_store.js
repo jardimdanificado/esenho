@@ -629,7 +629,7 @@
 
     saveCustomBrushPreset(name, presetData) {
       if (!name) return false;
-      const key = name.trim().toLowerCase().replace(/\s+/g, "_");
+      const key = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
       const current = this.getCustomBrushPresets();
       current[key] = {
         name: name.trim(),
@@ -651,17 +651,19 @@
 
     deleteCustomBrushPreset(name) {
       if (!name) return false;
-      const key = name.trim().toLowerCase().replace(/\s+/g, "_");
+      const key = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+      const legacyKey = name.trim().toLowerCase().replace(/\s+/g, "_");
       const current = this.getCustomBrushPresets();
-      if (current[key]) {
-        delete current[key];
+      const foundKey = current[key] ? key : (current[legacyKey] ? legacyKey : (current[name] ? name : null));
+      if (foundKey) {
+        delete current[foundKey];
         if (typeof localStorage !== "undefined") {
           try {
             localStorage.setItem("esenho_custom_brush_presets_v1", JSON.stringify(current));
             return true;
           } catch (_) {}
         } else if (this._nodeBrushPresets) {
-          delete this._nodeBrushPresets[key];
+          delete this._nodeBrushPresets[foundKey];
           return true;
         }
       }

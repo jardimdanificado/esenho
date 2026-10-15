@@ -4333,7 +4333,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.13.99)</span>
+    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.13.101)</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -4495,6 +4495,7 @@
             <select id="prop-brush-preset" style="flex: 1;">
               <option value="custom">-- Custom Settings --</option>
               <option value="default">Solid Vector (Default)</option>
+              <optgroup id="grp-recent-brush-presets" label="⏱ Recent Presets"></optgroup>
               <optgroup label="Pencils &amp; Sketching">
                 <option value="pencil">HB Graphite Pencil</option>
                 <option value="soft_pencil">6B Soft Graphite</option>
@@ -4540,6 +4541,7 @@
               <optgroup id="grp-custom-brush-presets" label="Custom Presets"></optgroup>
             </select>
             <button id="btn-save-brush-preset" title="Save current brush settings as shared preset" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-sub); color: var(--text); border-radius: 3px;">+ Save</button>
+            <button id="btn-del-brush-preset" title="Delete selected custom brush preset" style="display: none; padding: 2px 6px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-sub); color: #fb4934; border-radius: 3px;">✕</button>
           </div>
         </div>
         <div class="form-row">
@@ -7803,10 +7805,31 @@
         inverted_negative: { mode: 47, scale: 120, angle: 0, contrast: 150, grain: 20, hardness: 90, hardnessIntensity: 50, warpStrength: 30, warpFreq: 25, noiseDistort: 10, pinchSwirl: 25, posterize: 0, invert: true }
       };
 
+      function refreshStudioCustomBrushPresets() {
+        const grpCustomBrushes = document.getElementById('grp-custom-brush-presets');
+        if (grpCustomBrushes && typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) {
+          const prevVal = document.getElementById('prop-brush-preset')?.value;
+          grpCustomBrushes.innerHTML = '';
+          const customPresets = EsenhoStore.getCustomBrushPresets();
+          for (const [k, p] of Object.entries(customPresets)) {
+            const opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = p.name || k;
+            grpCustomBrushes.appendChild(opt);
+          }
+          const sel = document.getElementById('prop-brush-preset');
+          if (sel && prevVal && grpCustomBrushes.querySelector(`option[value="${prevVal}"]`)) {
+            sel.value = prevVal;
+          }
+        }
+      }
+      window.refreshStudioCustomBrushPresets = refreshStudioCustomBrushPresets;
+
       // ── Inspector UI Sync ──
       function updateInspector() {
         const selected = doc.getSelectedObjects();
         syncMaterialsStrokeOptions(selected);
+        refreshStudioCustomBrushPresets();
 
         const setVal = (id, val) => {
           const el = document.getElementById(id);
@@ -8135,20 +8158,38 @@
         }
 
         // Stroke Brush Dynamics
-        const grpCustomBrushes = document.getElementById('grp-custom-brush-presets');
-        if (grpCustomBrushes && typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) {
-          grpCustomBrushes.innerHTML = '';
-          const customPresets = EsenhoStore.getCustomBrushPresets();
-          for (const [k, p] of Object.entries(customPresets)) {
-            const opt = document.createElement('option');
-            opt.value = k;
-            opt.textContent = p.name || k;
-            grpCustomBrushes.appendChild(opt);
-          }
+        const grpRecentBrushes = document.getElementById('grp-recent-brush-presets');
+        if (grpRecentBrushes) {
+          grpRecentBrushes.innerHTML = '';
+          try {
+            const rawHist = localStorage.getItem('esenho_brush_history');
+            const histList = rawHist ? JSON.parse(rawHist) : [];
+            const presetsMap = (typeof BRUSH_PRESETS !== 'undefined') ? BRUSH_PRESETS : {};
+            if (Array.isArray(histList)) {
+              histList.slice(0, 8).forEach(k => {
+                const p = presetsMap[k];
+                if (p && p.name) {
+                  const opt = document.createElement('option');
+                  opt.value = k;
+                  opt.textContent = `${p.name} (${p.size || 10}px)`;
+                  grpRecentBrushes.appendChild(opt);
+                }
+              });
+            }
+          } catch (_) {}
+          grpRecentBrushes.style.display = (grpRecentBrushes.children.length > 0) ? '' : 'none';
         }
 
+        refreshStudioCustomBrushPresets();
+
         const bc = obj.brushConfig || {};
-        setVal('prop-brush-preset', bc.preset || 'default');
+        const curPresetVal = bc.preset || 'default';
+        setVal('prop-brush-preset', curPresetVal);
+        const btnDelPreset = document.getElementById('btn-del-brush-preset');
+        if (btnDelPreset) {
+          const customPresets = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
+          btnDelPreset.style.display = (curPresetVal && customPresets[curPresetVal]) ? 'inline-block' : 'none';
+        }
         setVal('prop-stroke-hardness', bc.hardness !== undefined ? bc.hardness : (obj.strokeHardness !== undefined ? obj.strokeHardness : 95));
         setVal('prop-brush-flow', bc.flow !== undefined ? bc.flow : 100);
         setVal('prop-brush-hardness', bc.hardness !== undefined ? bc.hardness : 100);
@@ -10863,8 +10904,18 @@
         }
 
         registerListeners() {
+          const isModalOrToast = (el) => {
+            return !!(el && typeof el.closest === 'function' && (
+              el.closest('.esenho-modal-backdrop') ||
+              el.closest('.esenho-modal-card') ||
+              el.closest('.esenho-toast-container') ||
+              el.closest('.esenho-toast')
+            ));
+          };
+
           const suppressEvent = (e) => {
             if (this._suppressNextPointer) {
+              if (isModalOrToast(e.target)) return;
               if (e.button === 2) return; // Allow right click to reposition context menu
               if (e.cancelable) e.preventDefault();
               e.stopPropagation();
@@ -10873,6 +10924,10 @@
           };
 
           const onOutsideDown = (e) => {
+            if (isModalOrToast(e.target)) {
+              if (this.activeMenu) this.hideContextMenu();
+              return;
+            }
             if (this._suppressNextPointer) {
               if (e.button === 2) return;
               if (e.cancelable) e.preventDefault();
@@ -10901,6 +10956,7 @@
 
           const onTouchOrPointerUp = (e) => {
             if (this._suppressNextPointer) {
+              if (isModalOrToast(e.target)) return;
               suppressEvent(e);
               if (e.touches && e.touches.length === 0) {
                 if (this._suppressTimer) clearTimeout(this._suppressTimer);
@@ -12698,6 +12754,11 @@
           const custom = EsenhoStore.getCustomBrushPresets();
           preset = custom[val];
         }
+        const btnDelPreset = document.getElementById('btn-del-brush-preset');
+        if (btnDelPreset) {
+          const customPresets = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
+          btnDelPreset.style.display = (val && customPresets[val]) ? 'inline-block' : 'none';
+        }
         if (preset) {
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
@@ -12736,11 +12797,17 @@
         const obj = selected[0];
         const bc = obj ? (obj.brushConfig || {}) : {};
         const st = obj ? (obj.strokeTexture || {}) : {};
-        const name = await uiPrompt('Enter name for custom brush preset:', '', { title: 'Save Brush Preset' });
+        const defaultName = (obj && obj.brushConfig && obj.brushConfig.preset && obj.brushConfig.preset !== 'default' && obj.brushConfig.preset !== 'custom')
+          ? `${obj.brushConfig.preset} Copy`
+          : 'My Custom Brush';
+        const name = await uiPrompt('Enter name for custom brush preset:', defaultName, { title: 'Save Brush Preset' });
         if (name && name.trim()) {
+          const trimmedName = name.trim();
+          const key = trimmedName.toLowerCase().replace(/[^a-z0-9_]/g, '_');
           const strokeFilt = (obj && obj.strokeFilter && obj.strokeFilter.enabled) ? obj.strokeFilter : (bc.wasmFilter && bc.wasmFilter.enabled ? bc.wasmFilter : null);
           const configToSave = {
-            name: name.trim(),
+            name: trimmedName,
+            category: 'custom',
             desc: 'Custom brush preset',
             flow: bc.flow !== undefined ? bc.flow : Number(document.getElementById('prop-brush-flow')?.value || 100),
             hardness: bc.hardness !== undefined ? bc.hardness : Number(document.getElementById('prop-brush-hardness')?.value || 100),
@@ -12769,10 +12836,40 @@
             wasmFilter: strokeFilt ? { ...strokeFilt } : undefined
           };
           if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomBrushPreset) {
-            EsenhoStore.saveCustomBrushPreset(name, configToSave);
-            showNotification(`Brush preset "${name.trim()}" saved`);
+            EsenhoStore.saveCustomBrushPreset(trimmedName, configToSave);
+            refreshStudioCustomBrushPresets();
+            const selEl = document.getElementById('prop-brush-preset');
+            if (selEl) {
+              selEl.value = key;
+              selEl.dispatchEvent(new Event('change'));
+            }
+            showNotification(`Brush preset "${trimmedName}" saved`);
             updateInspector();
           }
+        }
+      });
+
+      document.getElementById('btn-del-brush-preset')?.addEventListener('click', async () => {
+        const selEl = document.getElementById('prop-brush-preset');
+        const curKey = selEl?.value;
+        if (!curKey) return;
+        const customPresets = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
+        if (!customPresets[curKey]) return;
+        const targetName = customPresets[curKey].name || curKey;
+        const confirmed = typeof uiConfirm === 'function'
+          ? await uiConfirm(`Delete custom brush preset "${targetName}"?`, { title: 'Delete Preset', danger: true })
+          : confirm(`Delete custom brush preset "${targetName}"?`);
+        if (confirmed) {
+          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.deleteCustomBrushPreset) {
+            EsenhoStore.deleteCustomBrushPreset(curKey);
+          }
+          refreshStudioCustomBrushPresets();
+          if (selEl) {
+            selEl.value = 'default';
+            selEl.dispatchEvent(new Event('change'));
+          }
+          showNotification(`Deleted preset "${targetName}"`);
+          updateInspector();
         }
       });
 

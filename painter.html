@@ -3830,6 +3830,36 @@
       font-weight: 800;
     }
 
+    /* ── Recent Brush History Chips ── */
+    .ip-brush-history-chip {
+      background: var(--bg-panel-sub);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all 0.12s ease;
+    }
+    .ip-brush-history-chip:hover {
+      border-color: var(--border-bright);
+    }
+    .ip-brush-history-chip.active {
+      border-color: var(--primary);
+      background: rgba(250, 189, 47, 0.15);
+      color: var(--primary);
+      font-weight: bold;
+    }
+    [data-theme="skeuo"] .ip-brush-history-chip,
+    body.theme-skeuo .ip-brush-history-chip {
+      background: #242930;
+      border: 1px solid #1a1e24;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 1px 2px rgba(0,0,0,0.4);
+    }
+    [data-theme="skeuo"] .ip-brush-history-chip.active,
+    body.theme-skeuo .ip-brush-history-chip.active {
+      border-color: #fabd2f;
+      box-shadow: 0 0 6px rgba(250, 189, 47, 0.4);
+    }
+
     /* ── Brush Shelf Cards Grid ── */
     .ip-brush-grid {
       display: grid;
@@ -4137,7 +4167,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.99  --x--  0,0  zoom 100%  rot 0.0°</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.101  --x--  0,0  zoom 100%  rot 0.0°</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -4169,8 +4199,18 @@
       <div id="sheet-brushes" class="ip-sheet-modal">
         <div class="ip-sheet">
           <div class="ip-sheet-content">
+            <!-- RECENT BRUSHES QUICK BAR -->
+            <div id="ip-brush-history-bar" style="display: flex; flex-direction: column; gap: 3px; margin-bottom: 4px; flex-shrink: 0;">
+              <div style="display: flex; align-items: center; justify-content: space-between; font-size: 9.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                <span>Recent Brushes</span>
+                <button type="button" id="btn-ip-clear-brush-history" class="dock-strip-btn" style="height: 18px; padding: 0 5px; font-size: 8.5px;" title="Clear Brush History">Clear</button>
+              </div>
+              <div id="ip-brush-history-chips" style="display: flex; gap: 4px; overflow-x: auto; padding: 2px 0 4px 0; min-height: 26px; scrollbar-width: thin;"></div>
+            </div>
+
             <div class="ip-pills-row" id="ip-brush-cat-pills">
               <button type="button" class="ip-pill-btn active" data-bcat="all">All</button>
+              <button type="button" class="ip-pill-btn" data-bcat="recent" id="pill-bcat-recent">Recent</button>
               <button type="button" class="ip-pill-btn" data-bcat="sketch">Sketch</button>
               <button type="button" class="ip-pill-btn" data-bcat="ink">Inking</button>
               <button type="button" class="ip-pill-btn" data-bcat="paint">Painting</button>
@@ -4198,8 +4238,8 @@
       <div id="touch-color-modal">
         <div class="touch-color-box">
           <div style="display: flex; align-items: center; gap: 6px;">
-            <div class="touch-color-preview-duo" title="Previous / Active Color" style="height: 24px; width: 46px; flex-shrink: 0;">
-              <div id="touch-color-prev-chip" class="touch-preview-chip" title="Previous Color"></div>
+            <div class="touch-color-preview-duo" title="Previous / Active Color (Tap Prev to restore)" style="height: 24px; width: 46px; flex-shrink: 0; cursor: pointer;">
+              <div id="touch-color-prev-chip" class="touch-preview-chip" title="Previous Color (Tap to restore)" style="cursor: pointer;"></div>
               <div id="touch-color-curr-chip" class="touch-preview-chip" title="Current Color"></div>
             </div>
             <div class="touch-color-mode-tabs" style="flex: 1;">
@@ -4276,6 +4316,7 @@
               <label style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Palette:</label>
               <select id="touch-palette-select" class="ui-select" style="flex: 1; height: 26px;">
                 <option value="custom">My Custom Swatches</option>
+                <option value="history">Color History / Recents</option>
                 <option value="gruvbox">Gruvbox Dark</option>
                 <option value="vibrant">Vibrant Digital</option>
                 <option value="pastels">Soft Pastels</option>
@@ -4302,6 +4343,19 @@
             </div>
           </div>
 
+          <!-- COLOR HISTORY SECTION -->
+          <div class="touch-color-history-section" style="display: flex; flex-direction: column; gap: 3px; margin-top: 4px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 9.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+              <span>Color History</span>
+              <button type="button" id="btn-touch-clear-color-history" class="dock-strip-btn" style="height: 18px; padding: 0 5px; font-size: 8.5px;" title="Clear Color History">Clear</button>
+            </div>
+            <div id="touch-color-history-row" style="display: flex; gap: 4px; overflow-x: auto; padding: 2px 0 4px 0; min-height: 24px; scrollbar-width: thin;"></div>
+          </div>
+
+          <!-- PALETTE SWATCHES SECTION -->
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 2px; font-size: 9.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+            <span>Palette Swatches</span>
+          </div>
           <div id="touch-quick-swatches-row" style="display: flex; flex-wrap: wrap; gap: 4px; overflow-x: hidden; padding-bottom: 8px; flex-shrink: 0; min-height: 28px;"></div>
         </div>
       </div>

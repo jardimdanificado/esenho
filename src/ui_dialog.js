@@ -33,7 +33,7 @@
         position: fixed;
         bottom: 22px;
         right: 22px;
-        z-index: 100005;
+        z-index: 2000005;
         display: flex;
         flex-direction: column-reverse;
         gap: 8px;
@@ -92,7 +92,7 @@
         background: rgba(0, 0, 0, 0.72);
         backdrop-filter: blur(2.5px);
         -webkit-backdrop-filter: blur(2.5px);
-        z-index: 100000;
+        z-index: 2000000;
         display: flex;
         align-items: center;
         justify-content: center;

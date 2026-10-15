@@ -314,6 +314,24 @@
       } catch (e) {
         console.warn('[PaletteManager] Load error, using defaults:', e);
       }
+      if (!this.palettes.history) {
+        let historyColors = [];
+        try {
+          if (typeof localStorage !== 'undefined') {
+            const rawHistory = localStorage.getItem('esenho_color_history');
+            if (rawHistory) {
+              const parsedH = JSON.parse(rawHistory);
+              if (Array.isArray(parsedH)) historyColors = this.sanitizeColors(parsedH);
+            }
+          }
+        } catch (_) {}
+        this.palettes.history = {
+          id: 'history',
+          name: 'Color History',
+          colors: historyColors,
+          isBuiltIn: true
+        };
+      }
     }
 
     migrateLegacy() {
@@ -348,8 +366,43 @@
             }
           }
         }
+        const rawHistory = localStorage.getItem('esenho_color_history');
+        if (rawHistory) {
+          const parsedH = JSON.parse(rawHistory);
+          if (Array.isArray(parsedH)) {
+            this.palettes.history = {
+              id: 'history',
+              name: 'Color History',
+              colors: this.sanitizeColors(parsedH),
+              isBuiltIn: true
+            };
+          }
+        }
+        if (!this.palettes.history) {
+          this.palettes.history = { id: 'history', name: 'Color History', colors: [], isBuiltIn: true };
+        }
         this.save();
       } catch (_) {}
+    }
+
+    pushColorHistory(color) {
+      let clean = String(color || '').trim().toUpperCase();
+      if (!clean.startsWith('#')) clean = '#' + clean;
+      if (!/^#[0-9A-Fa-f]{6}$/.test(clean)) return;
+      if (!this.palettes.history) {
+        this.palettes.history = { id: 'history', name: 'Color History', colors: [], isBuiltIn: true };
+      }
+      const list = this.palettes.history.colors;
+      const idx = list.indexOf(clean);
+      if (idx !== -1) list.splice(idx, 1);
+      list.unshift(clean);
+      if (list.length > 32) list.length = 32;
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('esenho_color_history', JSON.stringify(list));
+        }
+      } catch (_) {}
+      this.notify();
     }
 
     save() {
@@ -2604,6 +2657,9 @@
           }
 
           if (commit) {
+            if (!this.isTargetNone && this.currentHex) {
+              PaletteManager.pushColorHistory(this.currentHex);
+            }
             if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Fill Color');
             if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
           }
@@ -2658,6 +2714,9 @@
           }
 
           if (commit) {
+            if (!this.isTargetNone && this.currentHex) {
+              PaletteManager.pushColorHistory(this.currentHex);
+            }
             if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Stroke Color');
             if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
           }

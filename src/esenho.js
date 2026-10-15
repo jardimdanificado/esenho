@@ -4565,28 +4565,47 @@ const COMMAND_RULES = [
   {
     pat: "preset save $name",
     run: (m, host) => {
+      if (typeof host.saveCurrentBrushPreset === 'function') {
+        host.saveCurrentBrushPreset(m.name);
+        return;
+      }
       if (!host.customBrushPresets) host.customBrushPresets = {};
-      const name = m.name.toLowerCase().trim();
-      host.customBrushPresets[name] = {
-        name: m.name,
+      const trimmed = m.name.trim();
+      const name = trimmed.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      const presetData = {
+        name: trimmed,
+        category: 'custom',
+        desc: `Custom preset (${host.brushParams?.size || 12}px)`,
         ...JSON.parse(JSON.stringify(host.brushParams || {})),
         texture: host.activeTexture || (host.brushParams && host.brushParams.texture) || 'none',
-        eraser: host.strokeIsEraser ? 1 : 0
+        eraser: (host.strokeIsEraser || host.actionMode === 'erase') ? 1 : 0
       };
+      host.customBrushPresets[name] = presetData;
       if (typeof localStorage !== 'undefined') {
         try { localStorage.setItem('esenho_custom_brush_presets_v1', JSON.stringify(host.customBrushPresets)); } catch (_) {}
       }
-      host.sendConsoleLog(`custom preset '${name}' saved`);
+      if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomBrushPreset) {
+        try { EsenhoStore.saveCustomBrushPreset(trimmed, presetData); } catch (_) {}
+      }
+      host.activeBrush = name;
+      host.selectBrushPreset?.(name);
+      host.sendConsoleLog(`custom preset '${trimmed}' saved`);
     }
   },
   {
     pat: "preset delete $name",
     run: (m, host) => {
-      const name = m.name.toLowerCase().trim();
+      const name = m.name.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_');
       if (host.customBrushPresets && host.customBrushPresets[name]) {
         delete host.customBrushPresets[name];
         if (typeof localStorage !== 'undefined') {
           try { localStorage.setItem('esenho_custom_brush_presets_v1', JSON.stringify(host.customBrushPresets)); } catch (_) {}
+        }
+        if (typeof EsenhoStore !== 'undefined' && EsenhoStore.deleteCustomBrushPreset) {
+          try { EsenhoStore.deleteCustomBrushPreset(name); } catch (_) {}
+        }
+        if (host.activeBrush === name) {
+          host.selectBrushPreset?.('pencil');
         }
         host.sendConsoleLog(`custom preset '${name}' deleted`);
       } else {
@@ -5047,6 +5066,7 @@ const COMMAND_RULES = [
       const g = Math.min(255, Math.max(0, parseInt(m.g, 10)));
       const b = Math.min(255, Math.max(0, parseInt(m.b, 10)));
       host.currentColor = (0xFF << 24) | (b << 16) | (g << 8) | r;
+      if (typeof host.pushColorHistory === 'function') host.pushColorHistory(host.currentColor);
       if (host.brushParams) {
         const toHex = (n) => n.toString(16).padStart(2, '0');
         host.brushParams.color = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
@@ -5067,6 +5087,7 @@ const COMMAND_RULES = [
       const parsed = parseColorString(m.col, host.currentColor);
       if (parsed !== null) {
         host.currentColor = parsed;
+        if (typeof host.pushColorHistory === 'function') host.pushColorHistory(parsed);
         if (host.brushParams) host.brushParams.color = m.col;
         if (host.actionMode === 'vector' && host.getSelectedVectorPath && host.getSelectedVectorPath()) {
           host.applyCurrentBrushStyleToSelectedVectorPaths({ color: true, brushParams: false, preset: false });
@@ -5978,6 +5999,12 @@ class EsenhoScreenHost {
     this.undoStack = [];
     this.redoStack = [];
     this.maxUndoSteps = 25;
+
+    // Color History & Brush History
+    this.colorHistory = [];
+    this.brushHistory = [];
+    this.onColorHistoryChanged = null;
+    this.onBrushHistoryChanged = null;
 
     // UI Scale / DPI adaptation
     this.uiScale = 'auto';
@@ -9584,6 +9611,60 @@ class EsenhoScreenHost {
   }
 
   /**
+   * Adds a color to the recent color history (FIFO with deduplication).
+   */
+  pushColorHistory(color) {
+    if (color === undefined || color === null) return;
+    let hex = '';
+    if (typeof color === 'number') {
+      const r = color & 0xFF;
+      const g = (color >> 8) & 0xFF;
+      const b = (color >> 16) & 0xFF;
+      hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+    } else if (typeof color === 'string') {
+      let c = color.trim().toUpperCase();
+      if (!c.startsWith('#')) c = '#' + c;
+      if (/^#[0-9A-F]{6}$/i.test(c)) {
+        hex = c.toUpperCase();
+      }
+    }
+    if (!hex) return;
+    if (!this.colorHistory) this.colorHistory = [];
+    const idx = this.colorHistory.indexOf(hex);
+    if (idx !== -1) {
+      this.colorHistory.splice(idx, 1);
+    }
+    this.colorHistory.unshift(hex);
+    if (this.colorHistory.length > 32) {
+      this.colorHistory.length = 32;
+    }
+    if (typeof this.onColorHistoryChanged === 'function') {
+      try { this.onColorHistoryChanged(this.colorHistory); } catch (_) {}
+    }
+  }
+
+  /**
+   * Adds a brush preset key to recent brush history (FIFO with deduplication).
+   */
+  pushBrushHistory(name) {
+    if (!name) return;
+    const key = String(name).toLowerCase().trim();
+    if (!key) return;
+    if (!this.brushHistory) this.brushHistory = [];
+    const idx = this.brushHistory.indexOf(key);
+    if (idx !== -1) {
+      this.brushHistory.splice(idx, 1);
+    }
+    this.brushHistory.unshift(key);
+    if (this.brushHistory.length > 24) {
+      this.brushHistory.length = 24;
+    }
+    if (typeof this.onBrushHistoryChanged === 'function') {
+      try { this.onBrushHistoryChanged(this.brushHistory); } catch (_) {}
+    }
+  }
+
+  /**
    * Activates a predefined brush preset and sends all its parameters to canvas.wasm.
    */
   selectBrushPreset(name) {
@@ -9591,6 +9672,7 @@ class EsenhoScreenHost {
     const preset = BRUSH_PRESETS[key] || (this.customBrushPresets && this.customBrushPresets[key]);
     const wasVectorMode = (this.actionMode === 'vector');
     this.activeBrush = key;
+    this.pushBrushHistory(key);
     if (preset) {
       // 1. Reset all tool and brush parameters to clean defaults before applying preset
       this.resetTool();
@@ -10138,6 +10220,13 @@ class EsenhoScreenHost {
       this.strokeSmoothY = null;
       this.strokeHistory = null;
       this.strokeLastMid = null;
+
+      if (!eraser && col !== undefined) {
+        this.pushColorHistory(col);
+      }
+      if (this.activeBrush) {
+        this.pushBrushHistory(this.activeBrush);
+      }
       return;
     }
   }
