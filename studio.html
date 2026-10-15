@@ -4333,7 +4333,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.13.103)</span>
+    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.13.104)</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -4640,6 +4640,33 @@
         <div class="form-row">
           <label>Smudge %</label>
           <input type="number" id="prop-brush-smudge" min="0" max="100" step="any" value="0">
+        </div>
+        <div class="form-row">
+          <label>Water %</label>
+          <input type="number" id="prop-brush-water" min="0" max="100" step="any" value="0">
+        </div>
+        <div class="form-row">
+          <label>Bleed %</label>
+          <input type="number" id="prop-brush-bleed" min="0" max="100" step="any" value="0">
+        </div>
+        <div class="form-row">
+          <label>Granulation %</label>
+          <input type="number" id="prop-brush-granulation" min="0" max="100" step="any" value="0">
+        </div>
+        <div class="form-row">
+          <label>Fringe %</label>
+          <input type="number" id="prop-brush-fringe" min="0" max="100" step="any" value="0">
+        </div>
+        <div class="form-row">
+          <label>3D Impasto %</label>
+          <input type="number" id="prop-brush-impasto" min="0" max="100" step="any" value="0">
+        </div>
+        <div class="form-row">
+          <label>Pigment Mode</label>
+          <select id="prop-brush-pigment-mode">
+            <option value="0">Digital RGB</option>
+            <option value="1">Subtractive CMY</option>
+          </select>
         </div>
       </div>
     </div>
@@ -5496,7 +5523,13 @@
           wetness: readNum('prop-brush-wetness', presetCfg.wetness !== undefined ? presetCfg.wetness : 0),
           color_pickup: readNum('prop-brush-color-pickup', presetCfg.color_pickup !== undefined ? presetCfg.color_pickup : 0),
           depletion: readNum('prop-brush-depletion', presetCfg.depletion !== undefined ? presetCfg.depletion : 0),
-          smudge: readNum('prop-brush-smudge', presetCfg.smudge !== undefined ? presetCfg.smudge : 0)
+          smudge: readNum('prop-brush-smudge', presetCfg.smudge !== undefined ? presetCfg.smudge : 0),
+          water: readNum('prop-brush-water', presetCfg.water !== undefined ? presetCfg.water : 0),
+          bleed: readNum('prop-brush-bleed', presetCfg.bleed !== undefined ? presetCfg.bleed : 0),
+          granulation: readNum('prop-brush-granulation', presetCfg.granulation !== undefined ? presetCfg.granulation : 0),
+          fringe: readNum('prop-brush-fringe', presetCfg.fringe !== undefined ? presetCfg.fringe : 0),
+          pigment_mode: readNum('prop-brush-pigment-mode', presetCfg.pigment_mode !== undefined ? presetCfg.pigment_mode : 0),
+          impasto: readNum('prop-brush-impasto', presetCfg.impasto !== undefined ? presetCfg.impasto : 0)
         };
         const texMode = readNum('prop-stroke-tex-mode', presetCfg.tex_mode !== undefined ? presetCfg.tex_mode : 0);
         const strokeTexture = {
@@ -8209,6 +8242,12 @@
         setVal('prop-brush-color-pickup', bc.color_pickup !== undefined ? bc.color_pickup : 0);
         setVal('prop-brush-depletion', bc.depletion !== undefined ? bc.depletion : 0);
         setVal('prop-brush-smudge', bc.smudge !== undefined ? bc.smudge : 0);
+        setVal('prop-brush-water', bc.water !== undefined ? bc.water : 0);
+        setVal('prop-brush-bleed', bc.bleed !== undefined ? bc.bleed : 0);
+        setVal('prop-brush-granulation', bc.granulation !== undefined ? bc.granulation : 0);
+        setVal('prop-brush-fringe', bc.fringe !== undefined ? bc.fringe : 0);
+        setVal('prop-brush-impasto', bc.impasto !== undefined ? bc.impasto : 0);
+        setVal('prop-brush-pigment-mode', bc.pigment_mode !== undefined ? bc.pigment_mode : 0);
 
         // Stroke WASM Plugin Sync
         const swf = obj.strokeFilter || (bc.wasmFilter) || (obj.wasmFilter && obj.wasmFilter.target === 'stroke' ? obj.wasmFilter : { enabled: false, target: 'stroke' });
@@ -12827,6 +12866,12 @@
             color_pickup: bc.color_pickup !== undefined ? bc.color_pickup : Number(document.getElementById('prop-brush-color-pickup')?.value || 0),
             depletion: bc.depletion !== undefined ? bc.depletion : Number(document.getElementById('prop-brush-depletion')?.value || 0),
             smudge: bc.smudge !== undefined ? bc.smudge : Number(document.getElementById('prop-brush-smudge')?.value || 0),
+            water: bc.water !== undefined ? bc.water : Number(document.getElementById('prop-brush-water')?.value || 0),
+            bleed: bc.bleed !== undefined ? bc.bleed : Number(document.getElementById('prop-brush-bleed')?.value || 0),
+            granulation: bc.granulation !== undefined ? bc.granulation : Number(document.getElementById('prop-brush-granulation')?.value || 0),
+            fringe: bc.fringe !== undefined ? bc.fringe : Number(document.getElementById('prop-brush-fringe')?.value || 0),
+            impasto: bc.impasto !== undefined ? bc.impasto : Number(document.getElementById('prop-brush-impasto')?.value || 0),
+            pigment_mode: bc.pigment_mode !== undefined ? bc.pigment_mode : Number(document.getElementById('prop-brush-pigment-mode')?.value || 0),
             texture: st.name || bc.texture || 'none',
             texture_mode: st.mode !== undefined ? st.mode : (bc.texture_mode !== undefined ? bc.texture_mode : 0),
             texture_scale: st.scale !== undefined ? st.scale : (bc.texture_scale !== undefined ? bc.texture_scale : 100),

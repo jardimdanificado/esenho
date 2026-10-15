@@ -810,6 +810,13 @@ typedef struct {
     int32_t pressure_flow;   // 0=off, 1=on (stylus pressure scales flow)
     int32_t tilt_angle;      // 0=off, 1=on (stylus tilt controls angle/roundness)
     int32_t buildup;         // 0=off (Photoshop stroke opacity ceiling), 1=on (continuous accumulation)
+    int32_t water;           // 0..100 % (water saturation in brush)
+    int32_t bleed;           // 0..100 % (watercolor spread / diffusion)
+    int32_t granulation;     // 0..100 % (pigment settling into paper texture)
+    int32_t fringe;          // 0..100 % (edge darkening / coffee-ring effect)
+    int32_t pigment_mode;    // 0=digital RGB, 1=subtractive physical pigment
+    int32_t impasto;         // 0..100 % (3D oil/acrylic paint thickness relief)
+    int32_t drying_rate;     // 0..100 % (evaporation rate)
 } w_brush_config_t;
 
 static w_brush_config_t brush_config = {
@@ -853,7 +860,14 @@ static w_brush_config_t brush_config = {
     .pressure_size = 1,
     .pressure_flow = 1,
     .tilt_angle = 1,
-    .buildup = 0
+    .buildup = 0,
+    .water = 0,
+    .bleed = 0,
+    .granulation = 0,
+    .fringe = 0,
+    .pigment_mode = 0,
+    .impasto = 0,
+    .drying_rate = 0
 };
 
 static uint32_t stroke_generation = 0;
@@ -861,6 +875,40 @@ static uint32_t *stroke_tag = 0;
 static uint8_t  *stroke_mask = 0;
 static uint32_t *stroke_orig = 0;
 static uint32_t stroke_buf_cap = 0;
+
+static uint8_t  *g_water_map = 0;
+static uint8_t  *g_height_map = 0;
+static uint32_t paint_physics_cap = 0;
+
+static void ensure_paint_physics_buffers(uint32_t required_pixels) {
+    if (required_pixels > paint_physics_cap) {
+        paint_physics_cap = required_pixels;
+        g_water_map = (uint8_t*)canvas_alloc(required_pixels * sizeof(uint8_t));
+        g_height_map = (uint8_t*)canvas_alloc(required_pixels * sizeof(uint8_t));
+        for (uint32_t i = 0; i < required_pixels; i++) {
+            g_water_map[i] = 0;
+            g_height_map[i] = 0;
+        }
+    }
+}
+
+W_EXPORT void w_dry_all_water(void) {
+    if (g_water_map && paint_physics_cap > 0) {
+        for (uint32_t i = 0; i < paint_physics_cap; i++) {
+            g_water_map[i] = 0;
+        }
+    }
+}
+
+W_EXPORT uint8_t* w_get_water_map(void) {
+    ensure_paint_physics_buffers(doc_width * doc_height);
+    return g_water_map;
+}
+
+W_EXPORT uint8_t* w_get_height_map(void) {
+    ensure_paint_physics_buffers(doc_width * doc_height);
+    return g_height_map;
+}
 
 static void ensure_stroke_buffers(uint32_t required_pixels) {
     if (required_pixels > stroke_buf_cap) {
@@ -951,7 +999,46 @@ static inline int color_match(uint32_t c1, uint32_t c2, int tol) {
     return (dr <= tol && dg <= tol && db <= tol && da <= tol);
 }
 
+static inline uint32_t mix_color_subtractive(uint32_t c1, uint32_t c2, int rate) {
+    if (rate <= 0) return c2;
+    if (rate >= 100) return c1;
+
+    uint32_t r1 = c1 & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = (c1 >> 16) & 0xFF, a1 = (c1 >> 24) & 0xFF;
+    uint32_t r2 = c2 & 0xFF, g2 = (c2 >> 8) & 0xFF, b2 = (c2 >> 16) & 0xFF, a2 = (c2 >> 24) & 0xFF;
+
+    // Subtractive CMY absorption components (0..255)
+    uint32_t cy1 = 255 - r1, mg1 = 255 - g1, yl1 = 255 - b1;
+    uint32_t cy2 = 255 - r2, mg2 = 255 - g2, yl2 = 255 - b2;
+
+    int w1 = rate;
+    int w2 = 100 - rate;
+
+    uint32_t cy = (cy1 * w1 + cy2 * w2) / 100;
+    uint32_t mg = (mg1 * w1 + mg2 * w2) / 100;
+    uint32_t yl = (yl1 * w1 + yl2 * w2) / 100;
+
+    // Real pigment spectral interaction (Kubelka-Munk behavior for classic paint primaries):
+    // Yellow (R+G) + Blue (B) -> Green (not gray/mud)
+    if ((r1 > 160 && g1 > 160 && b1 < 100 && b2 > 140 && r2 < 110) ||
+        (r2 > 160 && g2 > 160 && b2 < 100 && b1 > 140 && r1 < 110)) {
+        if (cy < 180) cy = 180;
+        if (yl < 180) yl = 180;
+        mg = (mg * 35) / 100;
+    }
+
+    uint32_t r = (cy >= 255) ? 0 : (255 - cy);
+    uint32_t g = (mg >= 255) ? 0 : (255 - mg);
+    uint32_t b = (yl >= 255) ? 0 : (255 - yl);
+
+    uint32_t a = (a1 * rate + a2 * (100 - rate)) / 100;
+    if (a == 0 && a2 > 0) a = a2;
+    return (a << 24) | (b << 16) | (g << 8) | r;
+}
+
 static inline uint32_t mix_color(uint32_t c1, uint32_t c2, int rate) {
+    if (brush_config.pigment_mode == 1) {
+        return mix_color_subtractive(c1, c2, rate);
+    }
     uint32_t r1 = c1 & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = (c1 >> 16) & 0xFF, a1 = (c1 >> 24) & 0xFF;
     uint32_t r2 = c2 & 0xFF, g2 = (c2 >> 8) & 0xFF, b2 = (c2 >> 16) & 0xFF, a2 = (c2 >> 24) & 0xFF;
     uint32_t r = (r1 * rate + r2 * (100 - rate)) / 100;
@@ -960,6 +1047,62 @@ static inline uint32_t mix_color(uint32_t c1, uint32_t c2, int rate) {
     uint32_t a = (a1 * rate + a2 * (100 - rate)) / 100;
     if (a == 0 && a2 > 0) a = a2;
     return (a << 24) | (b << 16) | (g << 8) | r;
+}
+
+W_EXPORT void w_step_water_diffusion(int32_t steps) {
+    if (steps <= 0) steps = 1;
+    if (steps > 16) steps = 16;
+    if (active_layer < 0 || active_layer >= layer_count || !layers[active_layer].in_use || !layers[active_layer].pixels) return;
+    int w = layers[active_layer].width;
+    int h = layers[active_layer].height;
+    if (w <= 1 || h <= 1) return;
+    if (!g_water_map || paint_physics_cap < (uint32_t)(w * h)) return;
+
+    uint32_t *pix = layers[active_layer].pixels;
+    int decay = (brush_config.drying_rate > 0) ? (brush_config.drying_rate / 10 + 1) : 1;
+
+    for (int s = 0; s < steps; s++) {
+        for (int y = 1; y < h - 1; y++) {
+            int row = y * w;
+            for (int x = 1; x < w - 1; x++) {
+                int idx = row + x;
+                uint8_t w_cur = g_water_map[idx];
+                if (w_cur < 4) {
+                    if (w_cur > 0 && decay > 0) {
+                        g_water_map[idx] = (w_cur >= decay) ? (w_cur - decay) : 0;
+                    }
+                    continue;
+                }
+
+                int idx_l = idx - 1;
+                int idx_r = idx + 1;
+                int idx_u = idx - w;
+                int idx_d = idx + w;
+
+                uint8_t wl = g_water_map[idx_l];
+                uint8_t wr = g_water_map[idx_r];
+                uint8_t wu = g_water_map[idx_u];
+                uint8_t wd = g_water_map[idx_d];
+
+                int avg_w = (wl + wr + wu + wd + (int)w_cur * 4) / 8;
+                if (decay > 0) {
+                    avg_w = (avg_w >= decay) ? (avg_w - decay) : 0;
+                }
+                g_water_map[idx] = (uint8_t)avg_w;
+
+                uint32_t cp = pix[idx];
+                uint32_t ca = (cp >> 24) & 0xFF;
+                if (ca > 10 && w_cur > 30) {
+                    uint32_t n1 = pix[idx_l], n2 = pix[idx_r], n3 = pix[idx_u], n4 = pix[idx_d];
+                    uint32_t mix_n = mix_color(cp, n1, 50);
+                    mix_n = mix_color(mix_n, n2, 50);
+                    mix_n = mix_color(mix_n, n3, 50);
+                    mix_n = mix_color(mix_n, n4, 50);
+                    pix[idx] = mix_color(mix_n, cp, 15);
+                }
+            }
+        }
+    }
 }
 
 static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_color, int is_eraser) {
@@ -1117,6 +1260,10 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
     uint32_t dab_flow_a = (255 * eff_flow) / 100;
     if (dab_flow_a < 1 && eff_flow > 0) dab_flow_a = 1;
 
+    if ((brush_config.water > 0 || brush_config.impasto > 0 || brush_config.bleed > 0) && (!g_water_map || paint_physics_cap < (uint32_t)(w * h))) {
+        ensure_paint_physics_buffers((uint32_t)(w * h));
+    }
+
     uint32_t max_stroke_a = (255 * brush_config.opacity) / 100;
     if (max_stroke_a < 1 && brush_config.opacity > 0) max_stroke_a = 1;
 
@@ -1265,6 +1412,28 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                 if (g > 100) g = 100;
                 a = (a * (100 - g) + tex_a * g) / 100;
             }
+
+            // Fringe / Coffee Ring Edge Darkening
+            if (brush_config.fringe > 0 && r > 1 && !is_builtin_square) {
+                int norm_dist_sq = (dist_sq * 1024) / (r_sq > 0 ? r_sq : 1);
+                if (norm_dist_sq > 380 && norm_dist_sq <= 1000) {
+                    int fringe_t = norm_dist_sq - 380;
+                    int boost = (fringe_t * brush_config.fringe) / 320;
+                    int new_a = (int)a + (int)DIV255(a * boost);
+                    a = (new_a > 255) ? 255 : (uint32_t)new_a;
+                }
+            }
+
+            // Granulation (pigment settling into micro-valleys)
+            if (brush_config.granulation > 0) {
+                uint32_t grain_h = w_sample_texture(1 /* paper */, x, y, 0, 100, 100, 128);
+                int gran_factor = 256 + ((128 - (int)grain_h) * brush_config.granulation) / 50;
+                if (gran_factor < 20) gran_factor = 20;
+                if (gran_factor > 512) gran_factor = 512;
+                a = (a * gran_factor) >> 8;
+                if (a > 255) a = 255;
+            }
+
             if (a == 0) continue;
 
             int idx = row_idx + x;
@@ -1419,6 +1588,11 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                         target_color = mix_color(src_p, target_color, brush_config.smudge_strength);
                     }
                 }
+                if (brush_config.bleed > 0 && g_water_map && g_water_map[idx] > 0 && orig_a > 0) {
+                    int wet_blend = (brush_config.bleed * (int)g_water_map[idx]) / 255;
+                    if (wet_blend > 80) wet_blend = 80;
+                    target_color = mix_color(dst_p, target_color, wet_blend);
+                }
                 if (brush_config.dab_blend > 0) {
                     target_color = w_apply_dab_blend(brush_config.dab_blend, target_color, dst_p);
                 }
@@ -1439,6 +1613,36 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                     uint32_t eff_dab_a = DIV255(a * max_stroke_a);
                     uint32_t res = w_blend_fast(target_color, dst_p, eff_dab_a, 255);
                     pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+                }
+
+                // Watercolor water deposition
+                if (brush_config.water > 0 && g_water_map) {
+                    uint32_t added_w = (brush_config.water * a) / 255;
+                    uint32_t cw = g_water_map[idx];
+                    g_water_map[idx] = (cw + added_w > 255) ? 255 : (uint8_t)(cw + added_w);
+                }
+
+                // 3D Impasto paint relief and lighting
+                if (brush_config.impasto > 0 && g_height_map) {
+                    uint32_t added_h = (brush_config.impasto * a) / 255;
+                    uint32_t ch = g_height_map[idx];
+                    g_height_map[idx] = (ch + added_h > 255) ? 255 : (uint8_t)(ch + added_h);
+
+                    int rel_x = x - cx;
+                    int rel_y = y - cy;
+                    int shade = (-rel_x - rel_y) * (brush_config.impasto) / (r > 0 ? (r * 2) : 1);
+                    if (shade > 60) shade = 60;
+                    if (shade < -60) shade = -60;
+                    if (shade != 0) {
+                        uint32_t cur = pix[idx];
+                        int r_comp = (int)(cur & 0xFF) + shade;
+                        int g_comp = (int)((cur >> 8) & 0xFF) + shade;
+                        int b_comp = (int)((cur >> 16) & 0xFF) + shade;
+                        if (r_comp < 0) r_comp = 0; if (r_comp > 255) r_comp = 255;
+                        if (g_comp < 0) g_comp = 0; if (g_comp > 255) g_comp = 255;
+                        if (b_comp < 0) b_comp = 0; if (b_comp > 255) b_comp = 255;
+                        pix[idx] = (cur & 0xFF000000) | (b_comp << 16) | (g_comp << 8) | r_comp;
+                    }
                 }
             }
         }
@@ -2068,6 +2272,13 @@ W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
         case W_PARAM_PRESSURE_FLOW:  brush_config.pressure_flow = val ? 1 : 0; break;
         case W_PARAM_TILT_ANGLE:     brush_config.tilt_angle = val ? 1 : 0; break;
         case W_PARAM_BUILDUP:        brush_config.buildup = val ? 1 : 0; break;
+        case W_PARAM_WATER:          if (val >= 0 && val <= 100) brush_config.water = val; break;
+        case W_PARAM_BLEED:          if (val >= 0 && val <= 100) brush_config.bleed = val; break;
+        case W_PARAM_GRANULATION:    if (val >= 0 && val <= 100) brush_config.granulation = val; break;
+        case W_PARAM_FRINGE:         if (val >= 0 && val <= 100) brush_config.fringe = val; break;
+        case W_PARAM_PIGMENT_MODE:   brush_config.pigment_mode = val ? 1 : 0; break;
+        case W_PARAM_IMPASTO:        if (val >= 0 && val <= 100) brush_config.impasto = val; break;
+        case W_PARAM_DRYING_RATE:    if (val >= 0 && val <= 100) brush_config.drying_rate = val; break;
     }
 }
 
@@ -2110,6 +2321,13 @@ W_EXPORT void w_brush_reset(void) {
     brush_config.dual_spacing = 10;
     brush_config.symmetry = 0;
     brush_config.buildup = 0;
+    brush_config.water = 0;
+    brush_config.bleed = 0;
+    brush_config.granulation = 0;
+    brush_config.fringe = 0;
+    brush_config.pigment_mode = 0;
+    brush_config.impasto = 0;
+    brush_config.drying_rate = 0;
     g_texture.pixels = 0;
     g_texture.width = 0;
     g_texture.height = 0;

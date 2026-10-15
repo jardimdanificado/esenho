@@ -3790,7 +3790,13 @@ async function main() {
     { id: 'tex_contrast', label: 'Grain Contrast', key: 'texture_contrast', min: 0, max: 200, unit: '%', defaultVal: 100 },
     { id: 'tex_rotate', label: 'Grain Angle', key: 'texture_rotate', min: 0, max: 360, unit: '°', defaultVal: 0 },
     { id: 'dual_size', label: 'Dual Brush Size', key: 'dual_size', min: 10, max: 300, unit: '%', defaultVal: 100 },
-    { id: 'dual_spacing', label: 'Dual Spacing', key: 'dual_spacing', min: 1, max: 100, unit: '%', defaultVal: 15 }
+    { id: 'dual_spacing', label: 'Dual Spacing', key: 'dual_spacing', min: 1, max: 100, unit: '%', defaultVal: 15 },
+    { id: 'water', label: 'Water Load', key: 'water', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'bleed', label: 'Wet Bleed', key: 'bleed', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'granulation', label: 'Granulation', key: 'granulation', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'fringe', label: 'Edge Darkening', key: 'fringe', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'impasto', label: '3D Impasto', key: 'impasto', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'drying_rate', label: 'Drying Rate', key: 'drying_rate', min: 0, max: 100, unit: '%', defaultVal: 0 }
   ];
 
   if (!Array.isArray(host.contextMenuSliders)) {
@@ -14908,11 +14914,17 @@ async function main() {
     linkLabSlider('ip-slider-taper-out', 'ip-val-taper-out', 'taper_out', '%');
     linkLabSlider('ip-slider-fade', 'ip-val-fade', 'fade', '%');
 
-    // Wet & Mix
+    // Wet, Mix & Paint Physics
     linkLabSlider('ip-slider-wetness', 'ip-val-wetness', 'wetness', '%');
+    linkLabSlider('ip-slider-water', 'ip-val-water', 'water', '%');
+    linkLabSlider('ip-slider-bleed', 'ip-val-bleed', 'bleed', '%');
+    linkLabSlider('ip-slider-granulation', 'ip-val-granulation', 'granulation', '%');
+    linkLabSlider('ip-slider-fringe', 'ip-val-fringe', 'fringe', '%');
+    linkLabSlider('ip-slider-impasto', 'ip-val-impasto', 'impasto', '%');
     linkLabSlider('ip-slider-smudge', 'ip-val-smudge', 'smudge', '%');
     linkLabSlider('ip-slider-pickup', 'ip-val-pickup', 'color_pickup', '%');
     linkLabSlider('ip-slider-depletion', 'ip-val-depletion', 'depletion', '%');
+    linkLabSlider('ip-slider-drying-rate', 'ip-val-drying-rate', 'drying_rate', '%');
 
     // Jitter & Dual
     linkLabSlider('ip-slider-jitter-size', 'ip-val-jitter-size', 'size_jitter', '%');
@@ -14947,6 +14959,16 @@ async function main() {
     bindToggleBtn('btn-ip-lab-press-flow', 'chk-ip-lab-press-flow', 'pressure_flow');
     bindToggleBtn('btn-ip-lab-tilt-angle', 'chk-ip-lab-tilt-angle', 'tilt_angle');
     bindToggleBtn('btn-ip-lab-buildup', 'chk-ip-lab-buildup', 'buildup');
+    bindToggleBtn('btn-ip-lab-pigment-mode', 'chk-ip-lab-pigment-mode', 'pigment_mode');
+
+    const btnDry = document.getElementById('btn-ip-lab-dry');
+    if (btnDry) {
+      btnDry.addEventListener('click', () => {
+        if (typeof host.dryLayer === 'function') host.dryLayer();
+        else runCmd('dry');
+        triggerHaptic(15);
+      });
+    }
 
     // Dropdown selects
     const bindSelect = (selId, cmdName) => {
@@ -15619,11 +15641,17 @@ async function main() {
       setLabSlider('ip-slider-taper-out', 'ip-val-taper-out', bp.taper_out ?? 0, '%');
       setLabSlider('ip-slider-fade', 'ip-val-fade', bp.fade ?? 0, '%');
 
-      // Wet
+      // Wet & Paint Physics
       setLabSlider('ip-slider-wetness', 'ip-val-wetness', bp.wetness ?? 0, '%');
+      setLabSlider('ip-slider-water', 'ip-val-water', bp.water ?? 0, '%');
+      setLabSlider('ip-slider-bleed', 'ip-val-bleed', bp.bleed ?? 0, '%');
+      setLabSlider('ip-slider-granulation', 'ip-val-granulation', bp.granulation ?? 0, '%');
+      setLabSlider('ip-slider-fringe', 'ip-val-fringe', bp.fringe ?? 0, '%');
+      setLabSlider('ip-slider-impasto', 'ip-val-impasto', bp.impasto ?? 0, '%');
       setLabSlider('ip-slider-smudge', 'ip-val-smudge', bp.smudge ?? 0, '%');
       setLabSlider('ip-slider-pickup', 'ip-val-pickup', bp.color_pickup ?? 0, '%');
       setLabSlider('ip-slider-depletion', 'ip-val-depletion', bp.depletion ?? 0, '%');
+      setLabSlider('ip-slider-drying-rate', 'ip-val-drying-rate', bp.drying_rate ?? 0, '%');
 
       // Jitters
       setLabSlider('ip-slider-jitter-size', 'ip-val-jitter-size', bp.size_jitter ?? 0, '%');
@@ -15651,6 +15679,7 @@ async function main() {
       setChk('chk-ip-lab-press-flow', bp.pressure_flow ?? 1);
       setChk('chk-ip-lab-tilt-angle', bp.tilt_angle ?? 1);
       setChk('chk-ip-lab-buildup', bp.buildup);
+      setChk('chk-ip-lab-pigment-mode', bp.pigment_mode);
 
       // Selects
       const setSel = (id, val) => {

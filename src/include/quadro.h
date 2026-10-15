@@ -81,7 +81,14 @@ enum {
     W_PARAM_PRESSURE_SIZE  = 39, /* stylus pressure controls brush size: 0=off, 1=on */
     W_PARAM_PRESSURE_FLOW  = 40, /* stylus pressure controls brush flow/opacity: 0=off, 1=on */
     W_PARAM_TILT_ANGLE     = 41, /* stylus tilt controls brush angle/roundness: 0=off, 1=on */
-    W_PARAM_BUILDUP        = 42  /* continuous dab buildup mode within single stroke: 0=off (stroke opacity ceiling), 1=on */
+    W_PARAM_BUILDUP        = 42, /* continuous dab buildup mode within single stroke: 0=off (stroke opacity ceiling), 1=on */
+    W_PARAM_WATER          = 50, /* watercolor water load % (0..100) */
+    W_PARAM_BLEED          = 51, /* watercolor bleed / diffusion spread % (0..100) */
+    W_PARAM_GRANULATION    = 52, /* watercolor pigment granulation settling % (0..100) */
+    W_PARAM_FRINGE         = 53, /* edge darkening / coffee ring effect % (0..100) */
+    W_PARAM_PIGMENT_MODE   = 54, /* color mixing mode: 0=digital RGB, 1=subtractive physical pigment */
+    W_PARAM_IMPASTO        = 55, /* 3D oil/acrylic paint thickness relief % (0..100) */
+    W_PARAM_DRYING_RATE    = 56  /* natural water evaporation rate % (0..100, default 0=infinite wetness) */
 };
 
 enum {
@@ -1210,6 +1217,10 @@ W_EXPORT uint32_t* get_layer_pixels(int32_t idx);
 W_EXPORT uint32_t* get_composite_pixels(void);
 W_EXPORT int32_t   get_width(void);
 W_EXPORT int32_t   get_height(void);
+W_EXPORT void      w_dry_all_water(void);
+W_EXPORT uint8_t*  w_get_water_map(void);
+W_EXPORT uint8_t*  w_get_height_map(void);
+W_EXPORT void      w_step_water_diffusion(int32_t steps);
 #include "quadro_color_oklab.h"
 #include "quadro_easing.h"
 #include "quadro_gif.h"

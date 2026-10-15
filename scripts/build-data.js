@@ -223,6 +223,157 @@ if (!brushPresets.wet_acrylic) {
   };
 }
 
+// Paint Physics & Physical Watercolor Presets
+brushPresets.watercolor = {
+  $schema: 'esenho/brush/v1',
+  id: 'watercolor',
+  name: 'Watercolor Wash',
+  desc: 'Translucent watery wash with organic bleeding, edge fringe and subtractive pigment mixing',
+  category: 'paint',
+  builtin: true,
+  shape: 0,
+  size: 36,
+  opacity: 45,
+  hardness: 20,
+  flow: 40,
+  spacing: 5,
+  smoothing: 25,
+  mode: 0,
+  water: 75,
+  bleed: 70,
+  fringe: 60,
+  granulation: 45,
+  pigment_mode: 1,
+  drying_rate: 0,
+  wetness: 80,
+  texture: 'watercolor',
+  texture_scale: 120,
+  pressure_size: 1,
+  pressure_flow: 1
+};
+
+brushPresets.watercolor_granulating = {
+  $schema: 'esenho/brush/v1',
+  id: 'watercolor_granulating',
+  name: 'Granulating Ultramarine Wash',
+  desc: 'Heavy physical pigment settling into paper texture valleys with vivid edge darkening',
+  category: 'paint',
+  builtin: true,
+  shape: 0,
+  size: 42,
+  opacity: 55,
+  hardness: 15,
+  flow: 50,
+  spacing: 5,
+  smoothing: 20,
+  mode: 0,
+  water: 80,
+  bleed: 65,
+  fringe: 80,
+  granulation: 90,
+  pigment_mode: 1,
+  texture: 'paper',
+  pressure_size: 1,
+  pressure_flow: 1
+};
+
+brushPresets.wet_on_wet_bloom = {
+  $schema: 'esenho/brush/v1',
+  id: 'wet_on_wet_bloom',
+  name: 'Wet-on-Wet Bloom',
+  desc: 'Intense water saturation that blooms and diffuses deeply into pre-existing wet areas',
+  category: 'paint',
+  builtin: true,
+  shape: 0,
+  size: 50,
+  opacity: 40,
+  hardness: 10,
+  flow: 60,
+  spacing: 6,
+  smoothing: 30,
+  mode: 0,
+  water: 95,
+  bleed: 90,
+  fringe: 40,
+  granulation: 50,
+  pigment_mode: 1,
+  pressure_size: 1,
+  pressure_flow: 1
+};
+
+brushPresets.oil_impasto = {
+  $schema: 'esenho/brush/v1',
+  id: 'oil_impasto',
+  name: 'Oil Impasto Knife',
+  desc: 'Thick 3D paint relief ridges with directional lighting and physical pigment mixing',
+  category: 'paint',
+  builtin: true,
+  shape: 2,
+  size: 28,
+  opacity: 100,
+  hardness: 85,
+  flow: 90,
+  spacing: 4,
+  smoothing: 15,
+  mode: 0,
+  impasto: 85,
+  pigment_mode: 1,
+  water: 0,
+  bleed: 0,
+  fringe: 0,
+  granulation: 0,
+  pressure_size: 1,
+  pressure_flow: 1
+};
+
+brushPresets.sumie_wash = {
+  $schema: 'esenho/brush/v1',
+  id: 'sumie_wash',
+  name: 'Sumi-e Ink Wash',
+  desc: 'Traditional East Asian ink wash with water diffusion across rice paper',
+  category: 'paint',
+  builtin: true,
+  shape: 0,
+  size: 32,
+  opacity: 60,
+  hardness: 30,
+  flow: 50,
+  spacing: 4,
+  smoothing: 35,
+  mode: 0,
+  water: 70,
+  bleed: 80,
+  fringe: 70,
+  granulation: 30,
+  pigment_mode: 0,
+  pressure_size: 1,
+  pressure_flow: 1
+};
+
+brushPresets.clear_water_wash = {
+  $schema: 'esenho/brush/v1',
+  id: 'clear_water_wash',
+  name: 'Clear Water Wash',
+  desc: 'Pure water wash with zero pigment to wet the paper for wet-on-wet techniques',
+  category: 'paint',
+  builtin: true,
+  shape: 0,
+  size: 48,
+  opacity: 0,
+  hardness: 20,
+  flow: 100,
+  spacing: 5,
+  smoothing: 20,
+  mode: 0,
+  water: 100,
+  bleed: 0,
+  fringe: 0,
+  granulation: 0,
+  pigment_mode: 0,
+  pressure_size: 1,
+  pressure_flow: 0
+};
+
 // 4. Brush Tips
 const brushTips = {
   round: { $schema: 'esenho/tip/v1', id: 'round', name: 'Circle / Round', builtin: true, type: 'procedural', hardness: 100, aspectRatio: 1.0, angle: 0 },

@@ -217,7 +217,26 @@ const PARAM_IDS = {
   smooth_mode: 43,
   string_length: 44,
   lazy_radius: 44,
-  pulled_string: 44
+  pulled_string: 44,
+  water: 50,
+  water_load: 50,
+  water_amount: 50,
+  bleed: 51,
+  diffusion: 51,
+  bleed_spread: 51,
+  granulation: 52,
+  granulate: 52,
+  fringe: 53,
+  edge_darkening: 53,
+  coffee_ring: 53,
+  pigment_mode: 54,
+  subtractive: 54,
+  impasto: 55,
+  paint_thickness: 55,
+  relief: 55,
+  drying_rate: 56,
+  dry_rate: 56,
+  evaporation: 56
 };
 
 /**
@@ -4418,6 +4437,43 @@ const COMMAND_RULES = [
   { pat: "layer clear", run: (m, host) => COMMAND_RULES.find(r => r.pat === "clear layer").run(m, host) },
   { pat: "clear", run: (m, host) => COMMAND_RULES.find(r => r.pat === "clear layer").run(m, host) },
 
+  // Paint Physics: Dry Water & Diffuse
+  {
+    pat: "dry layer",
+    run: (m, host) => {
+      host.dryLayer();
+      host.sendConsoleLog('paper water dried');
+    }
+  },
+  {
+    pat: "dry",
+    run: (m, host) => {
+      host.dryLayer();
+      host.sendConsoleLog('paper water dried');
+    }
+  },
+  {
+    pat: "diffuse water $steps$int",
+    run: (m, host) => {
+      host.stepWaterDiffusion(m.steps || 1);
+      host.sendConsoleLog(`diffused water by ${m.steps || 1} steps`);
+    }
+  },
+  {
+    pat: "diffuse water",
+    run: (m, host) => {
+      host.stepWaterDiffusion(1);
+      host.sendConsoleLog('diffused water by 1 step');
+    }
+  },
+  {
+    pat: "diffuse",
+    run: (m, host) => {
+      host.stepWaterDiffusion(1);
+      host.sendConsoleLog('diffused water by 1 step');
+    }
+  },
+
   // Layer to Texture
   {
     pat: "layer to texture $name",
@@ -5978,7 +6034,14 @@ class EsenhoScreenHost {
       tilt_angle: 1,
       buildup: 0,
       stabilizer_mode: 0,
-      string_length: 30
+      string_length: 30,
+      water: 0,
+      bleed: 0,
+      granulation: 0,
+      fringe: 0,
+      pigment_mode: 0,
+      impasto: 0,
+      drying_rate: 0
     };
 
     // Canvas Viewport Flip
@@ -8813,7 +8876,14 @@ class EsenhoScreenHost {
       tilt_angle: 1,
       buildup: 0,
       stabilizer_mode: 0,
-      string_length: 30
+      string_length: 30,
+      water: 0,
+      bleed: 0,
+      granulation: 0,
+      fringe: 0,
+      pigment_mode: 0,
+      impasto: 0,
+      drying_rate: 0
     };
     if (this.canvasActor && this.canvasActor.exports) {
       if (typeof this.canvasActor.exports.w_brush_reset === 'function') {
@@ -9391,6 +9461,9 @@ class EsenhoScreenHost {
         else if (lower === 'h' || lower === 'horizontal' || lower === '2') numericVal = 2;
         else if (lower === 'quad' || lower === 'both' || lower === 'quadrant' || lower === '3') numericVal = 3;
         else numericVal = parseInt(val, 10) || 0;
+      } else if (key === 'pigment_mode' || key === 'subtractive') {
+        if (lower === 'subtractive' || lower === 'physical' || lower === 'cmy' || lower === 'on' || lower === '1' || lower === 'true') numericVal = 1;
+        else numericVal = 0;
       } else {
         numericVal = parseFloat(val);
       }
@@ -9422,7 +9495,14 @@ class EsenhoScreenHost {
         dual_brush: 'dual_shape', paint_depletion: 'depletion', pickup: 'color_pickup',
         mirror: 'symmetry', stylus_size: 'pressure_size', stylus_flow: 'pressure_flow', stylus_tilt: 'tilt_angle',
         pressure_curve: 'pressure_curve', pressure_min: 'pressure_min', pressure_max: 'pressure_max',
-        accumulate: 'buildup', build_up: 'buildup'
+        accumulate: 'buildup', build_up: 'buildup',
+        water_load: 'water', water_amount: 'water',
+        diffusion: 'bleed', bleed_spread: 'bleed',
+        granulate: 'granulation',
+        edge_darkening: 'fringe', coffee_ring: 'fringe',
+        subtractive: 'pigment_mode',
+        paint_thickness: 'impasto', relief: 'impasto',
+        dry_rate: 'drying_rate', evaporation: 'drying_rate'
       };
       const canonKey = canonMap[key] || key;
       if (canonKey === 'stabilizer_mode') {
@@ -9438,6 +9518,50 @@ class EsenhoScreenHost {
     if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
       this.canvasActor.exports.w_brush_set_param(pId, Math.floor(numericVal));
     }
+  }
+
+  /**
+   * Clears all surface water on the active canvas.
+   */
+  dryLayer() {
+    if (this.canvasActor && typeof this.canvasActor.exports.w_dry_all_water === 'function') {
+      this.canvasActor.exports.w_dry_all_water();
+      if (typeof this.requestRender === 'function') this.requestRender();
+      else if (this.canvasActor?.exports?.force_composite) this.canvasActor.exports.force_composite();
+    }
+  }
+
+  /**
+   * Advances watercolor water diffusion and pigment bleeding by N steps.
+   */
+  stepWaterDiffusion(steps = 1) {
+    if (this.canvasActor && typeof this.canvasActor.exports.w_step_water_diffusion === 'function') {
+      this.canvasActor.exports.w_step_water_diffusion(steps);
+      if (typeof this.requestRender === 'function') this.requestRender();
+      else if (this.canvasActor?.exports?.force_composite) this.canvasActor.exports.force_composite();
+    }
+  }
+
+  /**
+   * Returns a Uint8Array view into WASM surface water map.
+   */
+  getWaterMap() {
+    if (!this.canvasActor || typeof this.canvasActor.exports.w_get_water_map !== 'function') return null;
+    const ptr = this.canvasActor.exports.w_get_water_map();
+    const w = this.canvasActor.exports.get_width();
+    const h = this.canvasActor.exports.get_height();
+    return new Uint8Array(this.canvasActor.memory.buffer, ptr, w * h);
+  }
+
+  /**
+   * Returns a Uint8Array view into WASM 3D impasto height map.
+   */
+  getHeightMap() {
+    if (!this.canvasActor || typeof this.canvasActor.exports.w_get_height_map !== 'function') return null;
+    const ptr = this.canvasActor.exports.w_get_height_map();
+    const w = this.canvasActor.exports.get_width();
+    const h = this.canvasActor.exports.get_height();
+    return new Uint8Array(this.canvasActor.memory.buffer, ptr, w * h);
   }
 
   /**
