@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=overlays-content">
   <title>esenho</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="manifest" href="manifest.webmanifest">
@@ -4137,7 +4137,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.97  --x--  0,0  zoom 100%  rot 0.0°</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.98  --x--  0,0  zoom 100%  rot 0.0°</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -4522,6 +4522,36 @@
                 <div style="display: flex; gap: 3px;">
                   <button type="button" id="btn-ip-tip-from-layer" class="ip-btn ip-mini-btn" style="height: 18px; padding: 0 5px; font-size: 8.5px; color: var(--primary);">+Tip Layer</button>
                   <button type="button" id="btn-ip-tip-from-selection" class="ip-btn ip-mini-btn" style="height: 18px; padding: 0 5px; font-size: 8.5px; color: var(--primary);">+Tip Sel</button>
+                </div>
+              </div>
+
+              <div class="ip-touch-control" style="background: var(--bg-panel-sub); padding: 5px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px;">Brush Size Range</span>
+                  <span id="ip-lab-size-range-val" class="ip-touch-val" style="font-size: 9.5px; font-family: var(--font-mono); font-weight: 800; color: var(--primary);">1 – 300 px</span>
+                </div>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 8.5px; color: var(--text-muted);">
+                      <span>Min Size</span>
+                      <span id="ip-val-size-min" style="font-family: var(--font-mono); color: var(--text-bright);">1px</span>
+                    </div>
+                    <input type="range" id="ip-slider-size-min" min="1" max="200" value="1" class="ip-touch-slider">
+                  </div>
+                  <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 8.5px; color: var(--text-muted);">
+                      <span>Max Size</span>
+                      <span id="ip-val-size-max" style="font-family: var(--font-mono); color: var(--text-bright);">300px</span>
+                    </div>
+                    <input type="range" id="ip-slider-size-max" min="10" max="1000" value="300" class="ip-touch-slider">
+                  </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; margin-top: 1px;">
+                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="1" data-max="30" style="height: 18px; padding: 0; font-size: 8.5px; font-weight: 700;" title="Detail / Inking">1–30</button>
+                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="1" data-max="80" style="height: 18px; padding: 0; font-size: 8.5px; font-weight: 700;" title="Line & Sketch">1–80</button>
+                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="1" data-max="150" style="height: 18px; padding: 0; font-size: 8.5px; font-weight: 700;" title="Standard">1–150</button>
+                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="1" data-max="300" style="height: 18px; padding: 0; font-size: 8.5px; font-weight: 700;" title="Wide">1–300</button>
+                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="10" data-max="800" style="height: 18px; padding: 0; font-size: 8.5px; font-weight: 700;" title="Broad / Wash">10–800</button>
                 </div>
               </div>
 

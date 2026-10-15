@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=overlays-content">
   <title>esenho</title>
   <link rel="icon" type="image/svg+xml" href="icon-studio.svg">
   <link rel="manifest" href="manifest.webmanifest">
@@ -4333,7 +4333,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.13.97)</span>
+    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.13.98)</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -10912,11 +10912,29 @@
           }, true);
 
           window.addEventListener('blur', () => {
-            if (this.activeMenu) this.hideContextMenu();
+            if (!this.activeMenu) return;
+            const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            if (isTouch) return;
+            if (document.activeElement && typeof document.activeElement.closest === 'function' && document.activeElement.closest('.monaco-menu-container')) {
+              return;
+            }
+            if (this.container && this.container.querySelector('input:focus, textarea:focus, select:focus')) {
+              return;
+            }
+            this.hideContextMenu();
           });
 
           window.addEventListener('resize', () => {
-            if (this.activeMenu) this.hideContextMenu();
+            if (!this.activeMenu) return;
+            if (document.activeElement && typeof document.activeElement.closest === 'function' && document.activeElement.closest('.monaco-menu-container')) {
+              return;
+            }
+            if (this.container && this.container.querySelector('input:focus, textarea:focus, select:focus')) {
+              return;
+            }
+            const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            if (isTouch) return;
+            this.hideContextMenu();
           });
 
           window.addEventListener('wheel', (e) => {

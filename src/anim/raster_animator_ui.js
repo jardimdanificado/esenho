@@ -391,6 +391,27 @@ export class RasterAnimatorUI {
       applyDurationChange(curDur + 1);
     });
 
+    const isMobileDevice = (typeof window !== 'undefined') && (
+      ('ontouchstart' in window) ||
+      (navigator.maxTouchPoints > 0) ||
+      (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches) ||
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    );
+
+    if (isMobileDevice && holdInput) {
+      holdInput.setAttribute('inputmode', 'none');
+      holdInput.readOnly = true;
+      holdInput.tabIndex = -1;
+      holdInput.style.cursor = 'default';
+      holdInput.style.userSelect = 'none';
+      holdInput.addEventListener('focus', () => {
+        holdInput.blur();
+      });
+      holdInput.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+      }, { passive: false });
+    }
+
     holdInput?.addEventListener('change', (e) => {
       applyDurationChange(e.target.value);
     });

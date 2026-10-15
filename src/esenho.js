@@ -5914,6 +5914,8 @@ class EsenhoScreenHost {
     // Configurable Brush Parameters
     this.brushParams = {
       size: 16,
+      size_min: 1,
+      size_max: 300,
       opacity: 100,
       hardness: 100,
       flow: 100,
@@ -9615,9 +9617,14 @@ class EsenhoScreenHost {
         if (k === 'name' || k === 'icon' || k === 'desc' || k === 'eraser' || k === 'category') continue;
         if (k === 'texture') {
           if (typeof v === 'string') this.setTexture(v);
+        } else if (k === 'size_min' || k === 'size_max') {
+          this.brushParams[k] = Number(v);
         } else {
           this.setBrushParam(k, v);
         }
+      }
+      if (preset.size && preset.size > (this.brushParams.size_max || 300)) {
+        this.brushParams.size_max = Math.max(300, Math.round(preset.size * 1.5));
       }
       if (wasVectorMode && this.getSelectedVectorPath && this.getSelectedVectorPath()) {
         this.applyCurrentBrushStyleToSelectedVectorPaths({ preset: true, brushParams: true, color: false });
@@ -9625,6 +9632,56 @@ class EsenhoScreenHost {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Retrieves active brush size range bounds { min, max }.
+   */
+  getBrushSizeRange() {
+    let min = 1;
+    let max = 300;
+    if (this.brushParams) {
+      if (typeof this.brushParams.size_min === 'number' && this.brushParams.size_min >= 1) {
+        min = Math.round(this.brushParams.size_min);
+      }
+      if (typeof this.brushParams.size_max === 'number' && this.brushParams.size_max > min) {
+        max = Math.round(this.brushParams.size_max);
+      }
+    }
+    return { min, max };
+  }
+
+  /**
+   * Configures active brush size range bounds [min, max] (Infinite Painter style).
+   */
+  setBrushSizeRange(min, max) {
+    min = Math.max(1, Math.min(1999, Math.round(Number(min) || 1)));
+    max = Math.max(min + 1, Math.min(2000, Math.round(Number(max) || 300)));
+    if (!this.brushParams) this.brushParams = {};
+    this.brushParams.size_min = min;
+    this.brushParams.size_max = max;
+
+    const curSize = Number(this.brushParams.size) || 16;
+    if (curSize < min) {
+      this.setBrushParam('size', min);
+    } else if (curSize > max) {
+      this.setBrushParam('size', max);
+    }
+
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('esenho_brush_size_range', JSON.stringify({ min, max }));
+      }
+    } catch (_) {}
+
+    if (this.customBrushPresets && this.activeBrush && this.customBrushPresets[this.activeBrush]) {
+      this.customBrushPresets[this.activeBrush].size_min = min;
+      this.customBrushPresets[this.activeBrush].size_max = max;
+      if (typeof saveCustomBrushPresets === 'function') {
+        saveCustomBrushPresets(this.customBrushPresets);
+      }
+    }
+    return { min, max };
   }
 
   /**

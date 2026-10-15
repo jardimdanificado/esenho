@@ -299,6 +299,15 @@ async function main() {
         }
       }
     }
+    try {
+      const savedRange = localStorage.getItem('esenho_brush_size_range');
+      if (savedRange) {
+        const parsedR = JSON.parse(savedRange);
+        if (parsedR && parsedR.min && parsedR.max && parsedR.max > parsedR.min) {
+          host.setBrushSizeRange?.(parsedR.min, parsedR.max);
+        }
+      }
+    } catch (_) {}
     const savedWandTol = localStorage.getItem('esenho_wand_tolerance');
     if (savedWandTol !== null) {
       const wt = parseInt(savedWandTol, 10);
@@ -3110,6 +3119,8 @@ async function main() {
           }
           li.addEventListener('click', (ev) => ev.stopPropagation());
           li.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+          li.addEventListener('touchstart', (ev) => ev.stopPropagation(), { passive: true });
+          li.addEventListener('touchend', (ev) => ev.stopPropagation());
           li.addEventListener('mouseenter', () => {
             clearTimeout(this.hideTimer);
             if (this.parentMenu) clearTimeout(this.parentMenu.hideTimer);
@@ -3564,13 +3575,27 @@ async function main() {
       }, true);
       window.addEventListener('blur', () => {
         if (!this.activeMenu) return;
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (isTouch) return;
         if (document.activeElement && typeof document.activeElement.closest === 'function' && document.activeElement.closest('.monaco-menu-container')) {
+          return;
+        }
+        if (this.container && this.container.querySelector('input:focus, textarea:focus, select:focus')) {
           return;
         }
         this.hideContextMenu();
       });
       window.addEventListener('resize', () => {
-        if (this.activeMenu) this.hideContextMenu();
+        if (!this.activeMenu) return;
+        if (document.activeElement && typeof document.activeElement.closest === 'function' && document.activeElement.closest('.monaco-menu-container')) {
+          return;
+        }
+        if (this.container && this.container.querySelector('input:focus, textarea:focus, select:focus')) {
+          return;
+        }
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (isTouch) return;
+        this.hideContextMenu();
       });
       window.addEventListener('wheel', (e) => {
         if (this.activeMenu && (!e.target || typeof e.target.closest !== 'function' || !e.target.closest('.monaco-menu-container'))) {
@@ -3632,6 +3657,28 @@ async function main() {
       }
     };
   }
+
+  async function openBrushSizeRangeDialog() {
+    const cur = typeof host.getBrushSizeRange === 'function' ? host.getBrushSizeRange() : { min: 1, max: 300 };
+    const res = await ui.promptMulti('Brush Size Range', [
+      { key: 'min', label: 'Minimum Size (px)', value: cur.min, type: 'number', min: 1, max: 1999 },
+      { key: 'max', label: 'Maximum Size (px)', value: cur.max, type: 'number', min: 2, max: 2000 }
+    ], {
+      confirmText: 'Apply Range',
+      description: 'Limit the brush size slider bounds (Infinite Painter style).'
+    });
+    if (res && res.min !== undefined && res.max !== undefined) {
+      const minVal = parseInt(res.min, 10);
+      const maxVal = parseInt(res.max, 10);
+      if (minVal >= 1 && maxVal > minVal) {
+        host.setBrushSizeRange?.(minVal, maxVal);
+        if (typeof syncUiFromHost === 'function') syncUiFromHost();
+        ui.toast(`Brush size range: ${minVal}px – ${maxVal}px`, 'success');
+        triggerHaptic(10);
+      }
+    }
+  }
+  window.openBrushSizeRangeDialog = openBrushSizeRangeDialog;
 
   const CONTEXT_MENU_SLIDERS_STORAGE_KEY = 'esenho_context_menu_sliders_v1';
   const CONTEXT_MENU_SLIDERS_DEF = [
@@ -4187,11 +4234,18 @@ async function main() {
       const rawVal = sid === 'smoothing'
         ? (bp.stabilization ?? bp.smoothing ?? sDef.defaultVal)
         : (bp[sDef.key] ?? sDef.defaultVal);
+      let sMin = sDef.min;
+      let sMax = sDef.max;
+      if (sid === 'size') {
+        const range = typeof host.getBrushSizeRange === 'function' ? host.getBrushSizeRange() : { min: 1, max: 300 };
+        sMin = range.min;
+        sMax = range.max;
+      }
       items.push({
         type: 'slider',
         label: sDef.label,
-        min: sDef.min,
-        max: sDef.max,
+        min: sMin,
+        max: sMax,
         value: Math.round(rawVal),
         unit: sDef.unit,
         onInput: (val) => {
@@ -4206,6 +4260,14 @@ async function main() {
           else runCmd(`set ${sDef.key} ${val}`);
         }
       });
+      if (sid === 'size') {
+        const curR = typeof host.getBrushSizeRange === 'function' ? host.getBrushSizeRange() : { min: 1, max: 300 };
+        items.push({
+          type: 'item',
+          label: `⚙ Size Range (${curR.min}–${curR.max}px)...`,
+          action: () => openBrushSizeRangeDialog()
+        });
+      }
     }
 
     addSep();
@@ -12556,12 +12618,29 @@ async function main() {
         const thumbEl = ctrl.querySelector('.ip-vslider-thumb');
         let isDragging = false;
 
+        if (sDef.id === 'size') {
+          const pill = ctrl.querySelector('.ip-hud-pill');
+          if (pill) {
+            pill.style.cursor = 'pointer';
+            pill.title = 'Brush Size (click to adjust Size Range)';
+            pill.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              if (typeof openBrushSizeRangeDialog === 'function') openBrushSizeRangeDialog();
+            });
+          }
+        }
+
         const handleDrag = (clientY) => {
           if (!track || !host.brushParams) return;
           const rect = track.getBoundingClientRect();
           const pos = Math.max(0.005, Math.min(1, 1 - (clientY - rect.top) / rect.height));
           let val;
-          if (sDef.isCurve) {
+          if (sDef.id === 'size') {
+            const range = typeof host.getBrushSizeRange === 'function' ? host.getBrushSizeRange() : { min: 1, max: 300 };
+            const minS = range.min;
+            const maxS = range.max;
+            val = Math.max(minS, Math.min(maxS, Math.round(pos * pos * (maxS - minS) + minS)));
+          } else if (sDef.isCurve) {
             val = Math.max(1, Math.min(300, Math.round(pos * pos * 299 + 1)));
           } else {
             val = Math.round((sDef.min || 0) + pos * ((sDef.max || 100) - (sDef.min || 0)));
@@ -14342,6 +14421,41 @@ async function main() {
       });
     });
 
+    // Brush Size Range (Infinite Painter style)
+    const sliderSizeMin = document.getElementById('ip-slider-size-min');
+    const valSizeMin = document.getElementById('ip-val-size-min');
+    const sliderSizeMax = document.getElementById('ip-slider-size-max');
+    const valSizeMax = document.getElementById('ip-val-size-max');
+    const rangeDisplay = document.getElementById('ip-lab-size-range-val');
+
+    if (sliderSizeMin) {
+      sliderSizeMin.addEventListener('input', () => {
+        const cur = host.getBrushSizeRange ? host.getBrushSizeRange() : { min: 1, max: 300 };
+        const newMin = Math.max(1, Math.min(parseInt(sliderSizeMin.value, 10) || 1, cur.max - 1));
+        host.setBrushSizeRange?.(newMin, cur.max);
+        syncUiFromHost();
+      });
+    }
+
+    if (sliderSizeMax) {
+      sliderSizeMax.addEventListener('input', () => {
+        const cur = host.getBrushSizeRange ? host.getBrushSizeRange() : { min: 1, max: 300 };
+        const newMax = Math.max(cur.min + 1, Math.min(2000, parseInt(sliderSizeMax.value, 10) || 300));
+        host.setBrushSizeRange?.(cur.min, newMax);
+        syncUiFromHost();
+      });
+    }
+
+    document.querySelectorAll('.ip-btn-size-range-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const minVal = parseInt(btn.dataset.min, 10) || 1;
+        const maxVal = parseInt(btn.dataset.max, 10) || 300;
+        host.setBrushSizeRange?.(minVal, maxVal);
+        syncUiFromHost();
+        triggerHaptic(10);
+      });
+    });
+
     const selBrushShape = document.getElementById('ip-sel-brush-shape');
     if (selBrushShape) {
       selBrushShape.addEventListener('change', (e) => {
@@ -14631,7 +14745,12 @@ async function main() {
           valEl._lastRawVal = rawVal;
           valEl.textContent = `${rawVal}${s.unit || ''}`;
           let ratio = 0;
-          if (s.isCurve) {
+          if (s.id === 'size') {
+            const range = typeof host.getBrushSizeRange === 'function' ? host.getBrushSizeRange() : { min: 1, max: 300 };
+            const minS = range.min;
+            const maxS = range.max;
+            ratio = Math.max(0.01, Math.min(1, Math.sqrt(Math.max(0, rawVal - minS) / Math.max(1, maxS - minS))));
+          } else if (s.isCurve) {
             ratio = Math.max(0.01, Math.min(1, Math.sqrt(Math.max(0, rawVal - 1) / 299)));
           } else {
             ratio = Math.max(0.01, Math.min(1, ((rawVal || 0) - (s.min || 0)) / ((s.max || 100) - (s.min || 0))));
@@ -15087,6 +15206,18 @@ async function main() {
         const p = BRUSH_PRESETS[activeKey] || (host.customBrushPresets && host.customBrushPresets[activeKey]);
         labName.textContent = `(${p?.name || activeKey || 'Custom'})`;
       }
+      // Brush Size Range (Infinite Painter style)
+      const curRange = typeof host.getBrushSizeRange === 'function' ? host.getBrushSizeRange() : { min: 1, max: 300 };
+      const slMin = document.getElementById('ip-slider-size-min');
+      const vlMin = document.getElementById('ip-val-size-min');
+      const slMax = document.getElementById('ip-slider-size-max');
+      const vlMax = document.getElementById('ip-val-size-max');
+      const rDisp = document.getElementById('ip-lab-size-range-val');
+      if (slMin) slMin.value = String(curRange.min);
+      if (vlMin) vlMin.textContent = `${curRange.min}px`;
+      if (slMax) slMax.value = String(curRange.max);
+      if (vlMax) vlMax.textContent = `${curRange.max}px`;
+      if (rDisp) rDisp.textContent = `${curRange.min} – ${curRange.max} px`;
 
       // Tip shape selection
       const selShape = document.getElementById('ip-sel-brush-shape');
