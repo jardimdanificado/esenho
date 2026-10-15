@@ -4,7 +4,7 @@
  *
  * Simulates traditional wet watercolor behavior:
  * - Fluid diffusion pushing pigment outwards to create a darkened fringe
- *   (the natural "coffee-ring effect" of evaporating washes).
+ *   (the natural coffee-ring effect of evaporating washes).
  * - Stochastic pigment granulation settling across textured paper valleys.
  * - Soft, luminous translucent glazing that builds depth with layered strokes.
  * =========================================================================
@@ -22,7 +22,7 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"name\":\"watercolor_bleed\","
         "\"title\":\"Watercolor Bleed Wash\","
         "\"category\":\"Watercolor\","
-        "\"spacing\":0.12,"
+        "\"spacing\":0.22,"
         "\"minRadius\":6,"
         "\"maxRadius\":160,"
         "\"params\":["
@@ -71,62 +71,61 @@ W_EXPORT void w_brush_render_dab(
     float spread_mult = 1.0f + (g_bleed_radius * 0.01f);
     float r = radius * spread_mult;
     float r_sq = r * r;
+    float inv_r_sq = 1.0f / r_sq;
 
     int x0, y0, x1, y1;
-    w_brush_compute_bounds((int)cx, (int)cy, (int)(r + 2.0f), canvas_w, canvas_h, &x0, &y0, &x1, &y1);
+    w_brush_compute_bounds((int)cx, (int)cy, (int)(r + 1.0f), canvas_w, canvas_h, &x0, &y0, &x1, &y1);
 
     uint32_t base_a = w_color_get_a(color);
     uint32_t base_r = w_color_get_r(color);
     uint32_t base_g = w_color_get_g(color);
     uint32_t base_b = w_color_get_b(color);
 
-    // Subtle paper noise lookup
-    float gran_amount = (float)g_granulation / 100.0f;
-    float fringe_strength = (float)g_fringe_darken / 100.0f;
-    float water_flow = ((float)g_water_load / 100.0f) * 0.15f * eff_p;
+    float gran_amount = (float)g_granulation * 0.01f;
+    float fringe_strength = (float)g_fringe_darken * 0.01f * 1.5f;
+    float water_flow = ((float)g_water_load * 0.01f) * 0.18f * eff_p;
 
     for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         float dy_sq = dy * dy;
         uint32_t *row = &pixels[y * canvas_w];
+        uint32_t y_hash = (uint32_t)y * 19349663;
 
         for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy_sq;
             if (dist_sq > r_sq) continue;
 
-            float norm_dist = w_sqrtf(dist_sq) / r; // 0.0 (center) to 1.0 (perimeter)
+            float dist_ratio = dist_sq * inv_r_sq; // 0.0 at center, 1.0 at outer edge
 
-            // Coffee-ring profile: density drops towards mid-radius, then spikes sharply at the edge!
+            // Fast polynomial fringe calculation (avoids sqrt)
             float edge_fringe = 0.0f;
-            if (norm_dist > 0.70f) {
-                float t = (norm_dist - 0.70f) / 0.30f;
-                edge_fringe = t * t * fringe_strength * 1.6f;
+            if (dist_ratio > 0.50f) {
+                float t = (dist_ratio - 0.50f) * 2.0f; // 0.0 to 1.0
+                edge_fringe = t * t * fringe_strength;
             }
 
-            // Interior wash profile
-            float wash_density = 0.35f + (1.0f - norm_dist) * 0.25f + edge_fringe;
+            // Interior wash density
+            float wash_density = 0.35f + (1.0f - dist_ratio) * 0.25f + edge_fringe;
 
-            // Micro-granulation noise (deterministic per canvas position)
-            uint32_t hash = ((uint32_t)x * 73856093) ^ ((uint32_t)y * 19349663);
-            float noise = (float)(hash & 0xFF) / 255.0f;
+            // Fast integer hash for paper granulation
+            uint32_t hash = ((uint32_t)x * 73856093) ^ y_hash;
+            float noise = (float)(hash & 0xFF) * (1.0f / 255.0f);
             float gran_factor = 1.0f + (noise - 0.5f) * gran_amount;
 
             float final_flow = wash_density * gran_factor * water_flow;
             if (final_flow > 1.0f) final_flow = 1.0f;
-            if (final_flow < 0.0f) final_flow = 0.0f;
 
             uint32_t alpha_step = (uint32_t)(final_flow * (float)base_a);
             if (alpha_step == 0) continue;
 
             uint32_t dst = row[x];
-
-            // Darken pigment slightly at the fringe
             uint32_t cur_r = base_r;
             uint32_t cur_g = base_g;
             uint32_t cur_b = base_b;
-            if (edge_fringe > 0.2f) {
-                float darken = 1.0f - (edge_fringe * 0.25f);
+
+            if (edge_fringe > 0.15f) {
+                float darken = 1.0f - (edge_fringe * 0.22f);
                 cur_r = (uint32_t)((float)cur_r * darken);
                 cur_g = (uint32_t)((float)cur_g * darken);
                 cur_b = (uint32_t)((float)cur_b * darken);
@@ -138,7 +137,6 @@ W_EXPORT void w_brush_render_dab(
                 uint32_t na = (da > alpha_step) ? (da - alpha_step) : 0;
                 row[x] = (na << 24) | (dst & 0x00FFFFFF);
             } else {
-                // Subtractive / glazed wash blend
                 row[x] = w_brush_blend_over(dab_c, dst, alpha_step);
             }
         }

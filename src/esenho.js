@@ -10335,16 +10335,33 @@ class EsenhoScreenHost {
         const stepSize = Math.max(1.0, radius * 2.0 * spacingPct);
         const sym = this.brushParams?.symmetry || 0;
 
+        let dirtyX0 = 999999, dirtyY0 = 999999, dirtyX1 = -1, dirtyY1 = -1;
+        const markDirty = (dcx, dcy) => {
+          const rBound = Math.ceil(radius * 1.5 + 4);
+          const x0 = Math.max(0, Math.floor(dcx - rBound));
+          const y0 = Math.max(0, Math.floor(dcy - rBound));
+          const x1 = Math.min(cw - 1, Math.ceil(dcx + rBound));
+          const y1 = Math.min(ch - 1, Math.ceil(dcy + rBound));
+          if (x0 < dirtyX0) dirtyX0 = x0;
+          if (y0 < dirtyY0) dirtyY0 = y0;
+          if (x1 > dirtyX1) dirtyX1 = x1;
+          if (y1 > dirtyY1) dirtyY1 = y1;
+        };
+
         const stampDabAt = (cx, cy, spd, ang) => {
           b.renderDab(pixPtr, cw, ch, cx, cy, radius, mappedPressure, ang, spd, col >>> 0, eraser);
+          markDirty(cx, cy);
           if (sym === 1 || sym === 3) {
             b.renderDab(pixPtr, cw, ch, cw - 1 - cx, cy, radius, mappedPressure, 180 - ang, spd, col >>> 0, eraser);
+            markDirty(cw - 1 - cx, cy);
           }
           if (sym === 2 || sym === 3) {
             b.renderDab(pixPtr, cw, ch, cx, ch - 1 - cy, radius, mappedPressure, -ang, spd, col >>> 0, eraser);
+            markDirty(cx, ch - 1 - cy);
           }
           if (sym === 3) {
             b.renderDab(pixPtr, cw, ch, cw - 1 - cx, ch - 1 - cy, radius, mappedPressure, 180 + ang, spd, col >>> 0, eraser);
+            markDirty(cw - 1 - cx, ch - 1 - cy);
           }
         };
 
@@ -10380,10 +10397,14 @@ class EsenhoScreenHost {
           b.strokeEnd();
         }
 
-        if (typeof this.canvasActor.exports.w_force_composite === 'function') {
-          this.canvasActor.exports.w_force_composite();
-        } else if (typeof this.canvasActor.exports.force_composite === 'function') {
-          this.canvasActor.exports.force_composite();
+        if (dirtyX0 <= dirtyX1 && dirtyY0 <= dirtyY1) {
+          if (typeof this.canvasActor.exports.w_composite_region === 'function') {
+            this.canvasActor.exports.w_composite_region(dirtyX0, dirtyY0, dirtyX1, dirtyY1);
+          } else if (typeof this.canvasActor.exports.w_force_composite === 'function') {
+            this.canvasActor.exports.w_force_composite();
+          } else if (typeof this.canvasActor.exports.force_composite === 'function') {
+            this.canvasActor.exports.force_composite();
+          }
         }
         return;
       }

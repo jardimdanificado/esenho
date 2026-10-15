@@ -3983,8 +3983,8 @@ async function main() {
       });
       addSep();
       addSubmenu('Selection Mask Actions', [
-        { type: 'item', label: '🖌 Paint Inside (Lock Mask)', action: () => { host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
-        { type: 'item', label: '🧹 Erase Inside (Lock Mask)', action: () => { host.setActionMode('erase'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
+        { type: 'item', label: 'Paint Inside (Lock Mask)', action: () => { host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
+        { type: 'item', label: 'Erase Inside (Lock Mask)', action: () => { host.setActionMode('erase'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
         { type: 'sep' },
         { type: 'item', label: 'Capture as Custom Brush Tip', action: () => { if (host.createBrushFromSelection) host.createBrushFromSelection(); } },
         { type: 'item', label: 'Capture as Paper Texture', action: () => { if (host.createGrainFromSelection) host.createGrainFromSelection(); } },
@@ -4197,76 +4197,76 @@ async function main() {
 
         const isVecContext = isVecApp && (isVecMode || isVecLayer);
         const quickTools = isVecContext ? [
-          { id: 'pen', label: '✒ Pen', title: 'Bézier Pen Tool (P)', act: () => {
+          { id: 'pen', label: 'Pen', title: 'Bézier Pen Tool (P)', act: () => {
             host.vectorSubTool = 'pen'; host.setActionMode('vector'); if (host.enableVectorLayer) host.enableVectorLayer();
             vecPenActivePathId = null; markCanvasDirty();
           }, check: () => host.vectorSubTool === 'pen' },
-          { id: 'nodes', label: '◈ Node', title: 'Bézier Node Editor (V)', act: () => {
+          { id: 'nodes', label: 'Node', title: 'Bézier Node Editor (V)', act: () => {
             host.vectorSubTool = 'nodes'; host.setActionMode('vector'); if (host.enableVectorLayer) host.enableVectorLayer();
             vecPenActivePathId = null; markCanvasDirty();
           }, check: () => host.vectorSubTool === 'nodes' },
-          { id: 'marquee', label: '⬚ Marq', title: 'Multi-Node Marquee Selection', act: () => {
+          { id: 'marquee', label: 'Marq', title: 'Multi-Node Marquee Selection', act: () => {
             host.vectorSubTool = 'marquee'; host.setActionMode('vector'); if (host.enableVectorLayer) host.enableVectorLayer();
             vecPenActivePathId = null; markCanvasDirty();
           }, check: () => host.vectorSubTool === 'marquee' },
-          { id: 'width', label: '↔ Width', title: 'Stroke Width & Pressure', act: () => {
+          { id: 'width', label: 'Width', title: 'Stroke Width & Pressure', act: () => {
             host.vectorSubTool = 'width'; host.setActionMode('vector'); if (host.enableVectorLayer) host.enableVectorLayer();
             vecPenActivePathId = null; markCanvasDirty();
           }, check: () => host.vectorSubTool === 'width' },
-          { id: 'brush', label: '🖌 Brsh', title: 'Vector Brush (B)', act: () => {
+          { id: 'brush', label: 'Brush', title: 'Vector Brush (B)', act: () => {
             vecPenActivePathId = null; host.vectorSubTool = 'draw'; host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0);
             if (host.enableVectorLayer) host.enableVectorLayer(); markCanvasDirty();
           }, check: () => host.actionMode === 'draw' && (host.currentTool === 'brush' || host.vectorSubTool === 'draw') },
-          { id: 'line', label: '╱ Line', title: 'Vector Line Shape', act: () => {
+          { id: 'line', label: 'Line', title: 'Vector Line Shape', act: () => {
             vecPenActivePathId = null; host.vectorSubTool = 'line'; host.setActionMode('draw'); host.currentTool = 'line'; host.setBrushParam('mode', 6);
             if (host.enableVectorLayer) host.enableVectorLayer(); markCanvasDirty();
           }, check: () => host.vectorSubTool === 'line' || (host.currentTool === 'line' && host.actionMode === 'draw') },
-          { id: 'rect', label: '▭ Rect', title: 'Vector Rectangle', act: () => {
+          { id: 'rect', label: 'Rect', title: 'Vector Rectangle', act: () => {
             vecPenActivePathId = null; host.vectorSubTool = 'rect'; host.setActionMode('draw'); host.currentTool = 'rect'; host.setBrushParam('mode', 7);
             if (host.enableVectorLayer) host.enableVectorLayer(); markCanvasDirty();
           }, check: () => host.vectorSubTool === 'rect' || (host.currentTool === 'rect' && host.actionMode === 'draw') },
-          { id: 'ellipse', label: '○ Ellip', title: 'Vector Ellipse', act: () => {
+          { id: 'ellipse', label: 'Ellipse', title: 'Vector Ellipse', act: () => {
             vecPenActivePathId = null; host.vectorSubTool = 'ellipse'; host.setActionMode('draw'); host.currentTool = 'ellipse'; host.setBrushParam('mode', 8);
             if (host.enableVectorLayer) host.enableVectorLayer(); markCanvasDirty();
           }, check: () => host.vectorSubTool === 'ellipse' || (host.currentTool === 'ellipse' && host.actionMode === 'draw') },
-          { id: 'erase', label: '🧹 Erase', title: 'Vector Eraser (E)', act: () => {
+          { id: 'erase', label: 'Erase', title: 'Vector Eraser (E)', act: () => {
             vecPenActivePathId = null; host.vectorSubTool = 'erase'; host.setActionMode('erase');
             if (host.enableVectorLayer) host.enableVectorLayer(); markCanvasDirty();
           }, check: () => host.actionMode === 'erase' || host.vectorSubTool === 'erase' },
-          { id: 'picker', label: '💉 Pick', title: 'Eyedropper / Color Picker (I)', act: () => {
+          { id: 'picker', label: 'Picker', title: 'Eyedropper / Color Picker (I)', act: () => {
             host.actionMode = host.actionMode === 'color_picker' ? 'draw' : 'color_picker';
             if (typeof syncUiFromHost === 'function') syncUiFromHost();
             if (menuInst && menuInst.service) menuInst.service.hideContextMenu();
           }, check: () => host.actionMode === 'color_picker' }
         ] : [
-          { id: 'brush', label: '🖌 Brsh', title: 'Brush Tool / Draw Mode (B)', act: () => {
+          { id: 'brush', label: 'Brush', title: 'Brush Tool / Draw Mode (B)', act: () => {
             host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0);
           }, check: () => (host.actionMode === 'draw' || !host.actionMode) && (host.currentTool === 'brush' || !host.currentTool) },
-          { id: 'erase', label: '🧹 Erase', title: 'Eraser Mode (E)', act: () => {
+          { id: 'erase', label: 'Erase', title: 'Eraser Mode (E)', act: () => {
             host.setActionMode('erase');
           }, check: () => host.actionMode === 'erase' },
-          { id: 'blend', label: '💧 Blend', title: 'Smudge / Blend Mode', act: () => {
+          { id: 'blend', label: 'Blend', title: 'Smudge / Blend Mode', act: () => {
             host.setActionMode('blend');
           }, check: () => host.actionMode === 'blend' },
-          { id: 'clone', label: '⧉ Clone', title: 'Clone Stamp Mode', act: () => {
+          { id: 'clone', label: 'Clone', title: 'Clone Stamp Mode', act: () => {
             host.setActionMode('clone');
           }, check: () => host.actionMode === 'clone' },
-          { id: 'fill', label: '🪣 Bucket', title: 'Flood Fill Bucket (G)', act: () => {
+          { id: 'fill', label: 'Bucket', title: 'Flood Fill Bucket (G)', act: () => {
             host.setActionMode('draw'); host.currentTool = 'fill'; host.setBrushParam('mode', 3);
           }, check: () => host.currentTool === 'fill' },
-          { id: 'line', label: '╱ Line', title: 'Line Tool', act: () => {
+          { id: 'line', label: 'Line', title: 'Line Tool', act: () => {
             host.setActionMode('draw'); host.currentTool = 'line'; host.setBrushParam('mode', 6);
           }, check: () => host.currentTool === 'line' },
-          { id: 'rect', label: '▭ Rect', title: 'Rectangle Shape Tool', act: () => {
+          { id: 'rect', label: 'Rect', title: 'Rectangle Shape Tool', act: () => {
             host.setActionMode('draw'); host.currentTool = 'rect'; host.setBrushParam('mode', 7);
           }, check: () => host.currentTool === 'rect' },
-          { id: 'ellipse', label: '○ Ellip', title: 'Ellipse / Circle Tool', act: () => {
+          { id: 'ellipse', label: 'Ellipse', title: 'Ellipse / Circle Tool', act: () => {
             host.setActionMode('draw'); host.currentTool = 'ellipse'; host.setBrushParam('mode', 8);
           }, check: () => host.currentTool === 'ellipse' },
-          { id: 'select', label: '⬚ Select', title: 'Rectangle Selection Marquee (M)', act: () => {
+          { id: 'select', label: 'Select', title: 'Rectangle Selection Marquee (M)', act: () => {
             host.setActionMode('select'); host.currentTool = 'select_rect'; host.setBrushParam('mode', 9);
           }, check: () => host.actionMode === 'select' },
-          { id: 'picker', label: '💉 Pick', title: 'Eyedropper / Color Picker (I)', act: () => {
+          { id: 'picker', label: 'Picker', title: 'Eyedropper / Color Picker (I)', act: () => {
             host.actionMode = host.actionMode === 'color_picker' ? 'draw' : 'color_picker';
             if (typeof syncUiFromHost === 'function') syncUiFromHost();
             if (menuInst && menuInst.service) menuInst.service.hideContextMenu();
@@ -4388,7 +4388,15 @@ async function main() {
     // 5. Brush Library Submenu
     const activeBrushKey = host.activeBrush || 'ink_pen';
     const activeBrushObj = BRUSH_PRESETS[activeBrushKey] || (host.customBrushPresets && host.customBrushPresets[activeBrushKey]);
-    const activeBrushTitle = activeBrushObj ? activeBrushObj.name : activeBrushKey;
+    let activeBrushTitle = activeBrushObj ? activeBrushObj.name : activeBrushKey;
+    if (activeBrushKey.startsWith('wasm_') && host.wasmBrushes) {
+      const wKey = activeBrushKey.replace(/^wasm[:_]/i, '');
+      const wb = host.wasmBrushes.get(wKey);
+      if (wb) {
+        const info = wb.getInfo ? wb.getInfo() : wb.info;
+        activeBrushTitle = info?.title || wKey;
+      }
+    }
 
     const CAT_LABELS = {
       sketch: 'Sketch & Pencil',
@@ -4412,17 +4420,26 @@ async function main() {
     if (host.brushHistory && host.brushHistory.length > 0) {
       const presetsMap = { ...BRUSH_PRESETS, ...(host.customBrushPresets || {}) };
       const recentItems = host.brushHistory
-        .map(k => presetsMap[k] ? [k, presetsMap[k]] : null)
+        .map(k => {
+          if (presetsMap[k]) return { key: k, name: presetsMap[k].name, size: presetsMap[k].size, isWasm: false };
+          if (k.startsWith('wasm_') || (host.wasmBrushes && host.wasmBrushes.has(k))) {
+            const wKey = k.replace(/^wasm[:_]/i, '');
+            const wb = host.wasmBrushes?.get(wKey);
+            const info = wb?.getInfo?.() || wb?.info;
+            return { key: k, name: info?.title || wKey, size: null, isWasm: true };
+          }
+          return null;
+        })
         .filter(Boolean)
         .slice(0, 8);
       if (recentItems.length > 0) {
         brushLibraryItems.push({
           type: 'submenu',
-          label: '⏱ Recent Brushes',
-          items: recentItems.map(([k, preset]) => ({
+          label: 'Recent Brushes',
+          items: recentItems.map(item => ({
             type: 'item',
-            label: (host.activeBrush === k ? '✓ ' : '') + `${preset.name} (${preset.size || 10}px)`,
-            action: () => { host.selectBrushPreset(k); syncUiFromHost(); populateBrushPresetsUI(); }
+            label: (host.activeBrush === item.key ? '✓ ' : '') + (item.isWasm ? `${item.name} (WASM)` : `${item.name} (${item.size || 10}px)`),
+            action: () => { host.selectBrushPreset(item.key); syncUiFromHost(); populateBrushPresetsUI(); }
           }))
         });
         brushLibraryItems.push({ type: 'sep' });
@@ -4431,12 +4448,34 @@ async function main() {
     if (host.customBrushPresets && Object.keys(host.customBrushPresets).length > 0) {
       brushLibraryItems.push({
         type: 'submenu',
-        label: '★ Custom Presets',
+        label: 'Custom Presets',
         items: Object.entries(host.customBrushPresets).map(([k, preset]) => ({
           type: 'item',
           label: (host.activeBrush === k ? '✓ ' : '') + (preset.name || k),
           action: () => { host.selectBrushPreset(k); syncUiFromHost(); populateBrushPresetsUI(); }
         }))
+      });
+    }
+    if (host.wasmBrushes && host.wasmBrushes.size > 0) {
+      const wasmItems = [];
+      for (const [k, wb] of host.wasmBrushes.entries()) {
+        const info = wb.getInfo ? wb.getInfo() : wb.info;
+        const title = info?.title || k;
+        const isAct = host.activeBrush === `wasm_${k}` || (host.activeWasmBrush && host.activeWasmBrush.name === k);
+        wasmItems.push({
+          type: 'item',
+          label: (isAct ? '✓ ' : '') + title,
+          action: () => {
+            host.selectBrushPreset(`wasm_${k}`);
+            syncUiFromHost();
+            populateBrushPresetsUI();
+          }
+        });
+      }
+      brushLibraryItems.push({
+        type: 'submenu',
+        label: 'WASM Brushes',
+        items: wasmItems
       });
     }
     for (const [cat, list] of brushCatMap.entries()) {
@@ -4457,7 +4496,7 @@ async function main() {
     if (host.customBrushPresets && host.customBrushPresets[host.activeBrush]) {
       brushLibraryItems.push({
         type: 'item',
-        label: `🗑 Delete Custom Preset "${activeBrushTitle}"`,
+        label: `Delete Custom Preset "${activeBrushTitle}"`,
         action: () => { host.deleteCustomBrushPreset?.(host.activeBrush); }
       });
     }
@@ -4494,8 +4533,8 @@ async function main() {
           { type: 'item', label: (curMode === 'select' && host.currentTool === 'magic_wand' ? '✓ ' : '') + 'Magic Wand Select', action: () => { host.setActionMode('select'); host.currentTool = 'magic_wand'; host.setBrushParam('mode', 11); syncUiFromHost(); } },
           { type: 'item', label: (curMode === 'select' && host.currentTool === 'brush' ? '✓ ' : '') + 'Selection Brush Mask', action: () => { host.setActionMode('select'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
           { type: 'sep' },
-          { type: 'item', label: '🖌 Paint Inside Selection (Keep Mask)', action: () => { host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
-          { type: 'item', label: '🧹 Erase Inside Selection (Keep Mask)', action: () => { host.setActionMode('erase'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
+          { type: 'item', label: 'Paint Inside Selection (Keep Mask)', action: () => { host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
+          { type: 'item', label: 'Erase Inside Selection (Keep Mask)', action: () => { host.setActionMode('erase'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
           { type: 'sep' },
           { type: 'item', label: 'Select All', hotkey: 'Ctrl+A', action: () => runCmd('select all') },
           { type: 'item', label: 'Invert Selection', hotkey: 'Ctrl+Shift+I', action: () => runCmd('select invert') },
@@ -4808,10 +4847,10 @@ async function main() {
     };
 
     if (isTopBar) {
-      addSubmenu('📁 Project & File', projectSubmenuItems);
-      addSubmenu('⚙ Settings & Preferences', settingsSubmenuItems);
-      addSubmenu('🖼 Canvas & View', canvasViewSubmenuItems);
-      addSubmenu('🗂 Workspace & Panels', workspaceSubmenuItems);
+      addSubmenu('Project & File', projectSubmenuItems);
+      addSubmenu('Settings & Preferences', settingsSubmenuItems);
+      addSubmenu('Canvas & View', canvasViewSubmenuItems);
+      addSubmenu('Workspace & Panels', workspaceSubmenuItems);
       addSep();
       addItem('Undo', 'Ctrl+Z', () => runCmd('undo'));
       addItem('Redo', 'Ctrl+Y', () => runCmd('redo'));
@@ -6697,7 +6736,7 @@ async function main() {
       const custom = host.customBrushPresets || {};
       if (Object.keys(custom).length > 0) {
         const grpCustom = document.createElement('optgroup');
-        grpCustom.label = '★ Custom Presets';
+        grpCustom.label = 'Custom Presets';
         for (const [k, p] of Object.entries(custom)) {
           const opt = document.createElement('option');
           opt.value = k;
@@ -6731,12 +6770,12 @@ async function main() {
 
       if (host.wasmBrushes && host.wasmBrushes.size > 0) {
         const grpWasm = document.createElement('optgroup');
-        grpWasm.label = '⚡ WASM Brushes (Zero-Copy Kernel)';
+        grpWasm.label = 'WASM Brushes (Zero-Copy)';
         for (const [k, wb] of host.wasmBrushes.entries()) {
           const info = wb.getInfo ? wb.getInfo() : wb.info;
           const opt = document.createElement('option');
           opt.value = `wasm_${k}`;
-          opt.textContent = `✦ ${info?.title || k}`;
+          opt.textContent = info?.title || k;
           if (host.activeBrush === `wasm_${k}` || (host.activeWasmBrush && host.activeWasmBrush.name === k)) opt.selected = true;
           grpWasm.appendChild(opt);
         }
@@ -13489,7 +13528,7 @@ async function main() {
           card.style.borderColor = isAct ? '#fabd2f' : 'rgba(250, 189, 47, 0.25)';
           card.innerHTML = `
             <div class="ip-brush-card-top">
-              <span class="ip-brush-card-title" style="color: #fabd2f;">✦ ${info?.title || key}</span>
+              <span class="ip-brush-card-title" style="color: #fabd2f;">${info?.title || key}</span>
               <span style="font-size: 8.5px; background: #d79921; color: #1d2021; padding: 1px 4px; border-radius: 3px; font-weight: bold;">WASM</span>
             </div>
             <div class="ip-brush-card-desc">${info?.category ? info.category + ' • ' : ''}Zero-Copy Kernel (${(info?.params || []).length} params)</div>

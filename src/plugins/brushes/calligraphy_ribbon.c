@@ -22,11 +22,11 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"name\":\"calligraphy_ribbon\","
         "\"title\":\"Calligraphy Ribbon Nib\","
         "\"category\":\"Inking\","
-        "\"spacing\":0.05,"
+        "\"spacing\":0.12,"
         "\"minRadius\":4,"
         "\"maxRadius\":100,"
         "\"params\":["
-            "{\"name\":\"Nib Angle\",\"min\":0,\"max\":180,\"default\":45,\"unit\":\"°\"},"
+            "{\"name\":\"Nib Angle\",\"min\":0,\"max\":180,\"default\":45,\"unit\":\"deg\"},"
             "{\"name\":\"Flatness\",\"min\":50,\"max\":98,\"default\":85,\"unit\":\"%\"},"
             "{\"name\":\"Ink Flow\",\"min\":20,\"max\":100,\"default\":90,\"unit\":\"%\"},"
             "{\"name\":\"Tilt Tracking (0=off, 1=on)\",\"min\":0,\"max\":1,\"default\":1}"
@@ -64,27 +64,24 @@ W_EXPORT void w_brush_render_dab(
 
     float eff_p = (pressure > 0.01f) ? pressure : 0.5f;
 
-    // Determine active nib angle in radians
     float angle_deg_eff = (float)g_nib_angle;
     if (g_tilt_tracking && (w_sinf(angle_deg * 0.01745329f) != 0.0f || w_cosf(angle_deg * 0.01745329f) != 0.0f)) {
-        // If angle_deg was provided from pen trajectory or stylus tilt
         angle_deg_eff = (float)g_nib_angle + angle_deg * 0.25f;
     }
     float rad_angle = angle_deg_eff * 0.0174532925f;
     float cos_a = w_cosf(rad_angle);
     float sin_a = w_sinf(rad_angle);
 
-    // Major and minor semi-axes
     float major_r = radius * (0.8f + eff_p * 0.4f);
-    float minor_r = major_r * (1.0f - (float)g_flatness / 100.0f);
+    float minor_r = major_r * (1.0f - (float)g_flatness * 0.01f);
     if (minor_r < 0.75f) minor_r = 0.75f;
 
-    int max_dim = (int)(major_r + 2.0f);
+    int max_dim = (int)(major_r + 1.0f);
     int x0, y0, x1, y1;
     w_brush_compute_bounds((int)cx, (int)cy, max_dim, canvas_w, canvas_h, &x0, &y0, &x1, &y1);
 
     uint32_t base_a = w_color_get_a(color);
-    float flow_mult = (float)g_ink_flow / 100.0f;
+    float flow_mult = (float)g_ink_flow * 0.01f;
     float inv_major_sq = 1.0f / (major_r * major_r);
     float inv_minor_sq = 1.0f / (minor_r * minor_r);
 
@@ -95,14 +92,12 @@ W_EXPORT void w_brush_render_dab(
         for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
 
-            // Transform (dx, dy) into oriented nib coordinate frame
             float local_x = dx * cos_a + dy * sin_a;
             float local_y = -dx * sin_a + dy * cos_a;
 
             float ellipse_eq = (local_x * local_x) * inv_major_sq + (local_y * local_y) * inv_minor_sq;
             if (ellipse_eq > 1.0f) continue;
 
-            // Sharp edge with 1-pixel anti-aliasing feather
             float edge_dist = 1.0f - ellipse_eq;
             float aa = (edge_dist > 0.2f) ? 1.0f : (edge_dist * 5.0f);
 

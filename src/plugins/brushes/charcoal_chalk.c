@@ -22,7 +22,7 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"name\":\"charcoal_chalk\","
         "\"title\":\"Charcoal & Rough Chalk\","
         "\"category\":\"Sketch\","
-        "\"spacing\":0.10,"
+        "\"spacing\":0.20,"
         "\"minRadius\":4,"
         "\"maxRadius\":120,"
         "\"params\":["
@@ -48,13 +48,13 @@ W_EXPORT void w_brush_set_param(int32_t param_idx, int32_t value) {
 W_EXPORT void w_brush_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser) {}
 W_EXPORT void w_brush_stroke_end(void) {}
 
-// Deterministic 2D paper tooth generator
+// Fast deterministic 2D paper tooth generator
 static inline float get_paper_tooth(int x, int y, int scale) {
     int gx = x / scale;
     int gy = y / scale;
     uint32_t h = ((uint32_t)gx * 374761393) ^ ((uint32_t)gy * 668265263);
     h = (h ^ (h >> 13)) * 1274126177;
-    return (float)(h & 0xFF) / 255.0f; // 0.0 (deep valley) to 1.0 (highest peak)
+    return (float)(h & 0xFF) * (1.0f / 255.0f);
 }
 
 W_EXPORT void w_brush_render_dab(
@@ -74,14 +74,15 @@ W_EXPORT void w_brush_render_dab(
     float eff_p = (pressure > 0.01f) ? pressure : 0.5f;
     float rad = radius * (0.8f + eff_p * 0.4f);
     float rad_sq = rad * rad;
+    float inv_rad_sq = (rad_sq > 0.01f) ? (1.0f / rad_sq) : 1.0f;
 
     int x0, y0, x1, y1;
-    w_brush_compute_bounds((int)cx, (int)cy, (int)(rad + 2.0f), canvas_w, canvas_h, &x0, &y0, &x1, &y1);
+    w_brush_compute_bounds((int)cx, (int)cy, (int)(rad + 1.0f), canvas_w, canvas_h, &x0, &y0, &x1, &y1);
 
     uint32_t base_a = w_color_get_a(color);
-    float roughness = (float)g_paper_roughness / 100.0f;
-    float penetration = ((float)g_pressure_depth / 100.0f) * eff_p;
-    float crumble = (float)g_crumble_noise / 100.0f;
+    float roughness = (float)g_paper_roughness * 0.01f;
+    float penetration = ((float)g_pressure_depth * 0.01f) * eff_p;
+    float crumble = (float)g_crumble_noise * 0.01f;
     int scale = g_grain_scale;
 
     for (int y = y0; y < y1; y++) {
@@ -94,25 +95,19 @@ W_EXPORT void w_brush_render_dab(
             float dist_sq = dx * dx + dy_sq;
             if (dist_sq > rad_sq) continue;
 
-            float dist_ratio = dist_sq / rad_sq; // 0.0 to 1.0
+            float dist_ratio = dist_sq * inv_rad_sq; // 0.0 to 1.0
             float radial_falloff = 1.0f - dist_ratio;
 
-            // Paper height lookup
             float tooth = get_paper_tooth(x, y, scale);
 
-            // Light pressure hits only peaks (tooth > threshold); high pressure fills deeper
             float valley_threshold = 1.0f - (penetration * 0.95f) - (radial_falloff * 0.25f);
             if (valley_threshold < 0.05f) valley_threshold = 0.05f;
 
-            if (tooth < valley_threshold * roughness) {
-                // Skips valley entirely on dry stroke
-                continue;
-            }
+            if (tooth < valley_threshold * roughness) continue;
 
-            // Stochastic crumble along stroke edge
             if (crumble > 0.01f && dist_ratio > 0.5f) {
                 uint32_t edge_hash = ((uint32_t)x * 1234567) ^ ((uint32_t)y * 7654321);
-                if (((edge_hash & 0x7F) / 128.0f) < crumble * dist_ratio) continue;
+                if (((edge_hash & 0x7F) * (1.0f / 128.0f)) < crumble * dist_ratio) continue;
             }
 
             float deposit = (tooth - valley_threshold * roughness) / (1.0f - valley_threshold * roughness + 0.001f);

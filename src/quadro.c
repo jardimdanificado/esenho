@@ -2715,6 +2715,11 @@ W_EXPORT void w_force_composite(void) {
     force_composite();
 }
 
+W_EXPORT void w_composite_region(int32_t rx0, int32_t ry0, int32_t rx1, int32_t ry1) {
+    init_surface_if_needed();
+    composite_region(rx0, ry0, rx1, ry1);
+}
+
 W_EXPORT uint32_t* w_render(void) {
     init_surface_if_needed();
     /* Recompose when flagged dirty OR when the layer epoch moved since the last
