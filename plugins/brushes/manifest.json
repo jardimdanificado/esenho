@@ -2,9 +2,14 @@
   "bristle_oil.wasm",
   "calligraphy_ribbon.wasm",
   "charcoal_chalk.wasm",
+  "chromatic_holo_warp.wasm",
+  "fluid_smoke_swirl.wasm",
+  "fractal_lightning.wasm",
   "neon_glow.wasm",
   "particle_spray.wasm",
   "pixel_dither.wasm",
+  "reaction_diffusion.wasm",
   "sand_sim.wasm",
+  "voronoi_mosaic.wasm",
   "watercolor_bleed.wasm"
 ]
