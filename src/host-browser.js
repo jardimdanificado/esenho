@@ -4147,10 +4147,11 @@ async function main() {
       addSep();
     }
 
-    // 4. Inline Quick Tools & Color Bar + Brush Sliders (Mobile & Desktop)
-    items.push({
-      type: 'custom',
-      render: (menuInst) => {
+    // 4. Inline Quick Tools & Color Bar + Brush Sliders (Mobile & Desktop Context Menu)
+    if (!isTopBar) {
+      items.push({
+        type: 'custom',
+        render: (menuInst) => {
         const wrap = document.createElement('div');
         wrap.style.cssText = 'display:flex;flex-direction:column;gap:5px;padding:2px 0;min-width:210px;';
 
@@ -4196,10 +4197,11 @@ async function main() {
             vecPenActivePathId = null; host.vectorSubTool = 'erase'; host.setActionMode('erase');
             if (host.enableVectorLayer) host.enableVectorLayer(); markCanvasDirty();
           }, check: () => host.actionMode === 'erase' || host.vectorSubTool === 'erase' },
-          { id: 'fit', label: '⊡ Fit', title: 'Fit View to Screen (0)', act: () => {
-            runCmd('zoom fit');
+          { id: 'picker', label: '💉 Pick', title: 'Eyedropper / Color Picker (I)', act: () => {
+            host.actionMode = host.actionMode === 'color_picker' ? 'draw' : 'color_picker';
+            if (typeof syncUiFromHost === 'function') syncUiFromHost();
             if (menuInst && menuInst.service) menuInst.service.hideContextMenu();
-          }, check: () => false }
+          }, check: () => host.actionMode === 'color_picker' }
         ] : [
           { id: 'brush', label: '🖌 Brsh', title: 'Brush Tool / Draw Mode (B)', act: () => {
             host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0);
@@ -4228,10 +4230,11 @@ async function main() {
           { id: 'select', label: '⬚ Select', title: 'Rectangle Selection Marquee (M)', act: () => {
             host.setActionMode('select'); host.currentTool = 'select_rect'; host.setBrushParam('mode', 9);
           }, check: () => host.actionMode === 'select' },
-          { id: 'fit', label: '⊡ Fit', title: 'Fit View to Screen (0)', act: () => {
-            runCmd('zoom fit');
+          { id: 'picker', label: '💉 Pick', title: 'Eyedropper / Color Picker (I)', act: () => {
+            host.actionMode = host.actionMode === 'color_picker' ? 'draw' : 'color_picker';
+            if (typeof syncUiFromHost === 'function') syncUiFromHost();
             if (menuInst && menuInst.service) menuInst.service.hideContextMenu();
-          }, check: () => false }
+          }, check: () => host.actionMode === 'color_picker' }
         ];
 
         const toolBtns = [];
@@ -4341,17 +4344,10 @@ async function main() {
           else runCmd(`set ${sDef.key} ${val}`);
         }
       });
-      if (sid === 'size') {
-        const curR = typeof host.getBrushSizeRange === 'function' ? host.getBrushSizeRange() : { min: 1, max: 300 };
-        items.push({
-          type: 'item',
-          label: `⚙ Size Range (${curR.min}–${curR.max}px)...`,
-          action: () => openBrushSizeRangeDialog()
-        });
-      }
     }
 
     addSep();
+  }
 
     // 5. Brush Library Submenu
     const activeBrushKey = host.activeBrush || 'ink_pen';
@@ -4435,10 +4431,10 @@ async function main() {
 
     addSubmenu(`Brush: ${activeBrushTitle}`, brushLibraryItems);
 
-    // 6. Tools, Shapes & Guides Submenu
+    // 6. Tools, Shapes & Guides Submenu List
     const curMode = host.actionMode || 'draw';
     const curSym = host.brushParams?.symmetry || 0;
-    addSubmenu('Tools, Shapes & Guides', [
+    const toolsSubmenuList = [
       { type: 'item', label: (curMode === 'draw' && host.currentTool === 'brush' ? '✓ ' : '') + 'Freehand Brush', hotkey: 'B', action: () => { host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
       { type: 'item', label: (curMode === 'erase' ? '✓ ' : '') + 'Eraser Mode', hotkey: 'E', action: () => { host.setActionMode('erase'); syncUiFromHost(); } },
       { type: 'item', label: (curMode === 'blend' ? '✓ ' : '') + 'Blend / Smudge Mode', action: () => { host.setActionMode('blend'); syncUiFromHost(); } },
@@ -4486,7 +4482,7 @@ async function main() {
       { type: 'item', label: 'Free Transform Layer', hotkey: 'Ctrl+T', action: () => runCmd('transform') },
       { type: 'sep' },
       { type: 'item', label: 'Open Tools Tab...', action: () => window.openPainterDockPanel?.('tools') }
-    ]);
+    ];
 
     // 7. Active Layer Submenu
     const activeLayerIdx = host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
@@ -4546,14 +4542,10 @@ async function main() {
       { type: 'item', label: isVecLayer ? 'Clear Vector Layer' : 'Clear Layer', action: () => runCmd('clear'), danger: true },
       { type: 'item', label: 'Delete Active Layer', action: () => runCmd(`delete layer ${activeLayerIdx}`), danger: true }
     ];
-    addSubmenu(`Active Layer (#${activeLayerIdx})`, activeLayerItems);
 
-    // 8. Filters, Pixel Art & Animation Submenus
-    addSubmenu('Filters', [buildDomPanelAction('filters')]);
-    if (!isVecLayer) {
-      addSubmenu('Pixel Art Studio', [buildDomPanelAction('pixelart')]);
-    }
-    addSubmenu('Animation Timeline', [
+    // 8. Filters & Animation Submenus
+    const filterSubmenuItems = [buildDomPanelAction('filters')];
+    const animSubmenuItems = [
       { type: 'item', label: host.rasterAnimator?.isPlaying ? '⏸ Pause Playback' : '▶ Play Animation', hotkey: 'Space', action: () => { host.rasterAnimator?.togglePlay(); syncUiFromHost(); } },
       { type: 'item', label: (host.rasterAnimator?.loop ? '✓ ' : '') + 'Loop Playback', action: () => { if (host.rasterAnimator) { host.rasterAnimator.loop = !host.rasterAnimator.loop; host.rasterAnimatorUI?.syncUI(); } } },
       { type: 'item', label: '+ Add Blank Frame', action: () => { host.rasterAnimator?.addFrame(false); host.rasterAnimatorUI?.syncUI(); syncUiFromHost(); } },
@@ -4569,230 +4561,254 @@ async function main() {
         unit: ' fps',
         onInput: (val) => { host.rasterAnimator?.setFps(val); host.rasterAnimatorUI?.syncUI(); }
       }
-    ]);
+    ];
 
+    // Common High-Level Groups: Project, Settings, Canvas & View, Workspace
+    const dockApi = window.painterDockviewApi;
+    const isTabOpen = (id) => !!(dockApi && dockApi.getPanel(id));
+    const curW = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : (host.docWidth || 1280);
+    const curH = host.canvasActor?.exports?.get_canvas_height ? host.canvasActor.exports.get_canvas_height() : (host.docHeight || 720);
+    const uiScaleOpts = [
+      { val: 'auto', label: 'Auto (Responsive)' },
+      { val: '0.75', label: '75% (Small)' },
+      { val: '0.85', label: '85%' },
+      { val: '1.0', label: '100% (Default)' },
+      { val: '1.15', label: '115%' },
+      { val: '1.25', label: '125%' },
+      { val: '1.5', label: '150% (Large)' }
+    ];
+
+    const projectSubmenuItems = [
+      {
+        type: 'submenu',
+        label: 'New Project',
+        items: [buildDomPanelAction('newproj')]
+      },
+      {
+        type: 'submenu',
+        label: 'Recent Projects',
+        items: [buildDomPanelAction('recents')]
+      },
+      { type: 'item', label: 'Open / Import (.esen, Image)...', hotkey: 'Ctrl+O', action: () => fileInput?.click() },
+      { type: 'item', label: 'Save Project Snapshot', hotkey: 'Ctrl+S', action: () => document.getElementById('btn-ip-save-proj')?.click() },
+      {
+        type: 'submenu',
+        label: 'Export',
+        items: [
+          { type: 'item', label: 'Export PNG (.png)', action: () => exportImage('image/png') },
+          { type: 'item', label: 'Export JPEG (.jpg)', action: () => exportImage('image/jpeg') },
+          { type: 'item', label: 'Export Animated GIF (.gif)', action: () => exportAnimatedGif() },
+          { type: 'item', label: 'Export WebM Video (.webm)', action: () => exportWebmVideo() },
+          { type: 'item', label: 'Export Project (.esen)', action: () => exportEsenProject() }
+        ]
+      },
+      { type: 'sep' },
+      { type: 'item', label: 'Clear Project Storage...', danger: true, action: () => document.getElementById('btn-ip-recents-clear')?.click() }
+    ];
+
+    const settingsSubmenuItems = [
+      {
+        type: 'submenu',
+        label: 'Theme',
+        items: [
+          {
+            type: 'item',
+            label: ((localStorage.getItem('esenho_theme') || 'dark') === 'dark' ? '✓ ' : '') + 'Gruvbox Dark',
+            action: () => { window.setPainterTheme?.('dark'); }
+          },
+          {
+            type: 'item',
+            label: ((localStorage.getItem('esenho_theme') || 'dark') === 'gray' ? '✓ ' : '') + 'Gray (Modern Neutral)',
+            action: () => { window.setPainterTheme?.('gray'); }
+          },
+          {
+            type: 'item',
+            label: ((localStorage.getItem('esenho_theme') || 'dark') === 'skeuo' ? '✓ ' : '') + 'Skeuomorphic (Hardware)',
+            action: () => { window.setPainterTheme?.('skeuo'); }
+          }
+        ]
+      },
+      {
+        type: 'submenu',
+        label: `UI Scale (${host.uiScale || 'auto'})`,
+        items: uiScaleOpts.map(o => ({
+          type: 'item',
+          label: (String(host.uiScale || 'auto') === o.val ? '✓ ' : '') + o.label,
+          action: () => host.setUiScale(o.val)
+        }))
+      },
+      { type: 'sep' },
+      {
+        type: 'submenu',
+        label: 'Renderer & Performance',
+        items: [
+          { type: 'item', label: (host.powerSaveMode ? '✓ ' : '') + 'Power Saving Mode (Battery Saver)', action: () => host.setPowerSaveMode?.(!host.powerSaveMode) },
+          { type: 'sep' },
+          { type: 'item', label: (host.renderMode !== 'cpu' ? '✓ ' : '') + 'WebGL 2 (GPU)', action: () => document.querySelector('.render-engine-opt[data-engine="gpu"]')?.click() },
+          { type: 'item', label: (host.renderMode === 'cpu' ? '✓ ' : '') + 'Software (2D CPU)', action: () => document.querySelector('.render-engine-opt[data-engine="software"]')?.click() },
+          { type: 'sep' },
+          { type: 'item', label: (!host.viewportFiltering ? '✓ ' : '') + 'Nearest (Crisp / Pixel Art)', action: () => document.querySelector('.view-filter-opt[data-vfilter="nearest"]')?.click() },
+          { type: 'item', label: (host.viewportFiltering ? '✓ ' : '') + 'Bilinear (Smooth)', action: () => document.querySelector('.view-filter-opt[data-vfilter="bilinear"]')?.click() }
+        ]
+      },
+      {
+        type: 'slider',
+        label: 'Undo History Limit',
+        min: 0,
+        max: 100,
+        value: host.maxUndoSteps !== undefined ? host.maxUndoSteps : 25,
+        unit: ' steps',
+        onInput: (val) => { syncMaxUndo(Math.round(val / 5) * 5); }
+      },
+      { type: 'sep' },
+      { type: 'item', label: (host.showBrushOutline ? '✓ ' : '') + 'Brush Cursor Outline', action: () => syncBrushOutline(!host.showBrushOutline) },
+      { type: 'item', label: (host.enableTouchUndoRedo ? '✓ ' : '') + 'Touch Gestures (2-Finger Undo / 3-Finger Redo)', action: () => syncTouchUndoRedo(!host.enableTouchUndoRedo) },
+      {
+        type: 'submenu',
+        label: 'Context Menu Sliders',
+        items: buildContextMenuSlidersActions()
+      },
+      {
+        type: 'submenu',
+        label: 'Customize HUD Bars...',
+        items: [buildDomPanelAction('hud')]
+      }
+    ];
+
+    const canvasViewSubmenuItems = [
+      { type: 'item', label: 'Zoom to Fit (Reset View)', hotkey: 'Ctrl+0', action: () => { host.zoom = 1.0; host.panX = 0; host.panY = 0; host.canvasRotation = 0; host.render(); } },
+      { type: 'item', label: '100% Zoom (1:1)', action: () => { if (host.zoomTo100) host.zoomTo100(); } },
+      { type: 'item', label: 'Reset Rotation (0°)', action: () => { if (host.resetRotation) host.resetRotation(); else { host.canvasRotation = 0; host.render(); } } },
+      { type: 'item', label: 'Center Canvas', action: () => { if (host.centerCanvas) host.centerCanvas(); else { host.panX = 0; host.panY = 0; host.render(); } } },
+      { type: 'item', label: (host.flipH ? '✓ ' : '') + 'Flip View Horizontal', action: () => { host.flipH = !host.flipH; host.render(); syncUiFromHost(); } },
+      { type: 'item', label: (host.flipV ? '✓ ' : '') + 'Flip View Vertical', action: () => { host.flipV = !host.flipV; host.render(); syncUiFromHost(); } },
+      { type: 'item', label: (host.showPixelGrid ? '✓ ' : '') + 'Show Pixel Grid', action: () => { syncPixelGrid(!host.showPixelGrid); } },
+      { type: 'sep' },
+      {
+        type: 'submenu',
+        label: `Canvas Size & Transform (${curW}×${curH})`,
+        items: [
+          {
+            type: 'custom',
+            render: () => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;';
+              const wInp = document.createElement('input');
+              wInp.type = 'number';
+              wInp.className = 'ui-input-num';
+              wInp.value = String(curW);
+              wInp.min = '16';
+              wInp.max = '16384';
+              wInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
+              const sep = document.createElement('span');
+              sep.textContent = '×';
+              sep.style.cssText = 'color:var(--text-muted);font-weight:bold;';
+              const hInp = document.createElement('input');
+              hInp.type = 'number';
+              hInp.className = 'ui-input-num';
+              hInp.value = String(curH);
+              hInp.min = '16';
+              hInp.max = '16384';
+              hInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'ip-btn ip-mini-btn active';
+              btn.textContent = 'Resize';
+              btn.style.cssText = 'flex:1;height:24px;padding:0 8px;font-size:10.5px;';
+              btn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const nw = parseInt(wInp.value, 10);
+                const nh = parseInt(hInp.value, 10);
+                if (nw >= 16 && nh >= 16) {
+                  runCmd(`canvas resize ${nw} ${nh}`);
+                  window.contextMenuService?.hideContextMenu();
+                }
+              });
+              [wInp, hInp].forEach(inp => inp.addEventListener('keydown', (ke) => {
+                ke.stopPropagation();
+                if (ke.key === 'Enter') btn.click();
+              }));
+              row.appendChild(wInp);
+              row.appendChild(sep);
+              row.appendChild(hInp);
+              row.appendChild(btn);
+              return row;
+            }
+          },
+          { type: 'item', label: '640×480 (VGA)', action: () => runCmd('canvas resize 640 480') },
+          { type: 'item', label: '1280×720 (720p HD)', action: () => runCmd('canvas resize 1280 720') },
+          { type: 'item', label: '1920×1080 (1080p FHD)', action: () => runCmd('canvas resize 1920 1080') },
+          { type: 'item', label: '1080×1080 (1:1 Square)', action: () => runCmd('canvas resize 1080 1080') },
+          { type: 'sep' },
+          { type: 'item', label: 'Rotate Canvas 90° CW', action: () => runCmd('canvas rotate 90') },
+          { type: 'item', label: 'Rotate Canvas 90° CCW', action: () => runCmd('canvas rotate -90') },
+          { type: 'item', label: 'Flip Canvas Horizontal', action: () => runCmd('canvas flip h') },
+          { type: 'item', label: 'Flip Canvas Vertical', action: () => runCmd('canvas flip v') },
+          { type: 'item', label: 'Crop Canvas to Selection', action: () => runCmd('crop') }
+        ]
+      }
+    ];
+
+    const workspaceSubmenuItems = [
+      { type: 'item', label: (isTabOpen('layers') ? '✓ ' : '') + 'Layers Tab', action: () => window.togglePainterDockPanel?.('layers') },
+      { type: 'item', label: (isTabOpen('tools') ? '✓ ' : '') + 'Tools Tab', action: () => window.togglePainterDockPanel?.('tools') },
+      { type: 'item', label: (isTabOpen('color') ? '✓ ' : '') + 'Color Studio Tab', action: () => window.togglePainterDockPanel?.('color') },
+      { type: 'item', label: (isTabOpen('lab') ? '✓ ' : '') + 'Brush Lab Tab', action: () => window.togglePainterDockPanel?.('lab') },
+      { type: 'item', label: (isTabOpen('timeline') ? '✓ ' : '') + 'Timeline Tab', action: () => window.togglePainterDockPanel?.('timeline') },
+      { type: 'sep' },
+      { type: 'item', label: 'Reset Workspace Layout', action: () => window.resetPainterDockLayout?.() }
+    ];
+
+    const pVersion = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.13.54';
+    const versionAction = async () => {
+      if (typeof performAutosave === 'function') {
+        saveUserPreferences();
+        await performAutosave(true);
+      } else {
+        document.getElementById('btn-ip-save-proj')?.click();
+      }
+      log(`esenho v${pVersion} — Project saved [ok]`);
+      if (typeof showNotification === 'function') {
+        showNotification(`v${pVersion} · Saved`);
+      }
+    };
+
+    if (isTopBar) {
+      addSubmenu('📁 Project & File', projectSubmenuItems);
+      addSubmenu('⚙ Settings & Preferences', settingsSubmenuItems);
+      addSubmenu('🖼 Canvas & View', canvasViewSubmenuItems);
+      addSubmenu('🗂 Workspace & Panels', workspaceSubmenuItems);
+      addSep();
+      addItem('Undo', 'Ctrl+Z', () => runCmd('undo'));
+      addItem('Redo', 'Ctrl+Y', () => runCmd('redo'));
+      if (host.clipboardBuffer) addItem('Paste', 'Ctrl+V', () => runCmd('paste'));
+      addItem('Free Transform Layer', 'Ctrl+T', () => runCmd('transform'));
+      addSep();
+      addSubmenu(`Brush: ${activeBrushTitle}`, brushLibraryItems);
+      addSubmenu('Tools, Shapes & Guides', toolsSubmenuList);
+      addSubmenu(`Active Layer (#${activeLayerIdx})`, activeLayerItems);
+      addSubmenu('Filters', filterSubmenuItems);
+      addSubmenu('Animation Timeline', animSubmenuItems);
+      addSep();
+      addItem(`v${pVersion}`, '', versionAction);
+      return items;
+    }
+
+    // Canvas Context Menu (Right-Click / Long-Press)
+    addSubmenu(`Brush: ${activeBrushTitle}`, brushLibraryItems);
+    addSubmenu('Tools, Shapes & Guides', toolsSubmenuList);
+    addSubmenu(`Active Layer (#${activeLayerIdx})`, activeLayerItems);
+    addSubmenu('Filters', filterSubmenuItems);
+    addSubmenu('Animation Timeline', animSubmenuItems);
+    addSubmenu('Canvas & View', canvasViewSubmenuItems);
     addSep();
     addItem('Undo', 'Ctrl+Z', () => runCmd('undo'));
     addItem('Redo', 'Ctrl+Y', () => runCmd('redo'));
     if (host.clipboardBuffer) addItem('Paste', 'Ctrl+V', () => runCmd('paste'));
-
-    if (isTopBar) {
-      addSep();
-
-      const dockApi = window.painterDockviewApi;
-      const isTabOpen = (id) => !!(dockApi && dockApi.getPanel(id));
-      const curW = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : (host.docWidth || 1280);
-      const curH = host.canvasActor?.exports?.get_canvas_height ? host.canvasActor.exports.get_canvas_height() : (host.docHeight || 720);
-      const uiScaleOpts = [
-        { val: 'auto', label: 'Auto (Responsive)' },
-        { val: '0.75', label: '75% (Small)' },
-        { val: '0.85', label: '85%' },
-        { val: '1.0', label: '100% (Default)' },
-        { val: '1.15', label: '115%' },
-        { val: '1.25', label: '125%' },
-        { val: '1.5', label: '150% (Large)' }
-      ];
-
-      // Canvas & View Submenu
-      addSubmenu('Canvas & View', [
-        { type: 'item', label: 'Zoom to Fit (Reset View)', hotkey: 'Ctrl+0', action: () => { host.zoom = 1.0; host.panX = 0; host.panY = 0; host.canvasRotation = 0; host.render(); } },
-        { type: 'item', label: '100% Zoom (1:1)', action: () => { if (host.zoomTo100) host.zoomTo100(); } },
-        { type: 'item', label: 'Reset Rotation (0°)', action: () => { if (host.resetRotation) host.resetRotation(); else { host.canvasRotation = 0; host.render(); } } },
-        { type: 'item', label: 'Center Canvas', action: () => { if (host.centerCanvas) host.centerCanvas(); else { host.panX = 0; host.panY = 0; host.render(); } } },
-        { type: 'item', label: (host.flipH ? '✓ ' : '') + 'Flip View Horizontal', action: () => { host.flipH = !host.flipH; host.render(); syncUiFromHost(); } },
-        { type: 'item', label: (host.flipV ? '✓ ' : '') + 'Flip View Vertical', action: () => { host.flipV = !host.flipV; host.render(); syncUiFromHost(); } },
-        { type: 'item', label: (host.showPixelGrid ? '✓ ' : '') + 'Show Pixel Grid', action: () => { syncPixelGrid(!host.showPixelGrid); } },
-        { type: 'sep' },
-        {
-          type: 'submenu',
-          label: 'Workspace Tabs',
-          items: [
-            { type: 'item', label: (isTabOpen('layers') ? '✓ ' : '') + 'Layers Tab', action: () => window.togglePainterDockPanel?.('layers') },
-            { type: 'item', label: (isTabOpen('tools') ? '✓ ' : '') + 'Tools Tab', action: () => window.togglePainterDockPanel?.('tools') },
-            { type: 'item', label: (isTabOpen('color') ? '✓ ' : '') + 'Color Studio Tab', action: () => window.togglePainterDockPanel?.('color') },
-            { type: 'item', label: (isTabOpen('lab') ? '✓ ' : '') + 'Brush Lab Tab', action: () => window.togglePainterDockPanel?.('lab') },
-            { type: 'item', label: (isTabOpen('timeline') ? '✓ ' : '') + 'Timeline Tab', action: () => window.togglePainterDockPanel?.('timeline') },
-            { type: 'sep' },
-            { type: 'item', label: 'Reset Workspace Layout', action: () => window.resetPainterDockLayout?.() }
-          ]
-        },
-        {
-          type: 'submenu',
-          label: `Canvas Size & Transform (${curW}×${curH})`,
-          items: [
-            {
-              type: 'custom',
-              render: () => {
-                const row = document.createElement('div');
-                row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;';
-                const wInp = document.createElement('input');
-                wInp.type = 'number';
-                wInp.className = 'ui-input-num';
-                wInp.value = String(curW);
-                wInp.min = '16';
-                wInp.max = '16384';
-                wInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
-                const sep = document.createElement('span');
-                sep.textContent = '×';
-                sep.style.cssText = 'color:var(--text-muted);font-weight:bold;';
-                const hInp = document.createElement('input');
-                hInp.type = 'number';
-                hInp.className = 'ui-input-num';
-                hInp.value = String(curH);
-                hInp.min = '16';
-                hInp.max = '16384';
-                hInp.style.cssText = 'width:58px;height:24px;font-size:11px;text-align:center;';
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'ip-btn ip-mini-btn active';
-                btn.textContent = 'Resize';
-                btn.style.cssText = 'flex:1;height:24px;padding:0 8px;font-size:10.5px;';
-                btn.addEventListener('click', (ev) => {
-                  ev.stopPropagation();
-                  const nw = parseInt(wInp.value, 10);
-                  const nh = parseInt(hInp.value, 10);
-                  if (nw >= 16 && nh >= 16) {
-                    runCmd(`canvas resize ${nw} ${nh}`);
-                    window.contextMenuService?.hideContextMenu();
-                  }
-                });
-                [wInp, hInp].forEach(inp => inp.addEventListener('keydown', (ke) => {
-                  ke.stopPropagation();
-                  if (ke.key === 'Enter') btn.click();
-                }));
-                row.appendChild(wInp);
-                row.appendChild(sep);
-                row.appendChild(hInp);
-                row.appendChild(btn);
-                return row;
-              }
-            },
-            { type: 'item', label: '640×480 (VGA)', action: () => runCmd('canvas resize 640 480') },
-            { type: 'item', label: '1280×720 (720p HD)', action: () => runCmd('canvas resize 1280 720') },
-            { type: 'item', label: '1920×1080 (1080p FHD)', action: () => runCmd('canvas resize 1920 1080') },
-            { type: 'item', label: '1080×1080 (1:1 Square)', action: () => runCmd('canvas resize 1080 1080') },
-            { type: 'sep' },
-            { type: 'item', label: 'Rotate Canvas 90° CW', action: () => runCmd('canvas rotate 90') },
-            { type: 'item', label: 'Rotate Canvas 90° CCW', action: () => runCmd('canvas rotate -90') },
-            { type: 'item', label: 'Flip Canvas Horizontal', action: () => runCmd('canvas flip h') },
-            { type: 'item', label: 'Flip Canvas Vertical', action: () => runCmd('canvas flip v') },
-            { type: 'item', label: 'Crop Canvas to Selection', action: () => runCmd('crop') }
-          ]
-        },
-        {
-          type: 'submenu',
-          label: 'Renderer & Performance',
-          items: [
-            { type: 'item', label: (host.powerSaveMode ? '✓ ' : '') + 'Power Saving Mode (Battery & Thermal Saver)', action: () => host.setPowerSaveMode?.(!host.powerSaveMode) },
-            { type: 'sep' },
-            { type: 'item', label: (host.renderMode !== 'cpu' ? '✓ ' : '') + 'WebGL 2 (GPU)', action: () => document.querySelector('.render-engine-opt[data-engine="gpu"]')?.click() },
-            { type: 'item', label: (host.renderMode === 'cpu' ? '✓ ' : '') + 'Software (2D CPU)', action: () => document.querySelector('.render-engine-opt[data-engine="software"]')?.click() },
-            { type: 'sep' },
-            { type: 'item', label: (!host.viewportFiltering ? '✓ ' : '') + 'Nearest (Crisp / Pixel Art)', action: () => document.querySelector('.view-filter-opt[data-vfilter="nearest"]')?.click() },
-            { type: 'item', label: (host.viewportFiltering ? '✓ ' : '') + 'Bilinear (Smooth)', action: () => document.querySelector('.view-filter-opt[data-vfilter="bilinear"]')?.click() },
-            { type: 'sep' },
-            {
-              type: 'slider',
-              label: 'Undo History Limit',
-              min: 0,
-              max: 100,
-              value: host.maxUndoSteps !== undefined ? host.maxUndoSteps : 25,
-              unit: ' steps',
-              onInput: (val) => { syncMaxUndo(Math.round(val / 5) * 5); }
-            }
-          ]
-        },
-        {
-          type: 'submenu',
-          label: 'Input, Cursor & UI',
-          items: [
-            { type: 'item', label: (host.showBrushOutline ? '✓ ' : '') + 'Brush Cursor Outline', action: () => syncBrushOutline(!host.showBrushOutline) },
-            { type: 'item', label: (host.enableTouchUndoRedo ? '✓ ' : '') + 'Touch Gestures (2-Finger Undo / 3-Finger Redo)', action: () => syncTouchUndoRedo(!host.enableTouchUndoRedo) },
-            {
-              type: 'submenu',
-              label: 'Theme',
-              items: [
-                {
-                  type: 'item',
-                  label: ((localStorage.getItem('esenho_theme') || 'dark') === 'dark' ? '✓ ' : '') + 'Gruvbox Dark',
-                  action: () => { window.setPainterTheme?.('dark'); }
-                },
-                {
-                  type: 'item',
-                  label: ((localStorage.getItem('esenho_theme') || 'dark') === 'gray' ? '✓ ' : '') + 'Gray (Modern Neutral)',
-                  action: () => { window.setPainterTheme?.('gray'); }
-                },
-                {
-                  type: 'item',
-                  label: ((localStorage.getItem('esenho_theme') || 'dark') === 'skeuo' ? '✓ ' : '') + 'Skeuomorphic (Hardware)',
-                  action: () => { window.setPainterTheme?.('skeuo'); }
-                }
-              ]
-            },
-            { type: 'sep' },
-            {
-              type: 'submenu',
-              label: `UI Scale (${host.uiScale || 'auto'})`,
-              items: uiScaleOpts.map(o => ({
-                type: 'item',
-                label: (String(host.uiScale || 'auto') === o.val ? '✓ ' : '') + o.label,
-                action: () => host.setUiScale(o.val)
-              }))
-            },
-            {
-              type: 'submenu',
-              label: 'Context Menu Sliders',
-              items: buildContextMenuSlidersActions()
-            }
-          ]
-        }
-      ]);
-
-      // Project & File Submenu
-      addSubmenu('Project & File', [
-        {
-          type: 'submenu',
-          label: 'New Project',
-          items: [buildDomPanelAction('newproj')]
-        },
-        {
-          type: 'submenu',
-          label: 'Recent Projects',
-          items: [buildDomPanelAction('recents')]
-        },
-        { type: 'item', label: 'Open / Import (.esen, Image)...', hotkey: 'Ctrl+O', action: () => fileInput?.click() },
-        { type: 'item', label: 'Save Project Snapshot', hotkey: 'Ctrl+S', action: () => document.getElementById('btn-ip-save-proj')?.click() },
-        {
-          type: 'submenu',
-          label: 'Export',
-          items: [
-            { type: 'item', label: 'Export PNG (.png)', action: () => exportImage('image/png') },
-            { type: 'item', label: 'Export JPEG (.jpg)', action: () => exportImage('image/jpeg') },
-            { type: 'item', label: 'Export Animated GIF (.gif)', action: () => exportAnimatedGif() },
-            { type: 'item', label: 'Export WebM Video (.webm)', action: () => exportWebmVideo() },
-            { type: 'item', label: 'Export Project (.esen)', action: () => exportEsenProject() }
-          ]
-        },
-        { type: 'sep' },
-        { type: 'item', label: 'Clear Project Storage...', danger: true, action: () => document.getElementById('btn-ip-recents-clear')?.click() }
-      ]);
-
-      // Version & About
-      addSep();
-      const pVersion = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.13.54';
-      addItem(`v${pVersion}`, '', async () => {
-        if (typeof performAutosave === 'function') {
-          saveUserPreferences();
-          await performAutosave(true);
-        } else {
-          document.getElementById('btn-ip-save-proj')?.click();
-        }
-        log(`esenho v${pVersion} — Project saved [ok]`);
-        if (typeof showNotification === 'function') {
-          showNotification(`v${pVersion} · Saved`);
-        }
-      });
-    }
+    addItem('Free Transform Layer', 'Ctrl+T', () => runCmd('transform'));
+    addSep();
+    addSubmenu('Project & File', projectSubmenuItems);
+    addSubmenu('Settings & Preferences', settingsSubmenuItems);
 
     return items;
   }
@@ -4921,35 +4937,42 @@ async function main() {
   }
 
   function drawWarpedQuad(targetCtx, img, c, z, fw, fh) {
+    const q0x = c[0].x * z, q0y = c[0].y * z;
+    const q1x = c[1].x * z, q1y = c[1].y * z;
+    const q2x = c[2].x * z, q2y = c[2].y * z;
+    const q3x = c[3].x * z, q3y = c[3].y * z;
+
     // Triangle 1: (0,0), (fw,0), (0,fh) -> c[0], c[1], c[3]
     targetCtx.save();
     targetCtx.beginPath();
-    targetCtx.moveTo(c[0].x * z, c[0].y * z);
-    targetCtx.lineTo(c[1].x * z, c[1].y * z);
-    targetCtx.lineTo(c[3].x * z, c[3].y * z);
+    targetCtx.moveTo(q0x, q0y);
+    targetCtx.lineTo(q1x, q1y);
+    targetCtx.lineTo(q3x, q3y);
     targetCtx.closePath();
     targetCtx.clip();
-    const m00_1 = (c[1].x - c[0].x) * z / fw;
-    const m10_1 = (c[1].y - c[0].y) * z / fw;
-    const m01_1 = (c[3].x - c[0].x) * z / fh;
-    const m11_1 = (c[3].y - c[0].y) * z / fh;
-    targetCtx.transform(m00_1, m10_1, m01_1, m11_1, c[0].x * z, c[0].y * z);
+    const m00_1 = (q1x - q0x) / fw;
+    const m10_1 = (q1y - q0y) / fw;
+    const m01_1 = (q3x - q0x) / fh;
+    const m11_1 = (q3y - q0y) / fh;
+    targetCtx.transform(m00_1, m10_1, m01_1, m11_1, q0x, q0y);
     targetCtx.drawImage(img, 0, 0);
     targetCtx.restore();
 
     // Triangle 2: (fw,fh), (0,fh), (fw,0) -> c[2], c[3], c[1]
     targetCtx.save();
     targetCtx.beginPath();
-    targetCtx.moveTo(c[2].x * z, c[2].y * z);
-    targetCtx.lineTo(c[3].x * z, c[3].y * z);
-    targetCtx.lineTo(c[1].x * z, c[1].y * z);
+    targetCtx.moveTo(q2x, q2y);
+    targetCtx.lineTo(q3x, q3y);
+    targetCtx.lineTo(q1x, q1y);
     targetCtx.closePath();
     targetCtx.clip();
-    const m00_2 = (c[3].x - c[2].x) * z / fw;
-    const m10_2 = (c[3].y - c[2].y) * z / fw;
-    const m01_2 = (c[1].x - c[2].x) * z / fh;
-    const m11_2 = (c[1].y - c[2].y) * z / fh;
-    targetCtx.transform(-m00_2, -m10_2, -m01_2, -m11_2, c[2].x * z, c[2].y * z);
+    const m00_2 = (q2x - q3x) / fw;
+    const m10_2 = (q2y - q3y) / fw;
+    const m01_2 = (q2x - q1x) / fh;
+    const m11_2 = (q2y - q1y) / fh;
+    const dx_2 = q1x + q3x - q2x;
+    const dy_2 = q1y + q3y - q2y;
+    targetCtx.transform(m00_2, m10_2, m01_2, m11_2, dx_2, dy_2);
     targetCtx.drawImage(img, 0, 0);
     targetCtx.restore();
   }
