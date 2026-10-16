@@ -4791,10 +4791,14 @@ async function main() {
           const alpha = Math.min(255, Math.max(0, Math.round((val / 100) * 255)));
           if (host.canvasActor?.exports?.w_layer_opacity) {
             host.canvasActor.exports.w_layer_opacity(activeLayerIdx, alpha);
-            host.render();
+            if (host.markCanvasDirty) host.markCanvasDirty();
+            if (host.render) host.render();
           }
           const opTxt = document.getElementById(`layer-op-text-${activeLayerIdx}`);
           if (opTxt) opTxt.textContent = `${Math.round(val)}%`;
+        },
+        onChange: (val) => {
+          runCmd(`layer opacity ${activeLayerIdx} ${Math.round(val)}`);
         }
       },
       {
@@ -10559,6 +10563,8 @@ async function main() {
       const op255 = Math.min(255, Math.max(0, Math.round(val * 255 / 100)));
       if (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_opacity) {
         host.canvasActor.exports.w_layer_opacity(curActive, op255);
+        if (host.markCanvasDirty) host.markCanvasDirty();
+        if (host.render) host.render();
       }
     });
     activeLayerOp.addEventListener('change', () => {
@@ -12428,10 +12434,19 @@ async function main() {
             max: 100,
             step: 1,
             value: curOpPct,
-            format: (v) => `${Math.round(v)}%`,
+            unit: '%',
+            onInput: (v) => {
+              const alpha = Math.min(255, Math.max(0, Math.round((v / 100) * 255)));
+              if (host.canvasActor?.exports?.w_layer_opacity) {
+                host.canvasActor.exports.w_layer_opacity(i, alpha);
+                if (host.markCanvasDirty) host.markCanvasDirty();
+                if (host.render) host.render();
+              }
+              const opBadge = document.getElementById(`layer-op-text-${i}`);
+              if (opBadge) opBadge.textContent = `${Math.round(v)}%`;
+            },
             onChange: (v) => {
-              const rawOp = Math.round((v / 100) * 255);
-              runCmd(`layer opacity ${i} ${rawOp}`);
+              runCmd(`layer opacity ${i} ${Math.round(v)}`);
               const opBadge = document.getElementById(`layer-op-text-${i}`);
               if (opBadge) opBadge.textContent = `${Math.round(v)}%`;
             }
@@ -15086,8 +15101,16 @@ async function main() {
         const alpha = Math.min(255, Math.max(0, Math.round((val / 100) * 255)));
         if (host.canvasActor?.exports?.w_layer_opacity) {
           host.canvasActor.exports.w_layer_opacity(activeIdx, alpha);
-          host.render();
+          if (host.markCanvasDirty) host.markCanvasDirty();
+          if (host.render) host.render();
         }
+      });
+      ipLayerOpSlider.addEventListener('change', () => {
+        const val = parseInt(ipLayerOpSlider.value, 10);
+        const activeIdx = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_get_active)
+          ? host.canvasActor.exports.w_layer_get_active()
+          : (host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0);
+        runCmd(`opacity layer ${activeIdx} ${val}`);
       });
     }
 

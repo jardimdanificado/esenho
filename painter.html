@@ -1823,7 +1823,16 @@
       box-shadow: 0 0 4px rgba(56, 189, 248, 0.4) !important;
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :focus:not(:focus-visible) {
+      outline: none;
+    }
 
     ::selection {
       background: rgba(250, 189, 47, 0.3);
@@ -1849,6 +1858,7 @@
       color: var(--text);
       font: 12px/1.4 var(--font-sans);
       overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
     }
 
     button, input, select, textarea {
@@ -1863,6 +1873,7 @@
       appearance: none;
       box-sizing: border-box;
       transition: background-color 0.1s, border-color 0.1s, color 0.1s;
+      -webkit-tap-highlight-color: transparent;
     }
 
     button {
@@ -1874,6 +1885,8 @@
       align-items: center;
       justify-content: center;
       padding: 4px 8px;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
     }
     button:hover {
       background-color: var(--bg-panel-sub);
@@ -4198,7 +4211,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.14.14  --x--  0,0  zoom 100%  rot 0.0°</span>
+    <span id="wstatus" class="ip-top-status-text">v0.14.16  --x--  0,0  zoom 100%  rot 0.0°</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->

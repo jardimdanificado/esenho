@@ -4199,9 +4199,11 @@ const COMMAND_RULES = [
     run: (m, host) => {
       const id = parseInt(m.id, 10);
       const val = parseInt(m.val, 10);
-      const op255 = Math.min(255, Math.max(0, Math.round(val * 255 / 100)));
+      const op255 = val > 100 ? Math.min(255, Math.max(0, val)) : Math.min(255, Math.max(0, Math.round(val * 255 / 100)));
       host.canvasActor.exports.w_layer_opacity(id, op255);
-      host.sendConsoleLog(`set layer [${id}] opacity to ${val}%`);
+      if (host.markCanvasDirty) host.markCanvasDirty();
+      if (host.render) host.render();
+      host.sendConsoleLog(`set layer [${id}] opacity to ${val > 100 ? Math.round((val / 255) * 100) : val}%`);
     }
   },
   { pat: "layer opacity $id$int $val$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "opacity layer $id$int $val$int").run(m, host) },
@@ -4212,9 +4214,11 @@ const COMMAND_RULES = [
     run: (m, host) => {
       const id = host.canvasActor.exports.get_active_layer();
       const val = parseInt(m.val, 10);
-      const op255 = Math.min(255, Math.max(0, Math.round(val * 255 / 100)));
+      const op255 = val > 100 ? Math.min(255, Math.max(0, val)) : Math.min(255, Math.max(0, Math.round(val * 255 / 100)));
       host.canvasActor.exports.w_layer_opacity(id, op255);
-      host.sendConsoleLog(`set layer [${id}] opacity to ${val}%`);
+      if (host.markCanvasDirty) host.markCanvasDirty();
+      if (host.render) host.render();
+      host.sendConsoleLog(`set layer [${id}] opacity to ${val > 100 ? Math.round((val / 255) * 100) : val}%`);
     }
   },
   { pat: "layer opacity $val$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set layer opacity $val$int").run(m, host) },
@@ -10451,6 +10455,13 @@ class EsenhoScreenHost {
         const stepSize = Math.max(0.75, radius * 2.0 * Math.max(0.02, Math.min(0.25, spacingPct)));
         const sym = this.brushParams?.symmetry || 0;
 
+        let effCol = col >>> 0;
+        if (this.brushParams && typeof this.brushParams.opacity === 'number') {
+          const origAlpha = (effCol >>> 24) & 0xFF;
+          const brushAlpha = Math.round(origAlpha * Math.min(100, Math.max(0, this.brushParams.opacity)) / 100);
+          effCol = ((effCol & 0x00FFFFFF) | ((brushAlpha & 0xFF) << 24)) >>> 0;
+        }
+
         let dirtyX0 = 999999, dirtyY0 = 999999, dirtyX1 = -1, dirtyY1 = -1;
         const markDirty = (dcx, dcy) => {
           const rBound = Math.ceil(radius * 1.5 + 4);
@@ -10468,18 +10479,18 @@ class EsenhoScreenHost {
           const effPress = (typeof b.acceptsInput === 'function' && !b.acceptsInput('pressure')) ? 1.0 : pPress;
           const effAng = (typeof b.acceptsInput === 'function' && !b.acceptsInput('angle')) ? 0.0 : ang;
           const effSpd = (typeof b.acceptsInput === 'function' && !b.acceptsInput('speed')) ? 0.0 : spd;
-          b.renderDab(pixPtr, cw, ch, cx, cy, radius, effPress, effAng, effSpd, col >>> 0, eraser);
+          b.renderDab(pixPtr, cw, ch, cx, cy, radius, effPress, effAng, effSpd, effCol >>> 0, eraser);
           markDirty(cx, cy);
           if (sym === 1 || sym === 3) {
-            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, cy, radius, effPress, 180 - effAng, effSpd, col >>> 0, eraser);
+            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, cy, radius, effPress, 180 - effAng, effSpd, effCol >>> 0, eraser);
             markDirty(cw - 1 - cx, cy);
           }
           if (sym === 2 || sym === 3) {
-            b.renderDab(pixPtr, cw, ch, cx, ch - 1 - cy, radius, effPress, -effAng, effSpd, col >>> 0, eraser);
+            b.renderDab(pixPtr, cw, ch, cx, ch - 1 - cy, radius, effPress, -effAng, effSpd, effCol >>> 0, eraser);
             markDirty(cx, ch - 1 - cy);
           }
           if (sym === 3) {
-            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, ch - 1 - cy, radius, effPress, 180 + effAng, effSpd, col >>> 0, eraser);
+            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, ch - 1 - cy, radius, effPress, 180 + effAng, effSpd, effCol >>> 0, eraser);
             markDirty(cw - 1 - cx, ch - 1 - cy);
           }
         };
@@ -10491,7 +10502,7 @@ class EsenhoScreenHost {
           const effPress = (typeof b.acceptsInput === 'function' && !b.acceptsInput('pressure')) ? 1.0 : mappedPressure;
           const effTiltX = (typeof b.acceptsInput === 'function' && !b.acceptsInput('tilt')) ? 0.0 : tx;
           const effTiltY = (typeof b.acceptsInput === 'function' && !b.acceptsInput('tilt')) ? 0.0 : ty;
-          b.strokeBegin(curX, curY, effPress, effTiltX, effTiltY, col >>> 0, eraser);
+          b.strokeBegin(curX, curY, effPress, effTiltX, effTiltY, effCol >>> 0, eraser);
           stampDabAt(curX, curY, 0.0, 0.0, effPress);
         } else if (s === 1) {
           const dx = curX - pX;

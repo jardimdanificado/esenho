@@ -1545,13 +1545,21 @@
       font-weight: 750 !important;
     }
 
-    * {
+    *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    * {
       user-select: none;
       -webkit-user-select: none;
       font-family: var(--font-sans);
+    }
+
+    :focus:not(:focus-visible) {
+      outline: none;
     }
 
     ::selection {
@@ -1584,6 +1592,7 @@
       flex-direction: column;
       font-size: 12px;
       line-height: 1.4;
+      -webkit-tap-highlight-color: transparent;
     }
 
     /* ── Custom Scrollbars ── */
@@ -2202,6 +2211,8 @@
       white-space: nowrap;
       user-select: none;
       -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
     }
 
     button:hover {
@@ -4333,7 +4344,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.14.14)</span>
+    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.14.16)</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -15098,7 +15109,7 @@
       --text: #ebdbb2;
       --text-dim: #928374;
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
       margin: 0;
       background: var(--bg);

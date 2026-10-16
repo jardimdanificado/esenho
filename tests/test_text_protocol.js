@@ -426,6 +426,36 @@ async function run() {
     throw new Error('Expected layer 3 to receive stroke sampled from layer texture alpha mask');
   }
 
+  // Test Layer Opacity Commands (percentage 0..100 and full range >= 40%)
+  host.executeCommand('layer opacity 3 50');
+  let opVal = canvas.exports.get_layer_opacity(3);
+  if (Math.abs(opVal - 128) > 2) {
+    throw new Error(`Expected layer 3 opacity ~128 for 50%, got ${opVal}`);
+  }
+  host.executeCommand('layer opacity 3 80');
+  opVal = canvas.exports.get_layer_opacity(3);
+  if (Math.abs(opVal - 204) > 2) {
+    throw new Error(`Expected layer 3 opacity ~204 for 80%, got ${opVal} (should not clamp to 255)`);
+  }
+  host.executeCommand('layer opacity 3 100');
+  opVal = canvas.exports.get_layer_opacity(3);
+  if (opVal !== 255) {
+    throw new Error(`Expected layer 3 opacity 255 for 100%, got ${opVal}`);
+  }
+  // Defensive test: passing raw byte value > 100
+  host.executeCommand('layer opacity 3 170');
+  opVal = canvas.exports.get_layer_opacity(3);
+  if (opVal !== 170) {
+    throw new Error(`Expected raw byte value 170, got ${opVal}`);
+  }
+  // Test "set layer opacity <pct>"
+  host.executeCommand('set layer opacity 60');
+  opVal = canvas.exports.get_layer_opacity(3);
+  if (Math.abs(opVal - 153) > 2) {
+    throw new Error(`Expected active layer opacity ~153 for 60%, got ${opVal}`);
+  }
+  host.executeCommand('set layer opacity 100');
+
   // Test Built-in Shapes presence in textures map & list textures command
   if (!host.textures.has('circle') || !host.textures.has('square') || !host.textures.has('chisel')) {
     throw new Error('circle, square, chisel must be present in textures map');
