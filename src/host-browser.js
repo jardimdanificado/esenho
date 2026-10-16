@@ -3840,7 +3840,7 @@ async function main() {
     { id: 'pressure_size', label: 'Pressure Size', key: 'pressure_size', category: 'dynamics', type: 'toggle', defaultVal: 1 },
     { id: 'pressure_flow', label: 'Pressure Flow', key: 'pressure_flow', category: 'dynamics', type: 'toggle', defaultVal: 1 },
     { id: 'stylus_tilt', label: 'Stylus Tilt', key: 'tilt_angle', category: 'dynamics', type: 'toggle', defaultVal: 0 },
-    { id: 'midpoint', label: 'Pressure Curve', key: 'midpoint', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 50 },
+    { id: 'midpoint', label: 'Bézier Midpoint', key: 'midpoint', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 50 },
     { id: 'velocity', label: 'Velocity Size', key: 'velocity', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
     { id: 'autorotate', label: 'Follow Direction', key: 'autorotate', category: 'dynamics', type: 'toggle', defaultVal: 0 },
     { id: 'taper_in', label: 'Taper Start', key: 'taper_in', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
