@@ -160,6 +160,91 @@ static inline uint32_t w_brush_blend_pigment(uint32_t src, uint32_t dst, uint32_
 }
 
 /**
+ * Subtractive Multiply Blending for alcohol markers and glazes.
+ */
+static inline uint32_t w_brush_blend_multiply(uint32_t src, uint32_t dst, uint32_t alpha) {
+    if (alpha <= 0) return dst;
+    uint32_t sa = (src >> 24) & 0xFF;
+    uint32_t eff_a = DIV255(sa * alpha);
+    if (eff_a == 0) return dst;
+    uint32_t da = (dst >> 24) & 0xFF;
+    if (da == 0) return (eff_a << 24) | (src & 0x00FFFFFF);
+
+    uint32_t sr = src & 0xFF, sg = (src >> 8) & 0xFF, sb = (src >> 16) & 0xFF;
+    uint32_t dr = dst & 0xFF, dg = (dst >> 8) & 0xFF, db = (dst >> 16) & 0xFF;
+
+    uint32_t mul_r = DIV255(sr * dr);
+    uint32_t mul_g = DIV255(sg * dg);
+    uint32_t mul_b = DIV255(sb * db);
+
+    uint32_t inv_a = 255 - eff_a;
+    uint32_t out_a = eff_a + DIV255(da * inv_a);
+    uint32_t r = DIV255(mul_r * eff_a + dr * inv_a);
+    uint32_t g = DIV255(mul_g * eff_a + dg * inv_a);
+    uint32_t b = DIV255(mul_b * eff_a + db * inv_a);
+    return (out_a << 24) | (b << 16) | (g << 8) | r;
+}
+
+/**
+ * Direct Alpha Eraser Attenuation.
+ */
+static inline uint32_t w_brush_blend_erase(uint32_t dst, uint32_t alpha) {
+    if (alpha <= 0) return dst;
+    uint32_t da = (dst >> 24) & 0xFF;
+    if (da == 0) return dst;
+    uint32_t inv_a = (alpha >= 255) ? 0 : (255 - alpha);
+    uint32_t new_a = DIV255(da * inv_a);
+    return (new_a << 24) | (dst & 0x00FFFFFF);
+}
+
+/**
+ * Fast 2D Integer Hash for Procedural Texture & Noise.
+ */
+static inline uint32_t w_brush_hash2d(int x, int y, uint32_t seed) {
+    uint32_t n = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u + seed * 1442695040888963407u;
+    n = (n ^ (n >> 13)) * 1274126177u;
+    return n ^ (n >> 16);
+}
+
+/**
+ * 2D Floating Point Noise in [0.0, 1.0].
+ */
+static inline float w_brush_noise2df(int x, int y, uint32_t seed) {
+    return (float)(w_brush_hash2d(x, y, seed) & 0xFFFF) / 65535.0f;
+}
+
+/**
+ * Radial Falloff with Adjustable Hardness (0% = soft Gaussian-like, 100% = crisp chisel).
+ */
+static inline float w_brush_falloff_hardness(float dist, float radius, int hardness) {
+    if (radius <= 0.001f) return 0.0f;
+    if (dist >= radius) return 0.0f;
+    if (hardness >= 100) return 1.0f;
+    float hard_r = radius * ((float)hardness / 100.0f);
+    if (dist <= hard_r) return 1.0f;
+    float span = radius - hard_r;
+    if (span <= 0.001f) return 1.0f;
+    float u = 1.0f - (dist - hard_r) / span;
+    return u * u * (3.0f - 2.0f * u);
+}
+
+/**
+ * 2D Coordinate Rotation around origin.
+ */
+static inline void w_brush_rotate_point(float dx, float dy, float angle_deg, float *rx, float *ry) {
+    if (angle_deg == 0.0f) {
+        *rx = dx;
+        *ry = dy;
+        return;
+    }
+    float rad = angle_deg * (3.1415926535f / 180.0f);
+    float s = w_sinf(rad);
+    float c = w_cosf(rad);
+    *rx = dx * c - dy * s;
+    *ry = dx * s + dy * c;
+}
+
+/**
  * Smooth Hermite Falloff (zero derivative at edge, eliminating visible circular contours).
  */
 static inline float w_brush_falloff_smooth(float dist_sq, float inv_rad_sq) {

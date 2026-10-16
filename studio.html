@@ -4333,7 +4333,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.14.9)</span>
+    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.15.1)</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -4544,130 +4544,7 @@
             <button id="btn-del-brush-preset" title="Delete selected custom brush preset" style="display: none; padding: 2px 6px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-sub); color: #fb4934; border-radius: 3px;">✕</button>
           </div>
         </div>
-        <div class="form-row">
-          <label>Flow %</label>
-          <input type="number" id="prop-brush-flow" min="0" max="100" step="any" value="100">
-        </div>
-        <div class="form-row">
-          <label>Hardness %</label>
-          <input type="number" id="prop-brush-hardness" min="0" max="100" step="any" value="100">
-        </div>
-        <div class="form-row">
-          <label>Spacing %</label>
-          <input type="number" id="prop-brush-spacing" min="0.01" max="100" step="any" value="5">
-        </div>
-        <div class="form-row">
-          <label>Scatter</label>
-          <input type="number" id="prop-brush-scatter" min="0" max="100" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>Roundness %</label>
-          <input type="number" id="prop-brush-roundness" min="1" max="100" step="any" value="100">
-        </div>
-        <div class="form-row">
-          <label>Angle °</label>
-          <input type="number" id="prop-brush-angle" min="0" max="360" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>Dab Shape</label>
-          <select id="prop-brush-shape">
-            <option value="0">Round</option>
-            <option value="1">Square</option>
-            <option value="2">Ellipse</option>
-            <optgroup id="grp-custom-tip-shapes" label="Custom Tip Shapes"></optgroup>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Dab Blend</label>
-          <select id="prop-brush-dab-blend">
-            <option value="0">Normal (Direct)</option>
-            <option value="1">Smudge</option>
-            <option value="2">Wet / Glaze</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Auto-Rotate</label>
-          <select id="prop-brush-autorotate">
-            <option value="0">Fixed Angle</option>
-            <option value="1">Follow Stroke Direction</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- 3. Taper & Jitters -->
-      <div class="section-card">
-        <div class="section-header">
-          <span>Taper &amp; Jitters</span>
-        </div>
-        <div class="form-row">
-          <label>Taper In / Out</label>
-          <div class="grid-2" style="width: 100%;">
-            <input type="number" id="prop-brush-taper-in" min="0" max="100" step="any" value="0" title="Taper In %">
-            <input type="number" id="prop-brush-taper-out" min="0" max="100" step="any" value="0" title="Taper Out %">
-          </div>
-        </div>
-        <div class="form-row">
-          <label>Size Jitter %</label>
-          <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>Angle Jitter %</label>
-          <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>Opacity Jitter</label>
-          <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="any" value="0">
-        </div>
-      </div>
-
-      <!-- 4. Wet Media & Smudge -->
-      <div class="section-card">
-        <div class="section-header">
-          <span>Wet Media &amp; Smudge</span>
-        </div>
-        <div class="form-row">
-          <label>Wetness %</label>
-          <input type="number" id="prop-brush-wetness" min="0" max="100" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>Color Pickup</label>
-          <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>Depletion %</label>
-          <input type="number" id="prop-brush-depletion" min="0" max="100" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>Smudge %</label>
-          <input type="number" id="prop-brush-smudge" min="0" max="100" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>Water %</label>
-          <input type="number" id="prop-brush-water" min="0" max="100" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>Bleed %</label>
-          <input type="number" id="prop-brush-bleed" min="0" max="100" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>Granulation %</label>
-          <input type="number" id="prop-brush-granulation" min="0" max="100" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>Fringe %</label>
-          <input type="number" id="prop-brush-fringe" min="0" max="100" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>3D Impasto %</label>
-          <input type="number" id="prop-brush-impasto" min="0" max="100" step="any" value="0">
-        </div>
-        <div class="form-row">
-          <label>Pigment Mode</label>
-          <select id="prop-brush-pigment-mode">
-            <option value="0">Digital RGB</option>
-            <option value="1">Subtractive CMY</option>
-          </select>
-        </div>
+        <div id="brush-dynamic-props-container" style="display: flex; flex-direction: column; gap: 4px; padding-top: 6px;"></div>
       </div>
     </div>
 
@@ -7858,6 +7735,125 @@
       }
       window.refreshStudioCustomBrushPresets = refreshStudioCustomBrushPresets;
 
+      function renderStudioBrushDynamicProperties(presetKey, currentValues = {}) {
+        const container = document.getElementById('brush-dynamic-props-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        let brushInfo = null;
+        if (typeof host !== 'undefined' && host.wasmBrushes && host.wasmBrushes.has(presetKey)) {
+          const wb = host.wasmBrushes.get(presetKey);
+          brushInfo = wb.getInfo ? wb.getInfo() : wb.info;
+        } else if (typeof EsenhoRegistry !== 'undefined' && EsenhoRegistry.get) {
+          const b = EsenhoRegistry.get('brush', presetKey) || EsenhoRegistry.get('brush', `wasm_${presetKey}`);
+          if (b) brushInfo = b;
+        } else if (typeof BRUSH_PRESET_CONFIGS !== 'undefined' && BRUSH_PRESET_CONFIGS[presetKey]) {
+          brushInfo = BRUSH_PRESET_CONFIGS[presetKey];
+        }
+
+        const badgeEl = document.getElementById('brush-params-count-badge');
+        let params = [];
+        if (brushInfo && Array.isArray(brushInfo.params)) {
+          params = brushInfo.params;
+        } else if (brushInfo && typeof brushInfo === 'object') {
+          const skipKeys = new Set(['$schema', 'id', 'name', 'desc', 'category', 'builtin', 'isWasm', 'wasmBrush', 'ref', 'tip', 'dynamics', 'mode']);
+          for (const [k, v] of Object.entries(brushInfo)) {
+            if (skipKeys.has(k) || typeof v === 'object') continue;
+            params.push({
+              id: k,
+              name: k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, ' '),
+              type: typeof v === 'boolean' ? 'bool' : 'int',
+              min: 0,
+              max: typeof v === 'boolean' ? 1 : 100,
+              default: typeof v === 'boolean' ? (v ? 1 : 0) : v
+            });
+          }
+        }
+
+        if (badgeEl) {
+          badgeEl.textContent = `${params.length} inputs`;
+        }
+
+        if (params.length === 0) {
+          container.innerHTML = '<div style="font-size: 11px; color: var(--text-muted); font-style: italic; padding: 6px;">No configurable inputs defined by this brush.</div>';
+          return;
+        }
+
+        params.forEach(param => {
+          const propId = param.id || param.name;
+          const isBool = param.type === 'bool' || (param.min === 0 && param.max === 1 && (!param.unit || param.unit === 'bool'));
+          const curVal = currentValues[propId] !== undefined ? currentValues[propId] : (param.default !== undefined ? param.default : 0);
+
+          const row = document.createElement('div');
+          row.className = 'form-row';
+          row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px;';
+
+          const label = document.createElement('label');
+          label.style.fontSize = '11px';
+          const unitStr = param.unit ? ` (${param.unit})` : '';
+          label.textContent = (param.name || propId) + unitStr;
+          row.appendChild(label);
+
+          if (isBool) {
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.checked = Boolean(Number(curVal));
+            chk.addEventListener('change', (e) => {
+              const val = e.target.checked ? 1 : 0;
+              const selected = doc.getSelectedObjects();
+              for (const obj of selected) {
+                if (!obj.brushConfig) obj.brushConfig = {};
+                obj.brushConfig[propId] = val;
+              }
+              if (typeof host !== 'undefined') host.setBrushParam(propId, val);
+              render();
+            });
+            row.appendChild(chk);
+          } else {
+            const inputWrap = document.createElement('div');
+            inputWrap.style.cssText = 'display: flex; align-items: center; gap: 4px; width: 55%;';
+
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.min = param.min !== undefined ? param.min : 0;
+            slider.max = param.max !== undefined ? param.max : 100;
+            slider.step = param.step !== undefined ? param.step : 1;
+            slider.value = curVal;
+            slider.style.cssText = 'flex: 1; height: 16px; cursor: pointer; accent-color: var(--primary);';
+
+            const num = document.createElement('input');
+            num.type = 'number';
+            num.min = slider.min;
+            num.max = slider.max;
+            num.step = slider.step;
+            num.value = curVal;
+            num.style.cssText = 'width: 44px; font-size: 10px; text-align: right; padding: 1px 2px;';
+
+            const updateVal = (newVal) => {
+              const val = Number(newVal);
+              slider.value = val;
+              num.value = val;
+              const selected = doc.getSelectedObjects();
+              for (const obj of selected) {
+                if (!obj.brushConfig) obj.brushConfig = {};
+                obj.brushConfig[propId] = val;
+              }
+              if (typeof host !== 'undefined') host.setBrushParam(propId, val);
+              render();
+            };
+
+            slider.addEventListener('input', (e) => updateVal(e.target.value));
+            num.addEventListener('input', (e) => updateVal(e.target.value));
+
+            inputWrap.appendChild(slider);
+            inputWrap.appendChild(num);
+            row.appendChild(inputWrap);
+          }
+
+          container.appendChild(row);
+        });
+      }
+
       // ── Inspector UI Sync ──
       function updateInspector() {
         const selected = doc.getSelectedObjects();
@@ -8223,31 +8219,7 @@
           const customPresets = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
           btnDelPreset.style.display = (curPresetVal && customPresets[curPresetVal]) ? 'inline-block' : 'none';
         }
-        setVal('prop-stroke-hardness', bc.hardness !== undefined ? bc.hardness : (obj.strokeHardness !== undefined ? obj.strokeHardness : 95));
-        setVal('prop-brush-flow', bc.flow !== undefined ? bc.flow : 100);
-        setVal('prop-brush-hardness', bc.hardness !== undefined ? bc.hardness : 100);
-        setVal('prop-brush-spacing', bc.spacing !== undefined ? bc.spacing : 5);
-        setVal('prop-brush-scatter', bc.scatter !== undefined ? bc.scatter : 0);
-        setVal('prop-brush-roundness', bc.roundness !== undefined ? bc.roundness : 100);
-        setVal('prop-brush-angle', bc.angle !== undefined ? bc.angle : 0);
-        setVal('prop-brush-shape', bc.shape !== undefined ? bc.shape : 0);
-        setVal('prop-brush-dab-blend', bc.dabBlend !== undefined ? bc.dabBlend : 0);
-        setVal('prop-brush-autorotate', bc.auto_rotate ? 1 : 0);
-        setVal('prop-brush-taper-in', bc.taper_in !== undefined ? bc.taper_in : 0);
-        setVal('prop-brush-taper-out', bc.taper_out !== undefined ? bc.taper_out : 0);
-        setVal('prop-brush-size-jitter', bc.size_jitter !== undefined ? bc.size_jitter : 0);
-        setVal('prop-brush-angle-jitter', bc.angle_jitter !== undefined ? bc.angle_jitter : 0);
-        setVal('prop-brush-opacity-jitter', bc.opacity_jitter !== undefined ? bc.opacity_jitter : 0);
-        setVal('prop-brush-wetness', bc.wetness !== undefined ? bc.wetness : 0);
-        setVal('prop-brush-color-pickup', bc.color_pickup !== undefined ? bc.color_pickup : 0);
-        setVal('prop-brush-depletion', bc.depletion !== undefined ? bc.depletion : 0);
-        setVal('prop-brush-smudge', bc.smudge !== undefined ? bc.smudge : 0);
-        setVal('prop-brush-water', bc.water !== undefined ? bc.water : 0);
-        setVal('prop-brush-bleed', bc.bleed !== undefined ? bc.bleed : 0);
-        setVal('prop-brush-granulation', bc.granulation !== undefined ? bc.granulation : 0);
-        setVal('prop-brush-fringe', bc.fringe !== undefined ? bc.fringe : 0);
-        setVal('prop-brush-impasto', bc.impasto !== undefined ? bc.impasto : 0);
-        setVal('prop-brush-pigment-mode', bc.pigment_mode !== undefined ? bc.pigment_mode : 0);
+        renderStudioBrushDynamicProperties(curPresetVal, bc);
 
         // Stroke WASM Plugin Sync
         const swf = obj.strokeFilter || (bc.wasmFilter) || (obj.wasmFilter && obj.wasmFilter.target === 'stroke' ? obj.wasmFilter : { enabled: false, target: 'stroke' });

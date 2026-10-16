@@ -111,6 +111,16 @@ function getPapagaio() {
 }
 
 /**
+ * Preset metadata and tool orchestration keys that do not correspond to WASM brush plugin input parameters.
+ */
+const PRESET_METADATA_KEYS = new Set([
+  '$schema', 'id', 'builtin', 'name', 'icon', 'desc', 'category', 'tags',
+  'author', 'version', 'dynamics', 'wasmBrush', 'wasmParams',
+  'eraser', 'isWasm', 'created', 'updated', 'engine', 'isVectorPure',
+  'dyn_dabs_per_actual', 'dyn_dabs_per_second'
+]);
+
+/**
  * Standard Parameter IDs matching src/include/quadro.h enum
  */
 const PARAM_IDS = {
@@ -1358,21 +1368,123 @@ class EsenhoWasmBrush {
     return this._info;
   }
 
-  setParam(idx, val) {
-    this.params.set(idx, val);
-    if (typeof this.exports.w_brush_set_param === 'function') {
-      this.exports.w_brush_set_param(idx, val);
-    }
+  hasParam(key) {
+    if (!this._info) this.getInfo();
+    if (!this._info || !Array.isArray(this._info.params)) return false;
+    const cleanKey = String(key !== undefined ? key : '').toLowerCase().trim();
+    const canonMap = {
+      radius: 'size', rad: 'size', op: 'opacity', alpha: 'opacity', hard: 'hardness',
+      step: 'spacing', rot: 'angle', rotation: 'angle', rotate: 'angle',
+      jitter: 'scatter', noise: 'grain', wet: 'wetness', tol: 'tolerance',
+      subtractive: 'pigment_mode', relief: 'impasto', paint_thickness: 'impasto',
+      stylus_size: 'pressure_size', stylus_flow: 'pressure_flow', stylus_tilt: 'tilt_angle'
+    };
+    const resolvedKey = canonMap[cleanKey] || cleanKey;
+    return this._info.params.some((p, idx) => {
+      const pid = String(p.id || '').toLowerCase().trim();
+      const pname = String(p.name || '').toLowerCase().trim();
+      return pid === cleanKey || pname === cleanKey || pid === resolvedKey || pname === resolvedKey || String(idx) === cleanKey;
+    });
   }
 
-  getParam(idx) {
-    return this.params.get(idx);
+  getParamDef(key) {
+    if (!this._info) this.getInfo();
+    if (!this._info || !Array.isArray(this._info.params)) return null;
+    const cleanKey = String(key !== undefined ? key : '').toLowerCase().trim();
+    const canonMap = {
+      radius: 'size', rad: 'size', op: 'opacity', alpha: 'opacity', hard: 'hardness',
+      step: 'spacing', rot: 'angle', rotation: 'angle', rotate: 'angle',
+      jitter: 'scatter', noise: 'grain', wet: 'wetness', tol: 'tolerance',
+      subtractive: 'pigment_mode', relief: 'impasto', paint_thickness: 'impasto',
+      stylus_size: 'pressure_size', stylus_flow: 'pressure_flow', stylus_tilt: 'tilt_angle'
+    };
+    const resolvedKey = canonMap[cleanKey] || cleanKey;
+    return this._info.params.find((p, idx) => {
+      const pid = String(p.id || '').toLowerCase().trim();
+      const pname = String(p.name || '').toLowerCase().trim();
+      return pid === cleanKey || pname === cleanKey || pid === resolvedKey || pname === resolvedKey || String(idx) === cleanKey;
+    }) || null;
+  }
+
+  getDefinedParamKeys() {
+    if (!this._info) this.getInfo();
+    if (!this._info || !Array.isArray(this._info.params)) return [];
+    return this._info.params.map(p => p.id || p.name);
+  }
+
+  setParam(idxOrKey, val) {
+    if (!this._info) this.getInfo();
+    const cleanKey = String(idxOrKey !== undefined ? idxOrKey : '').toLowerCase().trim();
+    const canonMap = {
+      radius: 'size', rad: 'size', op: 'opacity', alpha: 'opacity', hard: 'hardness',
+      step: 'spacing', rot: 'angle', rotation: 'angle', rotate: 'angle',
+      jitter: 'scatter', noise: 'grain', wet: 'wetness', tol: 'tolerance',
+      subtractive: 'pigment_mode', relief: 'impasto', paint_thickness: 'impasto',
+      stylus_size: 'pressure_size', stylus_flow: 'pressure_flow', stylus_tilt: 'tilt_angle'
+    };
+    const resolvedKey = canonMap[cleanKey] || cleanKey;
+    let idx = -1;
+    let paramDef = null;
+
+    if (this._info && Array.isArray(this._info.params)) {
+      idx = this._info.params.findIndex((p, i) => {
+        const pid = String(p.id || '').toLowerCase().trim();
+        const pname = String(p.name || '').toLowerCase().trim();
+        return pid === cleanKey || pname === cleanKey || pid === resolvedKey || pname === resolvedKey || String(i) === cleanKey;
+      });
+      if (idx >= 0) paramDef = this._info.params[idx];
+    }
+
+    if (idx < 0) {
+      const numIdx = parseInt(idxOrKey, 10);
+      if (!isNaN(numIdx) && this._info && Array.isArray(this._info.params) && numIdx >= 0 && numIdx < this._info.params.length) {
+        idx = numIdx;
+        paramDef = this._info.params[idx];
+      }
+    }
+
+    if (idx < 0) {
+      // Property is NOT defined by this brush! Reject input.
+      return false;
+    }
+
+    const numericVal = typeof val === 'number' ? val : (parseFloat(val) || 0);
+    this.params.set(idx, numericVal);
+    if (paramDef && paramDef.id) {
+      this.params.set(paramDef.id, numericVal);
+    }
+
+    if (typeof this.exports.w_brush_set_param === 'function') {
+      this.exports.w_brush_set_param(idx, numericVal);
+    }
+    return true;
+  }
+
+  getParam(idxOrKey) {
+    const cleanKey = String(idxOrKey !== undefined ? idxOrKey : '').toLowerCase().trim();
+    if (this.params.has(cleanKey)) return this.params.get(cleanKey);
+    const num = parseInt(cleanKey, 10);
+    if (!isNaN(num) && this.params.has(num)) return this.params.get(num);
+    const def = this.getParamDef(idxOrKey);
+    if (def) {
+      if (def.id && this.params.has(def.id)) return this.params.get(def.id);
+      return def.default !== undefined ? def.default : 0;
+    }
+    return undefined;
   }
 
   getParamsObject() {
     const obj = {};
+    if (this._info && Array.isArray(this._info.params)) {
+      this._info.params.forEach((p, idx) => {
+        const val = this.getParam(idx);
+        const key = p.id || p.name || `param_${idx}`;
+        obj[key] = val;
+        obj[String(idx)] = val;
+      });
+    }
     for (const [k, v] of this.params.entries()) {
-      obj[k] = v;
+      obj[String(k)] = v;
     }
     return obj;
   }
@@ -1380,7 +1492,7 @@ class EsenhoWasmBrush {
   applyParams(paramsObj) {
     if (!paramsObj || typeof paramsObj !== 'object') return;
     for (const [k, v] of Object.entries(paramsObj)) {
-      this.setParam(parseInt(k, 10), v);
+      this.setParam(k, v);
     }
   }
 
@@ -9578,9 +9690,58 @@ class EsenhoScreenHost {
    * Sets a brush parameter and forwards it directly to canvas.wasm.
    */
   setBrushParam(paramName, val) {
-    const key = paramName.toLowerCase();
+    const key = String(paramName || '').toLowerCase().trim();
+    if (!key) return false;
+    if (PRESET_METADATA_KEYS.has(key)) {
+      return false;
+    }
+    if (this.activeWasmBrush) {
+      const b = this.activeWasmBrush;
+      const canonMap = {
+        radius: 'size', rad: 'size', op: 'opacity', alpha: 'opacity', hard: 'hardness',
+        step: 'spacing', rot: 'angle', rotation: 'angle', rotate: 'angle',
+        jitter: 'scatter', noise: 'grain', wet: 'wetness', tol: 'tolerance',
+        subtractive: 'pigment_mode', relief: 'impasto', paint_thickness: 'impasto',
+        stylus_size: 'pressure_size', stylus_flow: 'pressure_flow', stylus_tilt: 'tilt_angle'
+      };
+      const resolvedKey = canonMap[key] || key;
+      const isCoreStrokeParam = (resolvedKey === 'size' || resolvedKey === 'opacity' || resolvedKey === 'mode');
+      if (!isCoreStrokeParam && !b.hasParam(key) && !b.hasParam(resolvedKey)) {
+        console.warn(`[EsenhoHost] Input rejected: Property "${paramName}" is not defined by active brush "${b.name}".`);
+        return false;
+      }
+      let numVal = val;
+      if (typeof val === 'string') {
+        const lower = val.toLowerCase();
+        if (lower === 'on' || lower === 'true' || lower === 'yes') numVal = 1;
+        else if (lower === 'off' || lower === 'false' || lower === 'no') numVal = 0;
+        else if (resolvedKey === 'shape') {
+          if (lower === 'circle' || lower === 'round') numVal = 0;
+          else if (lower === 'square') numVal = 1;
+          else if (lower === 'chisel' || lower === 'flat') numVal = 2;
+          else numVal = this.getTextureId ? this.getTextureId(lower) : 0;
+        } else if (resolvedKey === 'dab_blend') {
+          const blendMap = { normal: 0, multiply: 1, screen: 2, overlay: 3, dodge: 4, color_dodge: 4, add: 5, linear_dodge: 5 };
+          numVal = blendMap[lower] !== undefined ? blendMap[lower] : (parseInt(val, 10) || 0);
+        } else {
+          numVal = parseFloat(val);
+        }
+      }
+      if (b.hasParam(key) || b.hasParam(resolvedKey)) {
+        b.setParam(resolvedKey, numVal);
+      }
+      this.brushParams[resolvedKey] = numVal;
+      if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
+        const pId = PARAM_IDS[resolvedKey] || PARAM_IDS[key];
+        if (pId !== undefined) {
+          const numericVal = typeof numVal === 'number' ? numVal : (parseFloat(numVal) || 0);
+          this.canvasActor.exports.w_brush_set_param(pId, numericVal);
+        }
+      }
+      return true;
+    }
     const pId = PARAM_IDS[key];
-    if (pId === undefined) return;
+    if (pId === undefined) return false;
     let numericVal = val;
     if (typeof val === 'string') {
       const lower = val.toLowerCase();
@@ -9990,6 +10151,13 @@ class EsenhoScreenHost {
         this.strokeIsEraser = 0;
       }
 
+      if (preset.mode !== undefined) {
+        this.brushParams.mode = preset.mode;
+        if (this.canvasActor?.exports?.w_brush_set_param) {
+          this.canvasActor.exports.w_brush_set_param(PARAM_IDS.mode, preset.mode);
+        }
+      }
+
       // Explicitly set texture from preset or default to none
       const tex = (typeof preset.texture === 'string') ? preset.texture : (preset.texture?.ref || 'none');
       this.setTexture(tex);
@@ -10035,7 +10203,7 @@ class EsenhoScreenHost {
       }
 
       for (const [k, v] of Object.entries(preset)) {
-        if (k === 'name' || k === 'icon' || k === 'desc' || k === 'eraser' || k === 'category' || k === 'tip' || k === 'dynamics' || k === 'wet' || k === 'jitter' || k === 'wasmBrush' || k === 'wasmParams') continue;
+        if (PRESET_METADATA_KEYS.has(k) || k === 'mode' || typeof v === 'object') continue;
         if (k === 'texture') {
           if (typeof v === 'string') this.setTexture(v);
         } else if (k === 'size_min' || k === 'size_max') {
@@ -10359,17 +10527,41 @@ class EsenhoScreenHost {
     const invokeStroke = (s, curX, curY, pX, pY) => {
       if (this.activeWasmBrush) {
         const b = this.activeWasmBrush;
+        const info = b.getInfo ? b.getInfo() : b.info;
+        const isParametric = (b.isParametric !== false && (b.isParametric || info?.engine === 'parametric' || (BRUSH_PRESETS && BRUSH_PRESETS[b.name])));
+        if (isParametric) {
+          if (isDynamic) {
+            const strokeFn = this.canvasActor.exports.w_brush_dyn_stroke_to || this.canvasActor.exports.w_mypaint_brush_stroke_to;
+            const resetFn = this.canvasActor.exports.w_brush_dyn_reset_state || this.canvasActor.exports.w_mypaint_brush_reset_state;
+            if (s === 0) {
+              this.syncDynBrushParams();
+              if (typeof resetFn === 'function') resetFn();
+              this._dynStrokeLastTime = performance.now();
+            }
+            const now = performance.now();
+            const dtSec = Math.max(0.001, ((now - (this._dynStrokeLastTime || now)) / 1000.0));
+            this._dynStrokeLastTime = now;
+            const normTiltX = tx / 90.0;
+            const normTiltY = ty / 90.0;
+            strokeFn(curX, curY, mappedPressure, normTiltX, normTiltY, dtSec, this.zoom || 1.0);
+          } else if (typeof this.canvasActor.exports.w_brush_stroke_ext === 'function') {
+            this.canvasActor.exports.w_brush_stroke_ext(s, Math.round(curX), Math.round(curY), Math.round(pX), Math.round(pY), col >>> 0, eraser, press, tx, ty);
+          } else if (typeof this.canvasActor.exports.w_brush_stroke === 'function') {
+            this.canvasActor.exports.w_brush_stroke(s, Math.round(curX), Math.round(curY), Math.round(pX), Math.round(pY), col >>> 0, eraser);
+          }
+          return;
+        }
+
         const pixPtr = this.canvasActor.exports.get_active_layer_pixels();
         const cw = this.canvasActor.exports.get_canvas_width();
         const ch = this.canvasActor.exports.get_canvas_height();
         if (!pixPtr || cw <= 0 || ch <= 0) return;
 
         const baseSize = (this.brushParams && this.brushParams.size) ? this.brushParams.size : 16;
-        const radius = Math.max(1.0, baseSize / 2.0);
-        const info = b.getInfo ? b.getInfo() : b.info;
+        const radius = Math.max(1.0, baseSize);
         const spacingParam = (this.brushParams && typeof this.brushParams.spacing === 'number') ? (this.brushParams.spacing / 100.0) : null;
         const spacingPct = spacingParam ?? ((info && typeof info.spacing === 'number') ? info.spacing : 0.05);
-        const stepSize = Math.max(0.75, radius * 2.0 * Math.max(0.02, Math.min(0.25, spacingPct)));
+        const stepSize = Math.max(0.5, radius * spacingPct);
         const sym = this.brushParams?.symmetry || 0;
 
         let dirtyX0 = 999999, dirtyY0 = 999999, dirtyX1 = -1, dirtyY1 = -1;
@@ -10816,6 +11008,94 @@ class EsenhoScreenHost {
     this.activeWasmBrush = brush;
     this.activeBrush = `wasm_${key}`;
     this.pushBrushHistory(`wasm_${key}`);
+
+    const info = brush.getInfo ? brush.getInfo() : brush.info;
+    const isParametric = (info?.engine === 'parametric' || (BRUSH_PRESETS && BRUSH_PRESETS[key]) || (this.customBrushPresets && this.customBrushPresets[key]));
+    brush.isParametric = !!isParametric;
+
+    const preset = (BRUSH_PRESETS && BRUSH_PRESETS[key]) || (this.customBrushPresets && this.customBrushPresets[key]);
+    if (preset) {
+      if (preset.eraser !== undefined) {
+        this.strokeIsEraser = preset.eraser ? 1 : 0;
+        this.actionMode = preset.eraser ? 'erase' : (preset.mode === 1 ? 'smudge' : 'draw');
+      } else if (preset.mode === 1) {
+        this.actionMode = 'smudge';
+        this.strokeIsEraser = 0;
+      } else {
+        this.actionMode = 'draw';
+        this.strokeIsEraser = 0;
+      }
+
+      if (preset.mode !== undefined) {
+        this.brushParams.mode = preset.mode;
+        if (this.canvasActor?.exports?.w_brush_set_param) {
+          this.canvasActor.exports.w_brush_set_param(PARAM_IDS.mode, preset.mode);
+        }
+      }
+
+      const tex = (typeof preset.texture === 'string') ? preset.texture : (preset.texture?.ref || 'none');
+      this.setTexture(tex);
+
+      // Unpack nested tip/dynamics/wet/jitter schemas if present
+      if (preset.tip && typeof preset.tip === 'object') {
+        for (const [tk, tv] of Object.entries(preset.tip)) {
+          if (tk === 'ref') { if (typeof tv === 'string') this.setBrushParam('shape', tv); }
+          else if (typeof tv !== 'object') this.setBrushParam(tk, tv);
+        }
+      }
+      if (preset.dynamics && typeof preset.dynamics === 'object') {
+        for (const [dk, dv] of Object.entries(preset.dynamics)) {
+          if (dk === 'stabilizer' && typeof dv === 'object') {
+            if (dv.smoothing !== undefined) this.setBrushParam('smoothing', dv.smoothing);
+            if (dv.mode !== undefined) this.setBrushParam('stabilizer_mode', dv.mode);
+          } else if (dk === 'taper' && typeof dv === 'object') {
+            if (dv.in !== undefined) this.setBrushParam('taper_in', dv.in);
+            if (dv.out !== undefined) this.setBrushParam('taper_out', dv.out);
+          } else if (dk === 'pressureSize') {
+            this.setBrushParam('pressure_size', dv ? 1 : 0);
+          } else if (dk === 'pressureFlow') {
+            this.setBrushParam('pressure_flow', dv ? 1 : 0);
+          } else if (dk === 'tiltAngle') {
+            this.setBrushParam('tilt_angle', dv ? 1 : 0);
+          } else if (dk === 'velocityScaling') {
+            this.setBrushParam('velocity', dv);
+          } else if (typeof dv !== 'object') {
+            this.setBrushParam(dk, dv);
+          }
+        }
+      }
+      if (preset.wet && typeof preset.wet === 'object') {
+        for (const [wk, wv] of Object.entries(preset.wet)) {
+          if (typeof wv !== 'object') this.setBrushParam(wk, wv);
+        }
+      }
+      if (preset.jitter && typeof preset.jitter === 'object') {
+        for (const [jk, jv] of Object.entries(preset.jitter)) {
+          const mappedKey = jk === 'size' ? 'size_jitter' : (jk === 'angle' ? 'angle_jitter' : (jk === 'opacity' ? 'opacity_jitter' : (jk === 'color' ? 'color_jitter' : jk)));
+          if (typeof jv !== 'object') this.setBrushParam(mappedKey, jv);
+        }
+      }
+      for (const [k, v] of Object.entries(preset)) {
+        if (PRESET_METADATA_KEYS.has(k) || k === 'mode' || typeof v === 'object') continue;
+        if (k === 'texture') {
+          if (typeof v === 'string') this.setTexture(v);
+        } else if (k === 'size_min' || k === 'size_max') {
+          this.brushParams[k] = Number(v);
+        } else {
+          this.setBrushParam(k, v);
+        }
+      }
+    }
+
+    const brushParamsObj = brush.getParamsObject ? brush.getParamsObject() : null;
+    if (brushParamsObj) {
+      for (const [pk, pv] of Object.entries(brushParamsObj)) {
+        if (isNaN(parseInt(pk, 10))) {
+          this.setBrushParam(pk, pv);
+        }
+      }
+    }
+
     return brush;
   }
 

@@ -13585,90 +13585,97 @@ async function main() {
         return;
       }
 
-      for (const [key, preset] of Object.entries(presetsMap)) {
-        if (!preset.name || key.startsWith('wasm_') || preset.category === 'wasm') continue;
+      // ── Zero-Copy WASM Brushes (All Brushes) ──
+      const wasmEntries = host.wasmBrushes ? Array.from(host.wasmBrushes.entries()) : [];
+      const brushItems = wasmEntries.map(([k, wb]) => {
+        const info = wb.getInfo ? wb.getInfo() : wb.info;
+        const cat = (info?.category || 'General').toLowerCase();
+        return {
+          key: k,
+          title: info?.title || k,
+          category: info?.category || 'Kernel',
+          catKey: cat,
+          paramsCount: (info?.params || []).length,
+          wb
+        };
+      });
 
-        let cat = preset.category || 'paint';
-        if (host.customBrushPresets && host.customBrushPresets[key]) cat = 'custom';
+      // Also include any custom presets saved in store
+      if (host.customBrushPresets) {
+        for (const [ck, cp] of Object.entries(host.customBrushPresets)) {
+          if (!brushItems.some(item => item.key === ck)) {
+            brushItems.push({
+              key: ck,
+              title: cp.name || ck,
+              category: 'Custom',
+              catKey: 'custom',
+              paramsCount: Object.keys(cp.wasmParams || {}).length || 4,
+              wb: host.wasmBrushes?.get(cp.wasmBrush || ck) || null
+            });
+          }
+        }
+      }
 
-        if (activeBrushCat !== 'all' && activeBrushCat !== cat) continue;
+      for (const item of brushItems) {
+        if (activeBrushCat !== 'all') {
+          if (activeBrushCat === 'custom' && item.catKey !== 'custom') continue;
+          if (activeBrushCat === 'wasm') {
+            // matches all wasm brushes
+          } else if (activeBrushCat !== item.catKey && !item.catKey.includes(activeBrushCat)) {
+            continue;
+          }
+        }
 
+        const isAct = host.activeBrush === item.key || host.activeBrush === `wasm_${item.key}` || (host.activeWasmBrush && host.activeWasmBrush.name === item.key);
         const card = document.createElement('div');
-        card.className = `ip-brush-card${host.activeBrush === key ? ' active' : ''}`;
+        card.className = `ip-brush-card${isAct ? ' active' : ''}`;
+        card.style.borderColor = isAct ? '#fabd2f' : 'rgba(250, 189, 47, 0.25)';
         card.innerHTML = `
           <div class="ip-brush-card-top">
-            <span class="ip-brush-card-title">${preset.name}</span>
-            <span style="font-size: 9px; color: #a89984; font-weight: bold;">${preset.size || 12}px</span>
+            <span class="ip-brush-card-title" style="color: #fabd2f;">${item.title}</span>
+            <span style="font-size: 8.5px; background: #d79921; color: #1d2021; padding: 1px 4px; border-radius: 3px; font-weight: bold;">WASM</span>
           </div>
-          <div class="ip-brush-card-desc">${preset.desc || 'Custom calibrated brush preset'}</div>
+          <div class="ip-brush-card-desc">${item.category ? item.category + ' • ' : ''}Zero-Copy (${item.paramsCount} params)</div>
         `;
         card.addEventListener('click', () => {
-          host.selectBrushPreset(key);
+          host.selectWasmBrush(item.key);
           syncUiFromHost();
+          renderBrushShelf();
+          openWasmBrushModal(item.key);
           triggerHaptic(15);
         });
         brushShelfGrid.appendChild(card);
       }
-
-      // ── Zero-Copy WASM Brushes ──
-      if (activeBrushCat === 'all' || activeBrushCat === 'wasm') {
-        const wasmList = (host.wasmBrushes && host.wasmBrushes.size > 0)
-          ? Array.from(host.wasmBrushes.entries()).map(([k, wb]) => {
-              const info = wb.getInfo ? wb.getInfo() : wb.info;
-              return { key: k, title: info?.title || k, category: info?.category || 'Kernel', paramsCount: (info?.params || []).length, wb };
-            })
-          : Object.entries(presetsMap)
-              .filter(([k, p]) => k.startsWith('wasm_') || p.category === 'wasm')
-              .map(([k, p]) => {
-                const cleanK = k.replace(/^wasm[:_]/i, '');
-                return { key: cleanK, title: p.name || cleanK, category: p.category || 'Kernel', paramsCount: 4, wb: null };
-              });
-
-        for (const item of wasmList) {
-          const isAct = host.activeBrush === `wasm_${item.key}` || (host.activeWasmBrush && host.activeWasmBrush.name === item.key);
-          const card = document.createElement('div');
-          card.className = `ip-brush-card${isAct ? ' active' : ''}`;
-          card.style.borderColor = isAct ? '#fabd2f' : 'rgba(250, 189, 47, 0.25)';
-          card.innerHTML = `
-            <div class="ip-brush-card-top">
-              <span class="ip-brush-card-title" style="color: #fabd2f;">${item.title}</span>
-              <span style="font-size: 8.5px; background: #d79921; color: #1d2021; padding: 1px 4px; border-radius: 3px; font-weight: bold;">WASM</span>
-            </div>
-            <div class="ip-brush-card-desc">${item.category ? item.category + ' • ' : ''}Zero-Copy Kernel (${item.paramsCount} params)</div>
-          `;
-          card.addEventListener('click', () => {
-            host.selectWasmBrush(item.key);
-            syncUiFromHost();
-            renderBrushShelf();
-            if (item.wb || host.getWasmBrush(item.key)) {
-              openWasmBrushModal(item.key);
-            }
-            triggerHaptic(15);
-          });
-          brushShelfGrid.appendChild(card);
-        }
-      }
     };
 
     const openWasmBrushModal = (key) => {
-      const wb = host.getWasmBrush(key);
+      const cleanKey = String(key || '').toLowerCase().replace(/^wasm[:_]/i, '').replace(/\.wasm$/i, '').trim();
+      const wb = host.getWasmBrush(cleanKey) || (host.wasmBrushes && host.wasmBrushes.get(cleanKey));
       if (!wb) return;
-      const info = wb.getInfo();
-      const titleEl = document.getElementById('ui-wasm-brush-title');
-      const badgeEl = document.getElementById('ui-wasm-brush-badge');
-      const paramsContainer = document.getElementById('ui-ctrl-wasm-brush-params');
-      const closeBtn = document.getElementById('ui-btn-wasm-brush-close');
+      const info = wb.getInfo ? wb.getInfo() : wb.info;
 
-      if (titleEl) titleEl.textContent = info?.title || key;
-      if (badgeEl) badgeEl.textContent = `${info?.category || 'Kernel'} • ${(info?.params || []).length}p`;
+      ['ui-wasm-brush-title', 'ui-lab-brush-title'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = info?.title || cleanKey;
+      });
+      ['ui-wasm-brush-badge', 'ui-lab-brush-badge'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = `${info?.category || 'Kernel'} • ${(info?.params || []).length}p`;
+      });
 
-      if (paramsContainer) {
+      ['ui-ctrl-wasm-brush-params', 'ui-ctrl-lab-brush-params'].forEach(cId => {
+        const paramsContainer = document.getElementById(cId);
+        if (!paramsContainer) return;
         paramsContainer.innerHTML = '';
         const params = (info && Array.isArray(info.params)) ? info.params : [];
         if (params.length === 0) {
-          paramsContainer.innerHTML = '<div style="font-size: 10px; color: var(--text-muted); font-style: italic; padding: 12px; text-align: center;">No tunable parameters for this brush.</div>';
+          paramsContainer.innerHTML = '<div style="font-size: 10px; color: var(--text-muted); font-style: italic; padding: 12px; text-align: center;">No tunable parameters defined for this brush.</div>';
         } else {
           params.forEach((param, idx) => {
+            const propId = param.id || param.name;
+            const isBool = param.type === 'bool' || (param.min === 0 && param.max === 1 && (!param.unit || param.unit === 'bool'));
+            const curVal = wb.getParam(idx) !== undefined ? wb.getParam(idx) : (param.default !== undefined ? param.default : (param.min || 0));
+
             const wrap = document.createElement('div');
             wrap.className = 'ip-touch-control';
             wrap.style.cssText = 'padding: 4px 6px; background: rgba(0,0,0,0.18); border-radius: 4px; margin-bottom: 2px;';
@@ -13684,52 +13691,76 @@ async function main() {
             const valSpan = document.createElement('span');
             valSpan.className = 'ip-touch-val';
             valSpan.style.cssText = 'color: #fabd2f; font-family: monospace;';
-            const curVal = wb.getParam(idx) !== undefined ? wb.getParam(idx) : (param.default !== undefined ? param.default : (param.min || 0));
             valSpan.textContent = String(curVal);
 
             labelRow.appendChild(lbl);
             labelRow.appendChild(valSpan);
 
-            const slider = document.createElement('input');
-            slider.type = 'range';
-            slider.className = 'ip-touch-slider';
-            slider.style.cssText = 'width: 100%; height: 16px; accent-color: #fabd2f; cursor: pointer;';
-            slider.min = param.min !== undefined ? param.min : 0;
-            slider.max = param.max !== undefined ? param.max : 100;
-            slider.step = param.step !== undefined ? param.step : 1;
-            slider.value = curVal;
+            if (isBool) {
+              const chkRow = document.createElement('div');
+              chkRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between;';
+              const chk = document.createElement('input');
+              chk.type = 'checkbox';
+              chk.checked = Boolean(Number(curVal));
+              chk.style.cursor = 'pointer';
+              chk.addEventListener('change', (e) => {
+                const val = e.target.checked ? 1 : 0;
+                valSpan.textContent = String(val);
+                wb.setParam(idx, val);
+                host.setBrushParam(propId, val);
+              });
+              wrap.appendChild(labelRow);
+              wrap.appendChild(chk);
+            } else {
+              const slider = document.createElement('input');
+              slider.type = 'range';
+              slider.className = 'ip-touch-slider';
+              slider.style.cssText = 'width: 100%; height: 16px; accent-color: #fabd2f; cursor: pointer;';
+              slider.min = param.min !== undefined ? param.min : 0;
+              slider.max = param.max !== undefined ? param.max : 100;
+              slider.step = param.step !== undefined ? param.step : 1;
+              slider.value = curVal;
 
-            slider.addEventListener('input', () => {
-              const val = parseInt(slider.value, 10);
-              valSpan.textContent = String(val);
-              wb.setParam(idx, val);
-            });
+              slider.addEventListener('input', () => {
+                const val = parseFloat(slider.value);
+                valSpan.textContent = String(val);
+                wb.setParam(idx, val);
+                host.setBrushParam(propId, val);
+              });
 
-            wrap.appendChild(labelRow);
-            wrap.appendChild(slider);
+              wrap.appendChild(labelRow);
+              wrap.appendChild(slider);
+            }
             paramsContainer.appendChild(wrap);
           });
         }
-      }
+      });
 
-      const saveBtn = document.getElementById('ui-btn-wasm-brush-save');
-      if (saveBtn) {
-        saveBtn.onclick = async () => {
-          const resKey = await host.saveCurrentBrushPreset?.();
-          if (resKey) {
+      ['ui-btn-wasm-brush-save', 'btn-ip-lab-save'].forEach(id => {
+        const saveBtn = document.getElementById(id);
+        if (saveBtn) {
+          saveBtn.onclick = async () => {
+            const resKey = await host.saveCurrentBrushPreset?.();
+            if (resKey) {
+              if (typeof closeAllSheets === 'function') closeAllSheets();
+              document.getElementById('sheet-wasm-brush')?.classList.remove('active');
+              document.getElementById('sheet-lab')?.classList.remove('active');
+            }
+          };
+        }
+      });
+
+      ['ui-btn-wasm-brush-close', 'btn-ip-lab-close'].forEach(id => {
+        const closeBtn = document.getElementById(id);
+        if (closeBtn) {
+          closeBtn.onclick = () => {
             if (typeof closeAllSheets === 'function') closeAllSheets();
             document.getElementById('sheet-wasm-brush')?.classList.remove('active');
-          }
-        };
-      }
-
-      if (closeBtn) {
-        closeBtn.onclick = () => {
-          if (typeof closeAllSheets === 'function') closeAllSheets();
-          document.getElementById('sheet-wasm-brush')?.classList.remove('active');
-          if (typeof uiToast === 'function') uiToast(`Active: ${info?.title || key}`, 'success', 1600);
-        };
-      }
+            document.getElementById('sheet-lab')?.classList.remove('active');
+            if (typeof uiToast === 'function') uiToast(`Active: ${info?.title || cleanKey}`, 'success', 1600);
+          };
+        }
+      });
 
       openSheet('sheet-wasm-brush');
     };
