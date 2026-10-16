@@ -4333,7 +4333,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.14.11)</span>
+    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.14.13)</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -11993,33 +11993,55 @@
       // Import Raster Image
       const fileInputImg = document.getElementById('file-import-img');
       document.getElementById('btn-import-img')?.addEventListener('click', () => fileInputImg?.click());
+      function importStudioImageFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const img = new Image();
+          img.onload = () => {
+            const svgImage = new SvgEngine.SvgImage({
+              x: 0,
+              y: 0,
+              width: img.width,
+              height: img.height,
+              src: evt.target.result,
+              _imgElement: img
+            });
+            doc.addObject(svgImage);
+            doc.select(svgImage.id);
+            doc.pushHistory('Import Image');
+            if (typeof selectTool === 'function') selectTool('select');
+            updateObjectList();
+            updateInspector();
+            render();
+            drawOverlay();
+            scheduleAutosave();
+          };
+          img.src = evt.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
       fileInputImg?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-          const reader = new FileReader();
-          reader.onload = (evt) => {
-            const img = new Image();
-            img.onload = () => {
-              const svgImage = new SvgEngine.SvgImage({
-                x: 0,
-                y: 0,
-                width: img.width,
-                height: img.height,
-                src: evt.target.result,
-                _imgElement: img
-              });
-              doc.addObject(svgImage);
-              doc.select(svgImage.id);
-              doc.pushHistory('Import Image');
-              updateObjectList();
-              updateInspector();
-              render();
-              drawOverlay();
-              scheduleAutosave();
-            };
-            img.src = evt.target.result;
-          };
-          reader.readAsDataURL(file);
+          importStudioImageFile(file);
+          fileInputImg.value = '';
+        }
+      });
+      window.addEventListener('dragover', (e) => {
+        const types = e.dataTransfer?.types;
+        const hasFiles = types && (typeof types.includes === 'function' ? types.includes('Files') : Array.from(types).includes('Files'));
+        if (!hasFiles) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      });
+      window.addEventListener('drop', (e) => {
+        const files = e.dataTransfer?.files;
+        if (!files || files.length === 0) return;
+        const file = files[0];
+        if (file && (file.type?.startsWith('image/') || /\.(png|jpe?g|webp|bmp|gif)$/i.test(file.name))) {
+          e.preventDefault();
+          importStudioImageFile(file);
         }
       });
 
@@ -17654,6 +17676,7 @@
             doc.addObject(imgNode);
             doc.select(imgNode.id);
             doc.pushHistory('Insert Painter Image');
+            if (typeof selectTool === 'function') selectTool('select');
             updateObjectList();
             updateInspector();
             render();

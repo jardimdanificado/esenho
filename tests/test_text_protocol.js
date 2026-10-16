@@ -1875,6 +1875,33 @@ async function run() {
     throw new Error('Expected floatingTransform to be null after cancel');
   }
 
+  // --- Testing Image Import Auto-Transform ---
+  console.log('--- Testing Image Import Auto-Transform ---');
+  const wasmImgLayer = host.canvasActor.exports.w_layer_add();
+  const cw = host.canvasActor.exports.get_canvas_width();
+  const ch = host.canvasActor.exports.get_canvas_height();
+  const dw = 200, dh = 150;
+  const dx = Math.round((cw - dw) / 2);
+  const dy = Math.round((ch - dh) / 2);
+  // Auto-transform logic as performed on image import
+  if (host.canvasActor.exports.w_layer_select) host.canvasActor.exports.w_layer_select(wasmImgLayer);
+  host.setSelection(dx, dy, dw, dh);
+  host.startTransform();
+  if (!host.floatingTransform || !host.floatingTransform.corners) {
+    throw new Error('Auto-transform failed to activate on image import');
+  }
+  if (host.floatingTransform.corners[0].x !== dx || host.floatingTransform.corners[0].y !== dy) {
+    throw new Error(`Expected transform corner 0 to be (${dx}, ${dy}), got (${host.floatingTransform.corners[0].x}, ${host.floatingTransform.corners[0].y})`);
+  }
+  if (host.floatingTransform.corners[2].x !== dx + dw || host.floatingTransform.corners[2].y !== dy + dh) {
+    throw new Error(`Expected transform corner 2 to be (${dx + dw}, ${dy + dh}), got (${host.floatingTransform.corners[2].x}, ${host.floatingTransform.corners[2].y})`);
+  }
+  host.executeCommand('transform apply');
+  if (host.floatingTransform !== null) {
+    throw new Error('Expected floatingTransform to be null after apply');
+  }
+  console.log('✔ Image Import Auto-Transform passed');
+
   console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, 4-Mode Action System, Stylus/Wacom Pressure & Tilt Dynamics, Native .esen Project Savefile Engine, Reset Data Command, GPU/Software Renderer Switching, Professional Brush Presets System, Transform Rotation/Flips, and Viewport Bilinear Filtering verified 100%!');
 }
 

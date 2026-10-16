@@ -3800,41 +3800,128 @@ async function main() {
 
   const CONTEXT_MENU_SLIDERS_STORAGE_KEY = 'esenho_context_menu_sliders_v1';
   const CONTEXT_MENU_SLIDERS_DEF = [
-    { id: 'size', label: 'Brush Size', key: 'size', min: 1, max: 300, unit: 'px', defaultVal: 12 },
-    { id: 'opacity', label: 'Opacity', key: 'opacity', min: 1, max: 100, unit: '%', defaultVal: 100 },
-    { id: 'flow', label: 'Flow', key: 'flow', min: 1, max: 100, unit: '%', defaultVal: 100 },
-    { id: 'hardness', label: 'Hardness', key: 'hardness', min: 0, max: 100, unit: '%', defaultVal: 80 },
-    { id: 'smoothing', label: 'Smoothing', key: 'stabilization', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'spacing', label: 'Spacing', key: 'spacing', min: 1, max: 200, unit: '%', defaultVal: 12 },
-    { id: 'roundness', label: 'Roundness', key: 'roundness', min: 1, max: 100, unit: '%', defaultVal: 100 },
-    { id: 'angle', label: 'Tip Angle', key: 'angle', min: 0, max: 360, unit: '°', defaultVal: 0 },
-    { id: 'string_length', label: 'Lazy String', key: 'string_length', min: 0, max: 200, unit: 'px', defaultVal: 0 },
-    { id: 'midpoint', label: 'Pressure Curve', key: 'midpoint', min: 0, max: 100, unit: '%', defaultVal: 50 },
-    { id: 'velocity', label: 'Velocity Size', key: 'velocity', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'taper_in', label: 'Taper Start', key: 'taper_in', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'taper_out', label: 'Taper End', key: 'taper_out', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'fade', label: 'Stroke Fade', key: 'fade', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'wetness', label: 'Wetness', key: 'wetness', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'smudge', label: 'Smudge Pull', key: 'smudge', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'pickup', label: 'Color Pickup', key: 'color_pickup', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'depletion', label: 'Paint Depletion', key: 'depletion', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'scatter', label: 'Scatter', key: 'scatter', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'size_jitter', label: 'Size Jitter', key: 'size_jitter', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'angle_jitter', label: 'Angle Jitter', key: 'angle_jitter', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'opacity_jitter', label: 'Opacity Jitter', key: 'opacity_jitter', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'color_jitter', label: 'Color Jitter', key: 'color_jitter', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'grain', label: 'Paper Grain', key: 'grain', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'tex_scale', label: 'Grain Scale', key: 'texture_scale', min: 10, max: 400, unit: '%', defaultVal: 100 },
-    { id: 'tex_contrast', label: 'Grain Contrast', key: 'texture_contrast', min: 0, max: 200, unit: '%', defaultVal: 100 },
-    { id: 'tex_rotate', label: 'Grain Angle', key: 'texture_rotate', min: 0, max: 360, unit: '°', defaultVal: 0 },
-    { id: 'dual_size', label: 'Dual Brush Size', key: 'dual_size', min: 10, max: 300, unit: '%', defaultVal: 100 },
-    { id: 'dual_spacing', label: 'Dual Spacing', key: 'dual_spacing', min: 1, max: 100, unit: '%', defaultVal: 15 },
-    { id: 'water', label: 'Water Load', key: 'water', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'bleed', label: 'Wet Bleed', key: 'bleed', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'granulation', label: 'Granulation', key: 'granulation', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'fringe', label: 'Edge Darkening', key: 'fringe', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'impasto', label: '3D Impasto', key: 'impasto', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    { id: 'drying_rate', label: 'Drying Rate', key: 'drying_rate', min: 0, max: 100, unit: '%', defaultVal: 0 }
+    // ── Basic & Tip ──
+    { id: 'size', label: 'Brush Size', key: 'size', category: 'basic', type: 'slider', min: 1, max: 300, unit: 'px', defaultVal: 12 },
+    { id: 'opacity', label: 'Opacity', key: 'opacity', category: 'basic', type: 'slider', min: 1, max: 100, unit: '%', defaultVal: 100 },
+    { id: 'flow', label: 'Flow', key: 'flow', category: 'basic', type: 'slider', min: 1, max: 100, unit: '%', defaultVal: 100 },
+    { id: 'hardness', label: 'Hardness', key: 'hardness', category: 'basic', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 80 },
+    { id: 'spacing', label: 'Spacing', key: 'spacing', category: 'basic', type: 'slider', min: 1, max: 200, unit: '%', defaultVal: 12 },
+    { id: 'roundness', label: 'Roundness', key: 'roundness', category: 'basic', type: 'slider', min: 1, max: 100, unit: '%', defaultVal: 100 },
+    { id: 'angle', label: 'Tip Angle', key: 'angle', category: 'basic', type: 'slider', min: 0, max: 360, unit: '°', defaultVal: 0 },
+    {
+      id: 'shape',
+      label: 'Tip Shape',
+      key: 'shape',
+      category: 'basic',
+      type: 'select',
+      defaultVal: 0,
+      options: [
+        { value: 0, label: 'Round / Circle' },
+        { value: 1, label: 'Square' },
+        { value: 2, label: 'Chisel / Flat' }
+      ]
+    },
+
+    // ── Dynamics & Stylus ──
+    { id: 'smoothing', label: 'Smoothing', key: 'stabilization', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    {
+      id: 'stabilizer_mode',
+      label: 'Stabilizer Mode',
+      key: 'stabilizer_mode',
+      category: 'dynamics',
+      type: 'select',
+      defaultVal: 0,
+      options: [
+        { value: 0, label: 'Streamline' },
+        { value: 1, label: 'Pulled String (Leash)' }
+      ]
+    },
+    { id: 'string_length', label: 'Lazy String', key: 'string_length', category: 'dynamics', type: 'slider', min: 0, max: 200, unit: 'px', defaultVal: 0 },
+    { id: 'pressure_size', label: 'Pressure Size', key: 'pressure_size', category: 'dynamics', type: 'toggle', defaultVal: 1 },
+    { id: 'pressure_flow', label: 'Pressure Flow', key: 'pressure_flow', category: 'dynamics', type: 'toggle', defaultVal: 1 },
+    { id: 'stylus_tilt', label: 'Stylus Tilt', key: 'tilt_angle', category: 'dynamics', type: 'toggle', defaultVal: 0 },
+    { id: 'midpoint', label: 'Pressure Curve', key: 'midpoint', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 50 },
+    { id: 'velocity', label: 'Velocity Size', key: 'velocity', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'autorotate', label: 'Follow Direction', key: 'autorotate', category: 'dynamics', type: 'toggle', defaultVal: 0 },
+    { id: 'taper_in', label: 'Taper Start', key: 'taper_in', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'taper_out', label: 'Taper End', key: 'taper_out', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'fade', label: 'Stroke Fade', key: 'fade', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+
+    // ── Wet, Blending & Paint ──
+    { id: 'wetness', label: 'Wetness', key: 'wetness', category: 'wet', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'smudge', label: 'Smudge Pull', key: 'smudge', category: 'wet', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'pickup', label: 'Color Pickup', key: 'color_pickup', category: 'wet', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'depletion', label: 'Paint Depletion', key: 'depletion', category: 'wet', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'pigment_mode', label: 'CMY Pigment Mix', key: 'pigment_mode', category: 'wet', type: 'toggle', defaultVal: 0 },
+    {
+      id: 'dab_blend',
+      label: 'Dab Blend Mode',
+      key: 'dab_blend',
+      category: 'wet',
+      type: 'select',
+      defaultVal: 0,
+      options: [
+        { value: 0, label: 'Normal' },
+        { value: 1, label: 'Multiply' },
+        { value: 2, label: 'Screen' },
+        { value: 3, label: 'Overlay' },
+        { value: 4, label: 'Color Dodge' },
+        { value: 5, label: 'Linear Add' }
+      ]
+    },
+    { id: 'water', label: 'Water Load', key: 'water', category: 'wet', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'bleed', label: 'Wet Bleed', key: 'bleed', category: 'wet', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'granulation', label: 'Granulation', key: 'granulation', category: 'wet', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'fringe', label: 'Edge Darkening', key: 'fringe', category: 'wet', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'impasto', label: '3D Impasto', key: 'impasto', category: 'wet', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'drying_rate', label: 'Drying Rate', key: 'drying_rate', category: 'wet', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+
+    // ── Jitter & Texture ──
+    { id: 'scatter', label: 'Scatter', key: 'scatter', category: 'jitter', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'size_jitter', label: 'Size Jitter', key: 'size_jitter', category: 'jitter', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'angle_jitter', label: 'Angle Jitter', key: 'angle_jitter', category: 'jitter', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'opacity_jitter', label: 'Opacity Jitter', key: 'opacity_jitter', category: 'jitter', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'color_jitter', label: 'Color Jitter', key: 'color_jitter', category: 'jitter', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'grain', label: 'Paper Grain', key: 'grain', category: 'jitter', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'tex_scale', label: 'Grain Scale', key: 'texture_scale', category: 'jitter', type: 'slider', min: 10, max: 400, unit: '%', defaultVal: 100 },
+    { id: 'tex_contrast', label: 'Grain Contrast', key: 'texture_contrast', category: 'jitter', type: 'slider', min: 0, max: 200, unit: '%', defaultVal: 100 },
+    { id: 'tex_rotate', label: 'Grain Angle', key: 'texture_rotate', category: 'jitter', type: 'slider', min: 0, max: 360, unit: '°', defaultVal: 0 },
+    { id: 'tex_scale_size', label: 'Scale Grain w/ Size', key: 'tex_scale_with_size', category: 'jitter', type: 'toggle', defaultVal: 0 },
+
+    // ── Modifiers & Precision ──
+    {
+      id: 'dual_shape',
+      label: 'Dual Brush Shape',
+      key: 'dual_shape',
+      category: 'advanced',
+      type: 'select',
+      defaultVal: -1,
+      options: [
+        { value: -1, label: 'Disabled' },
+        { value: 0, label: 'Round / Circle' },
+        { value: 1, label: 'Square' },
+        { value: 2, label: 'Chisel / Flat' }
+      ]
+    },
+    { id: 'dual_size', label: 'Dual Brush Size', key: 'dual_size', category: 'advanced', type: 'slider', min: 10, max: 300, unit: '%', defaultVal: 100 },
+    { id: 'dual_spacing', label: 'Dual Spacing', key: 'dual_spacing', category: 'advanced', type: 'slider', min: 1, max: 100, unit: '%', defaultVal: 15 },
+    { id: 'subpixel', label: 'Subpixel Precision', key: 'subpixel', category: 'advanced', type: 'toggle', defaultVal: 1 },
+    { id: 'buildup', label: 'Opacity Buildup', key: 'buildup', category: 'advanced', type: 'toggle', defaultVal: 0 },
+    {
+      id: 'symmetry',
+      label: 'Symmetry Guide',
+      key: 'symmetry',
+      category: 'advanced',
+      type: 'select',
+      defaultVal: 0,
+      options: [
+        { value: 0, label: 'Off' },
+        { value: 1, label: 'Vertical' },
+        { value: 2, label: 'Horizontal' },
+        { value: 3, label: 'Radial (Quadrant)' }
+      ]
+    },
+    { id: 'tolerance', label: 'Fill Tolerance', key: 'tolerance', category: 'advanced', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 15 }
   ];
 
   if (!Array.isArray(host.contextMenuSliders)) {
@@ -3852,27 +3939,68 @@ async function main() {
   const DOCKVIEW_TAB_PANELS = new Set(['canvas', 'layers', 'tools', 'timeline', 'color', 'lab']);
 
   function buildContextMenuSlidersActions() {
-    return CONTEXT_MENU_SLIDERS_DEF.map(s => {
-      const isOn = Array.isArray(host.contextMenuSliders) && host.contextMenuSliders.includes(s.id);
-      return {
+    const list = [];
+
+    // Presets header and quick items
+    list.push({ type: 'header', label: 'Presets' });
+    const presets = [
+      { label: 'Default (Size, Opacity, Smoothing)', ids: ['size', 'opacity', 'smoothing'] },
+      { label: 'Inking Studio', ids: ['size', 'opacity', 'smoothing', 'string_length', 'taper_in', 'taper_out', 'velocity', 'pressure_size'] },
+      { label: 'Painting Pro', ids: ['size', 'opacity', 'flow', 'hardness', 'smoothing', 'wetness', 'smudge', 'pickup', 'pigment_mode'] },
+      { label: 'Clear All Controls', ids: [] }
+    ];
+    presets.forEach(p => {
+      list.push({
         type: 'item',
-        checked: isOn,
-        keepOpen: true,
-        label: s.label,
-        action: (act) => {
-          const cur = Array.isArray(host.contextMenuSliders) ? [...host.contextMenuSliders] : ['size', 'opacity', 'smoothing'];
-          const next = cur.includes(s.id) ? cur.filter(x => x !== s.id) : [...cur, s.id];
-          host.contextMenuSliders = next;
-          act.checked = next.includes(s.id);
+        label: p.label,
+        action: () => {
+          host.contextMenuSliders = [...p.ids];
           try {
-            localStorage.setItem(CONTEXT_MENU_SLIDERS_STORAGE_KEY, JSON.stringify(next));
+            localStorage.setItem(CONTEXT_MENU_SLIDERS_STORAGE_KEY, JSON.stringify(host.contextMenuSliders));
           } catch (_) {}
           if (typeof window.renderHudCustomizerOptions === 'function') {
             window.renderHudCustomizerOptions();
           }
         }
-      };
+      });
     });
+
+    const categories = [
+      { key: 'basic', title: 'Basic & Tip' },
+      { key: 'dynamics', title: 'Dynamics & Stylus' },
+      { key: 'wet', title: 'Wet & Blending' },
+      { key: 'jitter', title: 'Jitter & Texture' },
+      { key: 'advanced', title: 'Modifiers & Precision' }
+    ];
+
+    categories.forEach(cat => {
+      list.push({ type: 'sep' });
+      list.push({ type: 'header', label: cat.title });
+      const catItems = CONTEXT_MENU_SLIDERS_DEF.filter(s => s.category === cat.key);
+      catItems.forEach(s => {
+        const isOn = Array.isArray(host.contextMenuSliders) && host.contextMenuSliders.includes(s.id);
+        list.push({
+          type: 'item',
+          checked: isOn,
+          keepOpen: true,
+          label: s.label,
+          action: (act) => {
+            const cur = Array.isArray(host.contextMenuSliders) ? [...host.contextMenuSliders] : ['size', 'opacity', 'smoothing'];
+            const next = cur.includes(s.id) ? cur.filter(x => x !== s.id) : [...cur, s.id];
+            host.contextMenuSliders = next;
+            act.checked = next.includes(s.id);
+            try {
+              localStorage.setItem(CONTEXT_MENU_SLIDERS_STORAGE_KEY, JSON.stringify(next));
+            } catch (_) {}
+            if (typeof window.renderHudCustomizerOptions === 'function') {
+              window.renderHudCustomizerOptions();
+            }
+          }
+        });
+      });
+    });
+
+    return list;
   }
 
   function openPanelInContextMenu(panelId, anchor) {
@@ -4364,35 +4492,75 @@ async function main() {
     for (const sid of activeSlidersList) {
       const sDef = CONTEXT_MENU_SLIDERS_DEF.find(s => s.id === sid);
       if (!sDef) continue;
-      const rawVal = sid === 'smoothing'
-        ? (bp.stabilization ?? bp.smoothing ?? sDef.defaultVal)
-        : (bp[sDef.key] ?? sDef.defaultVal);
-      let sMin = sDef.min;
-      let sMax = sDef.max;
-      if (sid === 'size') {
-        const range = typeof host.getBrushSizeRange === 'function' ? host.getBrushSizeRange() : { min: 1, max: 300 };
-        sMin = range.min;
-        sMax = range.max;
-      }
-      items.push({
-        type: 'slider',
-        label: sDef.label,
-        min: sMin,
-        max: sMax,
-        value: Math.round(rawVal),
-        unit: sDef.unit,
-        onInput: (val) => {
-          host.setBrushParam(sDef.key, val);
-          if (sid === 'smoothing' && host.brushParams) host.brushParams.smoothing = val;
-          if (typeof syncUiFromHost === 'function') syncUiFromHost();
-        },
-        onChange: (val) => {
-          if (sid === 'size') runCmd(`brush size ${val}`);
-          else if (sid === 'opacity') runCmd(`brush opacity ${val}`);
-          else if (sid === 'smoothing') runCmd(`brush stabilize ${val}`);
-          else runCmd(`set ${sDef.key} ${val}`);
+      const type = sDef.type || 'slider';
+
+      if (type === 'toggle') {
+        const rawVal = bp[sDef.key] !== undefined ? bp[sDef.key] : sDef.defaultVal;
+        let isOn = !!rawVal;
+        items.push({
+          type: 'item',
+          checked: isOn,
+          keepOpen: true,
+          label: sDef.label,
+          action: (act) => {
+            const nextVal = isOn ? 0 : 1;
+            isOn = !isOn;
+            host.setBrushParam(sDef.key, nextVal);
+            if (act) act.checked = isOn;
+            runCmd(`set ${sDef.key} ${nextVal}`);
+            if (typeof syncUiFromHost === 'function') syncUiFromHost();
+          }
+        });
+      } else if (type === 'select') {
+        const curVal = bp[sDef.key] !== undefined ? bp[sDef.key] : sDef.defaultVal;
+        const curOpt = (sDef.options || []).find(o => o.value === curVal);
+        const curLabel = curOpt ? curOpt.label : String(curVal);
+        items.push({
+          type: 'submenu',
+          label: `${sDef.label}: ${curLabel}`,
+          items: (sDef.options || []).map(opt => ({
+            type: 'item',
+            checked: opt.value === curVal,
+            keepOpen: true,
+            label: opt.label,
+            action: (act) => {
+              host.setBrushParam(sDef.key, opt.value);
+              runCmd(`set ${sDef.key} ${opt.value}`);
+              if (typeof syncUiFromHost === 'function') syncUiFromHost();
+            }
+          }))
+        });
+      } else {
+        const rawVal = sid === 'smoothing'
+          ? (bp.stabilization ?? bp.smoothing ?? sDef.defaultVal)
+          : (bp[sDef.key] ?? sDef.defaultVal);
+        let sMin = sDef.min;
+        let sMax = sDef.max;
+        if (sid === 'size') {
+          const range = typeof host.getBrushSizeRange === 'function' ? host.getBrushSizeRange() : { min: 1, max: 300 };
+          sMin = range.min;
+          sMax = range.max;
         }
-      });
+        items.push({
+          type: 'slider',
+          label: sDef.label,
+          min: sMin,
+          max: sMax,
+          value: Math.round(rawVal),
+          unit: sDef.unit,
+          onInput: (val) => {
+            host.setBrushParam(sDef.key, val);
+            if (sid === 'smoothing' && host.brushParams) host.brushParams.smoothing = val;
+            if (typeof syncUiFromHost === 'function') syncUiFromHost();
+          },
+          onChange: (val) => {
+            if (sid === 'size') runCmd(`brush size ${val}`);
+            else if (sid === 'opacity') runCmd(`brush opacity ${val}`);
+            else if (sid === 'smoothing') runCmd(`brush stabilize ${val}`);
+            else runCmd(`set ${sDef.key} ${val}`);
+          }
+        });
+      }
     }
 
     addSep();
@@ -4769,13 +4937,8 @@ async function main() {
       { type: 'item', label: (host.enableTouchUndoRedo ? '✓ ' : '') + 'Touch Gestures (2-Finger Undo / 3-Finger Redo)', action: () => syncTouchUndoRedo(!host.enableTouchUndoRedo) },
       {
         type: 'submenu',
-        label: 'Context Menu Sliders',
+        label: 'Context Menu Sliders & Controls',
         items: buildContextMenuSlidersActions()
-      },
-      {
-        type: 'submenu',
-        label: 'Customize HUD Bars...',
-        items: [buildDomPanelAction('hud')]
       }
     ];
 
@@ -4850,6 +5013,12 @@ async function main() {
           { type: 'item', label: 'Flip Canvas Vertical', action: () => runCmd('canvas flip v') },
           { type: 'item', label: 'Crop Canvas to Selection', action: () => runCmd('crop') }
         ]
+      },
+      { type: 'sep' },
+      {
+        type: 'submenu',
+        label: 'Context Menu Sliders & Controls',
+        items: buildContextMenuSlidersActions()
       }
     ];
 
@@ -11401,6 +11570,31 @@ async function main() {
             host.canvasActor.exports.force_composite();
             syncUiFromHost();
             log(`Imported image '${file.name}' as layer [${wasmId}] (${cw}x${ch}) [ok]`);
+
+            // Automatically enter transform mode on the imported image
+            try {
+              if (host.floatingTransform && typeof host.applyFloatTransform === 'function') {
+                host.applyFloatTransform();
+              }
+              if (host.canvasActor?.exports?.w_layer_select) {
+                host.canvasActor.exports.w_layer_select(wasmId);
+              }
+              if (typeof host.setSelection === 'function' && typeof host.startTransform === 'function') {
+                host.setSelection(dx, dy, dw, dh);
+                host.startTransform();
+              } else if (typeof host.startTransform === 'function') {
+                host.startTransform();
+              }
+              if (typeof switchToolsSheetTab === 'function') {
+                switchToolsSheetTab('transform');
+              }
+              if (typeof markCanvasDirty === 'function') {
+                markCanvasDirty();
+              }
+              syncUiFromHost();
+            } catch (xformErr) {
+              console.warn('Auto-transform on import:', xformErr);
+            }
           } catch (err) {
             log(`err: failed importing image: ${err.message}`);
           }
@@ -15020,6 +15214,31 @@ async function main() {
             if (typeof markCanvasDirty === 'function') markCanvasDirty();
             log(`Imported vector project '${proj.name}' as layer [${wasmId}]`);
             ui.toast(`Imported '${proj.name}' as layer`, 'success');
+
+            // Automatically enter transform mode on imported vector layer
+            try {
+              if (host.floatingTransform && typeof host.applyFloatTransform === 'function') {
+                host.applyFloatTransform();
+              }
+              if (host.canvasActor?.exports?.w_layer_select) {
+                host.canvasActor.exports.w_layer_select(wasmId);
+              }
+              if (typeof host.setSelection === 'function' && typeof host.startTransform === 'function') {
+                host.setSelection(dx, dy, dw, dh);
+                host.startTransform();
+              } else if (typeof host.startTransform === 'function') {
+                host.startTransform();
+              }
+              if (typeof switchToolsSheetTab === 'function') {
+                switchToolsSheetTab('transform');
+              }
+              if (typeof markCanvasDirty === 'function') {
+                markCanvasDirty();
+              }
+              syncUiFromHost();
+            } catch (xformErr) {
+              console.warn('Auto-transform on vector layer import:', xformErr);
+            }
           } catch (err) {
             ui.toast('Error adding vector layer: ' + err.message, 'danger');
           }
