@@ -4563,6 +4563,12 @@ async function main() {
       }
     }
 
+    items.push({
+      type: 'submenu',
+      label: '⚙ Customize Sliders & Controls...',
+      items: buildContextMenuSlidersActions()
+    });
+
     addSep();
   }
 
