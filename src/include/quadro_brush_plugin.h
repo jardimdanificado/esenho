@@ -18,6 +18,28 @@
 extern "C" {
 #endif
 
+/* ── WASM Brush Protocol Input Capabilities Bitmask & Constants ── */
+#define W_BRUSH_INPUT_SIZE         (1 << 0)  /* Radius / brush size range */
+#define W_BRUSH_INPUT_PRESSURE     (1 << 1)  /* Stylus pressure dynamics */
+#define W_BRUSH_INPUT_TILT         (1 << 2)  /* Stylus tilt */
+#define W_BRUSH_INPUT_ANGLE        (1 << 3)  /* Stroke direction / angle / autorotate */
+#define W_BRUSH_INPUT_SPEED        (1 << 4)  /* Stroke velocity / speed */
+#define W_BRUSH_INPUT_COLOR        (1 << 5)  /* Stroke color / palette */
+#define W_BRUSH_INPUT_OPACITY      (1 << 6)  /* Flow / Opacity */
+#define W_BRUSH_INPUT_SPACING      (1 << 7)  /* Dab spacing */
+#define W_BRUSH_INPUT_HARDNESS     (1 << 8)  /* Tip hardness */
+#define W_BRUSH_INPUT_ROUNDNESS    (1 << 9)  /* Tip roundness / aspect */
+#define W_BRUSH_INPUT_STABILIZER   (1 << 10) /* Streamline / smoothing / leash */
+#define W_BRUSH_INPUT_JITTER       (1 << 11) /* Jitter / scatter */
+#define W_BRUSH_INPUT_WET          (1 << 12) /* Wet / mix / paint physics / smudge */
+#define W_BRUSH_INPUT_TEXTURE      (1 << 13) /* Texture / grain */
+#define W_BRUSH_INPUT_DUAL         (1 << 14) /* Dual brush */
+#define W_BRUSH_INPUT_TIP          (1 << 15) /* Tip shape / custom layer tip */
+#define W_BRUSH_INPUT_PARAMS       (1 << 16) /* Plugin custom tunable parameters */
+
+/* Default inputs accepted by standard zero-copy kernels if not explicitly defined */
+#define W_BRUSH_INPUTS_DEFAULT     (W_BRUSH_INPUT_SIZE | W_BRUSH_INPUT_PRESSURE | W_BRUSH_INPUT_ANGLE | W_BRUSH_INPUT_SPEED | W_BRUSH_INPUT_COLOR | W_BRUSH_INPUT_SPACING | W_BRUSH_INPUT_PARAMS)
+
 /* ── Fast Xorshift32 Pseudo-Random Number Generator ── */
 static uint32_t _w_brush_rng_state = 0x8a5b3c1d;
 

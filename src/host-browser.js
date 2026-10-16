@@ -16017,8 +16017,115 @@ async function main() {
       }
       setSel('ip-sel-tex-mode', bp.texture_mode ?? 0);
     }
+
+    syncBrushStudioWasmInputs();
     saveUserPreferences();
   }
+
+  function syncBrushStudioWasmInputs() {
+    const activeKey = host.activeBrush || '';
+    const isWasm = activeKey.startsWith('wasm_') || (host.wasmBrushes && host.wasmBrushes.has(activeKey)) || Boolean(host.activeWasmBrush);
+    const wKey = isWasm ? activeKey.replace(/^wasm[:_]/i, '') : null;
+    const wb = isWasm ? (host.getWasmBrush?.(wKey) || host.activeWasmBrush) : null;
+
+    const wasmSection = document.getElementById('ip-lab-section-wasm-params');
+    const wasmContainer = document.getElementById('ip-lab-wasm-params-container');
+    const wasmBadge = document.getElementById('ip-lab-wasm-badge');
+
+    if (!isWasm || !wb) {
+      if (wasmSection) wasmSection.style.display = 'none';
+      if (wasmContainer) wasmContainer.innerHTML = '';
+      document.querySelectorAll('#sheet-lab [data-brush-input]').forEach(el => {
+        el.style.display = '';
+      });
+      ['ip-lab-section-tip', 'ip-lab-section-dynamics', 'ip-lab-section-wet', 'ip-lab-section-jitter', 'ip-lab-section-texture'].forEach(secId => {
+        const sec = document.getElementById(secId);
+        if (sec) sec.style.display = '';
+      });
+      return;
+    }
+
+    const info = wb.getInfo ? wb.getInfo() : wb.info;
+    const acceptsParams = typeof wb.acceptsInput === 'function' ? wb.acceptsInput('params') : true;
+
+    // 1. Render WASM Kernel Parameters in Brush Studio
+    if (wasmSection && wasmContainer) {
+      if (acceptsParams && info && Array.isArray(info.params) && info.params.length > 0) {
+        wasmSection.style.display = 'flex';
+        if (wasmBadge) wasmBadge.textContent = `${info.category || 'Kernel'} • ${info.params.length}p`;
+        wasmContainer.innerHTML = '';
+        info.params.forEach((param, idx) => {
+          const wrap = document.createElement('div');
+          wrap.className = 'ip-touch-control';
+          wrap.style.cssText = 'padding: 4px 6px; background: var(--bg-panel-sub, rgba(0,0,0,0.18)); border-radius: var(--radius-sm, 4px); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 3px;';
+
+          const labelRow = document.createElement('div');
+          labelRow.className = 'ip-touch-label-row';
+          labelRow.style.cssText = 'display: flex; justify-content: space-between; font-size: 9px; font-weight: 700; color: var(--text-bright, #ebdbb2);';
+
+          const lbl = document.createElement('span');
+          const unit = param.unit ? ` (${param.unit})` : '';
+          lbl.textContent = (param.name || `Parameter ${idx + 1}`) + unit;
+
+          const valSpan = document.createElement('span');
+          valSpan.className = 'ip-touch-val';
+          valSpan.style.cssText = 'color: #fabd2f; font-family: var(--font-mono, monospace); font-size: 9.5px; font-weight: 800;';
+          const curVal = wb.getParam(idx) !== undefined ? wb.getParam(idx) : (param.default !== undefined ? param.default : (param.min || 0));
+          valSpan.textContent = String(curVal);
+
+          labelRow.appendChild(lbl);
+          labelRow.appendChild(valSpan);
+
+          const slider = document.createElement('input');
+          slider.type = 'range';
+          slider.className = 'ip-touch-slider';
+          slider.min = param.min !== undefined ? param.min : 0;
+          slider.max = param.max !== undefined ? param.max : 100;
+          slider.step = param.step !== undefined ? param.step : 1;
+          slider.value = curVal;
+
+          slider.addEventListener('input', () => {
+            const val = parseInt(slider.value, 10);
+            valSpan.textContent = String(val);
+            wb.setParam(idx, val);
+          });
+
+          wrap.appendChild(labelRow);
+          wrap.appendChild(slider);
+          wasmContainer.appendChild(wrap);
+        });
+      } else {
+        wasmSection.style.display = 'none';
+        wasmContainer.innerHTML = '';
+      }
+    }
+
+    // 2. Filter standard parameters: ONLY show the parameters the WASM brush decided to accept!
+    document.querySelectorAll('#sheet-lab [data-brush-input]').forEach(el => {
+      const inputType = el.getAttribute('data-brush-input');
+      const accepted = typeof wb.acceptsInput === 'function' ? wb.acceptsInput(inputType) : true;
+      el.style.display = accepted ? '' : 'none';
+    });
+
+    // 3. Hide entire sections if none of their controls are accepted / visible
+    ['ip-lab-section-tip', 'ip-lab-section-dynamics', 'ip-lab-section-wet', 'ip-lab-section-jitter', 'ip-lab-section-texture'].forEach(secId => {
+      const sec = document.getElementById(secId);
+      if (!sec) return;
+      const secInput = sec.getAttribute('data-brush-input');
+      if (secInput) {
+        const accepted = typeof wb.acceptsInput === 'function' ? wb.acceptsInput(secInput) : true;
+        sec.style.display = accepted ? '' : 'none';
+        return;
+      }
+      const inputsInSec = sec.querySelectorAll('[data-brush-input]');
+      if (inputsInSec.length > 0) {
+        const anyVisible = Array.from(inputsInSec).some(el => el.style.display !== 'none');
+        sec.style.display = anyVisible ? '' : 'none';
+      }
+    });
+  }
+  window.syncBrushStudioWasmInputs = syncBrushStudioWasmInputs;
+  host.syncBrushStudioWasmInputs = syncBrushStudioWasmInputs;
 
   // Initial population
   populateBrushPresetsUI();

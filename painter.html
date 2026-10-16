@@ -4167,7 +4167,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.14.9  --x--  0,0  zoom 100%  rot 0.0°</span>
+    <span id="wstatus" class="ip-top-status-text">v0.14.10  --x--  0,0  zoom 100%  rot 0.0°</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -4227,7 +4227,7 @@
             <div id="ip-brush-cards-grid" class="ip-brush-grid"></div>
             <div style="display: flex; gap: 6px; margin-top: 4px; flex-shrink: 0;">
               <button type="button" id="btn-ip-save-brush-preset" class="ip-btn" style="flex: 1; background: var(--primary); color: var(--bg-dark); font-weight: bold;">+ Save Brush</button>
-              <button type="button" id="btn-ip-open-lab-from-shelf" class="ip-btn" style="flex: 1;">Brush Lab</button>
+              <button type="button" id="btn-ip-open-lab-from-shelf" class="ip-btn" style="flex: 1;">Brush Studio</button>
             </div>
           </div>
         </div>
@@ -4570,9 +4570,20 @@
           </div>
 
           <div class="ip-sheet-content" style="padding: 6px; gap: 6px;">
-            <!-- 1. TIP, SHAPE & STYLUS -->
-            <div style="display: flex; flex-direction: column; gap: 4px;">
+            <!-- 0. WASM KERNEL PARAMETERS -->
+            <div id="ip-lab-section-wasm-params" style="display: none; flex-direction: column; gap: 4px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <span style="font-size: 9px; font-weight: 800; color: #fabd2f; text-transform: uppercase; letter-spacing: 0.4px;">WASM Kernel Parameters</span>
+                </div>
+                <span id="ip-lab-wasm-badge" style="font-size: 8.5px; background: #d79921; color: #1d2021; padding: 1px 4px; border-radius: 3px; font-weight: bold;">Zero-Copy</span>
+              </div>
+              <div id="ip-lab-wasm-params-container" style="display: flex; flex-direction: column; gap: 3px;"></div>
+            </div>
+
+            <!-- 1. TIP, SHAPE & STYLUS -->
+            <div id="ip-lab-section-tip" style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;" data-brush-input="shape">
                 <span style="font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px;">Tip &amp; Stylus</span>
                 <div style="display: flex; gap: 3px;">
                   <button type="button" id="btn-ip-tip-from-layer" class="ip-btn ip-mini-btn" style="height: 18px; padding: 0 5px; font-size: 8.5px; color: var(--primary);">+Tip Layer</button>
@@ -4580,7 +4591,7 @@
                 </div>
               </div>
 
-              <div class="ip-touch-control" style="background: var(--bg-panel-sub); padding: 5px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px;">
+              <div class="ip-touch-control" data-brush-input="size" style="background: var(--bg-panel-sub); padding: 5px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                   <span style="font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px;">Brush Size Range</span>
                   <span id="ip-lab-size-range-val" class="ip-touch-val" style="font-size: 9.5px; font-family: var(--font-mono); font-weight: 800; color: var(--primary);">1 – 300 px</span>
@@ -4610,7 +4621,7 @@
                 </div>
               </div>
 
-              <select id="ip-sel-brush-shape" class="ui-select" style="height: 22px; font-size: 10px; padding: 0 4px;">
+              <select id="ip-sel-brush-shape" data-brush-input="shape" class="ui-select" style="height: 22px; font-size: 10px; padding: 0 4px;">
                 <optgroup label="Builtin Tip Shapes (18)">
                   <option value="0">Circle / Round (Default)</option>
                   <option value="1">Square Block</option>
@@ -4635,19 +4646,19 @@
               </select>
 
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 3px;">
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="hardness">
                   <div class="ip-touch-label-row"><span>Hardness</span><span id="ip-val-hardness" class="ip-touch-val">100%</span></div>
                   <input type="range" id="ip-slider-hardness" min="0" max="100" value="100" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="roundness">
                   <div class="ip-touch-label-row"><span>Roundness</span><span id="ip-val-roundness" class="ip-touch-val">100%</span></div>
                   <input type="range" id="ip-slider-roundness" min="1" max="100" value="100" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="angle">
                   <div class="ip-touch-label-row"><span>Angle</span><span id="ip-val-angle" class="ip-touch-val">0°</span></div>
                   <input type="range" id="ip-slider-angle" min="0" max="360" value="0" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="spacing">
                   <div class="ip-touch-label-row"><span>Spacing</span><span id="ip-val-spacing" class="ip-touch-val">5%</span></div>
                   <input type="range" id="ip-slider-spacing" min="1" max="200" value="5" class="ip-touch-slider">
                 </div>
@@ -4655,30 +4666,30 @@
 
               <!-- Compact 3x2 Toggles for Tip & Stylus -->
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 3px;">
-                <button type="button" id="btn-ip-lab-press-size" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
+                <button type="button" id="btn-ip-lab-press-size" data-brush-input="pressure" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
                   <input type="checkbox" id="chk-ip-lab-press-size" checked style="margin-right: 3px; pointer-events: none;"> Press Size
                 </button>
-                <button type="button" id="btn-ip-lab-press-flow" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
+                <button type="button" id="btn-ip-lab-press-flow" data-brush-input="pressure" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
                   <input type="checkbox" id="chk-ip-lab-press-flow" checked style="margin-right: 3px; pointer-events: none;"> Press Flow
                 </button>
-                <button type="button" id="btn-ip-lab-tilt-angle" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
+                <button type="button" id="btn-ip-lab-tilt-angle" data-brush-input="tilt" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
                   <input type="checkbox" id="chk-ip-lab-tilt-angle" checked style="margin-right: 3px; pointer-events: none;"> Stylus Tilt
                 </button>
-                <button type="button" id="btn-ip-lab-autorotate" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
+                <button type="button" id="btn-ip-lab-autorotate" data-brush-input="angle" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
                   <input type="checkbox" id="chk-ip-lab-autorotate" style="margin-right: 3px; pointer-events: none;"> Follow Dir
                 </button>
-                <button type="button" id="btn-ip-lab-subpixel" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
+                <button type="button" id="btn-ip-lab-subpixel" data-brush-input="subpixel" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
                   <input type="checkbox" id="chk-ip-lab-subpixel" style="margin-right: 3px; pointer-events: none;"> Subpixel
                 </button>
-                <button type="button" id="btn-ip-lab-buildup" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
+                <button type="button" id="btn-ip-lab-buildup" data-brush-input="opacity" class="ip-btn ip-mini-btn" style="justify-content: flex-start; height: 22px; padding: 0 4px; font-size: 9px;">
                   <input type="checkbox" id="chk-ip-lab-buildup" style="margin-right: 3px; pointer-events: none;"> Buildup
                 </button>
               </div>
             </div>
 
             <!-- 2. DYNAMICS & STABILIZER -->
-            <div style="display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); padding-top: 5px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
+            <div id="ip-lab-section-dynamics" style="display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); padding-top: 5px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;" data-brush-input="stabilizer">
                 <span style="font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px;">Dynamics &amp; Stabilizer</span>
                 <select id="ip-select-stabilizer-mode" class="ui-select" style="height: 20px; font-size: 9.5px; padding: 0 4px; max-width: 155px;">
                   <option value="0">Streamline (Bezier)</option>
@@ -4687,31 +4698,31 @@
               </div>
 
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 3px;">
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="stabilizer">
                   <div class="ip-touch-label-row"><span id="ip-lbl-stabilization">Stabilization</span><span id="ip-val-smoothing" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-smoothing" min="0" max="100" value="0" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control" id="ip-ctrl-string-length" style="display: none;">
+                <div class="ip-touch-control" id="ip-ctrl-string-length" data-brush-input="stabilizer" style="display: none;">
                   <div class="ip-touch-label-row"><span>String Len</span><span id="ip-val-string-length" class="ip-touch-val">30px</span></div>
                   <input type="range" id="ip-slider-string-length" min="5" max="250" value="30" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control" id="ip-ctrl-midpoint">
+                <div class="ip-touch-control" id="ip-ctrl-midpoint" data-brush-input="stabilizer">
                   <div class="ip-touch-label-row"><span>Midpoint</span><span id="ip-val-midpoint" class="ip-touch-val">50%</span></div>
                   <input type="range" id="ip-slider-midpoint" min="0" max="100" value="50" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="speed">
                   <div class="ip-touch-label-row"><span>Velocity</span><span id="ip-val-velocity" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-velocity" min="0" max="100" value="0" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="fade">
                   <div class="ip-touch-label-row"><span>Fade Decay</span><span id="ip-val-fade" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-fade" min="0" max="100" value="0" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="taper">
                   <div class="ip-touch-label-row"><span>Taper In</span><span id="ip-val-taper-in" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-taper-in" min="0" max="100" value="0" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="taper">
                   <div class="ip-touch-label-row"><span>Taper Out</span><span id="ip-val-taper-out" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-taper-out" min="0" max="100" value="0" class="ip-touch-slider">
                 </div>
@@ -4719,7 +4730,7 @@
             </div>
 
             <!-- 3. WET, MIX & PAINT PHYSICS -->
-            <div style="display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); padding-top: 5px;">
+            <div id="ip-lab-section-wet" data-brush-input="wet" style="display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); padding-top: 5px;">
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px; flex-wrap: wrap;">
                 <span style="font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px;">Wet &amp; Paint Physics</span>
                 <div style="display: flex; align-items: center; gap: 3px;">
@@ -4789,8 +4800,8 @@
             </div>
 
             <!-- 4. JITTER & DUAL BRUSH -->
-            <div style="display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); padding-top: 5px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
+            <div id="ip-lab-section-jitter" style="display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); padding-top: 5px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;" data-brush-input="dual">
                 <span style="font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px;">Jitter &amp; Dual Brush</span>
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <span style="font-size: 9px; color: var(--text-muted);">Dual:</span>
@@ -4808,31 +4819,31 @@
               </div>
 
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 3px;">
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="jitter">
                   <div class="ip-touch-label-row"><span>Size Jitter</span><span id="ip-val-jitter-size" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-jitter-size" min="0" max="100" value="0" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="jitter">
                   <div class="ip-touch-label-row"><span>Angle Jitter</span><span id="ip-val-jitter-angle" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-jitter-angle" min="0" max="100" value="0" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="jitter">
                   <div class="ip-touch-label-row"><span>Opacity Jitter</span><span id="ip-val-jitter-op" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-jitter-op" min="0" max="100" value="0" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="jitter">
                   <div class="ip-touch-label-row"><span>Color Jitter</span><span id="ip-val-jitter-color" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-jitter-color" min="0" max="100" value="0" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="jitter">
                   <div class="ip-touch-label-row"><span>Scatter</span><span id="ip-val-scatter" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-scatter" min="0" max="100" value="0" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control">
+                <div class="ip-touch-control" data-brush-input="dual">
                   <div class="ip-touch-label-row"><span>Dual Size</span><span id="ip-val-dual-size" class="ip-touch-val">100%</span></div>
                   <input type="range" id="ip-slider-dual-size" min="10" max="300" value="100" class="ip-touch-slider">
                 </div>
-                <div class="ip-touch-control" style="grid-column: span 2;">
+                <div class="ip-touch-control" data-brush-input="dual" style="grid-column: span 2;">
                   <div class="ip-touch-label-row"><span>Dual Spacing</span><span id="ip-val-dual-spacing" class="ip-touch-val">10%</span></div>
                   <input type="range" id="ip-slider-dual-spacing" min="1" max="100" value="10" class="ip-touch-slider">
                 </div>
@@ -4840,7 +4851,7 @@
             </div>
 
             <!-- 5. TEXTURE & GRAIN -->
-            <div style="display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); padding-top: 5px;">
+            <div id="ip-lab-section-texture" data-brush-input="texture" style="display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); padding-top: 5px;">
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
                 <span style="font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px;">Texture &amp; Grain</span>
                 <div style="display: flex; gap: 3px; align-items: center;">
@@ -5242,7 +5253,7 @@
       tools: 'Tools',
       timeline: 'Timeline',
       color: 'Color Studio',
-      lab: 'Brush Lab'
+      lab: 'Brush Studio'
     };
 
     const panelElements = new Map();

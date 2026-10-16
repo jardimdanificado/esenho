@@ -1358,6 +1358,85 @@ class EsenhoWasmBrush {
     return this._info;
   }
 
+  getAcceptedInputs() {
+    const info = this.getInfo();
+    if (info && Array.isArray(info.inputs)) {
+      return info.inputs.map(s => String(s).toLowerCase().trim());
+    }
+    if (typeof this.exports.w_brush_get_inputs === 'function') {
+      try {
+        const mask = this.exports.w_brush_get_inputs() >>> 0;
+        const decoded = [];
+        if (mask & (1 << 0)) decoded.push('size');
+        if (mask & (1 << 1)) decoded.push('pressure');
+        if (mask & (1 << 2)) decoded.push('tilt');
+        if (mask & (1 << 3)) decoded.push('angle');
+        if (mask & (1 << 4)) decoded.push('speed');
+        if (mask & (1 << 5)) decoded.push('color');
+        if (mask & (1 << 6)) decoded.push('opacity');
+        if (mask & (1 << 7)) decoded.push('spacing');
+        if (mask & (1 << 8)) decoded.push('hardness');
+        if (mask & (1 << 9)) decoded.push('roundness');
+        if (mask & (1 << 10)) decoded.push('stabilizer');
+        if (mask & (1 << 11)) decoded.push('jitter');
+        if (mask & (1 << 12)) decoded.push('wet');
+        if (mask & (1 << 13)) decoded.push('texture');
+        if (mask & (1 << 14)) decoded.push('dual');
+        if (mask & (1 << 15)) decoded.push('tip');
+        if (mask & (1 << 16)) decoded.push('params');
+        return decoded;
+      } catch (_) {}
+    }
+    // Default zero-copy kernel inputs
+    return ['size', 'pressure', 'angle', 'speed', 'color', 'spacing', 'params'];
+  }
+
+  acceptsInput(name) {
+    if (!name) return false;
+    const inputs = this.getAcceptedInputs();
+    if (!inputs || inputs.length === 0) return true;
+    if (inputs.includes('*') || inputs.includes('all')) return true;
+
+    const n = String(name).toLowerCase().trim();
+    if (inputs.includes(n)) return true;
+
+    // Synonyms & Semantic mappings
+    if (n === 'radius' || n === 'min_radius' || n === 'max_radius') {
+      return inputs.includes('size') || inputs.includes('radius');
+    }
+    if (n === 'flow') {
+      return inputs.includes('opacity') || inputs.includes('flow');
+    }
+    if (n === 'smoothing' || n === 'streamline' || n === 'stabilization' || n === 'string_length' || n === 'midpoint') {
+      return inputs.includes('stabilizer') || inputs.includes('smoothing');
+    }
+    if (n === 'velocity') {
+      return inputs.includes('speed') || inputs.includes('velocity');
+    }
+    if (n === 'rotation' || n === 'autorotate' || n === 'follow_direction') {
+      return inputs.includes('angle') || inputs.includes('rotation');
+    }
+    if (n === 'grain' || n === 'texture_scale' || n === 'texture_contrast' || n === 'texture_rotate') {
+      return inputs.includes('texture') || inputs.includes('grain');
+    }
+    if (n === 'shape' || n === 'tip_shape') {
+      return inputs.includes('tip') || inputs.includes('shape');
+    }
+    if (n === 'dual_brush' || n === 'dual_size' || n === 'dual_spacing' || n === 'dual_shape') {
+      return inputs.includes('dual') || inputs.includes('dual_brush');
+    }
+    if (['wetness', 'water', 'bleed', 'granulation', 'fringe', 'impasto', 'smudge', 'color_pickup', 'depletion', 'drying_rate', 'pigment', 'paint_physics'].includes(n)) {
+      return inputs.includes('wet') || inputs.includes('paint_physics') || inputs.includes(n);
+    }
+    if (['size_jitter', 'angle_jitter', 'opacity_jitter', 'color_jitter', 'scatter'].includes(n)) {
+      return inputs.includes('jitter') || inputs.includes(n);
+    }
+    if (n === 'param' || n === 'parameters') {
+      return inputs.includes('params');
+    }
+    return false;
+  }
+
   setParam(idx, val) {
     this.params.set(idx, val);
     if (typeof this.exports.w_brush_set_param === 'function') {
@@ -10386,18 +10465,21 @@ class EsenhoScreenHost {
         };
 
         const stampDabAt = (cx, cy, spd, ang, pPress) => {
-          b.renderDab(pixPtr, cw, ch, cx, cy, radius, pPress, ang, spd, col >>> 0, eraser);
+          const effPress = (typeof b.acceptsInput === 'function' && !b.acceptsInput('pressure')) ? 1.0 : pPress;
+          const effAng = (typeof b.acceptsInput === 'function' && !b.acceptsInput('angle')) ? 0.0 : ang;
+          const effSpd = (typeof b.acceptsInput === 'function' && !b.acceptsInput('speed')) ? 0.0 : spd;
+          b.renderDab(pixPtr, cw, ch, cx, cy, radius, effPress, effAng, effSpd, col >>> 0, eraser);
           markDirty(cx, cy);
           if (sym === 1 || sym === 3) {
-            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, cy, radius, pPress, 180 - ang, spd, col >>> 0, eraser);
+            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, cy, radius, effPress, 180 - effAng, effSpd, col >>> 0, eraser);
             markDirty(cw - 1 - cx, cy);
           }
           if (sym === 2 || sym === 3) {
-            b.renderDab(pixPtr, cw, ch, cx, ch - 1 - cy, radius, pPress, -ang, spd, col >>> 0, eraser);
+            b.renderDab(pixPtr, cw, ch, cx, ch - 1 - cy, radius, effPress, -effAng, effSpd, col >>> 0, eraser);
             markDirty(cx, ch - 1 - cy);
           }
           if (sym === 3) {
-            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, ch - 1 - cy, radius, pPress, 180 + ang, spd, col >>> 0, eraser);
+            b.renderDab(pixPtr, cw, ch, cw - 1 - cx, ch - 1 - cy, radius, effPress, 180 + effAng, effSpd, col >>> 0, eraser);
             markDirty(cw - 1 - cx, ch - 1 - cy);
           }
         };
@@ -10406,8 +10488,11 @@ class EsenhoScreenHost {
           this._wasmSpacingDist = 0.0;
           this._wasmLastTime = performance.now();
           this._wasmPrevPressure = mappedPressure;
-          b.strokeBegin(curX, curY, mappedPressure, tx, ty, col >>> 0, eraser);
-          stampDabAt(curX, curY, 0.0, 0.0, mappedPressure);
+          const effPress = (typeof b.acceptsInput === 'function' && !b.acceptsInput('pressure')) ? 1.0 : mappedPressure;
+          const effTiltX = (typeof b.acceptsInput === 'function' && !b.acceptsInput('tilt')) ? 0.0 : tx;
+          const effTiltY = (typeof b.acceptsInput === 'function' && !b.acceptsInput('tilt')) ? 0.0 : ty;
+          b.strokeBegin(curX, curY, effPress, effTiltX, effTiltY, col >>> 0, eraser);
+          stampDabAt(curX, curY, 0.0, 0.0, effPress);
         } else if (s === 1) {
           const dx = curX - pX;
           const dy = curY - pY;
@@ -11826,6 +11911,7 @@ EsenhoScreenHost.COMMAND_RULES = COMMAND_RULES;
 const _exports = {
   EsenhoModule,
   EsenhoScreenHost,
+  EsenhoWasmBrush,
   BRUSH_PRESETS,
   PARAM_IDS,
   COMMAND_RULES,

@@ -27,6 +27,7 @@ const char* w_brush_get_info(void) {
         "\"spacing\":0.05,"
         "\"minRadius\":8,"
         "\"maxRadius\":160,"
+        "\"inputs\":[\"size\",\"pressure\",\"angle\",\"speed\",\"color\",\"spacing\",\"params\"],"
         "\"params\":["
             "{\"name\":\"Curtain Height\",\"min\":20,\"max\":150,\"default\":80,\"unit\":\"px\"},"
             "{\"name\":\"Solar Wind Flutter\",\"min\":10,\"max\":100,\"default\":60,\"unit\":\"%\"},"
@@ -34,6 +35,10 @@ const char* w_brush_get_info(void) {
             "{\"name\":\"Ray Density\",\"min\":10,\"max\":100,\"default\":75,\"unit\":\"%\"}"
         "]"
     "}";
+}
+
+uint32_t w_brush_get_inputs(void) {
+    return W_BRUSH_INPUT_SIZE | W_BRUSH_INPUT_PRESSURE | W_BRUSH_INPUT_ANGLE | W_BRUSH_INPUT_SPEED | W_BRUSH_INPUT_COLOR | W_BRUSH_INPUT_SPACING | W_BRUSH_INPUT_PARAMS;
 }
 
 void w_brush_init(int canvas_w, int canvas_h) {

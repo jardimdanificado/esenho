@@ -43,6 +43,7 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"spacing\":0.05,"
         "\"minRadius\":2,"
         "\"maxRadius\":80,"
+        "\"inputs\":[\"size\",\"pressure\",\"color\",\"params\"],"
         "\"params\":["
             "{\"name\":\"Pixel Grid Size\",\"min\":1,\"max\":8,\"default\":1,\"unit\":\"px\"},"
             "{\"name\":\"Bayer Matrix (0=2x2,1=4x4,2=8x8)\",\"min\":0,\"max\":2,\"default\":1},"
@@ -50,6 +51,10 @@ W_EXPORT const char* w_brush_get_info(void) {
             "{\"name\":\"Contrast\",\"min\":20,\"max\":150,\"default\":100,\"unit\":\"%\"}"
         "]"
     "}";
+}
+
+W_EXPORT uint32_t w_brush_get_inputs(void) {
+    return W_BRUSH_INPUT_SIZE | W_BRUSH_INPUT_PRESSURE | W_BRUSH_INPUT_COLOR | W_BRUSH_INPUT_PARAMS;
 }
 
 W_EXPORT void w_brush_init(int32_t canvas_w, int32_t canvas_h) {}

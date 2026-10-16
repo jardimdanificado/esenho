@@ -36,6 +36,7 @@ W_EXPORT const char* w_brush_get_info(void) {
         "\"spacing\":0.05,"
         "\"minRadius\":4,"
         "\"maxRadius\":120,"
+        "\"inputs\":[\"size\",\"pressure\",\"speed\",\"color\",\"spacing\",\"params\"],"
         "\"params\":["
             "{\"name\":\"Bristle Count\",\"min\":6,\"max\":32,\"default\":18,\"unit\":\"bristles\"},"
             "{\"name\":\"Depletion Rate\",\"min\":0,\"max\":100,\"default\":35,\"unit\":\"%\"},"
@@ -43,6 +44,10 @@ W_EXPORT const char* w_brush_get_info(void) {
             "{\"name\":\"Stiffness\",\"min\":10,\"max\":100,\"default\":60,\"unit\":\"%\"}"
         "]"
     "}";
+}
+
+W_EXPORT uint32_t w_brush_get_inputs(void) {
+    return W_BRUSH_INPUT_SIZE | W_BRUSH_INPUT_PRESSURE | W_BRUSH_INPUT_SPEED | W_BRUSH_INPUT_COLOR | W_BRUSH_INPUT_SPACING | W_BRUSH_INPUT_PARAMS;
 }
 
 static void init_bristle_bundle(void) {
