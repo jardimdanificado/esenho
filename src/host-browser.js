@@ -3930,6 +3930,7 @@ async function main() {
 
     const hasSel = !isVecLayer && typeof host.hasSelection === 'function' && host.hasSelection();
     const isInsideSel = hasSel && typeof host.isPointInSelection === 'function' && host.isPointInSelection(p.x, p.y);
+    const filterSubmenuItems = [buildDomPanelAction('filters')];
 
     // ── CASE 1: FLOATING TRANSFORM CONTEXT ──
     if (isFloatingTransform) {
@@ -3999,6 +4000,8 @@ async function main() {
         { type: 'sep' },
         { type: 'item', label: 'Crop Canvas to Selection', action: () => { runCmd('crop'); } }
       ]);
+      addSep();
+      addSubmenu('Filters (Apply to Selection)', filterSubmenuItems);
       addSep();
     }
 
@@ -4188,6 +4191,8 @@ async function main() {
         { type: 'sep' },
         { type: 'item', label: 'Crop Canvas to Selection', action: () => { runCmd('crop'); } }
       ]);
+      addSep();
+      addSubmenu('Filters (Apply to Selection)', filterSubmenuItems);
       addSep();
     }
 
@@ -4426,9 +4431,10 @@ async function main() {
       brushCatMap.get(cat).push([k, preset]);
     }
     const brushLibraryItems = [];
+    let recentItems = [];
     if (host.brushHistory && host.brushHistory.length > 0) {
       const presetsMap = { ...BRUSH_PRESETS, ...(host.customBrushPresets || {}) };
-      const recentItems = host.brushHistory
+      recentItems = host.brushHistory
         .map(k => {
           if (presetsMap[k]) return { key: k, name: presetsMap[k].name, size: presetsMap[k].size, isWasm: false };
           if (k.startsWith('wasm_') || (host.wasmBrushes && host.wasmBrushes.has(k))) {
@@ -4643,7 +4649,6 @@ async function main() {
     ];
 
     // 8. Filters & Animation Submenus
-    const filterSubmenuItems = [buildDomPanelAction('filters')];
     const animSubmenuItems = [
       { type: 'item', label: host.rasterAnimator?.isPlaying ? '⏸ Pause Playback' : '▶ Play Animation', hotkey: 'Space', action: () => { host.rasterAnimator?.togglePlay(); syncUiFromHost(); } },
       { type: 'item', label: (host.rasterAnimator?.loop ? '✓ ' : '') + 'Loop Playback', action: () => { if (host.rasterAnimator) { host.rasterAnimator.loop = !host.rasterAnimator.loop; host.rasterAnimatorUI?.syncUI(); } } },
@@ -4894,20 +4899,40 @@ async function main() {
     }
 
     // Canvas Context Menu (Right-Click / Long-Press)
-    addSubmenu(`Brush: ${activeBrushTitle}`, brushLibraryItems);
-    addSubmenu('Tools, Shapes & Guides', toolsSubmenuList);
-    addSubmenu(`Active Layer (#${activeLayerIdx})`, activeLayerItems);
-    addSubmenu('Filters', filterSubmenuItems);
-    addSubmenu('Animation Timeline', animSubmenuItems);
-    addSubmenu('Canvas & View', canvasViewSubmenuItems);
-    addSep();
+    // Strictly contextual, flat, ultra-compact for mobile portrait mode!
     addItem('Undo', 'Ctrl+Z', () => runCmd('undo'));
     addItem('Redo', 'Ctrl+Y', () => runCmd('redo'));
     if (host.clipboardBuffer) addItem('Paste', 'Ctrl+V', () => runCmd('paste'));
     addItem('Free Transform Layer', 'Ctrl+T', () => runCmd('transform'));
     addSep();
-    addSubmenu('Project & File', projectSubmenuItems);
-    addSubmenu('Settings & Preferences', settingsSubmenuItems);
+
+    // Flat Recent Brushes (no 12-category cascading submenu explosion)
+    if (recentItems.length > 0) {
+      addSubmenu('Recent Brushes', recentItems.map(item => ({
+        type: 'item',
+        label: (host.activeBrush === item.key ? '✓ ' : '') + (item.isWasm ? `${item.name} (WASM)` : `${item.name} (${item.size || 10}px)`),
+        action: () => { host.selectBrushPreset(item.key); syncUiFromHost(); populateBrushPresetsUI(); }
+      })));
+    }
+    addItem('Open Brush Lab...', '', () => window.openPainterDockPanel?.('lab'));
+    addItem('Reset Brush to Default', '', () => { runCmd('reset tool'); syncUiFromHost(); });
+    addSep();
+
+    // Symmetry Guides (Direct flat submenu)
+    addSubmenu('Symmetry Guides', [
+      { type: 'item', label: (curSym === 0 ? '✓ ' : '') + 'Symmetry Off', action: () => runCmd('set symmetry 0') },
+      { type: 'item', label: (curSym === 1 ? '✓ ' : '') + 'Horizontal Mirror (X)', action: () => runCmd('set symmetry 1') },
+      { type: 'item', label: (curSym === 2 ? '✓ ' : '') + 'Vertical Mirror (Y)', action: () => runCmd('set symmetry 2') },
+      { type: 'item', label: (curSym === 3 ? '✓ ' : '') + 'Quad Mirror (X + Y)', action: () => runCmd('set symmetry 3') },
+      { type: 'item', label: (curSym === 4 ? '✓ ' : '') + 'Radial / Mandala', action: () => runCmd('set symmetry 4') }
+    ]);
+
+    // View Quick Actions (Direct flat items)
+    addItem('Zoom to Fit', 'Ctrl+0', () => { host.zoom = 1.0; host.panX = 0; host.panY = 0; host.canvasRotation = 0; host.render(); });
+    addItem((host.flipH ? '✓ ' : '') + 'Flip View Horizontal', '', () => { host.flipH = !host.flipH; host.render(); syncUiFromHost(); });
+    if (host.canvasRotation) {
+      addItem('Reset Rotation (0°)', '', () => { if (host.resetRotation) host.resetRotation(); else { host.canvasRotation = 0; host.render(); } });
+    }
 
     return items;
   }
@@ -7731,8 +7756,8 @@ async function main() {
     listToShow.forEach(hex => {
       const slot = document.createElement('div');
       slot.className = 'touch-swatch-slot';
-      slot.style.width = '24px';
-      slot.style.height = '20px';
+      slot.style.width = '20px';
+      slot.style.height = '16px';
       slot.style.flexShrink = '0';
       slot.style.background = hex;
       if (currentHex && hex.toUpperCase() === currentHex) {
@@ -7817,8 +7842,8 @@ async function main() {
     history.forEach((hex, idx) => {
       const slot = document.createElement('div');
       slot.className = 'touch-swatch-slot';
-      slot.style.width = '24px';
-      slot.style.height = '20px';
+      slot.style.width = '20px';
+      slot.style.height = '16px';
       slot.style.flexShrink = '0';
       slot.style.background = hex;
       if (currentHex && hex.toUpperCase() === currentHex) {
@@ -12580,6 +12605,17 @@ async function main() {
         if (e.target === modal) {
           modal.classList.remove('active');
         }
+      });
+    });
+
+    // Brush Lab Category Navigation Tabs
+    document.querySelectorAll('.ip-lab-tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.ip-lab-tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+        const sheet = document.getElementById('sheet-lab');
+        if (sheet) sheet.setAttribute('data-active-tab', tab);
       });
     });
 

@@ -2994,10 +2994,10 @@
 
     /* ── Color Studio Controls ── */
     .touch-color-box {
-      padding: 10px 12px;
+      padding: 5px 6px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 4px;
       overflow-y: auto;
     }
     .touch-color-header {
@@ -4098,11 +4098,42 @@
       min-width: 44px;
     }
     .dock-panel-content:not(#dock-panel-timeline):not(#dock-panel-canvas) .touch-color-wheel-wrap {
-      width: min(100%, 200px) !important;
-      max-height: min(200px, 35vh) !important;
+      width: min(100%, 140px) !important;
+      max-height: min(140px, 20vh) !important;
       height: auto !important;
       aspect-ratio: 1 / 1 !important;
       max-width: 100% !important;
+    }
+    /* ── Brush Lab Compact Mobile Tabs ── */
+    #sheet-lab[data-active-tab="tip"] #ip-lab-section-dynamics,
+    #sheet-lab[data-active-tab="tip"] #ip-lab-section-wet,
+    #sheet-lab[data-active-tab="tip"] #ip-lab-section-jitter,
+    #sheet-lab[data-active-tab="tip"] #ip-lab-section-texture { display: none !important; }
+
+    #sheet-lab[data-active-tab="dynamics"] #ip-lab-section-tip,
+    #sheet-lab[data-active-tab="dynamics"] #ip-lab-section-wet,
+    #sheet-lab[data-active-tab="dynamics"] #ip-lab-section-jitter,
+    #sheet-lab[data-active-tab="dynamics"] #ip-lab-section-texture { display: none !important; }
+
+    #sheet-lab[data-active-tab="wet"] #ip-lab-section-tip,
+    #sheet-lab[data-active-tab="wet"] #ip-lab-section-dynamics,
+    #sheet-lab[data-active-tab="wet"] #ip-lab-section-jitter,
+    #sheet-lab[data-active-tab="wet"] #ip-lab-section-texture { display: none !important; }
+
+    #sheet-lab[data-active-tab="jitter"] #ip-lab-section-tip,
+    #sheet-lab[data-active-tab="jitter"] #ip-lab-section-dynamics,
+    #sheet-lab[data-active-tab="jitter"] #ip-lab-section-wet,
+    #sheet-lab[data-active-tab="jitter"] #ip-lab-section-texture { display: none !important; }
+
+    #sheet-lab[data-active-tab="texture"] #ip-lab-section-tip,
+    #sheet-lab[data-active-tab="texture"] #ip-lab-section-dynamics,
+    #sheet-lab[data-active-tab="texture"] #ip-lab-section-wet,
+    #sheet-lab[data-active-tab="texture"] #ip-lab-section-jitter { display: none !important; }
+
+    .ip-lab-tab-btn.active {
+      background: var(--primary) !important;
+      color: var(--bg-dark, #1d2021) !important;
+      font-weight: 800 !important;
     }
     .dock-panel-content .touch-color-box::-webkit-scrollbar {
       width: 4px;
@@ -4167,7 +4198,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.14.10  --x--  0,0  zoom 100%  rot 0.0°</span>
+    <span id="wstatus" class="ip-top-status-text">v0.14.11  --x--  0,0  zoom 100%  rot 0.0°</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -4238,84 +4269,84 @@
     <div id="dock-panel-color" class="dock-panel-content">
       <div id="touch-color-modal">
         <div class="touch-color-box">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <div class="touch-color-preview-duo" title="Previous / Active Color (Tap Prev to restore)" style="height: 24px; width: 46px; flex-shrink: 0; cursor: pointer;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div class="touch-color-preview-duo" title="Previous / Active Color (Tap Prev to restore)" style="height: 20px; width: 40px; flex-shrink: 0; cursor: pointer;">
               <div id="touch-color-prev-chip" class="touch-preview-chip" title="Previous Color (Tap to restore)" style="cursor: pointer;"></div>
               <div id="touch-color-curr-chip" class="touch-preview-chip" title="Current Color"></div>
             </div>
-            <div class="touch-color-mode-tabs" style="flex: 1;">
-              <button type="button" class="touch-color-tab-btn active" data-touchmode="wheel">Wheel</button>
-              <button type="button" class="touch-color-tab-btn" data-touchmode="box">SV Box</button>
-              <button type="button" class="touch-color-tab-btn" data-touchmode="sliders">Sliders</button>
-              <button type="button" class="touch-color-tab-btn" data-touchmode="palettes">Palettes</button>
+            <div class="touch-color-mode-tabs" style="flex: 1; display: flex; gap: 2px;">
+              <button type="button" class="touch-color-tab-btn active" data-touchmode="wheel" style="height: 20px; padding: 0 5px; font-size: 9px;">Wheel</button>
+              <button type="button" class="touch-color-tab-btn" data-touchmode="box" style="height: 20px; padding: 0 5px; font-size: 9px;">SV Box</button>
+              <button type="button" class="touch-color-tab-btn" data-touchmode="sliders" style="height: 20px; padding: 0 5px; font-size: 9px;">Sliders</button>
+              <button type="button" class="touch-color-tab-btn" data-touchmode="palettes" style="height: 20px; padding: 0 5px; font-size: 9px;">Palettes</button>
             </div>
           </div>
 
           <!-- TAB 1: WHEEL -->
-          <div id="touch-panel-wheel" class="touch-color-panel" style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
+          <div id="touch-panel-wheel" class="touch-color-panel" style="display: flex; flex-direction: column; gap: 3px; align-items: center;">
             <div class="touch-color-wheel-wrap">
               <canvas id="touch-color-canvas" width="200" height="200"></canvas>
             </div>
-            <div style="width: 100%; display: flex; flex-direction: column; gap: 2px;">
-              <div class="ui-label-row"><span style="font-size: 10px; color: var(--text-muted);">Brightness / Value:</span><span id="touch-val-readout" class="ui-val">100%</span></div>
-              <input type="range" id="touch-wheel-val-slider" min="0" max="100" value="100" class="ui-slider" style="width: 100%;">
+            <div style="width: 100%; display: flex; flex-direction: column; gap: 1px;">
+              <div class="ui-label-row"><span style="font-size: 9px; color: var(--text-muted);">Brightness:</span><span id="touch-val-readout" class="ui-val" style="font-size: 9px;">100%</span></div>
+              <input type="range" id="touch-wheel-val-slider" min="0" max="100" value="100" class="ui-slider" style="width: 100%; height: 4px;">
             </div>
           </div>
 
           <!-- TAB 2: SV BOX -->
-          <div id="touch-panel-box" class="touch-color-panel" style="display: none; flex-direction: column; gap: 6px; align-items: center;">
-            <div class="touch-color-svbox-wrap" style="position: relative; width: 100%; max-width: 260px; height: 160px;">
-              <canvas id="touch-svbox-canvas" width="260" height="160" style="width: 100%; height: 100%; touch-action: none; cursor: crosshair; border: 1px solid var(--border-bright);"></canvas>
-              <div id="touch-svbox-cursor" style="position: absolute; width: 12px; height: 12px; border: 2px solid #fff; box-shadow: 0 0 2px #000; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); left: 100%; top: 0;"></div>
+          <div id="touch-panel-box" class="touch-color-panel" style="display: none; flex-direction: column; gap: 3px; align-items: center;">
+            <div class="touch-color-svbox-wrap" style="position: relative; width: 100%; max-width: 220px; height: 110px;">
+              <canvas id="touch-svbox-canvas" width="220" height="110" style="width: 100%; height: 100%; touch-action: none; cursor: crosshair; border: 1px solid var(--border-bright);"></canvas>
+              <div id="touch-svbox-cursor" style="position: absolute; width: 10px; height: 10px; border: 2px solid #fff; box-shadow: 0 0 2px #000; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); left: 100%; top: 0;"></div>
             </div>
-            <div style="width: 100%; display: flex; flex-direction: column; gap: 2px;">
-              <div class="ui-label-row"><span style="font-size: 10px; color: var(--text-muted);">Hue Spectrum:</span><span id="touch-box-hue-readout" class="ui-val">0°</span></div>
-              <input type="range" id="touch-box-hue-slider" min="0" max="359" value="0" class="hue-rainbow-slider" style="width: 100%;">
+            <div style="width: 100%; display: flex; flex-direction: column; gap: 1px;">
+              <div class="ui-label-row"><span style="font-size: 9px; color: var(--text-muted);">Hue:</span><span id="touch-box-hue-readout" class="ui-val" style="font-size: 9px;">0°</span></div>
+              <input type="range" id="touch-box-hue-slider" min="0" max="359" value="0" class="hue-rainbow-slider" style="width: 100%; height: 4px;">
             </div>
           </div>
 
           <!-- TAB 3: SLIDERS (RGB & HSL) -->
-          <div id="touch-panel-sliders" class="touch-color-panel" style="display: none; flex-direction: column; gap: 6px;">
-            <div style="font-size: 10px; font-weight: bold; color: var(--primary);">RGB Channels</div>
-            <div class="ui-row-gap" style="gap: 4px;">
-              <span style="font-size: 10px; width: 14px; color: var(--danger); font-weight: bold;">R</span>
-              <input type="range" id="touch-slider-r" min="0" max="255" value="235" class="ui-slider" style="flex: 1;">
-              <input type="number" id="touch-num-r" min="0" max="255" value="235" class="ui-input-num" style="width: 44px; text-align: center;">
+          <div id="touch-panel-sliders" class="touch-color-panel" style="display: none; flex-direction: column; gap: 3px;">
+            <div style="font-size: 9px; font-weight: bold; color: var(--primary);">RGB Channels</div>
+            <div class="ui-row-gap" style="gap: 3px;">
+              <span style="font-size: 9px; width: 12px; color: var(--danger); font-weight: bold;">R</span>
+              <input type="range" id="touch-slider-r" min="0" max="255" value="235" class="ui-slider" style="flex: 1; height: 4px;">
+              <input type="number" id="touch-num-r" min="0" max="255" value="235" class="ui-input-num" style="width: 36px; height: 18px; font-size: 9px; text-align: center;">
             </div>
-            <div class="ui-row-gap" style="gap: 4px;">
-              <span style="font-size: 10px; width: 14px; color: var(--success); font-weight: bold;">G</span>
-              <input type="range" id="touch-slider-g" min="0" max="255" value="219" class="ui-slider" style="flex: 1;">
-              <input type="number" id="touch-num-g" min="0" max="255" value="219" class="ui-input-num" style="width: 44px; text-align: center;">
+            <div class="ui-row-gap" style="gap: 3px;">
+              <span style="font-size: 9px; width: 12px; color: var(--success); font-weight: bold;">G</span>
+              <input type="range" id="touch-slider-g" min="0" max="255" value="219" class="ui-slider" style="flex: 1; height: 4px;">
+              <input type="number" id="touch-num-g" min="0" max="255" value="219" class="ui-input-num" style="width: 36px; height: 18px; font-size: 9px; text-align: center;">
             </div>
-            <div class="ui-row-gap" style="gap: 4px;">
-              <span style="font-size: 10px; width: 14px; color: var(--accent); font-weight: bold;">B</span>
-              <input type="range" id="touch-slider-b" min="0" max="255" value="178" class="ui-slider" style="flex: 1;">
-              <input type="number" id="touch-num-b" min="0" max="255" value="178" class="ui-input-num" style="width: 44px; text-align: center;">
+            <div class="ui-row-gap" style="gap: 3px;">
+              <span style="font-size: 9px; width: 12px; color: var(--accent); font-weight: bold;">B</span>
+              <input type="range" id="touch-slider-b" min="0" max="255" value="178" class="ui-slider" style="flex: 1; height: 4px;">
+              <input type="number" id="touch-num-b" min="0" max="255" value="178" class="ui-input-num" style="width: 36px; height: 18px; font-size: 9px; text-align: center;">
             </div>
 
-            <div style="font-size: 10px; font-weight: bold; color: var(--primary); margin-top: 4px;">HSV / HSL</div>
-            <div class="ui-row-gap" style="gap: 4px;">
-              <span style="font-size: 10px; width: 14px; color: var(--accent); font-weight: bold;">H</span>
-              <input type="range" id="touch-slider-h" min="0" max="359" value="43" class="ui-slider" style="flex: 1;">
-              <span id="touch-val-h" style="font-size: 10px; width: 44px; text-align: right; color: var(--text);">43°</span>
+            <div style="font-size: 9px; font-weight: bold; color: var(--primary); margin-top: 2px;">HSV / HSL</div>
+            <div class="ui-row-gap" style="gap: 3px;">
+              <span style="font-size: 9px; width: 12px; color: var(--accent); font-weight: bold;">H</span>
+              <input type="range" id="touch-slider-h" min="0" max="359" value="43" class="ui-slider" style="flex: 1; height: 4px;">
+              <span id="touch-val-h" style="font-size: 9px; width: 36px; text-align: right; color: var(--text);">43°</span>
             </div>
-            <div class="ui-row-gap" style="gap: 4px;">
-              <span style="font-size: 10px; width: 14px; color: var(--primary-hover); font-weight: bold;">S</span>
-              <input type="range" id="touch-slider-s" min="0" max="100" value="60" class="ui-slider" style="flex: 1;">
-              <span id="touch-val-s" style="font-size: 10px; width: 44px; text-align: right; color: var(--text);">60%</span>
+            <div class="ui-row-gap" style="gap: 3px;">
+              <span style="font-size: 9px; width: 12px; color: var(--primary-hover); font-weight: bold;">S</span>
+              <input type="range" id="touch-slider-s" min="0" max="100" value="60" class="ui-slider" style="flex: 1; height: 4px;">
+              <span id="touch-val-s" style="font-size: 9px; width: 36px; text-align: right; color: var(--text);">60%</span>
             </div>
-            <div class="ui-row-gap" style="gap: 4px;">
-              <span style="font-size: 10px; width: 14px; color: var(--primary); font-weight: bold;">V</span>
-              <input type="range" id="touch-slider-v" min="0" max="100" value="92" class="ui-slider" style="flex: 1;">
-              <span id="touch-val-v" style="font-size: 10px; width: 44px; text-align: right; color: var(--text);">92%</span>
+            <div class="ui-row-gap" style="gap: 3px;">
+              <span style="font-size: 9px; width: 12px; color: var(--primary); font-weight: bold;">V</span>
+              <input type="range" id="touch-slider-v" min="0" max="100" value="92" class="ui-slider" style="flex: 1; height: 4px;">
+              <span id="touch-val-v" style="font-size: 9px; width: 36px; text-align: right; color: var(--text);">92%</span>
             </div>
           </div>
 
           <!-- TAB 4: PALETTES & SWATCHES -->
-          <div id="touch-panel-palettes" class="touch-color-panel" style="display: none; flex-direction: column; gap: 6px;">
+          <div id="touch-panel-palettes" class="touch-color-panel" style="display: none; flex-direction: column; gap: 4px;">
             <div class="ui-row-gap" style="align-items: center;">
-              <label style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Palette:</label>
-              <select id="touch-palette-select" class="ui-select" style="flex: 1; height: 26px;">
+              <label style="font-size: 9.5px; font-weight: bold; color: var(--text-muted);">Palette:</label>
+              <select id="touch-palette-select" class="ui-select" style="flex: 1; height: 22px; font-size: 9.5px;">
                 <option value="custom">My Custom Swatches</option>
                 <option value="history">Color History / Recents</option>
                 <option value="gruvbox">Gruvbox Dark</option>
@@ -4326,38 +4357,38 @@
                 <option value="retro_gameboy">4-Color Retro GameBoy</option>
               </select>
             </div>
-            <div id="touch-modal-swatches" class="touch-color-swatches" style="max-height: 180px; overflow-y: auto;"></div>
+            <div id="touch-modal-swatches" class="touch-color-swatches" style="max-height: 140px; overflow-y: auto;"></div>
           </div>
 
           <!-- DIRECT HEX & ACTION BAR -->
-          <div style="background: var(--bg-input); border: 1px solid var(--border); padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; margin-top: 2px; flex-shrink: 0;">
+          <div style="background: var(--bg-input); border: 1px solid var(--border); padding: 3px 6px; display: flex; flex-direction: column; gap: 3px; margin-top: 1px; flex-shrink: 0;">
             <div class="ui-row-between" style="align-items: center;">
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <span style="font-size: 11px; font-weight: bold; color: var(--primary);">HEX:</span>
-                <input type="text" id="touch-color-hex-input" value="#ebdbb2" maxlength="7" spellcheck="false" class="ui-input-text" style="width: 78px; font-weight: bold; text-transform: uppercase; padding: 2px 4px; font-size: 11px; text-align: center;">
-                <button type="button" class="dock-strip-btn" id="btn-touch-copy-hex" title="Copy Hex Code" style="padding: 0 6px; height: 24px;">Copy</button>
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <span style="font-size: 9.5px; font-weight: bold; color: var(--primary);">HEX:</span>
+                <input type="text" id="touch-color-hex-input" value="#ebdbb2" maxlength="7" spellcheck="false" class="ui-input-text" style="width: 68px; height: 20px; font-weight: bold; text-transform: uppercase; padding: 1px 3px; font-size: 10px; text-align: center;">
+                <button type="button" class="dock-strip-btn" id="btn-touch-copy-hex" title="Copy Hex Code" style="padding: 0 5px; height: 20px; font-size: 9px;">Copy</button>
               </div>
-              <div style="display: flex; gap: 4px;">
-                <button type="button" class="dock-strip-btn" id="btn-touch-add-swatch" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; height: 24px; padding: 0 8px;" title="Save current color to custom swatches">+ Swatch</button>
-                <button type="button" class="dock-strip-btn" id="btn-touch-del-swatch" style="height: 24px; padding: 0 6px; color: var(--danger);" title="Toggle Swatch Delete Mode">Del</button>
+              <div style="display: flex; gap: 3px;">
+                <button type="button" class="dock-strip-btn" id="btn-touch-add-swatch" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; height: 20px; padding: 0 6px; font-size: 9px;" title="Save current color to custom swatches">+ Swatch</button>
+                <button type="button" class="dock-strip-btn" id="btn-touch-del-swatch" style="height: 20px; padding: 0 5px; font-size: 9px; color: var(--danger);" title="Toggle Swatch Delete Mode">Del</button>
               </div>
             </div>
           </div>
 
           <!-- COLOR HISTORY SECTION -->
-          <div class="touch-color-history-section" style="display: flex; flex-direction: column; gap: 3px; margin-top: 4px; flex-shrink: 0;">
-            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 9.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+          <div class="touch-color-history-section" style="display: flex; flex-direction: column; gap: 2px; margin-top: 2px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 8.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
               <span>Color History</span>
-              <button type="button" id="btn-touch-clear-color-history" class="dock-strip-btn" style="height: 18px; padding: 0 5px; font-size: 8.5px;" title="Clear Color History">Clear</button>
+              <button type="button" id="btn-touch-clear-color-history" class="dock-strip-btn" style="height: 16px; padding: 0 4px; font-size: 8px;" title="Clear Color History">Clear</button>
             </div>
-            <div id="touch-color-history-row" style="display: flex; gap: 4px; overflow-x: auto; padding: 2px 0 4px 0; min-height: 24px; scrollbar-width: thin;"></div>
+            <div id="touch-color-history-row" style="display: flex; gap: 3px; overflow-x: auto; padding: 1px 0 2px 0; min-height: 18px; scrollbar-width: thin;"></div>
           </div>
 
           <!-- PALETTE SWATCHES SECTION -->
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 2px; font-size: 9.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 1px; font-size: 8.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
             <span>Palette Swatches</span>
           </div>
-          <div id="touch-quick-swatches-row" style="display: flex; flex-wrap: wrap; gap: 4px; overflow-x: hidden; padding-bottom: 8px; flex-shrink: 0; min-height: 28px;"></div>
+          <div id="touch-quick-swatches-row" style="display: flex; flex-wrap: wrap; gap: 3px; overflow-x: hidden; padding-bottom: 4px; flex-shrink: 0; min-height: 20px;"></div>
         </div>
       </div>
     </div>
@@ -4558,7 +4589,7 @@
 
     <!-- 6. BRUSH LAB PANEL (Single-Page Compact Layout) -->
     <div id="dock-panel-lab" class="dock-panel-content">
-      <div id="sheet-lab" class="ip-sheet-modal">
+      <div id="sheet-lab" class="ip-sheet-modal" data-active-tab="tip">
         <div class="ip-sheet">
           <!-- Preset Header Row -->
           <div style="display: flex; align-items: center; gap: 4px; padding: 4px 6px; border-bottom: 1px solid var(--border); background: var(--bg-panel-sub); flex-shrink: 0;">
@@ -4569,9 +4600,19 @@
             <span id="ip-lab-brush-name" style="display: none;">(Inker)</span>
           </div>
 
-          <div class="ip-sheet-content" style="padding: 6px; gap: 6px;">
+          <!-- Brush Lab Category Navigation Tabs -->
+          <div id="ip-lab-tabs-bar" style="display: flex; gap: 2px; padding: 2px 4px; background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; scrollbar-width: none;">
+            <button type="button" class="ip-btn ip-mini-btn ip-lab-tab-btn active" data-tab="tip" style="height: 19px; padding: 0 5px; font-size: 8.5px; flex: 1; white-space: nowrap;">Tip</button>
+            <button type="button" class="ip-btn ip-mini-btn ip-lab-tab-btn" data-tab="dynamics" style="height: 19px; padding: 0 5px; font-size: 8.5px; flex: 1; white-space: nowrap;">Dynamics</button>
+            <button type="button" class="ip-btn ip-mini-btn ip-lab-tab-btn" data-tab="wet" style="height: 19px; padding: 0 5px; font-size: 8.5px; flex: 1; white-space: nowrap;">Wet/Mix</button>
+            <button type="button" class="ip-btn ip-mini-btn ip-lab-tab-btn" data-tab="jitter" style="height: 19px; padding: 0 5px; font-size: 8.5px; flex: 1; white-space: nowrap;">Jitter</button>
+            <button type="button" class="ip-btn ip-mini-btn ip-lab-tab-btn" data-tab="texture" style="height: 19px; padding: 0 5px; font-size: 8.5px; flex: 1; white-space: nowrap;">Texture</button>
+            <button type="button" class="ip-btn ip-mini-btn ip-lab-tab-btn" data-tab="all" style="height: 19px; padding: 0 4px; font-size: 8px; opacity: 0.7;" title="Show All Sections">All</button>
+          </div>
+
+          <div class="ip-sheet-content" style="padding: 4px; gap: 4px;">
             <!-- 0. WASM KERNEL PARAMETERS -->
-            <div id="ip-lab-section-wasm-params" style="display: none; flex-direction: column; gap: 4px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">
+            <div id="ip-lab-section-wasm-params" style="display: none; flex-direction: column; gap: 3px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <span style="font-size: 9px; font-weight: 800; color: #fabd2f; text-transform: uppercase; letter-spacing: 0.4px;">WASM Kernel Parameters</span>
@@ -4591,33 +4632,29 @@
                 </div>
               </div>
 
-              <div class="ip-touch-control" data-brush-input="size" style="background: var(--bg-panel-sub); padding: 5px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px;">
+              <div class="ip-touch-control" data-brush-input="size" style="background: var(--bg-panel-sub); padding: 3px 5px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <span style="font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px;">Brush Size Range</span>
-                  <span id="ip-lab-size-range-val" class="ip-touch-val" style="font-size: 9.5px; font-family: var(--font-mono); font-weight: 800; color: var(--primary);">1 – 300 px</span>
+                  <span style="font-size: 8.5px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.3px;">Size Range</span>
+                  <span id="ip-lab-size-range-val" class="ip-touch-val" style="font-size: 8.5px; font-family: var(--font-mono); font-weight: 800; color: var(--primary);">1 – 300 px</span>
                 </div>
-                <div style="display: flex; gap: 6px; align-items: center;">
-                  <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 8.5px; color: var(--text-muted);">
-                      <span>Min Size</span>
-                      <span id="ip-val-size-min" style="font-family: var(--font-mono); color: var(--text-bright);">1px</span>
-                    </div>
-                    <input type="range" id="ip-slider-size-min" min="1" max="200" value="1" class="ip-touch-slider">
+                <div style="display: flex; gap: 4px; align-items: center;">
+                  <div style="flex: 1; display: flex; align-items: center; gap: 2px;">
+                    <span style="font-size: 7.5px; color: var(--text-muted); width: 18px;">Min</span>
+                    <input type="range" id="ip-slider-size-min" min="1" max="200" value="1" class="ip-touch-slider" style="flex: 1;">
+                    <span id="ip-val-size-min" style="font-size: 8px; font-family: var(--font-mono); color: var(--text-bright); width: 22px; text-align: right;">1px</span>
                   </div>
-                  <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 8.5px; color: var(--text-muted);">
-                      <span>Max Size</span>
-                      <span id="ip-val-size-max" style="font-family: var(--font-mono); color: var(--text-bright);">300px</span>
-                    </div>
-                    <input type="range" id="ip-slider-size-max" min="10" max="1000" value="300" class="ip-touch-slider">
+                  <div style="flex: 1; display: flex; align-items: center; gap: 2px;">
+                    <span style="font-size: 7.5px; color: var(--text-muted); width: 18px;">Max</span>
+                    <input type="range" id="ip-slider-size-max" min="10" max="1000" value="300" class="ip-touch-slider" style="flex: 1;">
+                    <span id="ip-val-size-max" style="font-size: 8px; font-family: var(--font-mono); color: var(--text-bright); width: 26px; text-align: right;">300px</span>
                   </div>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; margin-top: 1px;">
-                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="1" data-max="30" style="height: 18px; padding: 0; font-size: 8.5px; font-weight: 700;" title="Detail / Inking">1–30</button>
-                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="1" data-max="80" style="height: 18px; padding: 0; font-size: 8.5px; font-weight: 700;" title="Line & Sketch">1–80</button>
-                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="1" data-max="150" style="height: 18px; padding: 0; font-size: 8.5px; font-weight: 700;" title="Standard">1–150</button>
-                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="1" data-max="300" style="height: 18px; padding: 0; font-size: 8.5px; font-weight: 700;" title="Wide">1–300</button>
-                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="10" data-max="800" style="height: 18px; padding: 0; font-size: 8.5px; font-weight: 700;" title="Broad / Wash">10–800</button>
+                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="1" data-max="30" style="height: 16px; padding: 0; font-size: 8px; font-weight: 700;" title="Detail / Inking">1–30</button>
+                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="1" data-max="80" style="height: 16px; padding: 0; font-size: 8px; font-weight: 700;" title="Line & Sketch">1–80</button>
+                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="1" data-max="150" style="height: 16px; padding: 0; font-size: 8px; font-weight: 700;" title="Standard">1–150</button>
+                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="1" data-max="300" style="height: 16px; padding: 0; font-size: 8px; font-weight: 700;" title="Wide">1–300</button>
+                  <button type="button" class="ip-btn ip-mini-btn ip-btn-size-range-preset" data-min="10" data-max="800" style="height: 16px; padding: 0; font-size: 8px; font-weight: 700;" title="Broad / Wash">10–800</button>
                 </div>
               </div>
 
@@ -5213,6 +5250,9 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
     <!-- 14. WASM BRUSHES PANEL -->
     <div id="dock-panel-wasm-brush" class="dock-panel-content">
       <div id="sheet-wasm-brush" class="ip-sheet-modal">
