@@ -2308,7 +2308,7 @@ W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
         case W_PARAM_DUAL_SHAPE:     brush_config.dual_shape = val; break;
         case W_PARAM_DUAL_SIZE:      if (val > 0) brush_config.dual_size = val; break;
         case W_PARAM_DUAL_SPACING:   if (val > 0) brush_config.dual_spacing = val; break;
-        case W_PARAM_SYMMETRY:       if (val >= 0 && val <= 3) brush_config.symmetry = val; break;
+        case W_PARAM_SYMMETRY:       if (val >= 0 && val <= 4) brush_config.symmetry = val; break;
         case W_PARAM_PRESSURE_SIZE:  brush_config.pressure_size = val ? 1 : 0; break;
         case W_PARAM_PRESSURE_FLOW:  brush_config.pressure_flow = val ? 1 : 0; break;
         case W_PARAM_TILT_ANGLE:     brush_config.tilt_angle = val ? 1 : 0; break;
@@ -2500,18 +2500,32 @@ static void render_stroke_dab(uint32_t *pix, int w, int h, float cx, float cy, f
 
     render_parametric_dab(pix, w, h, cx, cy, dab_color, eraser, move_dx, move_dy, dab_r, dab_angle, dab_flow_pct, cur_d);
 
-    if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
+    if (brush_config.symmetry == 1 || brush_config.symmetry == 3 || brush_config.symmetry == 4) {
         float sym_x = (float)(w - 1) - cx;
         render_parametric_dab(pix, w, h, sym_x, cy, dab_color, eraser, -move_dx, move_dy, dab_r, 180 - dab_angle, dab_flow_pct, cur_d);
     }
-    if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
+    if (brush_config.symmetry == 2 || brush_config.symmetry == 3 || brush_config.symmetry == 4) {
         float sym_y = (float)(h - 1) - cy;
         render_parametric_dab(pix, w, h, cx, sym_y, dab_color, eraser, move_dx, -move_dy, dab_r, -dab_angle, dab_flow_pct, cur_d);
     }
-    if (brush_config.symmetry == 3) {
+    if (brush_config.symmetry == 3 || brush_config.symmetry == 4) {
         float sym_x = (float)(w - 1) - cx;
         float sym_y = (float)(h - 1) - cy;
         render_parametric_dab(pix, w, h, sym_x, sym_y, dab_color, eraser, -move_dx, -move_dy, dab_r, 180 + dab_angle, dab_flow_pct, cur_d);
+    }
+    if (brush_config.symmetry == 4) {
+        float mid_x = (float)(w - 1) * 0.5f;
+        float mid_y = (float)(h - 1) * 0.5f;
+        float rel_x = cx - mid_x;
+        float rel_y = cy - mid_y;
+        float d1_x = mid_x + rel_y;
+        float d1_y = mid_y + rel_x;
+        render_parametric_dab(pix, w, h, d1_x, d1_y, dab_color, eraser, move_dy, move_dx, dab_r, 90 - dab_angle, dab_flow_pct, cur_d);
+        float d2_x = (float)(w - 1) - d1_x;
+        render_parametric_dab(pix, w, h, d2_x, d1_y, dab_color, eraser, -move_dy, move_dx, dab_r, 90 + dab_angle, dab_flow_pct, cur_d);
+        float d3_y = (float)(h - 1) - d1_y;
+        render_parametric_dab(pix, w, h, d1_x, d3_y, dab_color, eraser, move_dy, -move_dx, dab_r, -90 - dab_angle, dab_flow_pct, cur_d);
+        render_parametric_dab(pix, w, h, d2_x, d3_y, dab_color, eraser, -move_dy, -move_dx, dab_r, -90 + dab_angle, dab_flow_pct, cur_d);
     }
 }
 
@@ -2521,22 +2535,25 @@ static inline void mark_dab_bounds_dirty(int w, int h, float min_x, float min_y,
     int d_x1 = (int)__builtin_ceilf(max_x) + d_bound;
     int d_y1 = (int)__builtin_ceilf(max_y) + d_bound;
     mark_dirty_rect(d_x0, d_y0, d_x1, d_y1);
-    if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
+    if (brush_config.symmetry == 1 || brush_config.symmetry == 3 || brush_config.symmetry == 4) {
         int s_x0 = (int)__builtin_floorf((float)(w - 1) - max_x) - d_bound;
         int s_x1 = (int)__builtin_ceilf((float)(w - 1) - min_x) + d_bound;
         mark_dirty_rect(s_x0, d_y0, s_x1, d_y1);
     }
-    if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
+    if (brush_config.symmetry == 2 || brush_config.symmetry == 3 || brush_config.symmetry == 4) {
         int s_y0 = (int)__builtin_floorf((float)(h - 1) - max_y) - d_bound;
         int s_y1 = (int)__builtin_ceilf((float)(h - 1) - min_y) + d_bound;
         mark_dirty_rect(d_x0, s_y0, d_x1, s_y1);
     }
-    if (brush_config.symmetry == 3) {
+    if (brush_config.symmetry == 3 || brush_config.symmetry == 4) {
         int s_x0 = (int)__builtin_floorf((float)(w - 1) - max_x) - d_bound;
         int s_x1 = (int)__builtin_ceilf((float)(w - 1) - min_x) + d_bound;
         int s_y0 = (int)__builtin_floorf((float)(h - 1) - max_y) - d_bound;
         int s_y1 = (int)__builtin_ceilf((float)(h - 1) - min_y) + d_bound;
         mark_dirty_rect(s_x0, s_y0, s_x1, s_y1);
+    }
+    if (brush_config.symmetry == 4) {
+        mark_dirty_rect(0, 0, w, h);
     }
 }
 

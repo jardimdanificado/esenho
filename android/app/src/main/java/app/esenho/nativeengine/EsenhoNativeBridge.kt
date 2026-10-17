@@ -86,4 +86,21 @@ object EsenhoNativeBridge {
 
     external fun nativeHasDirtyRect(): Int
     external fun nativeClearDirtyBounds()
+
+    // Selection
+    external fun nativeSelectRect(x: Int, y: Int, w: Int, h: Int, opMode: Int)
+    external fun nativeSelectLasso(pointsXy: IntArray, pointCount: Int, opMode: Int)
+    external fun nativeSelectWand(layerIdx: Int, seedX: Int, seedY: Int, tolerance: Int, contiguous: Int, opMode: Int): Int
+    external fun nativeSelectAll(opMode: Int)
+    external fun nativeSelectClear()
+    external fun nativeSelectInvert()
+    external fun nativeSelectGetInfo(out5words: IntArray): Boolean
+    external fun nativeClearSelectedPixels()
+
+    // Flip & Transform
+    external fun nativeLayerFlipH(layerIdx: Int)
+    external fun nativeLayerFlipV(layerIdx: Int)
+    external fun nativeCanvasFlipH()
+    external fun nativeCanvasFlipV()
+    external fun nativeLayerDrawBitmap(layerIdx: Int, bitmap: Bitmap, dstX: Int, dstY: Int, dstW: Int, dstH: Int)
 }

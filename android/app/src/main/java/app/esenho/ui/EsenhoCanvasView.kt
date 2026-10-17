@@ -110,6 +110,35 @@ class EsenhoCanvasView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
+    private val symmetryGuidePaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+        color = 0xAA64B5F6.toInt()
+        pathEffect = DashPathEffect(floatArrayOf(12f, 8f), 0f)
+        isAntiAlias = true
+    }
+
+    private val shapePreviewPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+        color = 0xFF64B5F6.toInt()
+        isAntiAlias = true
+    }
+
+    private val selectionMarqueePaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2.5f
+        color = Color.WHITE
+        pathEffect = DashPathEffect(floatArrayOf(8f, 8f), 0f)
+        isAntiAlias = true
+    }
+
+    private val pixelGridPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 1f
+        color = 0x25FFFFFF
+    }
+
     init {
         gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
             override fun onLongPress(e: MotionEvent) {
@@ -131,9 +160,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
         super.onSizeChanged(w, h, oldw, oldh)
         if (w > 0 && h > 0) {
             if (engine == null) {
-                engine = EsenhoEngine(context, w, h)
-            } else {
-                engine?.resize(w, h)
+                engine = EsenhoEngine(context, 1080, 1920)
             }
             centerCanvas(w, h)
         }
@@ -432,6 +459,96 @@ class EsenhoCanvasView @JvmOverloads constructor(
         val bmp = eng.getRenderBitmap()
         if (bmp != null) {
             canvas.drawBitmap(bmp, 0f, 0f, null)
+        }
+
+        // 4. Pixel Art Grid Overlay
+        if (eng.pixelArtGrid) {
+            val step = eng.pixelArtGridStep.toFloat()
+            var gx = 0f
+            while (gx <= eng.width) {
+                canvas.drawLine(gx, 0f, gx, eng.height.toFloat(), pixelGridPaint)
+                gx += step
+            }
+            var gy = 0f
+            while (gy <= eng.height) {
+                canvas.drawLine(0f, gy, eng.width.toFloat(), gy, pixelGridPaint)
+                gy += step
+            }
+        }
+
+        // 5. Symmetry Guides
+        if (eng.symmetryMode != app.esenho.nativeengine.SymmetryMode.OFF) {
+            val midX = eng.width / 2f
+            val midY = eng.height / 2f
+            when (eng.symmetryMode) {
+                app.esenho.nativeengine.SymmetryMode.MIRROR_X -> {
+                    canvas.drawLine(midX, 0f, midX, eng.height.toFloat(), symmetryGuidePaint)
+                }
+                app.esenho.nativeengine.SymmetryMode.MIRROR_Y -> {
+                    canvas.drawLine(0f, midY, eng.width.toFloat(), midY, symmetryGuidePaint)
+                }
+                app.esenho.nativeengine.SymmetryMode.QUAD -> {
+                    canvas.drawLine(midX, 0f, midX, eng.height.toFloat(), symmetryGuidePaint)
+                    canvas.drawLine(0f, midY, eng.width.toFloat(), midY, symmetryGuidePaint)
+                }
+                app.esenho.nativeengine.SymmetryMode.RADIAL -> {
+                    canvas.drawLine(midX, 0f, midX, eng.height.toFloat(), symmetryGuidePaint)
+                    canvas.drawLine(0f, midY, eng.width.toFloat(), midY, symmetryGuidePaint)
+                    canvas.drawLine(0f, 0f, eng.width.toFloat(), eng.height.toFloat(), symmetryGuidePaint)
+                    canvas.drawLine(0f, eng.height.toFloat(), eng.width.toFloat(), 0f, symmetryGuidePaint)
+                }
+                else -> {}
+            }
+        }
+
+        // 6. Active Selection Boundary
+        if (eng.selectionActive && eng.selectionBounds != null) {
+            val b = eng.selectionBounds!!
+            canvas.drawRect(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(), selectionMarqueePaint)
+        }
+
+        // 7. Interactive Shape Drag Previews
+        if (eng.isStrokeActive) {
+            val sx = eng.strokeStartX
+            val sy = eng.strokeStartY
+            val cx = eng.strokeCurrentX
+            val cy = eng.strokeCurrentY
+            when (eng.currentTool) {
+                ToolMode.LINE -> {
+                    canvas.drawLine(sx, sy, cx, cy, shapePreviewPaint)
+                }
+                ToolMode.RECTANGLE -> {
+                    val rx = min(sx, cx)
+                    val ry = min(sy, cy)
+                    val rw = max(sx, cx)
+                    val rh = max(sy, cy)
+                    canvas.drawRect(rx, ry, rw, rh, shapePreviewPaint)
+                }
+                ToolMode.CIRCLE -> {
+                    val mx = (sx + cx) / 2f
+                    val my = (sy + cy) / 2f
+                    val r = hypot(cx - sx, cy - sy) / 2f
+                    canvas.drawCircle(mx, my, r, shapePreviewPaint)
+                }
+                ToolMode.SELECT_RECT -> {
+                    val rx = min(sx, cx)
+                    val ry = min(sy, cy)
+                    val rw = max(sx, cx)
+                    val rh = max(sy, cy)
+                    canvas.drawRect(rx, ry, rw, rh, selectionMarqueePaint)
+                }
+                ToolMode.SELECT_LASSO -> {
+                    if (eng.lassoPoints.size >= 2) {
+                        val path = Path()
+                        path.moveTo(eng.lassoPoints[0].first.toFloat(), eng.lassoPoints[0].second.toFloat())
+                        for (i in 1 until eng.lassoPoints.size) {
+                            path.lineTo(eng.lassoPoints[i].first.toFloat(), eng.lassoPoints[i].second.toFloat())
+                        }
+                        canvas.drawPath(path, selectionMarqueePaint)
+                    }
+                }
+                else -> {}
+            }
         }
 
         canvas.restore()

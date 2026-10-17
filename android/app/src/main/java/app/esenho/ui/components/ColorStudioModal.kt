@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import kotlin.math.*
 
@@ -107,7 +108,80 @@ fun ColorStudioModal(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 3. Recent Colors
+                // 3. Preset Palettes
+                val palettes = remember {
+                    listOf(
+                        "Clássico" to listOf(
+                            0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0xFFE63946.toInt(),
+                            0xFFF4A261.toInt(), 0xFFE9C46A.toInt(), 0xFF2A9D8F.toInt(),
+                            0xFF264653.toInt(), 0xFF457B9D.toInt(), 0xFF9C27B0.toInt(), 0xFFE91E63.toInt()
+                        ),
+                        "Pele" to listOf(
+                            0xFFFFDFC4.toInt(), 0xFFF0D5BE.toInt(), 0xFFEECEB3.toInt(),
+                            0xFFE1B899.toInt(), 0xFFCEAB93.toInt(), 0xFFB68B68.toInt(),
+                            0xFF966847.toInt(), 0xFF654321.toInt(), 0xFF3D2314.toInt()
+                        ),
+                        "Cyberpunk" to listOf(
+                            0xFF00FFCC.toInt(), 0xFFFF0055.toInt(), 0xFF7928CA.toInt(),
+                            0xFF0070F3.toInt(), 0xFFF5A623.toInt(), 0xFF50E3C2.toInt(),
+                            0xFFFF007F.toInt(), 0xFF00F0FF.toInt(), 0xFF7000FF.toInt()
+                        ),
+                        "Pastel" to listOf(
+                            0xFFFFB3BA.toInt(), 0xFFFFDFBA.toInt(), 0xFFFFFFBA.toInt(),
+                            0xFFBAFFC9.toInt(), 0xFFBAE1FF.toInt(), 0xFFE8BAFF.toInt(),
+                            0xFFC5BAFF.toInt(), 0xFFFFBAED.toInt()
+                        ),
+                        "Manga" to listOf(
+                            0xFF1A1A24.toInt(), 0xFF2E3440.toInt(), 0xFF4C566A.toInt(),
+                            0xFFD8DEE9.toInt(), 0xFFECEFF4.toInt(), 0xFF88C0D0.toInt(),
+                            0xFFBF616A.toInt(), 0xFFA3BE8C.toInt()
+                        )
+                    )
+                }
+
+                var selectedPaletteIdx by remember { mutableIntStateOf(0) }
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(palettes.indices.toList()) { idx ->
+                        FilterChip(
+                            selected = selectedPaletteIdx == idx,
+                            onClick = { selectedPaletteIdx = idx },
+                            label = { Text(palettes[idx].first, fontSize = 10.sp) }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(palettes[selectedPaletteIdx].second) { c ->
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Color(c))
+                                .border(1.dp, Color.Gray, CircleShape)
+                                .clickable {
+                                    val arr = FloatArray(3)
+                                    AndroidColor.colorToHSV(c, arr)
+                                    hue = arr[0]
+                                    sat = arr[1]
+                                    value = arr[2]
+                                    onColorChanged(c)
+                                }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 4. Recent Colors
                 Text("Cores Recentes", style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.Start))
                 Spacer(modifier = Modifier.height(6.dp))
                 LazyRow(

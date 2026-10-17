@@ -10,12 +10,32 @@ import kotlin.math.hypot
 enum class ToolMode(val id: Int, val displayName: String) {
     BRUSH(0, "Pincel"),
     ERASER(0, "Borracha"),
-    FILL(3, "Preenchimento"),
+    SMUDGE(1, "Borrar (Smudge)"),
+    BLEND(2, "Mesclar (Blend)"),
+    FILL(3, "Balde de Tinta"),
+    LASSO_FILL(4, "Laço Preenchido"),
+    EYEDROPPER(5, "Conta-gotas"),
     LINE(6, "Linha"),
     RECTANGLE(7, "Retângulo"),
     CIRCLE(8, "Círculo"),
-    EYEDROPPER(5, "Conta-gotas"),
-    PAN(9, "Mover Tela")
+    SELECT_RECT(9, "Seleção Retangular"),
+    SELECT_LASSO(9, "Seleção com Laço"),
+    PAN(10, "Mover Tela")
+}
+
+enum class SymmetryMode(val id: Int, val displayName: String) {
+    OFF(0, "Desativado"),
+    MIRROR_X(1, "Espelho X"),
+    MIRROR_Y(2, "Espelho Y"),
+    QUAD(3, "Espelho 4x"),
+    RADIAL(4, "Radial (8x)")
+}
+
+enum class SelectionOp(val id: Int, val displayName: String) {
+    REPLACE(0, "Nova"),
+    ADD(1, "Adicionar +"),
+    SUB(2, "Subtrair −"),
+    INTERSECT(3, "Intersecção")
 }
 
 enum class LayerBlendMode(val id: Int, val displayName: String) {
@@ -216,8 +236,30 @@ class EsenhoEngine(
         ))
     }
 
+    var symmetryMode: SymmetryMode = SymmetryMode.OFF
+        set(value) {
+            field = value
+            EsenhoNativeBridge.nativeBrushSetParam(38, value.id)
+        }
+
+    var selectionOp: SelectionOp = SelectionOp.REPLACE
+    var selectionActive: Boolean = false
+        private set
+    var selectionBounds: android.graphics.Rect? = null
+        private set
+
+    var pixelArtGrid: Boolean = false
+    var pixelArtGridStep: Int = 16
+
+    val lassoPoints = mutableListOf<Pair<Int, Int>>()
+    var strokeStartX = 0f
+    var strokeStartY = 0f
+    var strokeCurrentX = 0f
+    var strokeCurrentY = 0f
+
     private var renderBitmap: Bitmap? = null
-    private var isStrokeActive = false
+    var isStrokeActive = false
+        private set
     private var lastX = 0f
     private var lastY = 0f
 
@@ -750,8 +792,15 @@ class EsenhoEngine(
             return
         }
 
-        pushUndoSnapshot()
+        if (currentTool != ToolMode.PAN && currentTool != ToolMode.SELECT_RECT && currentTool != ToolMode.SELECT_LASSO) {
+            pushUndoSnapshot()
+        }
+
         isStrokeActive = true
+        strokeStartX = x
+        strokeStartY = y
+        strokeCurrentX = x
+        strokeCurrentY = y
         lastX = x
         lastY = y
 
@@ -764,10 +813,26 @@ class EsenhoEngine(
                 EsenhoNativeBridge.nativeBrushSetType(0) // Draw mode
                 EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, nativeCol, isEraser, pInt, tiltX, tiltY)
             }
+            ToolMode.SMUDGE -> {
+                EsenhoNativeBridge.nativeBrushSetType(1) // W_MODE_SMUDGE
+                EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, nativeCol, 0, pInt, tiltX, tiltY)
+            }
+            ToolMode.BLEND -> {
+                EsenhoNativeBridge.nativeBrushSetType(2) // W_MODE_BLEND
+                EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, nativeCol, 0, pInt, tiltX, tiltY)
+            }
             ToolMode.FILL -> {
                 EsenhoNativeBridge.nativeBrushSetType(3) // W_MODE_FILL
                 EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, nativeCol, 0, 1000, 0, 0)
                 isStrokeActive = false
+            }
+            ToolMode.LASSO_FILL -> {
+                EsenhoNativeBridge.nativeBrushSetType(4) // W_MODE_LASSO_FILL
+                EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, nativeCol, 0, 1000, 0, 0)
+            }
+            ToolMode.SELECT_LASSO -> {
+                lassoPoints.clear()
+                lassoPoints.add(Pair(x.toInt(), y.toInt()))
             }
             else -> {}
         }
@@ -775,6 +840,9 @@ class EsenhoEngine(
 
     fun onTouchMove(x: Float, y: Float, pressure: Float = 0.85f, tiltX: Int = 0, tiltY: Int = 0) {
         if (!isStrokeActive) return
+
+        strokeCurrentX = x
+        strokeCurrentY = y
 
         val isEraser = if (currentTool == ToolMode.ERASER) 1 else 0
         val nativeCol = toNativeColor(currentColor)
@@ -786,6 +854,24 @@ class EsenhoEngine(
                 lastX = x
                 lastY = y
             }
+            ToolMode.SMUDGE -> {
+                EsenhoNativeBridge.nativeStrokeExt(1, lastX, lastY, x, y, nativeCol, 0, pInt, tiltX, tiltY)
+                lastX = x
+                lastY = y
+            }
+            ToolMode.BLEND -> {
+                EsenhoNativeBridge.nativeStrokeExt(1, lastX, lastY, x, y, nativeCol, 0, pInt, tiltX, tiltY)
+                lastX = x
+                lastY = y
+            }
+            ToolMode.LASSO_FILL -> {
+                EsenhoNativeBridge.nativeStrokeExt(1, lastX, lastY, x, y, nativeCol, 0, 1000, 0, 0)
+                lastX = x
+                lastY = y
+            }
+            ToolMode.SELECT_LASSO -> {
+                lassoPoints.add(Pair(x.toInt(), y.toInt()))
+            }
             else -> {}
         }
     }
@@ -793,6 +879,9 @@ class EsenhoEngine(
     fun onTouchUp(x: Float, y: Float, pressure: Float = 0f, tiltX: Int = 0, tiltY: Int = 0) {
         if (!isStrokeActive) return
         isStrokeActive = false
+
+        strokeCurrentX = x
+        strokeCurrentY = y
 
         val isEraser = if (currentTool == ToolMode.ERASER) 1 else 0
         val nativeCol = toNativeColor(currentColor)
@@ -802,26 +891,141 @@ class EsenhoEngine(
             ToolMode.BRUSH, ToolMode.ERASER -> {
                 EsenhoNativeBridge.nativeStrokeExt(2, lastX, lastY, x, y, nativeCol, isEraser, pInt, tiltX, tiltY)
             }
+            ToolMode.SMUDGE -> {
+                EsenhoNativeBridge.nativeStrokeExt(2, lastX, lastY, x, y, nativeCol, 0, pInt, tiltX, tiltY)
+            }
+            ToolMode.BLEND -> {
+                EsenhoNativeBridge.nativeStrokeExt(2, lastX, lastY, x, y, nativeCol, 0, pInt, tiltX, tiltY)
+            }
+            ToolMode.LASSO_FILL -> {
+                EsenhoNativeBridge.nativeStrokeExt(2, lastX, lastY, x, y, nativeCol, 0, 1000, 0, 0)
+            }
             ToolMode.LINE -> {
-                EsenhoNativeBridge.nativeDrawLine(lastX.toInt(), lastY.toInt(), x.toInt(), y.toInt(), nativeCol)
+                EsenhoNativeBridge.nativeDrawLine(strokeStartX.toInt(), strokeStartY.toInt(), x.toInt(), y.toInt(), nativeCol)
             }
             ToolMode.RECTANGLE -> {
-                val rx = Math.min(lastX, x).toInt()
-                val ry = Math.min(lastY, y).toInt()
-                val rw = Math.abs(x - lastX).toInt()
-                val rh = Math.abs(y - lastY).toInt()
-                EsenhoNativeBridge.nativeDrawRect(rx, ry, rw, rh, nativeCol)
+                val rx = Math.min(strokeStartX, x).toInt()
+                val ry = Math.min(strokeStartY, y).toInt()
+                val rw = Math.abs(x - strokeStartX).toInt()
+                val rh = Math.abs(y - strokeStartY).toInt()
+                if (rw > 0 && rh > 0) {
+                    EsenhoNativeBridge.nativeDrawRect(rx, ry, rw, rh, nativeCol)
+                }
             }
             ToolMode.CIRCLE -> {
-                val cx = ((lastX + x) / 2f).toInt()
-                val cy = ((lastY + y) / 2f).toInt()
-                val dx = x - lastX
-                val dy = y - lastY
+                val cx = ((strokeStartX + x) / 2f).toInt()
+                val cy = ((strokeStartY + y) / 2f).toInt()
+                val dx = x - strokeStartX
+                val dy = y - strokeStartY
                 val r = (hypot(dx.toDouble(), dy.toDouble()) / 2.0).toInt()
-                EsenhoNativeBridge.nativeDrawCircle(cx, cy, r, nativeCol)
+                if (r > 0) {
+                    EsenhoNativeBridge.nativeDrawCircle(cx, cy, r, nativeCol)
+                }
+            }
+            ToolMode.SELECT_RECT -> {
+                val rx = Math.min(strokeStartX, x).toInt()
+                val ry = Math.min(strokeStartY, y).toInt()
+                val rw = Math.abs(x - strokeStartX).toInt()
+                val rh = Math.abs(y - strokeStartY).toInt()
+                if (rw > 2 && rh > 2) {
+                    selectRect(rx, ry, rw, rh)
+                }
+            }
+            ToolMode.SELECT_LASSO -> {
+                lassoPoints.add(Pair(x.toInt(), y.toInt()))
+                if (lassoPoints.size >= 3) {
+                    selectLasso(lassoPoints)
+                }
+                lassoPoints.clear()
             }
             else -> {}
         }
+    }
+
+    // ── Selection Operations ──
+
+    fun updateSelectionInfo() {
+        val info = IntArray(5)
+        val hasSel = EsenhoNativeBridge.nativeSelectGetInfo(info)
+        if (hasSel && info[0] != 0 && info[3] > 0 && info[4] > 0) {
+            selectionActive = true
+            selectionBounds = android.graphics.Rect(info[1], info[2], info[1] + info[3], info[2] + info[4])
+        } else {
+            selectionActive = false
+            selectionBounds = null
+        }
+    }
+
+    fun selectRect(x: Int, y: Int, w: Int, h: Int, op: SelectionOp = selectionOp) {
+        EsenhoNativeBridge.nativeSelectRect(x, y, w, h, op.id)
+        updateSelectionInfo()
+    }
+
+    fun selectLasso(points: List<Pair<Int, Int>>, op: SelectionOp = selectionOp) {
+        if (points.size < 3) return
+        val arr = IntArray(points.size * 2)
+        points.forEachIndexed { i, p ->
+            arr[i * 2] = p.first
+            arr[i * 2 + 1] = p.second
+        }
+        EsenhoNativeBridge.nativeSelectLasso(arr, points.size, op.id)
+        updateSelectionInfo()
+    }
+
+    fun selectAll(op: SelectionOp = selectionOp) {
+        EsenhoNativeBridge.nativeSelectAll(op.id)
+        updateSelectionInfo()
+    }
+
+    fun clearSelection() {
+        EsenhoNativeBridge.nativeSelectClear()
+        updateSelectionInfo()
+    }
+
+    fun invertSelection() {
+        EsenhoNativeBridge.nativeSelectInvert()
+        updateSelectionInfo()
+    }
+
+    fun clearSelectedPixels() {
+        pushUndoSnapshot()
+        EsenhoNativeBridge.nativeClearSelectedPixels()
+        getRenderBitmap()
+    }
+
+    // ── Flip & Transform Operations ──
+
+    fun flipLayerH(layerIdx: Int = activeLayerIndex) {
+        pushUndoSnapshot()
+        EsenhoNativeBridge.nativeLayerFlipH(layerIdx)
+        getRenderBitmap()
+    }
+
+    fun flipLayerV(layerIdx: Int = activeLayerIndex) {
+        pushUndoSnapshot()
+        EsenhoNativeBridge.nativeLayerFlipV(layerIdx)
+        getRenderBitmap()
+    }
+
+    fun flipCanvasH() {
+        pushUndoSnapshot()
+        EsenhoNativeBridge.nativeCanvasFlipH()
+        getRenderBitmap()
+    }
+
+    fun flipCanvasV() {
+        pushUndoSnapshot()
+        EsenhoNativeBridge.nativeCanvasFlipV()
+        getRenderBitmap()
+    }
+
+    fun importImageToLayer(bitmap: Bitmap, addNewLayer: Boolean = true): Int {
+        pushUndoSnapshot()
+        val targetLayer = if (addNewLayer) addLayer() else activeLayerIndex
+        EsenhoNativeBridge.nativeLayerDrawBitmap(targetLayer, bitmap, 0, 0, width, height)
+        syncLayers()
+        getRenderBitmap()
+        return targetLayer
     }
 
     private fun pushUndoSnapshot() {

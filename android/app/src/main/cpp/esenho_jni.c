@@ -60,6 +60,17 @@ extern int32_t w_has_dirty_rect(void);
 extern void w_clear_dirty_bounds(void);
 extern void w_mark_dirty_rect(int32_t x0, int32_t y0, int32_t x1, int32_t y1);
 
+extern void w_select_rect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t op_mode);
+extern int32_t w_select_wand(int32_t layer_idx, int32_t seed_x, int32_t seed_y, int32_t tolerance, int32_t contiguous, int32_t op_mode);
+extern void w_select_lasso(const int32_t *points_xy, int32_t point_count, int32_t op_mode);
+extern void w_select_all(int32_t op_mode);
+extern void w_select_clear(void);
+extern void w_select_invert(void);
+extern int32_t w_select_get_info(int32_t *out_5words);
+extern void w_layer_flip_h(int32_t layer_idx);
+extern void w_layer_flip_v(int32_t layer_idx);
+extern int32_t w_layer_transform(int32_t src_layer_idx, int32_t dst_layer_idx, int32_t dx, int32_t dy, int32_t scale_x_pct, int32_t scale_y_pct, int32_t rot_deg, int32_t skew_x, int32_t bilinear);
+
 // Active Procedural Brush State
 static const native_brush_t *g_current_brush = NULL;
 static float g_brush_size = 14.0f;
@@ -653,4 +664,173 @@ JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeClearDirtyBounds(
     JNIEnv *env, jobject thiz) {
     w_clear_dirty_bounds();
+}
+
+// ── Selection JNI Bindings ──
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectRect(
+    JNIEnv *env, jobject thiz, jint x, jint y, jint w, jint h, jint op_mode) {
+    w_select_rect(x, y, w, h, op_mode);
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectLasso(
+    JNIEnv *env, jobject thiz, jintArray points_xy, jint point_count, jint op_mode) {
+    if (!points_xy || point_count < 3) return;
+    jint *pts = (*env)->GetIntArrayElements(env, points_xy, NULL);
+    if (pts) {
+        w_select_lasso(pts, point_count, op_mode);
+        (*env)->ReleaseIntArrayElements(env, points_xy, pts, JNI_ABORT);
+    }
+}
+
+JNIEXPORT jint JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectWand(
+    JNIEnv *env, jobject thiz, jint layer_idx, jint seed_x, jint seed_y, jint tolerance, jint contiguous, jint op_mode) {
+    return w_select_wand(layer_idx, seed_x, seed_y, tolerance, contiguous, op_mode);
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectAll(
+    JNIEnv *env, jobject thiz, jint op_mode) {
+    w_select_all(op_mode);
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectClear(
+    JNIEnv *env, jobject thiz) {
+    w_select_clear();
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectInvert(
+    JNIEnv *env, jobject thiz) {
+    w_select_invert();
+}
+
+JNIEXPORT jboolean JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectGetInfo(
+    JNIEnv *env, jobject thiz, jintArray out_5words) {
+    if (!out_5words) return JNI_FALSE;
+    int32_t buf[5] = {0};
+    int res = w_select_get_info(buf);
+    if (res) {
+        (*env)->SetIntArrayRegion(env, out_5words, 0, 5, buf);
+        return JNI_TRUE;
+    }
+    return JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeClearSelectedPixels(
+    JNIEnv *env, jobject thiz) {
+    int32_t info[5] = {0};
+    if (w_select_get_info(info) && info[0]) {
+        int active = w_layer_get_active();
+        uint32_t *pix = w_layer_get_pixels(active);
+        int lw = w_layer_get_width(active);
+        int lh = w_layer_get_height(active);
+        int cx = info[1], cy = info[2], cw = info[3], ch = info[4];
+        if (pix && lw > 0 && lh > 0) {
+            for (int y = 0; y < ch; y++) {
+                int py = cy + y;
+                if (py < 0 || py >= lh) continue;
+                for (int x = 0; x < cw; x++) {
+                    int px = cx + x;
+                    if (px < 0 || px >= lw) continue;
+                    pix[py * lw + px] = 0;
+                }
+            }
+            force_composite();
+        }
+    }
+}
+
+// ── Transform & Flip JNI Bindings ──
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerFlipH(
+    JNIEnv *env, jobject thiz, jint layer_idx) {
+    w_layer_flip_h(layer_idx);
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerFlipV(
+    JNIEnv *env, jobject thiz, jint layer_idx) {
+    w_layer_flip_v(layer_idx);
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeCanvasFlipH(
+    JNIEnv *env, jobject thiz) {
+    int count = w_layer_get_order_count();
+    for (int i = 0; i < count; i++) {
+        int idx = w_layer_get_order(i);
+        w_layer_flip_h(idx);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeCanvasFlipV(
+    JNIEnv *env, jobject thiz) {
+    int count = w_layer_get_order_count();
+    for (int i = 0; i < count; i++) {
+        int idx = w_layer_get_order(i);
+        w_layer_flip_v(idx);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerDrawBitmap(
+    JNIEnv *env, jobject thiz, jint layer_idx, jobject bitmap, jint dst_x, jint dst_y, jint dst_w, jint dst_h) {
+    AndroidBitmapInfo info;
+    void *src_pixels = NULL;
+
+    if (AndroidBitmap_getInfo(env, bitmap, &info) < 0) return;
+    if (AndroidBitmap_lockPixels(env, bitmap, &src_pixels) < 0) return;
+
+    int active = (layer_idx >= 0) ? layer_idx : w_layer_get_active();
+    uint32_t *layer_pixels = w_layer_get_pixels(active);
+    int lw = w_layer_get_width(active);
+    int lh = w_layer_get_height(active);
+
+    if (layer_pixels && lw > 0 && lh > 0 && src_pixels && dst_w > 0 && dst_h > 0) {
+        int src_w = (int)info.width;
+        int src_h = (int)info.height;
+        for (int y = 0; y < dst_h; y++) {
+            int py = dst_y + y;
+            if (py < 0 || py >= lh) continue;
+            int sy = (y * src_h) / dst_h;
+            if (sy < 0) sy = 0; if (sy >= src_h) sy = src_h - 1;
+            uint32_t *src_row = (uint32_t *)((char *)src_pixels + sy * info.stride);
+            uint32_t *dst_row = layer_pixels + py * lw;
+
+            for (int x = 0; x < dst_w; x++) {
+                int px = dst_x + x;
+                if (px < 0 || px >= lw) continue;
+                int sx = (x * src_w) / dst_w;
+                if (sx < 0) sx = 0; if (sx >= src_w) sx = src_w - 1;
+                uint32_t sp = src_row[sx];
+                uint32_t sa = (sp >> 24) & 0xFF;
+                if (sa == 255) {
+                    dst_row[px] = sp;
+                } else if (sa > 0) {
+                    uint32_t dp = dst_row[px];
+                    uint32_t da = (dp >> 24) & 0xFF;
+                    uint32_t sr = sp & 0xFF, sg = (sp >> 8) & 0xFF, sb = (sp >> 16) & 0xFF;
+                    uint32_t dr = dp & 0xFF, dg = (dp >> 8) & 0xFF, db = (dp >> 16) & 0xFF;
+                    uint32_t out_a = sa + (da * (255 - sa)) / 255;
+                    if (out_a > 0) {
+                        uint32_t out_r = (sr * sa + dr * (255 - sa)) / 255;
+                        uint32_t out_g = (sg * sa + dg * (255 - sa)) / 255;
+                        uint32_t out_b = (sb * sa + db * (255 - sa)) / 255;
+                        dst_row[px] = (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
+                    }
+                }
+            }
+        }
+        force_composite();
+    }
+    AndroidBitmap_unlockPixels(env, bitmap);
 }

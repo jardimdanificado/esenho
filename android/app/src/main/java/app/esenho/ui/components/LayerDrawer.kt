@@ -128,6 +128,30 @@ fun LayerDrawer(
                                     },
                                     label = { Text("Máscara", fontSize = 10.sp) }
                                 )
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
+                                        engine.flipLayerH(activeLayer.id)
+                                        refresh()
+                                    },
+                                    label = { Text("Espelhar H", fontSize = 10.sp) }
+                                )
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
+                                        engine.flipLayerV(activeLayer.id)
+                                        refresh()
+                                    },
+                                    label = { Text("Espelhar V", fontSize = 10.sp) }
+                                )
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
+                                        engine.clearActiveLayer()
+                                        refresh()
+                                    },
+                                    label = { Text("Limpar", fontSize = 10.sp) }
+                                )
                             }
                         }
 
