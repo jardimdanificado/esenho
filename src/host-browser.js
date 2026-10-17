@@ -504,7 +504,7 @@ async function main() {
     });
   }
 
-  function scheduleAutosave(delayMs = 1500) {
+  function scheduleAutosave(delayMs = 4000) {
     if (isEmbeddedMode) return;
     if (autosaveDebounceTimer) clearTimeout(autosaveDebounceTimer);
     autosaveDebounceTimer = setTimeout(() => {
@@ -518,7 +518,7 @@ async function main() {
     host._forceNextFrame = true;
     if (typeof host.requestRender === 'function') host.requestRender();
     setAutosaveBadges('Unsaved', '#fabd2f');
-    scheduleAutosave(1500);
+    scheduleAutosave(4000);
     updateStatus(host, host.lastDocX || 0, host.lastDocY || 0, false);
   }
 
@@ -562,34 +562,53 @@ async function main() {
   async function performAutosave(force = false) {
     if (isEmbeddedMode) return;
     if (!force && !isCanvasDirty) return;
-    if (!force && (host.isDrawingOnCanvas || host.isPanning || (typeof touch !== 'undefined' && touch.drawing))) {
-      scheduleAutosave(1500);
+
+    const now = Date.now();
+    const timeSinceLastStroke = host.lastStrokeTime ? (now - host.lastStrokeTime) : 999999;
+    const isDrawingOrActive = Boolean(
+      host.isDrawingOnCanvas ||
+      penActive ||
+      host.isPanning ||
+      (typeof touch !== 'undefined' && touch && (touch.drawing || touch.pending)) ||
+      timeSinceLastStroke < 4000
+    );
+
+    if (!force && isDrawingOrActive) {
+      scheduleAutosave(4000);
       return;
     }
     if (typeof EsenhoStore === 'undefined' || typeof host.exportProject !== 'function') return;
 
-    saveUserPreferences();
-    setAutosaveBadges('Saving...', '#fabd2f');
+    const executeSave = async () => {
+      saveUserPreferences();
+      setAutosaveBadges('Saving...', '#fabd2f');
 
-    try {
-      const projName = host.currentProjectName || 'Untitled Project';
-      const projData = host.exportProject(projName);
-      if (!projData) return;
-      projData.id = host.currentProjectId || ('proj_' + Date.now());
-      host.currentProjectId = projData.id;
-      await EsenhoStore.saveProject(projData);
-      localStorage.setItem('esenho_last_project_id', projData.id);
-      markCanvasClean();
-    } catch (e) {
-      console.warn('Autosave failed:', e);
-      setAutosaveBadges('Save Error', '#fb4934');
+      try {
+        const projName = host.currentProjectName || 'Untitled Project';
+        const projData = host.exportProject(projName);
+        if (!projData) return;
+        projData.id = host.currentProjectId || ('proj_' + Date.now());
+        host.currentProjectId = projData.id;
+        await EsenhoStore.saveProject(projData);
+        localStorage.setItem('esenho_last_project_id', projData.id);
+        markCanvasClean();
+      } catch (e) {
+        console.warn('Autosave failed:', e);
+        setAutosaveBadges('Save Error', '#fb4934');
+      }
+    };
+
+    if (typeof window.requestIdleCallback === 'function' && !force) {
+      window.requestIdleCallback(() => { executeSave(); }, { timeout: 2000 });
+    } else {
+      setTimeout(executeSave, 0);
     }
   }
 
-  // Periodic autosave every 30s + save on page hide / unload
+  // Periodic autosave every 45s (when idle) + save on page hide / unload
   setInterval(() => {
     performAutosave(false);
-  }, 30000);
+  }, 45000);
 
   window.addEventListener('beforeunload', () => {
     saveUserPreferences();
@@ -3568,6 +3587,10 @@ async function main() {
 
       const suppressEvent = (e) => {
         if (this._suppressNextPointer) {
+          if (host.isDrawingOnCanvas || penActive) {
+            this._suppressNextPointer = false;
+            return;
+          }
           if (isModalOrToast(e.target)) return;
           if (e.button === 2) return; // Allow right click to reposition context menu
           if (e.cancelable) e.preventDefault();
@@ -5472,6 +5495,9 @@ async function main() {
       return;
     }
     _cachedCanvasRect = canvasEl.getBoundingClientRect();
+    if (window.contextMenuService) {
+      window.contextMenuService._suppressNextPointer = false;
+    }
     if (e.pointerType === 'touch') return; // Handled by touch events (gestures/taps)
     if (e.button === 2) return; // Right-click strictly opens context menu, never draws/erases
     if (e.pointerType === 'pen') penActive = true;
@@ -5635,7 +5661,7 @@ async function main() {
         const coal = e.getCoalescedEvents();
         if (coal && coal.length > 1) {
           for (let i = 0; i < coal.length; i++) {
-            touch.coalescedQueue.push({ clientX: coal[i].clientX, clientY: coal[i].clientY });
+            touch.coalescedQueue.push(getPooledTouchPoint(coal[i].clientX, coal[i].clientY));
           }
         }
       }
@@ -5662,11 +5688,20 @@ async function main() {
       lassoSelPoints.push({ x, y });
     } else if (host.brushParams && host.brushParams.mode === 5 && (host.mouseState.buttons & 3)) {
       sampleEyedropperColor(x, y, e.clientX, e.clientY);
-    } else if (host.isDrawingOnCanvas && (host.mouseState.buttons & 3 || e.buttons !== 0)) {
-      const coalesced = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : [e];
+    } else if (host.isDrawingOnCanvas && (((host.mouseState.buttons & 3) !== 0) || e.buttons !== 0 || e.pointerType === 'pen' || penActive || (e.pressure !== undefined && e.pressure > 0))) {
+      let coalesced = null;
+      if (typeof e.getCoalescedEvents === 'function') {
+        try {
+          const raw = e.getCoalescedEvents();
+          if (raw && raw.length > 0) coalesced = raw;
+        } catch (_) {}
+      }
+      if (!coalesced) coalesced = [e];
+
       const curMode = host.brushParams ? host.brushParams.mode : 0;
       const isVecLayer = host.isVectorLayer && host.isVectorLayer() && host.actionMode !== 'select';
-      for (const ev of coalesced) {
+      for (let ci = 0; ci < coalesced.length; ci++) {
+        const ev = coalesced[ci];
         const pt = clientPos(ev);
         if (isVecLayer && host.strokeIsEraser) {
           host.eraseVectorAtPoint(pt.x, pt.y, Math.max(6, (host.brushParams?.size || 10)));
@@ -5828,14 +5863,31 @@ async function main() {
     pending: null,       /* Pending touch: { sx, sy, x, y } */
     timer: null,
     tapGesture: null,    /* Multi-finger tap: { time, maxFingers, moved, startPositions } */
-    coalescedQueue: []
+    coalescedQueue: [],
+    pool: []
   };
+
+  function getPooledTouchPoint(cx, cy) {
+    const pt = (touch.pool && touch.pool.length > 0) ? touch.pool.pop() : { clientX: 0, clientY: 0 };
+    pt.clientX = cx; pt.clientY = cy;
+    return pt;
+  }
+
+  function clearCoalescedTouchQueue() {
+    if (touch.coalescedQueue && touch.coalescedQueue.length > 0) {
+      if (!touch.pool) touch.pool = [];
+      while (touch.coalescedQueue.length > 0 && touch.pool.length < 256) {
+        touch.pool.push(touch.coalescedQueue.pop());
+      }
+      touch.coalescedQueue.length = 0;
+    }
+  }
 
   function commitPendingTouch() {
     if (touch.pending && !touch.drawing) {
       const p = touch.pending;
       touch.drawing = true;
-      touch.coalescedQueue.length = 0;
+      clearCoalescedTouchQueue();
       host.strokePrevX = p.x; host.strokePrevY = p.y;
       const curMode = host.brushParams ? host.brushParams.mode : 0;
       if (host.actionMode === 'select') {
@@ -5869,7 +5921,7 @@ async function main() {
       touch.timer = null;
     }
     touch.pending = null;
-    touch.coalescedQueue.length = 0;
+    clearCoalescedTouchQueue();
   }
   host.clearPendingTouch = clearPendingTouch;
 
@@ -5915,7 +5967,7 @@ async function main() {
       return;
     }
     _cachedCanvasRect = canvasEl.getBoundingClientRect();
-    touch.coalescedQueue.length = 0;
+    clearCoalescedTouchQueue();
 
     if (e.touches.length === 1) {
       const t = e.touches[0];
@@ -6172,7 +6224,7 @@ async function main() {
                           1, host.strokeIsEraser, strokeCol);
           host.strokePrevX = pt.x; host.strokePrevY = pt.y;
         }
-        touch.coalescedQueue.length = 0;
+        clearCoalescedTouchQueue();
       }
 
     } else if (e.touches.length >= 2) {

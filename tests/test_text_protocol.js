@@ -1002,6 +1002,34 @@ async function run() {
   host.executeCommand('history clear');
   host.executeCommand('history limit 25'); // restore default
 
+  // ── Test Zero-GC Undo Buffer Pool Recycling ──
+  host._undoBufferPool = [];
+  host.pushUndoSnapshot('pool_test_1');
+  host.pushUndoSnapshot('pool_test_2');
+  const snap1 = host.undoStack[0].pixels;
+  // Shift off an item to trigger recycling
+  host.maxUndoSteps = 1;
+  host.pushUndoSnapshot('pool_test_3'); // drops pool_test_1 into _undoBufferPool
+  if (!host._undoBufferPool || host._undoBufferPool.length === 0) {
+    throw new Error('Expected dropped undo snapshot buffer to be recycled into _undoBufferPool');
+  }
+  if (host._undoBufferPool[0] !== snap1) {
+    throw new Error('Expected recycled buffer in pool to match the dropped snapshot buffer');
+  }
+  // Next snapshot should reuse the recycled buffer directly
+  host.pushUndoSnapshot('pool_test_4');
+  if (host.undoStack[host.undoStack.length - 1].pixels !== snap1) {
+    throw new Error('Expected pushUndoSnapshot to reuse pooled buffer without heap allocation');
+  }
+  host.maxUndoSteps = 25;
+  host.clearUndoHistory();
+  if (host.undoStack.length !== 0 || host.redoStack.length !== 0) {
+    throw new Error('Expected clearUndoHistory to empty undo and redo stacks');
+  }
+  if (host._undoBufferPool.length === 0) {
+    throw new Error('Expected clearUndoHistory to recycle all buffers into _undoBufferPool');
+  }
+
   // ── Test Roadmap Phase 4 Features ──
   console.log('--- Testing Roadmap Phase 4 Features ---');
 

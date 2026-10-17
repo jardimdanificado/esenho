@@ -4561,8 +4561,8 @@ const COMMAND_RULES = [
   {
     pat: "history clear",
     run: (m, host) => {
-      host.undoStack = [];
-      host.redoStack = [];
+      if (typeof host.clearUndoHistory === 'function') host.clearUndoHistory();
+      else { host.undoStack = []; host.redoStack = []; }
       host.sendConsoleLog("History stack cleared");
     }
   },
@@ -6283,6 +6283,7 @@ class EsenhoScreenHost {
     this.undoStack = [];
     this.redoStack = [];
     this.maxUndoSteps = 25;
+    this._undoBufferPool = [];
 
     // Color History & Brush History
     this.colorHistory = [];
@@ -6369,7 +6370,57 @@ class EsenhoScreenHost {
   }
 
   /**
+   * Retrieves a reusable TypedArray buffer from the pool or allocates a new one if empty.
+   */
+  _getUndoBuffer(byteLen) {
+    if (!this._undoBufferPool) this._undoBufferPool = [];
+    for (let i = 0; i < this._undoBufferPool.length; i++) {
+      if (this._undoBufferPool[i].byteLength === byteLen) {
+        return this._undoBufferPool.splice(i, 1)[0];
+      }
+    }
+    return new Uint8Array(byteLen);
+  }
+
+  /**
+   * Recycles an unused buffer back into the pool to prevent V8 GC major pauses.
+   */
+  _recycleUndoBuffer(buf) {
+    if (!buf || !(buf instanceof Uint8Array)) return;
+    if (!this._undoBufferPool) this._undoBufferPool = [];
+    const curByteLen = (this.canvasActor?.exports?.get_width && this.canvasActor?.exports?.get_height)
+      ? this.canvasActor.exports.get_width() * this.canvasActor.exports.get_height() * 4
+      : 0;
+    if (curByteLen > 0 && buf.byteLength !== curByteLen) {
+      return; // Discard buffers that no longer match active canvas dimensions
+    }
+    const maxPool = Math.max(30, (this.maxUndoSteps || 25) + 5);
+    if (this._undoBufferPool.length < maxPool) {
+      this._undoBufferPool.push(buf);
+    }
+  }
+
+  /**
+   * Clears the entire undo and redo history while recycling all buffers.
+   */
+  clearUndoHistory() {
+    if (this.undoStack && this.undoStack.length > 0) {
+      for (const s of this.undoStack) {
+        if (s && s.pixels) this._recycleUndoBuffer(s.pixels);
+      }
+      this.undoStack = [];
+    }
+    if (this.redoStack && this.redoStack.length > 0) {
+      for (const s of this.redoStack) {
+        if (s && s.pixels) this._recycleUndoBuffer(s.pixels);
+      }
+      this.redoStack = [];
+    }
+  }
+
+  /**
    * Captures the active layer's current pixel buffer (and vector paths if applicable) for the undo stack.
+   * Utilizes pooled buffers to prevent Stop-The-World GC pauses during drawing strokes.
    */
   pushUndoSnapshot(action = 'draw') {
     if (!this.canvasActor || !this.canvasActor.exports) return;
@@ -6382,7 +6433,8 @@ class EsenhoScreenHost {
 
     const byteLen = w * h * 4;
     const raw = new Uint8Array(this.canvasActor.memory.buffer, ptr, byteLen);
-    const pixelsCopy = raw.slice();
+    const pixelsCopy = this._getUndoBuffer(byteLen);
+    pixelsCopy.set(raw);
     const vectorSnapshot = this._captureVectorLayerSnapshot(layerIdx);
 
     this.undoStack.push({
@@ -6395,9 +6447,17 @@ class EsenhoScreenHost {
     });
 
     if (this.maxUndoSteps > 0 && this.undoStack.length > this.maxUndoSteps) {
-      this.undoStack.shift();
+      const dropped = this.undoStack.shift();
+      if (dropped && dropped.pixels) {
+        this._recycleUndoBuffer(dropped.pixels);
+      }
     }
-    this.redoStack = [];
+    if (this.redoStack && this.redoStack.length > 0) {
+      for (const r of this.redoStack) {
+        if (r && r.pixels) this._recycleUndoBuffer(r.pixels);
+      }
+      this.redoStack = [];
+    }
   }
 
   /**
@@ -6417,7 +6477,8 @@ class EsenhoScreenHost {
 
     if (ptr && w === snapshot.width && h === snapshot.height) {
       const raw = new Uint8Array(this.canvasActor.memory.buffer, ptr, w * h * 4);
-      const currentPixels = raw.slice();
+      const currentPixels = this._getUndoBuffer(w * h * 4);
+      currentPixels.set(raw);
       const currentVecSnap = this._captureVectorLayerSnapshot(layerIdx);
 
       this.redoStack.push({
@@ -6433,6 +6494,8 @@ class EsenhoScreenHost {
       if (snapshot.vectorSnapshot !== undefined) {
         this._restoreVectorLayerSnapshot(layerIdx, snapshot.vectorSnapshot);
       }
+      this._recycleUndoBuffer(snapshot.pixels);
+
       if (typeof exports.w_force_composite === 'function') exports.w_force_composite();
       this.sendConsoleLog(`undo: ${snapshot.action}`);
       return { ok: true, action: snapshot.action };
@@ -6457,7 +6520,8 @@ class EsenhoScreenHost {
 
     if (ptr && w === snapshot.width && h === snapshot.height) {
       const raw = new Uint8Array(this.canvasActor.memory.buffer, ptr, w * h * 4);
-      const currentPixels = raw.slice();
+      const currentPixels = this._getUndoBuffer(w * h * 4);
+      currentPixels.set(raw);
       const currentVecSnap = this._captureVectorLayerSnapshot(layerIdx);
 
       this.undoStack.push({
@@ -6473,6 +6537,8 @@ class EsenhoScreenHost {
       if (snapshot.vectorSnapshot !== undefined) {
         this._restoreVectorLayerSnapshot(layerIdx, snapshot.vectorSnapshot);
       }
+      this._recycleUndoBuffer(snapshot.pixels);
+
       if (typeof exports.w_force_composite === 'function') exports.w_force_composite();
       this.sendConsoleLog(`redo: ${snapshot.action}`);
       return { ok: true, action: snapshot.action };
