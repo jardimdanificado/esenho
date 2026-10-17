@@ -4344,7 +4344,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.14.18)</span>
+    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.14.19)</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -8324,22 +8324,12 @@
       window.updateSwatches = updateSwatches;
 
       // ── Pointer & Tool Event Handlers ──
-      let touchLongPressTimer = null;
-      let touchLongPressStart = null;
-      function clearTouchLongPress() {
-        if (touchLongPressTimer) {
-          clearTimeout(touchLongPressTimer);
-          touchLongPressTimer = null;
-        }
-        touchLongPressStart = null;
-      }
+      function clearTouchLongPress() {}
       window._clearStudioTouchLongPress = clearTouchLongPress;
 
       viewportContainer.addEventListener('pointerdown', async (e) => {
-        clearTouchLongPress();
         if (window.contextMenuService && (window.contextMenuService.activeMenu || window.contextMenuService.isDismissing?.())) {
           window.contextMenuService.hideContextMenu();
-          clearTouchLongPress();
           e.preventDefault();
           e.stopPropagation();
           return;
@@ -8347,54 +8337,6 @@
         if (isTouchPinching) return;
 
         const touchHitMult = e.pointerType === 'touch' ? 2.2 : 1.0;
-
-        if (e.pointerType === 'touch' && e.isPrimary !== false && !e.target.closest('.monaco-menu-container')) {
-          const lpClientX = e.clientX;
-          const lpClientY = e.clientY;
-          touchLongPressStart = { x: lpClientX, y: lpClientY, pointerId: e.pointerId };
-          touchLongPressTimer = setTimeout(() => {
-            touchLongPressTimer = null;
-            if (isTouchPinching || !touchLongPressStart) return;
-            // Cancel any in-progress marquee or accidental draft started by touch-down
-            isDragging = false;
-            isPanning = false;
-            isMarqueeSelecting = false;
-            marqueeBox = null;
-            isNodeMarqueeSelecting = false;
-            nodeMarqueeBox = null;
-            activeTransformMode = null;
-            activeResizeHandle = null;
-            isPenDraggingAnchor = false;
-            if (currentDraftObj) {
-              doc.removeObject(currentDraftObj.id);
-              currentDraftObj = null;
-              currentBrushRawPoints = [];
-            }
-            if (navigator.vibrate) {
-              try { navigator.vibrate(18); } catch (_) {}
-            }
-            const lpPt = screenToDoc(lpClientX, lpClientY);
-            if (activeTool === 'select') {
-              const hitObj = groupSelectMode ? (doc.hitTest(lpPt.x, lpPt.y) || doc.hitTestDeep(lpPt.x, lpPt.y)) : doc.hitTestDeep(lpPt.x, lpPt.y);
-              if (hitObj && !doc.selectedIds.has(hitObj.id)) {
-                doc.selectedIds.clear();
-                doc.selectedIds.add(hitObj.id);
-                expandObjectInTree(hitObj);
-              }
-            }
-            render();
-            drawOverlay();
-            updateInspector();
-            updateObjectList();
-            showCanvasContextMenu({
-              clientX: lpClientX,
-              clientY: lpClientY,
-              shiftKey: false,
-              preventDefault: () => {},
-              stopPropagation: () => {}
-            }, lpPt);
-          }, 450);
-        }
 
         // Hand tool / Space / Middle Click Pan
         if (activeTool === 'hand' || e.button === 1 || e.spaceKey || isPanning) {
@@ -8834,11 +8776,6 @@
       });
 
       window.addEventListener('pointermove', (e) => {
-        if (touchLongPressStart && e.pointerId === touchLongPressStart.pointerId) {
-          if (Math.hypot(e.clientX - touchLongPressStart.x, e.clientY - touchLongPressStart.y) > 10) {
-            clearTouchLongPress();
-          }
-        }
         if (isTouchPinching) {
           clearTouchLongPress();
           return;
@@ -11829,14 +11766,6 @@
           isDragging = false;
           hasDragged = false;
 
-          const rect = btnMenuLogo.getBoundingClientRect();
-          showStudioTitleBarContextMenu({
-            clientX: rect.left,
-            clientY: rect.bottom + 2,
-            preventDefault() {},
-            stopPropagation() {}
-          });
-
           try { btnMenuLogo.setPointerCapture(e.pointerId); } catch (_) {}
 
           const onPointerMove = (me) => {
@@ -11880,6 +11809,18 @@
               });
             } else {
               removeReticle();
+              // Open menu ONLY upon releasing the pointer, never immediately on pointerdown
+              if (window.contextMenuService?.activeMenu) {
+                window.contextMenuService.hideContextMenu();
+              } else {
+                const rect = btnMenuLogo.getBoundingClientRect();
+                showStudioTitleBarContextMenu({
+                  clientX: rect.left,
+                  clientY: rect.bottom + 2,
+                  preventDefault() {},
+                  stopPropagation() {}
+                });
+              }
             }
           };
 
@@ -11902,19 +11843,6 @@
         btnMenuLogo.addEventListener('click', (e) => {
           e.stopPropagation();
           e.preventDefault();
-          if (hasDragged) {
-            hasDragged = false;
-            return;
-          }
-          if (!window.contextMenuService?.activeMenu) {
-            const rect = btnMenuLogo.getBoundingClientRect();
-            showStudioTitleBarContextMenu({
-              clientX: rect.left,
-              clientY: rect.bottom + 2,
-              preventDefault() {},
-              stopPropagation() {}
-            });
-          }
         });
       }
 

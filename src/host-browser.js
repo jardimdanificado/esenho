@@ -5827,8 +5827,6 @@ async function main() {
     drawing: false,
     pending: null,       /* Pending touch: { sx, sy, x, y } */
     timer: null,
-    longPressTimer: null,
-    longPressTriggered: false,
     tapGesture: null,    /* Multi-finger tap: { time, maxFingers, moved, startPositions } */
     coalescedQueue: []
   };
@@ -5869,10 +5867,6 @@ async function main() {
     if (touch.timer) {
       clearTimeout(touch.timer);
       touch.timer = null;
-    }
-    if (touch.longPressTimer) {
-      clearTimeout(touch.longPressTimer);
-      touch.longPressTimer = null;
     }
     touch.pending = null;
     touch.coalescedQueue.length = 0;
@@ -5941,66 +5935,7 @@ async function main() {
       host.mouseHover = { x, y, sx, sy, inside: true };
       touch.startClient = { x: startClientX, y: startClientY };
       touch.pending = { sx, sy, x, y };
-      touch.longPressTriggered = false;
       if (touch.timer) clearTimeout(touch.timer);
-      if (touch.longPressTimer) clearTimeout(touch.longPressTimer);
-
-      // Arm 1-finger Long-Press (450ms stationary) to open Contextual Menu in any mode
-      touch.longPressTimer = setTimeout(() => {
-        touch.longPressTimer = null;
-        touch.longPressTriggered = true;
-        clearPendingTouch();
-        if (ftDragging) {
-          if (host.floatingTransform && ftDragOrigin && ftDragOrigin.corners) {
-            host.floatingTransform.corners = ftDragOrigin.corners.map(c => ({ x: c.x, y: c.y }));
-            bakeFtPreview();
-          }
-          ftDragging = false;
-          ftHandle = null;
-          ftDragStart = null;
-          ftDragOrigin = null;
-        }
-        if (vecDragging) {
-          if (!vecDragging.moved) {
-            if ((vecDragging.type === 'penNewNode' || vecDragging.type === 'penCloseNode') && typeof host.undo === 'function') {
-              vecDragging = null;
-              host.undo();
-            } else if (Array.isArray(host.undoStack) && host.undoStack.length > 0 && vecDragging.type !== 'marquee') {
-              host.undoStack.pop();
-            }
-          }
-          vecDragging = null;
-          markCanvasDirty();
-        }
-        if (isTouchPicker) {
-          isTouchPicker = false;
-          hideEyedropper();
-        }
-        if (isDraggingShape) {
-          isDraggingShape = false;
-          shapeStartDoc = null;
-          shapeCurDoc = null;
-          markCanvasDirty();
-        }
-        if (isSelecting) {
-          isSelecting = false;
-          selStartDoc = null;
-          selCurDoc = null;
-          markCanvasDirty();
-        }
-        if (isLassoSelecting) {
-          isLassoSelecting = false;
-          lassoSelPoints = [];
-          markCanvasDirty();
-        }
-        triggerHaptic(20);
-        showPainterContextMenu({
-          clientX: startClientX,
-          clientY: startClientY,
-          preventDefault() {},
-          stopPropagation() {}
-        });
-      }, 450);
 
       if (host.floatingTransform) {
         const handle = ftHitTest(x, y, true);
@@ -6167,14 +6102,7 @@ async function main() {
     e.preventDefault();
 
     if (e.touches.length === 1 && !touch.tapGesture) {
-      if (touch.longPressTriggered) return;
       const t0 = e.touches[0];
-      if (touch.longPressTimer && touch.startClient) {
-        if (Math.hypot(t0.clientX - touch.startClient.x, t0.clientY - touch.startClient.y) > 8) {
-          clearTimeout(touch.longPressTimer);
-          touch.longPressTimer = null;
-        }
-      }
       const { sx, sy, x, y } = touchDocPos(t0);
       host.mouseHover = { x, y, sx, sy, inside: true };
 
@@ -6219,10 +6147,6 @@ async function main() {
       if (touch.pending) {
         const dist = Math.hypot(sx - touch.pending.sx, sy - touch.pending.sy);
         if (dist > 5) {
-          if (touch.longPressTimer) {
-            clearTimeout(touch.longPressTimer);
-            touch.longPressTimer = null;
-          }
           commitPendingTouch();
         }
       }
@@ -6435,7 +6359,7 @@ async function main() {
       touch.prevTouches = e.touches;
       return;
     }
-    if (touch.pending && !touch.longPressTriggered) {
+    if (touch.pending) {
       /* Single-tap tap dab */
       commitPendingTouch();
       const isVecLayer = host.isVectorLayer && host.isVectorLayer() && host.actionMode !== 'select';
@@ -12935,14 +12859,6 @@ async function main() {
         isDragging = false;
         hasDragged = false;
 
-        const rect = btnMenuLogo.getBoundingClientRect();
-        showPainterTitleBarContextMenu({
-          clientX: rect.left,
-          clientY: rect.bottom + 2,
-          preventDefault() {},
-          stopPropagation() {}
-        });
-
         try { btnMenuLogo.setPointerCapture(e.pointerId); } catch (_) {}
 
         const onPointerMove = (me) => {
@@ -12986,6 +12902,18 @@ async function main() {
             });
           } else {
             removeReticle();
+            // Open menu ONLY upon releasing the pointer, never immediately on pointerdown
+            if (window.contextMenuService?.activeMenu) {
+              window.contextMenuService.hideContextMenu();
+            } else {
+              const rect = btnMenuLogo.getBoundingClientRect();
+              showPainterTitleBarContextMenu({
+                clientX: rect.left,
+                clientY: rect.bottom + 2,
+                preventDefault() {},
+                stopPropagation() {}
+              });
+            }
           }
         };
 
@@ -13008,19 +12936,6 @@ async function main() {
       btnMenuLogo.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        if (hasDragged) {
-          hasDragged = false;
-          return;
-        }
-        if (!window.contextMenuService?.activeMenu) {
-          const rect = btnMenuLogo.getBoundingClientRect();
-          showPainterTitleBarContextMenu({
-            clientX: rect.left,
-            clientY: rect.bottom + 2,
-            preventDefault() {},
-            stopPropagation() {}
-          });
-        }
       });
     }
 
