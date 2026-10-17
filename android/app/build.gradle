@@ -126,6 +126,9 @@ tasks.register('generateNativePlugins', Exec) {
 
 preBuild.dependsOn(tasks.named('syncWebAssets'))
 preBuild.dependsOn(tasks.named('generateNativePlugins'))
+tasks.named('generateNativePlugins').configure {
+    mustRunAfter(tasks.named('syncWebAssets'))
+}
 
 dependencies {
     implementation 'androidx.webkit:webkit:1.11.0'
