@@ -1863,20 +1863,6 @@ async function run() {
     throw new Error(`Expected viewportFiltering === true after toggle, got ${host.viewportFiltering}`);
   }
 
-  // Test Stabilizer Mode switching (0 = Streamline/EMA, 1 = Pulled String) & string_length
-  host.executeCommand('brush stabilizer_mode 1');
-  if (host.brushParams.stabilizer_mode !== 1) {
-    throw new Error(`Expected stabilizer_mode === 1, got ${host.brushParams.stabilizer_mode}`);
-  }
-  host.executeCommand('brush string_length 45');
-  if (host.brushParams.string_length !== 45) {
-    throw new Error(`Expected string_length === 45, got ${host.brushParams.string_length}`);
-  }
-  host.executeCommand('brush stabilizer_mode streamline');
-  if (host.brushParams.stabilizer_mode !== 0) {
-    throw new Error(`Expected stabilizer_mode === 0, got ${host.brushParams.stabilizer_mode}`);
-  }
-
   // Test Transform Rotation & Flips
   host.executeCommand('select rect 100 100 50 50');
   host.executeCommand('transform');

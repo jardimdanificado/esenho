@@ -213,11 +213,6 @@ const PARAM_IDS = {
   buildup: 42,
   accumulate: 42,
   build_up: 42,
-  stabilizer_mode: 43,
-  smooth_mode: 43,
-  string_length: 44,
-  lazy_radius: 44,
-  pulled_string: 44,
   water: 50,
   water_load: 50,
   water_amount: 50,
@@ -1407,7 +1402,7 @@ class EsenhoWasmBrush {
     if (n === 'flow') {
       return inputs.includes('opacity') || inputs.includes('flow');
     }
-    if (n === 'smoothing' || n === 'streamline' || n === 'stabilization' || n === 'string_length' || n === 'midpoint') {
+    if (n === 'smoothing' || n === 'streamline' || n === 'stabilization' || n === 'midpoint') {
       return inputs.includes('stabilizer') || inputs.includes('smoothing');
     }
     if (n === 'velocity') {
@@ -3511,8 +3506,6 @@ function handleGet(host, rawCat, rawProp) {
     tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
     grain_scale: 'texture_scale', grain_size: 'texture_scale',
     smooth: 'smoothing', stabilizer: 'smoothing', stabilize: 'smoothing', stabilization: 'smoothing',
-    stabilizer_mode: 'stabilizer_mode', smooth_mode: 'stabilizer_mode',
-    string_length: 'string_length', lazy_radius: 'string_length', pulled_string: 'string_length',
     bezier: 'midpoint', bezier_midpoint: 'midpoint',
     tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast',
     taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',
@@ -4931,11 +4924,6 @@ const COMMAND_RULES = [
   { pat: "dual_spacing $val", run: (m, host) => handleDirectParam(host, "dual_spacing", m.val) },
   { pat: "symmetry $val", run: (m, host) => handleDirectParam(host, "symmetry", m.val) },
   { pat: "mirror $val", run: (m, host) => handleDirectParam(host, "symmetry", m.val) },
-  { pat: "stabilizer_mode $val", run: (m, host) => handleDirectParam(host, "stabilizer_mode", m.val) },
-  { pat: "smooth_mode $val", run: (m, host) => handleDirectParam(host, "stabilizer_mode", m.val) },
-  { pat: "string_length $val", run: (m, host) => handleDirectParam(host, "string_length", m.val) },
-  { pat: "lazy_radius $val", run: (m, host) => handleDirectParam(host, "string_length", m.val) },
-  { pat: "pulled_string $val", run: (m, host) => handleDirectParam(host, "string_length", m.val) },
   {
     pat: "set grid $val",
     run: (m, host) => {
@@ -6267,8 +6255,6 @@ class EsenhoScreenHost {
       pressure_flow: 1,
       tilt_angle: 1,
       buildup: 0,
-      stabilizer_mode: 0,
-      string_length: 30,
       water: 0,
       bleed: 0,
       granulation: 0,
@@ -9112,8 +9098,6 @@ class EsenhoScreenHost {
       pressure_flow: 1,
       tilt_angle: 1,
       buildup: 0,
-      stabilizer_mode: 0,
-      string_length: 30,
       water: 0,
       bleed: 0,
       granulation: 0,
@@ -9724,8 +9708,6 @@ class EsenhoScreenHost {
         tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
         grain_scale: 'texture_scale', grain_size: 'texture_scale',
         smooth: 'smoothing', stabilizer: 'smoothing', stabilize: 'smoothing', stabilization: 'smoothing',
-        stabilizer_mode: 'stabilizer_mode', smooth_mode: 'stabilizer_mode',
-        string_length: 'string_length', lazy_radius: 'string_length', pulled_string: 'string_length',
         bezier: 'midpoint', bezier_midpoint: 'midpoint',
         tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast',
         taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',
@@ -9749,13 +9731,7 @@ class EsenhoScreenHost {
         tex_scale_size: 'tex_scale_with_size'
       };
       const canonKey = canonMap[key] || key;
-      if (canonKey === 'stabilizer_mode') {
-        const strVal = String(val).toLowerCase().trim();
-        const modeNum = (strVal === '1' || strVal === 'pulled' || strVal === 'string' || strVal === 'leash') ? 1 : 0;
-        this.brushParams.stabilizer_mode = modeNum;
-      } else {
-        this.brushParams[canonKey] = numericVal;
-      }
+      this.brushParams[canonKey] = numericVal;
       if (canonKey === 'texture_angle') this.brushParams.texture_rotate = numericVal;
     }
 
@@ -10088,7 +10064,6 @@ class EsenhoScreenHost {
         for (const [dk, dv] of Object.entries(preset.dynamics)) {
           if (dk === 'stabilizer' && typeof dv === 'object') {
             if (dv.smoothing !== undefined) this.setBrushParam('smoothing', dv.smoothing);
-            if (dv.mode !== undefined) this.setBrushParam('stabilizer_mode', dv.mode);
           } else if (dk === 'taper' && typeof dv === 'object') {
             if (dv.in !== undefined) this.setBrushParam('taper_in', dv.in);
             if (dv.out !== undefined) this.setBrushParam('taper_out', dv.out);
@@ -10619,63 +10594,14 @@ class EsenhoScreenHost {
       }
     }
 
-    const isPulledString = (this.brushParams.stabilizer_mode === 1 || this.brushParams.stabilizer_mode === 'pulled' || this.brushParams.stabilizer_mode === 'string');
-
     // Direct execution for non-freehand modes (fill, lasso, geometric shapes)
     if (this.brushParams.mode === 3 || this.brushParams.mode === 4 || this.brushParams.mode === 6 || this.brushParams.mode === 7 || this.brushParams.mode === 8) {
       this.strokeSmoothX = x;
       this.strokeSmoothY = y;
       this.strokeHistory = null;
       this.strokeLastMid = null;
-      this.pulledAnchor = null;
-      this.pulledCursor = null;
       invokeStroke(state, x, y, prev_x, prev_y);
       return;
-    }
-
-    if (isPulledString) {
-      const stringRadius = (smooth > 0)
-        ? Math.max(5, smooth * 1.5)
-        : ((this.brushParams.string_length !== undefined && this.brushParams.string_length > 0)
-            ? this.brushParams.string_length
-            : 30);
-
-      if (state === 0) { // STROKE_START
-        this.pulledAnchor = { x, y };
-        this.pulledCursor = { x, y };
-        this.strokeSmoothX = x;
-        this.strokeSmoothY = y;
-        invokeStroke(0, x, y, x, y);
-        return;
-      }
-
-      if (state === 1) { // STROKE_MOVE
-        if (!this.pulledAnchor) this.pulledAnchor = { x: prev_x, y: prev_y };
-        this.pulledCursor = { x, y };
-        const dx = x - this.pulledAnchor.x;
-        const dy = y - this.pulledAnchor.y;
-        const dist = Math.hypot(dx, dy);
-
-        if (dist > stringRadius) {
-          const targetX = x - (dx / dist) * stringRadius;
-          const targetY = y - (dy / dist) * stringRadius;
-          invokeStroke(1, targetX, targetY, this.pulledAnchor.x, this.pulledAnchor.y);
-          this.pulledAnchor.x = targetX;
-          this.pulledAnchor.y = targetY;
-          this.strokeSmoothX = targetX;
-          this.strokeSmoothY = targetY;
-        }
-        return;
-      }
-
-      if (state === 2) { // STROKE_END
-        this.pulledCursor = null;
-        this.pulledAnchor = null;
-        invokeStroke(2, this.strokeSmoothX ?? x, this.strokeSmoothY ?? y, this.strokeSmoothX ?? prev_x, this.strokeSmoothY ?? prev_y);
-        this.strokeSmoothX = null;
-        this.strokeSmoothY = null;
-        return;
-      }
     }
 
     // Continuous Quadratic Midpoint Bézier curve interpolation + optional EMA stabilizer:

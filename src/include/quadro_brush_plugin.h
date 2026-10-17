@@ -29,7 +29,7 @@ extern "C" {
 #define W_BRUSH_INPUT_SPACING      (1 << 7)  /* Dab spacing */
 #define W_BRUSH_INPUT_HARDNESS     (1 << 8)  /* Tip hardness */
 #define W_BRUSH_INPUT_ROUNDNESS    (1 << 9)  /* Tip roundness / aspect */
-#define W_BRUSH_INPUT_STABILIZER   (1 << 10) /* Streamline / smoothing / leash */
+#define W_BRUSH_INPUT_STABILIZER   (1 << 10) /* Streamline / smoothing */
 #define W_BRUSH_INPUT_JITTER       (1 << 11) /* Jitter / scatter */
 #define W_BRUSH_INPUT_WET          (1 << 12) /* Wet / mix / paint physics / smudge */
 #define W_BRUSH_INPUT_TEXTURE      (1 << 13) /* Texture / grain */

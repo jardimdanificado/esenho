@@ -4211,7 +4211,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.14.17  --x--  0,0  zoom 100%  rot 0.0°</span>
+    <span id="wstatus" class="ip-top-status-text">v0.14.18  --x--  0,0  zoom 100%  rot 0.0°</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -4741,20 +4741,12 @@
             <div id="ip-lab-section-dynamics" style="display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); padding-top: 5px;">
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;" data-brush-input="stabilizer">
                 <span style="font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px;">Dynamics &amp; Stabilizer</span>
-                <select id="ip-select-stabilizer-mode" class="ui-select" style="height: 20px; font-size: 9.5px; padding: 0 4px; max-width: 155px;">
-                  <option value="0">Streamline (Bezier)</option>
-                  <option value="1">Pulled String / Leash</option>
-                </select>
               </div>
 
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 3px;">
                 <div class="ip-touch-control" data-brush-input="stabilizer">
                   <div class="ip-touch-label-row"><span id="ip-lbl-stabilization">Stabilization</span><span id="ip-val-smoothing" class="ip-touch-val">0%</span></div>
                   <input type="range" id="ip-slider-smoothing" min="0" max="100" value="0" class="ip-touch-slider">
-                </div>
-                <div class="ip-touch-control" id="ip-ctrl-string-length" data-brush-input="stabilizer" style="display: none;">
-                  <div class="ip-touch-label-row"><span>String Len</span><span id="ip-val-string-length" class="ip-touch-val">30px</span></div>
-                  <input type="range" id="ip-slider-string-length" min="5" max="250" value="30" class="ip-touch-slider">
                 </div>
                 <div class="ip-touch-control" id="ip-ctrl-midpoint" data-brush-input="stabilizer">
                   <div class="ip-touch-label-row"><span>Midpoint</span><span id="ip-val-midpoint" class="ip-touch-val">50%</span></div>

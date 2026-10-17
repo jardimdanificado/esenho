@@ -2243,46 +2243,7 @@ async function main() {
         ctx.restore();
       }
 
-      /* Real-Time Pulled String (Lazy Nezumi) Visual Leash Guide */
-      if (host.isDrawingOnCanvas && host.pulledAnchor && host.pulledCursor) {
-        ctx.save();
-        ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
-        const ax = host.pulledAnchor.x * host.zoom;
-        const ay = host.pulledAnchor.y * host.zoom;
-        const px = host.pulledCursor.x * host.zoom;
-        const py = host.pulledCursor.y * host.zoom;
-        const smoothVal = host.brushParams?.smoothing || 0;
-        const sRad = ((smoothVal > 0)
-          ? Math.max(5, smoothVal * 1.5)
-          : ((host.brushParams?.string_length !== undefined && host.brushParams.string_length > 0)
-              ? host.brushParams.string_length
-              : 30)) * host.zoom;
 
-        // 1. Leash Line
-        ctx.beginPath();
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(px, py);
-        ctx.strokeStyle = '#fabd2f';
-        ctx.lineWidth = 1.5 / (window.devicePixelRatio || 1);
-        ctx.setLineDash([3, 3]);
-        ctx.stroke();
-
-        // 2. Dab Anchor Point
-        ctx.beginPath();
-        ctx.arc(ax, ay, 3.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#fabd2f';
-        ctx.fill();
-
-        // 3. Radius Leash Ring
-        ctx.beginPath();
-        ctx.arc(ax, ay, sRad, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(254, 128, 25, 0.4)';
-        ctx.lineWidth = 1.0 / (window.devicePixelRatio || 1);
-        ctx.setLineDash([]);
-        ctx.stroke();
-
-        ctx.restore();
-      }
 
       /* Optional Pixel Grid Overlay (when zoomed) */
       if (host.showPixelGrid && host.zoom >= 4) {
@@ -3823,24 +3784,11 @@ async function main() {
     },
 
     // ── Dynamics & Stylus ──
-    { id: 'smoothing', label: 'Smoothing', key: 'stabilization', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
-    {
-      id: 'stabilizer_mode',
-      label: 'Stabilizer Mode',
-      key: 'stabilizer_mode',
-      category: 'dynamics',
-      type: 'select',
-      defaultVal: 0,
-      options: [
-        { value: 0, label: 'Streamline' },
-        { value: 1, label: 'Pulled String (Leash)' }
-      ]
-    },
-    { id: 'string_length', label: 'Lazy String', key: 'string_length', category: 'dynamics', type: 'slider', min: 0, max: 200, unit: 'px', defaultVal: 0 },
+    { id: 'smoothing', label: 'Stabilization', key: 'stabilization', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
+    { id: 'midpoint', label: 'Bézier Midpoint', key: 'midpoint', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 50 },
     { id: 'pressure_size', label: 'Pressure Size', key: 'pressure_size', category: 'dynamics', type: 'toggle', defaultVal: 1 },
     { id: 'pressure_flow', label: 'Pressure Flow', key: 'pressure_flow', category: 'dynamics', type: 'toggle', defaultVal: 1 },
     { id: 'stylus_tilt', label: 'Stylus Tilt', key: 'tilt_angle', category: 'dynamics', type: 'toggle', defaultVal: 0 },
-    { id: 'midpoint', label: 'Bézier Midpoint', key: 'midpoint', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 50 },
     { id: 'velocity', label: 'Velocity Size', key: 'velocity', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
     { id: 'autorotate', label: 'Follow Direction', key: 'autorotate', category: 'dynamics', type: 'toggle', defaultVal: 0 },
     { id: 'taper_in', label: 'Taper Start', key: 'taper_in', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
@@ -3945,7 +3893,7 @@ async function main() {
     list.push({ type: 'header', label: 'Presets' });
     const presets = [
       { label: 'Default (Size, Opacity, Smoothing)', ids: ['size', 'opacity', 'smoothing'] },
-      { label: 'Inking Studio', ids: ['size', 'opacity', 'smoothing', 'string_length', 'taper_in', 'taper_out', 'velocity', 'pressure_size'] },
+      { label: 'Inking Studio', ids: ['size', 'opacity', 'smoothing', 'midpoint', 'taper_in', 'taper_out', 'velocity', 'pressure_size'] },
       { label: 'Painting Pro', ids: ['size', 'opacity', 'flow', 'hardness', 'smoothing', 'wetness', 'smudge', 'pickup', 'pigment_mode'] },
       { label: 'Clear All Controls', ids: [] }
     ];
@@ -7333,13 +7281,6 @@ async function main() {
   bindSlider('ui-slider-flow', 'ui-val-flow', 'brush flow', '%');
   bindSlider('ui-slider-spacing', 'ui-val-spacing', 'set spacing', '%');
   bindSlider('ui-slider-smoothing', 'ui-val-smoothing', 'brush stabilize', '%');
-  const stabModeSelect = document.getElementById('ui-select-stabilizer-mode');
-  if (stabModeSelect) {
-    stabModeSelect.addEventListener('change', () => {
-      host.brushParams.stabilizer_mode = stabModeSelect.value;
-      log(`Stabilizer mode: ${stabModeSelect.value === 'pulled' ? 'Pulled String (Lazy Nezumi)' : 'EMA Smoothing'}`);
-    });
-  }
   bindSlider('ui-slider-midpoint', 'ui-val-midpoint', 'set midpoint', '%');
   bindSlider('ui-slider-angle', 'ui-val-angle', 'set angle', '°');
   bindSlider('ui-slider-roundness', 'ui-val-roundness', 'set roundness', '%');
@@ -8593,7 +8534,6 @@ async function main() {
     velocity: { type: 'dial', name: 'Velocity', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set velocity', getter: bp => bp.velocity || 0, chips: [0, 25, 50, 75, 100] },
     taper_in: { type: 'dial', name: 'Taper In', min: 0, max: 500, step: 5, suffix: 'px', cmd: 'set taper_in', getter: bp => bp.taper_in || 0, chips: [0, 20, 50, 100, 200] },
     taper_out: { type: 'dial', name: 'Taper Out', min: 0, max: 500, step: 5, suffix: 'px', cmd: 'set taper_out', getter: bp => bp.taper_out || 0, chips: [0, 20, 50, 100, 200] },
-    string_length: { type: 'dial', name: 'Pulled String', min: 0, max: 200, step: 2, suffix: 'px', cmd: 'set string_length', getter: bp => bp.string_length || 0, chips: [0, 15, 30, 60, 100] },
     fade: { type: 'dial', name: 'Fade', min: 0, max: 2000, step: 20, suffix: 'px', cmd: 'set fade', getter: bp => bp.fade || 0, chips: [0, 100, 300, 600, 1200] },
     tolerance: { type: 'dial', name: 'Tolerance', min: 0, max: 255, step: 1, suffix: '', cmd: 'set tolerance', getter: bp => (bp.tolerance !== undefined ? bp.tolerance : 32), chips: [0, 16, 32, 64, 128] },
     size_jitter: { type: 'dial', name: 'Size Jitter', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set size_jitter', getter: bp => bp.size_jitter || 0, chips: [0, 15, 30, 50, 80] },
@@ -9318,7 +9258,6 @@ async function main() {
             <option value="depletion">Deplete</option>
             <option value="color_pickup">Pickup</option>
             <option value="velocity">Velocity</option>
-            <option value="string_length">Pulled String</option>
             <option value="taper_in">Taper In</option>
             <option value="taper_out">Taper Out</option>
             <option value="fade">Fade</option>
@@ -13239,7 +13178,6 @@ async function main() {
       { id: 'angle', label: 'Angle', key: 'angle', min: 0, max: 360, isCurve: false, unit: '°', defaultOn: false },
       { id: 'spacing', label: 'Spac', key: 'spacing', min: 1, max: 200, isCurve: false, unit: '%', defaultOn: false },
       { id: 'smoothing', label: 'Stab', key: 'smoothing', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
-      { id: 'string_length', label: 'String', key: 'string_length', min: 0, max: 200, isCurve: false, unit: 'px', defaultOn: false },
       { id: 'midpoint', label: 'MidPt', key: 'midpoint', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
       { id: 'velocity', label: 'Velo', key: 'velocity', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
       { id: 'taper_in', label: 'TapIn', key: 'taper_in', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
@@ -13709,7 +13647,7 @@ async function main() {
     const btnHudInk = document.getElementById('btn-ip-hud-preset-ink');
     if (btnHudInk) {
       btnHudInk.addEventListener('click', () => {
-        saveContextMenuSliders(['size', 'opacity', 'smoothing', 'string_length', 'taper_in', 'taper_out', 'velocity']);
+        saveContextMenuSliders(['size', 'opacity', 'smoothing', 'midpoint', 'taper_in', 'taper_out', 'velocity']);
         renderHudCustomizerOptions();
         triggerHaptic(12);
       });
@@ -15483,17 +15421,8 @@ async function main() {
     linkLabSlider('ip-slider-angle', 'ip-val-angle', 'angle', '°');
 
     // Dynamics
-    const selStabMode = document.getElementById('ip-select-stabilizer-mode');
-    if (selStabMode) {
-      selStabMode.addEventListener('change', () => {
-        runCmd(`brush stabilizer_mode ${selStabMode.value}`);
-        syncUiFromHost();
-        triggerHaptic(10);
-      });
-    }
     linkLabSlider('ip-slider-spacing', 'ip-val-spacing', 'spacing', '%');
     linkLabSlider('ip-slider-smoothing', 'ip-val-smoothing', 'stabilization', '%');
-    linkLabSlider('ip-slider-string-length', 'ip-val-string-length', 'string_length', 'px');
     linkLabSlider('ip-slider-midpoint', 'ip-val-midpoint', 'midpoint', '%');
     linkLabSlider('ip-slider-velocity', 'ip-val-velocity', 'velocity', '%');
     linkLabSlider('ip-slider-taper-in', 'ip-val-taper-in', 'taper_in', '%');
@@ -15681,7 +15610,6 @@ async function main() {
         { id: 'angle', key: 'angle', isCurve: false, unit: '°', min: 0, max: 360 },
         { id: 'spacing', key: 'spacing', isCurve: false, unit: '%', min: 1, max: 200 },
         { id: 'smoothing', key: 'smoothing', isCurve: false, unit: '%', min: 0, max: 100 },
-        { id: 'string_length', key: 'string_length', isCurve: false, unit: 'px', min: 0, max: 200 },
         { id: 'midpoint', key: 'midpoint', isCurve: false, unit: '%', min: 0, max: 100 },
         { id: 'velocity', key: 'velocity', isCurve: false, unit: '%', min: 0, max: 100 },
         { id: 'taper_in', key: 'taper_in', isCurve: false, unit: '%', min: 0, max: 100 },
@@ -16224,19 +16152,8 @@ async function main() {
       setLabSlider('ip-slider-angle', 'ip-val-angle', bp.angle ?? 0, '°');
 
       // Dynamics
-      const selStabMode = document.getElementById('ip-select-stabilizer-mode');
-      const isPulled = (bp.stabilizer_mode === 1 || bp.stabilizer_mode === 'pulled' || bp.stabilizer_mode === 'string');
-      if (selStabMode) {
-        selStabMode.value = isPulled ? '1' : '0';
-      }
-      const ctrlStringLen = document.getElementById('ip-ctrl-string-length');
-      const ctrlMidpoint = document.getElementById('ip-ctrl-midpoint');
-      if (ctrlStringLen) ctrlStringLen.style.display = isPulled ? 'flex' : 'none';
-      if (ctrlMidpoint) ctrlMidpoint.style.display = isPulled ? 'none' : 'flex';
-
       setLabSlider('ip-slider-spacing', 'ip-val-spacing', bp.spacing ?? 5, '%');
       setLabSlider('ip-slider-smoothing', 'ip-val-smoothing', bp.smoothing ?? 0, '%');
-      setLabSlider('ip-slider-string-length', 'ip-val-string-length', bp.string_length ?? 30, 'px');
       setLabSlider('ip-slider-midpoint', 'ip-val-midpoint', bp.midpoint ?? 50, '%');
       setLabSlider('ip-slider-velocity', 'ip-val-velocity', bp.velocity ?? 0, '%');
       setLabSlider('ip-slider-taper-in', 'ip-val-taper-in', bp.taper_in ?? 0, '%');

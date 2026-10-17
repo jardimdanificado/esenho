@@ -6,7 +6,7 @@
  *   - 3D Impasto Height Map Relief (impasto: 1..100)
  *   - Dynamic Watercolor Simulation (water, bleed, fringe, granulation, drying_rate)
  *   - Dab Blending Modes (Multiply for alcohol markers, Add for neon glow)
- *   - Stabilizers & Pulled String Dynamics (stabilizer_mode, string_length, smoothing)
+ *   - Streamline Stabilizer & Bézier Curvature (smoothing, midpoint)
  *   - Velocity & Stylus Dynamics (pressure_size, pressure_flow, tilt_angle, velocity, taper)
  */
 
@@ -341,8 +341,8 @@ const CURATED_BRUSH_PRESETS = {
   precision_liner: {
     $schema: 'esenho/brush/v1',
     id: 'precision_liner',
-    name: 'Precision Pulled-String',
-    desc: 'Virtual elastic pulled-string stabilizer for pixel-perfect lineart without wobbles',
+    name: 'Precision Technical Liner',
+    desc: 'Streamline stabilizer for pixel-perfect lineart without wobbles',
     category: 'ink',
     builtin: true,
     shape: 'circle',
@@ -351,9 +351,8 @@ const CURATED_BRUSH_PRESETS = {
     hardness: 100,
     flow: 100,
     spacing: 2,
-    stabilizer_mode: 1, // Pulled string leash
-    string_length: 35,
     smoothing: 30,
+    midpoint: 50,
     pressure_size: 0,
     pressure_flow: 0,
     subpixel: 1,
