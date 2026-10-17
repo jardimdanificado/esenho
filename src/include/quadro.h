@@ -175,6 +175,7 @@ W_EXPORT int32_t w_layer_duplicate(int32_t layer_idx);
 W_EXPORT uint32_t w_pick_color(int32_t x, int32_t y, int32_t sample_composite);
 W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser);
 W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser, int32_t pressure, int32_t tilt_x, int32_t tilt_y);
+W_EXPORT void w_brush_stroke_ext_f(int32_t state, float x0, float y0, float x1, float y1, uint32_t color, int32_t eraser, int32_t pressure, int32_t tilt_x, int32_t tilt_y);
 
 /* =========================================================================
  * Universal Dynamic Brush Engine API (Continuous Physics & Spline Curves)

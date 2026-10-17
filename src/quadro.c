@@ -1230,15 +1230,18 @@ static int32_t last_trajectory_angle = 0;
  * Renders a single parametric dab at (cx, cy) onto active layer pixels.
  * Samples shape texture alpha channel for arbitrary tip geometry.
  */
-static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, uint32_t color, int eraser, int move_dx, int move_dy, int dab_r, int dab_angle, int dab_flow_pct, int cur_d) {
+static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float cy, uint32_t color, int eraser, int move_dx, int move_dy, int dab_r, int dab_angle, int dab_flow_pct, int cur_d) {
     int is_alpha_locked = (active_layer >= 0 && active_layer < layer_count && layers[active_layer].alpha_lock);
     int r = (dab_r > 0) ? dab_r : brush_config.size;
     if (r < 1) r = 1;
+    float rf = (float)r;
     int roundness = brush_config.roundness > 0 ? brush_config.roundness : 100;
+    float roundness_scale = (roundness == 100) ? 1.0f : (100.0f / (float)roundness);
     int inner_r = (r * brush_config.hardness) / 100;
-    int r_sq = r * r;
-    int inner_r_sq = inner_r * inner_r;
-    int bound_r = (r * 142) / 100 + 1;
+    float inner_rf = (float)inner_r;
+    float r_sq = rf * rf;
+    float inner_r_sq = inner_rf * inner_rf;
+    int bound_r = (r * 142) / 100 + 2;
 
     int sin_val = 0, cos_val = 1024;
     int eff_angle = dab_angle;
@@ -1246,14 +1249,17 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
         eff_angle = (eff_angle + last_trajectory_angle + 360) % 360;
     }
     int is_unrotated = (eff_angle == 0);
+    float sin_f = 0.0f, cos_f = 1.0f;
     if (!is_unrotated) {
         w_sincos_deg(eff_angle, &sin_val, &cos_val);
+        sin_f = (float)sin_val / 1024.0f;
+        cos_f = (float)cos_val / 1024.0f;
     }
 
-    int min_x = cx - bound_r;
-    int max_x = cx + bound_r;
-    int min_y = cy - bound_r;
-    int max_y = cy + bound_r;
+    int min_x = (int)__builtin_floorf(cx - (float)bound_r);
+    int max_x = (int)__builtin_ceilf(cx + (float)bound_r);
+    int min_y = (int)__builtin_floorf(cy - (float)bound_r);
+    int max_y = (int)__builtin_ceilf(cy + (float)bound_r);
 
     if (min_x < 0) min_x = 0;
     if (min_x >= w) return;
@@ -1295,76 +1301,77 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
     update_hardness_lut(brush_config.hardness);
 
     for (int y = min_y; y <= max_y; y++) {
-        int dy = y - cy;
-        int row_u = dy * sin_val;
-        int row_v = dy * cos_val;
+        float dy = (float)y - cy;
+        float row_u = dy * sin_f;
+        float row_v = dy * cos_f;
         int row_idx = y * w;
 
         int row_min_x = min_x;
         int row_max_x = max_x;
 
-        int v_scaled = (roundness == 100) ? dy : ((dy * 100) / roundness);
-        int v_scaled_sq = v_scaled * v_scaled;
+        float v_scaled = dy * roundness_scale;
+        float v_scaled_sq = v_scaled * v_scaled;
 
         if (is_unrotated) {
-            if (!is_builtin_square && v_scaled_sq > r_sq) continue;
-            if (!is_builtin_square) {
-                int span_u = w_isqrt(r_sq - v_scaled_sq);
-                if (cx - span_u > row_min_x) row_min_x = cx - span_u;
-                if (cx + span_u < row_max_x) row_max_x = cx + span_u;
-            }
+            if (!is_builtin_square && v_scaled_sq > r_sq + (brush_config.subpixel ? (2.0f * rf + 1.0f) : 0.0f)) continue;
         }
-
-        if (row_min_x < 0) row_min_x = 0;
-        if (row_max_x >= w) row_max_x = w - 1;
-        if (row_min_x > row_max_x) continue;
 
         for (int x = row_min_x; x <= row_max_x; x++) {
             if (is_pixel_clipped(x, y)) continue;
-            int dx = x - cx;
+            float dx = (float)x - cx;
 
-            int u, v, dist_sq;
+            float u, v, dist_sq;
             if (is_unrotated) {
                 u = dx;
                 v = dy;
                 dist_sq = dx * dx + v_scaled_sq;
             } else {
-                u = (dx * cos_val + row_u) >> 10;
-                v = (-dx * sin_val + row_v) >> 10;
-                v_scaled = (roundness == 100) ? v : ((v * 100) / roundness);
-                int abs_u = u < 0 ? -u : u;
-                if (abs_u > r) continue;
-                int abs_v = v_scaled < 0 ? -v_scaled : v_scaled;
-                if (abs_v > r) continue;
+                u = dx * cos_f + row_u;
+                v = -dx * sin_f + row_v;
+                v_scaled = v * roundness_scale;
+                float abs_u = u < 0.0f ? -u : u;
+                if (abs_u > rf + 1.0f) continue;
+                float abs_v = v_scaled < 0.0f ? -v_scaled : v_scaled;
+                if (abs_v > rf + 1.0f) continue;
                 dist_sq = u * u + v_scaled * v_scaled;
-                if (!is_builtin_square && dist_sq > r_sq) continue;
+            }
+
+            if (is_builtin_square) {
+                float abs_u = u < 0.0f ? -u : u;
+                float abs_v = v_scaled < 0.0f ? -v_scaled : v_scaled;
+                if (abs_u > rf || abs_v > rf) continue;
+            } else {
+                if (dist_sq > r_sq + (brush_config.subpixel ? (2.0f * rf + 1.0f) : 0.0f)) continue;
             }
 
             uint32_t shape_a = 255;
             if (!is_builtin_circle && !is_builtin_square) {
                 if (stex->pixels && stex->width > 0 && stex->height > 0) {
                     if (brush_config.subpixel && stex->width > 1 && stex->height > 1 && r > 0) {
-                        int fx_256 = ((u + r) * (stex->width - 1) * 256) / (2 * r);
-                        int fy_256 = ((v_scaled + r) * (stex->height - 1) * 256) / (2 * r);
-                        int x0 = fx_256 >> 8, y0 = fy_256 >> 8;
-                        int x1 = x0 + 1, y1 = y0 + 1;
-                        int wx = fx_256 & 0xFF, wy = fy_256 & 0xFF;
+                        float fx = ((u + rf) * (float)(stex->width - 1)) / (2.0f * rf);
+                        float fy = ((v_scaled + rf) * (float)(stex->height - 1)) / (2.0f * rf);
+                        int x0 = (int)__builtin_floorf(fx);
+                        int y0 = (int)__builtin_floorf(fy);
+                        int x1 = x0 + 1;
+                        int y1 = y0 + 1;
+                        float wx = fx - (float)x0;
+                        float wy = fy - (float)y0;
                         if (x0 >= 0 && x1 < stex->width && y0 >= 0 && y1 < stex->height) {
                             uint32_t a00 = (stex->pixels[y0 * stex->width + x0] >> 24) & 0xFF;
                             uint32_t a10 = (stex->pixels[y0 * stex->width + x1] >> 24) & 0xFF;
                             uint32_t a01 = (stex->pixels[y1 * stex->width + x0] >> 24) & 0xFF;
                             uint32_t a11 = (stex->pixels[y1 * stex->width + x1] >> 24) & 0xFF;
-                            uint32_t a_top = a00 * (256 - wx) + a10 * wx;
-                            uint32_t a_bot = a01 * (256 - wx) + a11 * wx;
-                            shape_a = (a_top * (256 - wy) + a_bot * wy) >> 16;
+                            float a_top = (float)a00 * (1.0f - wx) + (float)a10 * wx;
+                            float a_bot = (float)a01 * (1.0f - wx) + (float)a11 * wx;
+                            shape_a = (uint32_t)(a_top * (1.0f - wy) + a_bot * wy);
                         } else if (x0 >= 0 && x0 < stex->width && y0 >= 0 && y0 < stex->height) {
                             shape_a = (stex->pixels[y0 * stex->width + x0] >> 24) & 0xFF;
                         } else {
                             shape_a = 0;
                         }
                     } else {
-                        int sx = ((u + r) * (stex->width - 1)) / (2 * r);
-                        int sy = ((v_scaled + r) * (stex->height - 1)) / (2 * r);
+                        int sx = (int)(((u + rf) * (float)(stex->width - 1)) / (2.0f * rf));
+                        int sy = (int)(((v_scaled + rf) * (float)(stex->height - 1)) / (2.0f * rf));
                         if (sx >= 0 && sx < stex->width && sy >= 0 && sy < stex->height) {
                             uint32_t sp = stex->pixels[sy * stex->width + sx];
                             shape_a = (sp >> 24) & 0xFF;
@@ -1378,8 +1385,9 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
 
             // Dual brush
             if (has_dual && dtex && dtex->pixels && dtex->width > 0 && dtex->height > 0) {
-                int dsx = ((u + dual_r) * (dtex->width - 1)) / (2 * dual_r);
-                int dsy = ((v_scaled + dual_r) * (dtex->height - 1)) / (2 * dual_r);
+                float drf = (float)dual_r;
+                int dsx = (int)(((u + drf) * (float)(dtex->width - 1)) / (2.0f * drf));
+                int dsy = (int)(((v_scaled + drf) * (float)(dtex->height - 1)) / (2.0f * drf));
                 uint32_t dual_a = 0;
                 if (dsx >= 0 && dsx < dtex->width && dsy >= 0 && dsy < dtex->height) {
                     dual_a = (dtex->pixels[dsy * dtex->width + dsx] >> 24) & 0xFF;
@@ -1389,13 +1397,19 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
             }
 
             if (brush_config.subpixel && !is_builtin_square) {
-                int dist_256 = w_isqrt64((uint64_t)dist_sq << 16);
-                int r_256 = r << 8;
-                if (dist_256 >= r_256 - 256) {
-                    int coverage = r_256 - dist_256;
-                    if (coverage < 0) coverage = 0;
-                    if (coverage > 255) coverage = 255;
-                    shape_a = DIV255(shape_a * (uint32_t)coverage);
+                float dist = __builtin_sqrtf(dist_sq);
+                if (dist > rf) {
+                    if (dist < rf + 1.0f) {
+                        float coverage = rf + 1.0f - dist;
+                        shape_a = DIV255(shape_a * (uint32_t)(coverage * 255.0f));
+                        if (shape_a == 0) continue;
+                    } else {
+                        continue;
+                    }
+                } else if (dist >= rf - 1.0f) {
+                    float coverage = rf - dist;
+                    uint32_t factor = (uint32_t)(128.0f + 127.0f * coverage);
+                    shape_a = DIV255(shape_a * factor);
                     if (shape_a == 0) continue;
                 }
             }
@@ -1409,7 +1423,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
             uint32_t a = DIV255(dab_flow_a * shape_a);
             if (brush_config.hardness < 100 && r > 0 && !is_builtin_square) {
                 if (dist_sq > inner_r_sq) {
-                    int lut_idx = (dist_sq * 1023) / (r_sq > 0 ? r_sq : 1);
+                    int lut_idx = (int)((dist_sq * 1023.0f) / (r_sq > 0.0f ? r_sq : 1.0f));
                     if (lut_idx > 1023) lut_idx = 1023;
                     uint32_t hard_factor = g_hardness_lut[lut_idx];
                     a = DIV255(a * hard_factor);
@@ -2360,13 +2374,13 @@ static int32_t stroke_cum_dist = 0;
 static float stroke_spacing_dist = 0.0f;
 static uint32_t stroke_pickup_color = 0;
 
-static void render_stroke_dab(uint32_t *pix, int w, int h, int cx, int cy, int dx, int dy, int dist,
+static void render_stroke_dab(uint32_t *pix, int w, int h, float cx, float cy, float dx, float dy, float dist,
                               uint32_t color, int32_t eraser, int move_dx, int move_dy,
                               int cur_d, int32_t pressure, int32_t tilt_x, int32_t tilt_y) {
     // Velocity Dynamics
     int scale_factor = 100;
-    if (brush_config.velocity > 0 && dist > 0) {
-        int speed = dist;
+    if (brush_config.velocity > 0 && dist > 0.001f) {
+        int speed = (int)dist;
         if (speed > 100) speed = 100;
         int v_mod = (speed * brush_config.velocity) / 100;
         scale_factor = 100 - v_mod / 2;
@@ -2437,8 +2451,10 @@ static void render_stroke_dab(uint32_t *pix, int w, int h, int cx, int cy, int d
     // Color with color_jitter and continuous color_pickup
     uint32_t dab_color = color;
     if (brush_config.color_pickup > 0) {
-        if (cx >= 0 && cx < w && cy >= 0 && cy < h) {
-            uint32_t under_p = pix[cy * w + cx];
+        int icx = (int)__builtin_floorf(cx + 0.5f);
+        int icy = (int)__builtin_floorf(cy + 0.5f);
+        if (icx >= 0 && icx < w && icy >= 0 && icy < h) {
+            uint32_t under_p = pix[icy * w + icx];
             if (((under_p >> 24) & 0xFF) > 10) {
                 stroke_pickup_color = mix_color(under_p, stroke_pickup_color, brush_config.color_pickup);
             }
@@ -2463,15 +2479,15 @@ static void render_stroke_dab(uint32_t *pix, int w, int h, int cx, int cy, int d
     if (brush_config.scatter > 0) {
         int max_j = (brush_config.size * brush_config.scatter) / 100;
         if (max_j > 0) {
-            int offset = ((int)(next_random() % (2 * max_j + 1))) - max_j;
-            if (dist > 0) {
-                int nx = (-dy * 1024) / dist;
-                int ny = (dx * 1024) / dist;
-                cx += (nx * offset) / 1024;
-                cy += (ny * offset) / 1024;
+            float offset = (float)(((int)(next_random() % (2 * max_j + 1))) - max_j);
+            if (dist > 0.001f) {
+                float nx = -dy / dist;
+                float ny = dx / dist;
+                cx += nx * offset;
+                cy += ny * offset;
             } else {
                 cx += offset;
-                cy += ((int)(next_random() % (2 * max_j + 1))) - max_j;
+                cy += (float)(((int)(next_random() % (2 * max_j + 1))) - max_j);
             }
         }
     }
@@ -2479,24 +2495,25 @@ static void render_stroke_dab(uint32_t *pix, int w, int h, int cx, int cy, int d
     render_parametric_dab(pix, w, h, cx, cy, dab_color, eraser, move_dx, move_dy, dab_r, dab_angle, dab_flow_pct, cur_d);
 
     if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
-        int sym_x = w - 1 - cx;
+        float sym_x = (float)(w - 1) - cx;
         render_parametric_dab(pix, w, h, sym_x, cy, dab_color, eraser, -move_dx, move_dy, dab_r, 180 - dab_angle, dab_flow_pct, cur_d);
     }
     if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
-        int sym_y = h - 1 - cy;
+        float sym_y = (float)(h - 1) - cy;
         render_parametric_dab(pix, w, h, cx, sym_y, dab_color, eraser, move_dx, -move_dy, dab_r, -dab_angle, dab_flow_pct, cur_d);
     }
     if (brush_config.symmetry == 3) {
-        int sym_x = w - 1 - cx;
-        int sym_y = h - 1 - cy;
+        float sym_x = (float)(w - 1) - cx;
+        float sym_y = (float)(h - 1) - cy;
         render_parametric_dab(pix, w, h, sym_x, sym_y, dab_color, eraser, -move_dx, -move_dy, dab_r, 180 + dab_angle, dab_flow_pct, cur_d);
     }
 }
 
 /**
- * Universal Brush Stroke Executor (interpolates dabs, handles smudge, fill, lasso, pressure, tilt).
+ * Universal Brush Stroke Executor (interpolates dabs, handles smudge, fill, lasso, pressure, tilt)
+ * with continuous float subpixel accuracy.
  */
-W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser, int32_t pressure, int32_t tilt_x, int32_t tilt_y) {
+W_EXPORT void w_brush_stroke_ext_f(int32_t state, float x0, float y0, float x1, float y1, uint32_t color, int32_t eraser, int32_t pressure, int32_t tilt_x, int32_t tilt_y) {
     init_surface_if_needed();
     uint32_t epoch_before_stroke = layer_epoch;
     int w = 0, h = 0;
@@ -2518,26 +2535,28 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
     }
 
     if (w_vector_get_recording()) {
+        int ix0 = (int)(x0 + 0.5f), iy0 = (int)(y0 + 0.5f);
         if (state == 0) {
             w_vector_stroke_begin(color, eraser);
-            w_vector_stroke_add_point(x0, y0, pressure, tilt_x, tilt_y);
+            w_vector_stroke_add_point(ix0, iy0, pressure, tilt_x, tilt_y);
         } else if (state == 1) {
-            w_vector_stroke_add_point(x0, y0, pressure, tilt_x, tilt_y);
+            w_vector_stroke_add_point(ix0, iy0, pressure, tilt_x, tilt_y);
         } else if (state == 2) {
-            w_vector_stroke_add_point(x0, y0, pressure, tilt_x, tilt_y);
+            w_vector_stroke_add_point(ix0, iy0, pressure, tilt_x, tilt_y);
             w_vector_stroke_end(0);
         }
     }
 
     // 1. FLOOD FILL MODE
     if (brush_config.type == W_MODE_FILL) {
-        if (state == 0 && x1 >= 0 && x1 < w && y1 >= 0 && y1 < h && !is_pixel_clipped(x1, y1)) {
-            uint32_t target_color = pix[y1 * w + x1];
+        int ix1 = (int)(x1 + 0.5f), iy1 = (int)(y1 + 0.5f);
+        if (state == 0 && ix1 >= 0 && ix1 < w && iy1 >= 0 && iy1 < h && !is_pixel_clipped(ix1, iy1)) {
+            uint32_t target_color = pix[iy1 * w + ix1];
             uint32_t fill_color = eraser ? 0x00000000 : color;
             if (target_color != fill_color) {
                 int head = 0, tail = 0;
-                qx[tail] = x1; qy[tail] = y1; tail++;
-                pix[y1 * w + x1] = fill_color;
+                qx[tail] = ix1; qy[tail] = iy1; tail++;
+                pix[iy1 * w + ix1] = fill_color;
                 while (head < tail && tail < MAX_QUEUE - 4) {
                     int cx = qx[head], cy = qy[head]; head++;
                     const int ddx[4] = { 0, 0, -1, 1 }, ddy[4] = { -1, 1, 0, 0 };
@@ -2560,18 +2579,19 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
 
     // 2. LASSO FILL MODE
     if (brush_config.type == W_MODE_LASSO_FILL) {
+        int ix1 = (int)(x1 + 0.5f), iy1 = (int)(y1 + 0.5f);
         if (state == 0) {
             poly_count = 0;
             if (poly_count < MAX_POLY) {
-                poly_x[poly_count] = x1; poly_y[poly_count] = y1; poly_count++;
+                poly_x[poly_count] = ix1; poly_y[poly_count] = iy1; poly_count++;
             }
         } else if (state == 1) {
             if (poly_count < MAX_POLY) {
-                poly_x[poly_count] = x1; poly_y[poly_count] = y1; poly_count++;
+                poly_x[poly_count] = ix1; poly_y[poly_count] = iy1; poly_count++;
             }
         } else if (state == 2) {
-            if (poly_count < MAX_POLY - 1 && (poly_count == 0 || poly_x[poly_count - 1] != x1 || poly_y[poly_count - 1] != y1)) {
-                poly_x[poly_count] = x1; poly_y[poly_count] = y1; poly_count++;
+            if (poly_count < MAX_POLY - 1 && (poly_count == 0 || poly_x[poly_count - 1] != ix1 || poly_y[poly_count - 1] != iy1)) {
+                poly_x[poly_count] = ix1; poly_y[poly_count] = iy1; poly_count++;
             }
             fill_polygon(pix, w, h, color, eraser);
             force_composite();
@@ -2584,13 +2604,13 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
     int d_bound = (brush_config.size * 142) / 100 + 4;
 
     if (state == 0) {
-        // Stamp initial touch dab at (x0, y0)
-        render_stroke_dab(pix, w, h, x0, y0, 0, 0, 0, color, eraser, 0, 0, 0, pressure, tilt_x, tilt_y);
+        // Stamp initial touch dab at (x0, y0) with subpixel precision
+        render_stroke_dab(pix, w, h, x0, y0, 0.0f, 0.0f, 0.0f, color, eraser, 0, 0, 0, pressure, tilt_x, tilt_y);
         stroke_spacing_dist = 0.0f;
-        int d_x0 = x0 - d_bound;
-        int d_y0 = y0 - d_bound;
-        int d_x1 = x0 + d_bound;
-        int d_y1 = y0 + d_bound;
+        int d_x0 = (int)__builtin_floorf(x0) - d_bound;
+        int d_y0 = (int)__builtin_floorf(y0) - d_bound;
+        int d_x1 = (int)__builtin_ceilf(x0) + d_bound;
+        int d_y1 = (int)__builtin_ceilf(y0) + d_bound;
         if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
             d_x0 = 0; d_x1 = w - 1;
         }
@@ -2602,17 +2622,17 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
         return;
     }
 
-    int dx = x0 - x1;
-    int dy = y0 - y1;
-    int dist = w_isqrt(dx * dx + dy * dy);
+    float dx = x0 - x1;
+    float dy = y0 - y1;
+    float dist = __builtin_sqrtf(dx * dx + dy * dy);
 
-    if (dist <= 0) {
+    if (dist < 0.001f) {
         if (state == 1 && brush_config.buildup) {
-            render_stroke_dab(pix, w, h, x0, y0, 0, 0, 0, color, eraser, 0, 0, stroke_cum_dist, pressure, tilt_x, tilt_y);
-            int d_x0 = x0 - d_bound;
-            int d_y0 = y0 - d_bound;
-            int d_x1 = x0 + d_bound;
-            int d_y1 = y0 + d_bound;
+            render_stroke_dab(pix, w, h, x0, y0, 0.0f, 0.0f, 0.0f, color, eraser, 0, 0, stroke_cum_dist, pressure, tilt_x, tilt_y);
+            int d_x0 = (int)__builtin_floorf(x0) - d_bound;
+            int d_y0 = (int)__builtin_floorf(y0) - d_bound;
+            int d_x1 = (int)__builtin_ceilf(x0) + d_bound;
+            int d_y1 = (int)__builtin_ceilf(y0) + d_bound;
             if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
                 d_x0 = 0; d_x1 = w - 1;
             }
@@ -2625,8 +2645,8 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
         return;
     }
 
-    if (dist > 1) {
-        last_trajectory_angle = w_atan2_deg(dy, dx);
+    if (dist > 1.0f) {
+        last_trajectory_angle = w_atan2_deg((int)(dy * 1024.0f), (int)(dx * 1024.0f));
     }
 
     // Spacing calculation based on brush size
@@ -2635,16 +2655,16 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
         float min_step = (float)brush_config.size * 0.04f;
         if (step_size < min_step) step_size = min_step;
     }
-    if (step_size < 1.0f) step_size = 1.0f;
+    if (step_size < 0.5f) step_size = 0.5f;
 
     int move_dx = 0, move_dy = 0;
-    int sm_step = (brush_config.size > 8) ? (brush_config.size / 4) : 2;
-    if (sm_step < 1) sm_step = 1;
-    if (sm_step > 8) sm_step = 8;
-    move_dx = (dx * sm_step) / dist;
-    move_dy = (dy * sm_step) / dist;
-    if (move_dx == 0 && dx != 0) move_dx = (dx > 0 ? 1 : -1);
-    if (move_dy == 0 && dy != 0) move_dy = (dy > 0 ? 1 : -1);
+    float sm_step = (brush_config.size > 8) ? ((float)brush_config.size * 0.25f) : 2.0f;
+    if (sm_step < 1.0f) sm_step = 1.0f;
+    if (sm_step > 8.0f) sm_step = 8.0f;
+    move_dx = (int)((dx * sm_step) / dist);
+    move_dy = (int)((dy * sm_step) / dist);
+    if (move_dx == 0 && dx != 0.0f) move_dx = (dx > 0.0f ? 1 : -1);
+    if (move_dy == 0 && dy != 0.0f) move_dy = (dy > 0.0f ? 1 : -1);
 
     if (stroke_spacing_dist >= step_size) {
         stroke_spacing_dist = step_size * 0.5f;
@@ -2656,10 +2676,10 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
     float d = step_size - stroke_spacing_dist;
     int dabs_stamped = 0;
 
-    while (d <= (float)dist) {
-        float t = d / (float)dist;
-        int cx = (int)((float)x1 + (float)dx * t + (dx >= 0 ? 0.5f : -0.5f));
-        int cy = (int)((float)y1 + (float)dy * t + (dy >= 0 ? 0.5f : -0.5f));
+    while (d <= dist) {
+        float t = d / dist;
+        float cx = x1 + dx * t;
+        float cy = y1 + dy * t;
         int cur_d = stroke_cum_dist + (int)d;
 
         render_stroke_dab(pix, w, h, cx, cy, dx, dy, dist, color, eraser, move_dx, move_dy, cur_d, pressure, tilt_x, tilt_y);
@@ -2668,17 +2688,20 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
         dabs_stamped++;
     }
 
-    stroke_spacing_dist = (float)dist - (d - step_size);
+    stroke_spacing_dist = dist - (d - step_size);
     if (stroke_spacing_dist < 0.0f) stroke_spacing_dist = 0.0f;
     if (stroke_spacing_dist >= step_size) stroke_spacing_dist = 0.0f;
-    stroke_cum_dist += dist;
+    stroke_cum_dist += (int)dist;
 
     if (dabs_stamped > 0) {
-        int d_x0 = (x0 < x1 ? x0 : x1) - d_bound;
-        int d_y0 = (y0 < y1 ? y0 : y1) - d_bound;
-        int d_x1 = (x0 > x1 ? x0 : x1) + d_bound;
-        int d_y1 = (y0 > y1 ? y0 : y1) + d_bound;
-
+        float min_x = (x0 < x1 ? x0 : x1);
+        float min_y = (y0 < y1 ? y0 : y1);
+        float max_x = (x0 > x1 ? x0 : x1);
+        float max_y = (y0 > y1 ? y0 : y1);
+        int d_x0 = (int)__builtin_floorf(min_x) - d_bound;
+        int d_y0 = (int)__builtin_floorf(min_y) - d_bound;
+        int d_x1 = (int)__builtin_ceilf(max_x) + d_bound;
+        int d_y1 = (int)__builtin_ceilf(max_y) + d_bound;
         if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
             d_x0 = 0; d_x1 = w - 1;
         }
@@ -2690,8 +2713,15 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
     }
 }
 
+/**
+ * Universal Brush Stroke Executor legacy wrapper for integer callers.
+ */
+W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser, int32_t pressure, int32_t tilt_x, int32_t tilt_y) {
+    w_brush_stroke_ext_f(state, (float)x0, (float)y0, (float)x1, (float)y1, color, eraser, pressure, tilt_x, tilt_y);
+}
+
 W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser) {
-    w_brush_stroke_ext(state, x0, y0, x1, y1, color, eraser, 1000, 0, 0);
+    w_brush_stroke_ext_f(state, (float)x0, (float)y0, (float)x1, (float)y1, color, eraser, 1000, 0, 0);
 }
 
 W_EXPORT uint32_t w_pick_color(int32_t x, int32_t y, int32_t sample_composite) {

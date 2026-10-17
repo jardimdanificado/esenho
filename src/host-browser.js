@@ -3809,6 +3809,21 @@ async function main() {
     // ── Dynamics & Stylus ──
     { id: 'smoothing', label: 'Stabilization', key: 'stabilization', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
     { id: 'midpoint', label: 'Bézier Midpoint', key: 'midpoint', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 50 },
+    {
+      id: 'pressure_curve',
+      label: 'Pressure Response',
+      key: 'pressure_curve',
+      category: 'dynamics',
+      type: 'select',
+      defaultVal: 'linear',
+      options: [
+        { value: 'linear', label: 'Linear' },
+        { value: 'soft', label: 'Soft (Light Touch)' },
+        { value: 'hard', label: 'Hard (Firm Touch)' },
+        { value: 's-curve', label: 'S-Curve (Sigmoid)' }
+      ]
+    },
+    { id: 'pressure_min', label: 'Min Pressure', key: 'pressure_min', category: 'dynamics', type: 'slider', min: 0, max: 100, unit: '%', defaultVal: 0 },
     { id: 'pressure_size', label: 'Pressure Size', key: 'pressure_size', category: 'dynamics', type: 'toggle', defaultVal: 1 },
     { id: 'pressure_flow', label: 'Pressure Flow', key: 'pressure_flow', category: 'dynamics', type: 'toggle', defaultVal: 1 },
     { id: 'stylus_tilt', label: 'Stylus Tilt', key: 'tilt_angle', category: 'dynamics', type: 'toggle', defaultVal: 0 },

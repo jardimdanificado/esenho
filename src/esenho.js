@@ -10602,6 +10602,8 @@ class EsenhoScreenHost {
         const normTiltX = tx / 90.0;
         const normTiltY = ty / 90.0;
         strokeFn(curX, curY, mappedPressure, normTiltX, normTiltY, dtSec, this.zoom || 1.0);
+      } else if (typeof this.canvasActor.exports.w_brush_stroke_ext_f === 'function') {
+        this.canvasActor.exports.w_brush_stroke_ext_f(s, curX, curY, pX, pY, col >>> 0, eraser, press, tx, ty);
       } else if (typeof this.canvasActor.exports.w_brush_stroke_ext === 'function') {
         this.canvasActor.exports.w_brush_stroke_ext(s, Math.round(curX), Math.round(curY), Math.round(pX), Math.round(pY), col >>> 0, eraser, press, tx, ty);
       } else if (typeof this.canvasActor.exports.w_brush_stroke === 'function') {
@@ -10670,9 +10672,9 @@ class EsenhoScreenHost {
       return;
     }
 
-    // Continuous Quadratic Midpoint Bézier curve interpolation + optional EMA stabilizer:
-    // Even when smooth === 0 (factor = 1.0, zero lag), fitting a quadratic curve through segment
-    // midpoints eliminates polygonal/segmented straight lines ("traços quadradões") on fast curves.
+    // Continuous Responsive Bézier curve interpolation with curvature tension & Tip Catch-up:
+    // Even when smooth === 0 (factor = 1.0, zero lag), fitting a curve through midpoints
+    // eliminates segmented straight lines ("traços quadradões") on fast curves.
     if (state === 0) { // STROKE_START
       this.strokeSmoothX = x;
       this.strokeSmoothY = y;
@@ -10701,9 +10703,16 @@ class EsenhoScreenHost {
       const pCurr = { x: targetX, y: targetY };
       const pOld = this.strokeHistory[0] || pPrev;
 
-      // Quadratic Bézier curve through midpoints for smooth corner rounding
+      // Midpoint & Curvature Tension Dynamics:
+      // The midpoint slider controls both the segment split ratio and the pull tension:
+      // - 0%: tension = 0 -> collapses into straight chords (angular / precise corners)
+      // - 50%: tension = 1.0 -> standard smooth quadratic Bézier curve
+      // - 100%: tension = 2.0 -> deep elastic curvature
       const midpoint = (this.brushParams.midpoint !== undefined) ? this.brushParams.midpoint : 50;
-      const ratio = Math.max(0, Math.min(100, midpoint)) / 100;
+      const midClamped = Math.max(0, Math.min(100, midpoint));
+      const ratio = 0.15 + (midClamped / 100.0) * 0.70;
+      const tension = midClamped / 50.0;
+
       const midPrev = this.strokeLastMid || {
         x: pOld.x + (pPrev.x - pOld.x) * ratio,
         y: pOld.y + (pPrev.y - pOld.y) * ratio
@@ -10713,17 +10722,23 @@ class EsenhoScreenHost {
         y: pPrev.y + (pCurr.y - pPrev.y) * ratio
       };
 
-      const curveLen = Math.hypot(pPrev.x - midPrev.x, pPrev.y - midPrev.y) +
-                       Math.hypot(midCurr.x - pPrev.x, midCurr.y - pPrev.y);
-      const steps = Math.max(1, Math.min(24, Math.ceil(curveLen / 2.0)));
+      const chordMidX = (midPrev.x + midCurr.x) * 0.5;
+      const chordMidY = (midPrev.y + midCurr.y) * 0.5;
+      const ctrlX = chordMidX + (pPrev.x - chordMidX) * tension;
+      const ctrlY = chordMidY + (pPrev.y - chordMidY) * tension;
+
+      const chordDist = Math.hypot(midCurr.x - midPrev.x, midCurr.y - midPrev.y);
+      const arcDist = Math.hypot(ctrlX - midPrev.x, ctrlY - midPrev.y) + Math.hypot(midCurr.x - ctrlX, midCurr.y - ctrlY);
+      const curveLen = (chordDist + arcDist) * 0.5;
+      const steps = Math.max(tension > 0.05 && curveLen > 1.5 ? 2 : 1, Math.min(32, Math.ceil(curveLen / 1.75)));
       let lastX = midPrev.x;
       let lastY = midPrev.y;
 
       for (let step = 1; step <= steps; step++) {
         const t = step / steps;
-        const invT = 1 - t;
-        const bx = invT * invT * midPrev.x + 2 * invT * t * pPrev.x + t * t * midCurr.x;
-        const by = invT * invT * midPrev.y + 2 * invT * t * pPrev.y + t * t * midCurr.y;
+        const invT = 1.0 - t;
+        const bx = invT * invT * midPrev.x + 2.0 * invT * t * ctrlX + t * t * midCurr.x;
+        const by = invT * invT * midPrev.y + 2.0 * invT * t * ctrlY + t * t * midCurr.y;
 
         invokeStroke(1, bx, by, lastX, lastY);
         lastX = bx;
@@ -10739,12 +10754,28 @@ class EsenhoScreenHost {
     }
 
     if (state === 2) { // STROKE_END
-      // Finalize cleanly at the smoothed position without airborne snap jitter
+      // Finalize cleanly right at the final stylus release point (Tip Catch-up) without clipping
       const finalX = (this.strokeSmoothX !== null && this.strokeSmoothX !== undefined) ? this.strokeSmoothX : x;
       const finalY = (this.strokeSmoothY !== null && this.strokeSmoothY !== undefined) ? this.strokeSmoothY : y;
-      if (smooth === 0 && this.strokeLastMid && (Math.hypot(finalX - this.strokeLastMid.x, finalY - this.strokeLastMid.y) > 0.5)) {
-        invokeStroke(1, finalX, finalY, this.strokeLastMid.x, this.strokeLastMid.y);
+
+      if (this.strokeLastMid) {
+        const dEnd = Math.hypot(finalX - this.strokeLastMid.x, finalY - this.strokeLastMid.y);
+        if (dEnd > 0.25) {
+          const steps = Math.max(1, Math.min(16, Math.ceil(dEnd / 2.0)));
+          let lastX = this.strokeLastMid.x;
+          let lastY = this.strokeLastMid.y;
+          for (let step = 1; step <= steps; step++) {
+            const t = step / steps;
+            const invT = 1.0 - t;
+            const bx = invT * invT * this.strokeLastMid.x + 2.0 * invT * t * finalX + t * t * finalX;
+            const by = invT * invT * this.strokeLastMid.y + 2.0 * invT * t * finalY + t * t * finalY;
+            invokeStroke(1, bx, by, lastX, lastY);
+            lastX = bx;
+            lastY = by;
+          }
+        }
       }
+
       invokeStroke(2, finalX, finalY, finalX, finalY);
       this.strokeSmoothX = null;
       this.strokeSmoothY = null;
