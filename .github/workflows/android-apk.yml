@@ -2,10 +2,10 @@ name: Build Offline Android APK
 
 on:
   push:
-    branches: ["master", "main", "new"]
+    branches: ["master", "main", "development"]
     tags: ["v*"]
   pull_request:
-    branches: ["master", "main", "new"]
+    branches: ["master", "main", "development"]
   workflow_dispatch:
 
 permissions:
