@@ -38,7 +38,7 @@ class EsenhoGPURenderer {
 
     this.filterMode = 0; // 0 = Nearest (Pixel Art), 1 = Linear
     this.isSupported = false;
-    this.useLayerCompositor = true;
+    this.useLayerCompositor = false;
 
     // Layer-composite cache: result is reused while the core's layer epoch
     // (w_get_layer_epoch) and document size are unchanged.

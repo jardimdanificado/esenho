@@ -10577,7 +10577,9 @@ class EsenhoScreenHost {
         }
 
         if (dirtyX0 <= dirtyX1 && dirtyY0 <= dirtyY1) {
-          if (typeof this.canvasActor.exports.w_composite_region === 'function') {
+          if (typeof this.canvasActor.exports.w_mark_dirty_rect === 'function') {
+            this.canvasActor.exports.w_mark_dirty_rect(dirtyX0, dirtyY0, dirtyX1, dirtyY1);
+          } else if (typeof this.canvasActor.exports.w_composite_region === 'function') {
             this.canvasActor.exports.w_composite_region(dirtyX0, dirtyY0, dirtyX1, dirtyY1);
           } else if (typeof this.canvasActor.exports.w_force_composite === 'function') {
             this.canvasActor.exports.w_force_composite();
@@ -10617,12 +10619,19 @@ class EsenhoScreenHost {
         effMode = 1; // W_MODE_SMUDGE
       }
     }
+    const smStrength = (this.actionMode === 'smudge')
+      ? ((this.brushParams && this.brushParams.smudge > 0) ? this.brushParams.smudge : 70)
+      : ((this.brushParams && this.brushParams.smudge !== undefined) ? this.brushParams.smudge : 0);
+
     if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
-      this.canvasActor.exports.w_brush_set_param(15 /* W_PARAM_MODE */, effMode);
-      const smStrength = (this.actionMode === 'smudge')
-        ? ((this.brushParams && this.brushParams.smudge > 0) ? this.brushParams.smudge : 70)
-        : ((this.brushParams && this.brushParams.smudge !== undefined) ? this.brushParams.smudge : 0);
-      this.canvasActor.exports.w_brush_set_param(10 /* W_PARAM_SMUDGE */, smStrength);
+      if (this._lastWasmBrushEffMode !== effMode) {
+        this.canvasActor.exports.w_brush_set_param(15 /* W_PARAM_MODE */, effMode);
+        this._lastWasmBrushEffMode = effMode;
+      }
+      if (this._lastWasmBrushSmStrength !== smStrength) {
+        this.canvasActor.exports.w_brush_set_param(10 /* W_PARAM_SMUDGE */, smStrength);
+        this._lastWasmBrushSmStrength = smStrength;
+      }
     }
 
     if (state === 0) {
@@ -10699,8 +10708,17 @@ class EsenhoScreenHost {
       const targetX = this.strokeSmoothX + (x - this.strokeSmoothX) * factor;
       const targetY = this.strokeSmoothY + (y - this.strokeSmoothY) * factor;
 
-      const pPrev = { x: this.strokeSmoothX, y: this.strokeSmoothY };
-      const pCurr = { x: targetX, y: targetY };
+      if (!this._strokePPrev) {
+        this._strokePPrev = { x: 0, y: 0 };
+        this._strokePCurr = { x: 0, y: 0 };
+        this._strokeMidCurr = { x: 0, y: 0 };
+      }
+      this._strokePPrev.x = this.strokeSmoothX;
+      this._strokePPrev.y = this.strokeSmoothY;
+      this._strokePCurr.x = targetX;
+      this._strokePCurr.y = targetY;
+      const pPrev = this._strokePPrev;
+      const pCurr = this._strokePCurr;
       const pOld = this.strokeHistory[0] || pPrev;
 
       // Midpoint & Curvature Tension Dynamics:
@@ -10717,10 +10735,9 @@ class EsenhoScreenHost {
         x: pOld.x + (pPrev.x - pOld.x) * ratio,
         y: pOld.y + (pPrev.y - pOld.y) * ratio
       };
-      const midCurr = {
-        x: pPrev.x + (pCurr.x - pPrev.x) * ratio,
-        y: pPrev.y + (pCurr.y - pPrev.y) * ratio
-      };
+      this._strokeMidCurr.x = pPrev.x + (pCurr.x - pPrev.x) * ratio;
+      this._strokeMidCurr.y = pPrev.y + (pCurr.y - pPrev.y) * ratio;
+      const midCurr = this._strokeMidCurr;
 
       const chordMidX = (midPrev.x + midCurr.x) * 0.5;
       const chordMidY = (midPrev.y + midCurr.y) * 0.5;
@@ -10730,7 +10747,12 @@ class EsenhoScreenHost {
       const chordDist = Math.hypot(midCurr.x - midPrev.x, midCurr.y - midPrev.y);
       const arcDist = Math.hypot(ctrlX - midPrev.x, ctrlY - midPrev.y) + Math.hypot(midCurr.x - ctrlX, midCurr.y - ctrlY);
       const curveLen = (chordDist + arcDist) * 0.5;
-      const steps = Math.max(tension > 0.05 && curveLen > 1.5 ? 2 : 1, Math.min(32, Math.ceil(curveLen / 1.75)));
+      const deltaArc = arcDist - chordDist;
+
+      let steps = 1;
+      if (tension > 0.05 && curveLen > 1.5 && deltaArc > 0.35) {
+        steps = Math.min(8, Math.max(2, Math.ceil(curveLen / 4.0)));
+      }
       let lastX = midPrev.x;
       let lastY = midPrev.y;
 
@@ -10747,9 +10769,10 @@ class EsenhoScreenHost {
 
       this.strokeSmoothX = targetX;
       this.strokeSmoothY = targetY;
-      this.strokeLastMid = midCurr;
-      this.strokeHistory.unshift(pPrev);
-      if (this.strokeHistory.length > 4) this.strokeHistory.pop();
+      if (!this.strokeLastMid) this.strokeLastMid = { x: midCurr.x, y: midCurr.y };
+      else { this.strokeLastMid.x = midCurr.x; this.strokeLastMid.y = midCurr.y; }
+      if (!this.strokeHistory[0]) this.strokeHistory[0] = { x: pPrev.x, y: pPrev.y };
+      else { this.strokeHistory[0].x = pPrev.x; this.strokeHistory[0].y = pPrev.y; }
       return;
     }
 
@@ -10761,7 +10784,7 @@ class EsenhoScreenHost {
       if (this.strokeLastMid) {
         const dEnd = Math.hypot(finalX - this.strokeLastMid.x, finalY - this.strokeLastMid.y);
         if (dEnd > 0.25) {
-          const steps = Math.max(1, Math.min(16, Math.ceil(dEnd / 2.0)));
+          const steps = Math.max(1, Math.min(8, Math.ceil(dEnd / 3.0)));
           let lastX = this.strokeLastMid.x;
           let lastY = this.strokeLastMid.y;
           for (let step = 1; step <= steps; step++) {

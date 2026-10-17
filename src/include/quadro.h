@@ -122,6 +122,7 @@ W_EXPORT int32_t w_get_dirty_y0(void);
 W_EXPORT int32_t w_get_dirty_x1(void);
 W_EXPORT int32_t w_get_dirty_y1(void);
 W_EXPORT void w_clear_dirty_bounds(void);
+W_EXPORT void w_mark_dirty_rect(int32_t x0, int32_t y0, int32_t x1, int32_t y1);
 
 /* =========================================================================
  * Layer & Framebuffer ABI

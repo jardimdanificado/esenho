@@ -39,6 +39,7 @@ static uint32_t *out_pixels = 0; /**< Flattened composite buffer */
 static uint32_t out_pixels_cap = 0;
 
 void force_composite(void);
+static void init_surface_if_needed(void);
 int32_t get_width(void);
 int32_t get_height(void);
 static void ensure_stroke_buffers(uint32_t required_pixels);
@@ -403,6 +404,11 @@ W_EXPORT void w_clear_dirty_bounds(void) {
     dirty_y0 = 0;
     dirty_x1 = -1;
     dirty_y1 = -1;
+}
+
+W_EXPORT void w_mark_dirty_rect(int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
+    init_surface_if_needed();
+    mark_dirty_rect(x0, y0, x1, y1);
 }
 
 static void composite_region(int rx0, int ry0, int rx1, int ry1) {
@@ -2509,6 +2515,31 @@ static void render_stroke_dab(uint32_t *pix, int w, int h, float cx, float cy, f
     }
 }
 
+static inline void mark_dab_bounds_dirty(int w, int h, float min_x, float min_y, float max_x, float max_y, int d_bound) {
+    int d_x0 = (int)__builtin_floorf(min_x) - d_bound;
+    int d_y0 = (int)__builtin_floorf(min_y) - d_bound;
+    int d_x1 = (int)__builtin_ceilf(max_x) + d_bound;
+    int d_y1 = (int)__builtin_ceilf(max_y) + d_bound;
+    mark_dirty_rect(d_x0, d_y0, d_x1, d_y1);
+    if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
+        int s_x0 = (int)__builtin_floorf((float)(w - 1) - max_x) - d_bound;
+        int s_x1 = (int)__builtin_ceilf((float)(w - 1) - min_x) + d_bound;
+        mark_dirty_rect(s_x0, d_y0, s_x1, d_y1);
+    }
+    if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
+        int s_y0 = (int)__builtin_floorf((float)(h - 1) - max_y) - d_bound;
+        int s_y1 = (int)__builtin_ceilf((float)(h - 1) - min_y) + d_bound;
+        mark_dirty_rect(d_x0, s_y0, d_x1, s_y1);
+    }
+    if (brush_config.symmetry == 3) {
+        int s_x0 = (int)__builtin_floorf((float)(w - 1) - max_x) - d_bound;
+        int s_x1 = (int)__builtin_ceilf((float)(w - 1) - min_x) + d_bound;
+        int s_y0 = (int)__builtin_floorf((float)(h - 1) - max_y) - d_bound;
+        int s_y1 = (int)__builtin_ceilf((float)(h - 1) - min_y) + d_bound;
+        mark_dirty_rect(s_x0, s_y0, s_x1, s_y1);
+    }
+}
+
 /**
  * Universal Brush Stroke Executor (interpolates dabs, handles smudge, fill, lasso, pressure, tilt)
  * with continuous float subpixel accuracy.
@@ -2607,18 +2638,7 @@ W_EXPORT void w_brush_stroke_ext_f(int32_t state, float x0, float y0, float x1, 
         // Stamp initial touch dab at (x0, y0) with subpixel precision
         render_stroke_dab(pix, w, h, x0, y0, 0.0f, 0.0f, 0.0f, color, eraser, 0, 0, 0, pressure, tilt_x, tilt_y);
         stroke_spacing_dist = 0.0f;
-        int d_x0 = (int)__builtin_floorf(x0) - d_bound;
-        int d_y0 = (int)__builtin_floorf(y0) - d_bound;
-        int d_x1 = (int)__builtin_ceilf(x0) + d_bound;
-        int d_y1 = (int)__builtin_ceilf(y0) + d_bound;
-        if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
-            d_x0 = 0; d_x1 = w - 1;
-        }
-        if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
-            d_y0 = 0; d_y1 = h - 1;
-        }
-        composite_region(d_x0, d_y0, d_x1, d_y1);
-        if (epoch_before_stroke == composited_epoch) composited_epoch = layer_epoch;
+        mark_dab_bounds_dirty(w, h, x0, y0, x0, y0, d_bound);
         return;
     }
 
@@ -2629,18 +2649,7 @@ W_EXPORT void w_brush_stroke_ext_f(int32_t state, float x0, float y0, float x1, 
     if (dist < 0.001f) {
         if (state == 1 && brush_config.buildup) {
             render_stroke_dab(pix, w, h, x0, y0, 0.0f, 0.0f, 0.0f, color, eraser, 0, 0, stroke_cum_dist, pressure, tilt_x, tilt_y);
-            int d_x0 = (int)__builtin_floorf(x0) - d_bound;
-            int d_y0 = (int)__builtin_floorf(y0) - d_bound;
-            int d_x1 = (int)__builtin_ceilf(x0) + d_bound;
-            int d_y1 = (int)__builtin_ceilf(y0) + d_bound;
-            if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
-                d_x0 = 0; d_x1 = w - 1;
-            }
-            if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
-                d_y0 = 0; d_y1 = h - 1;
-            }
-            composite_region(d_x0, d_y0, d_x1, d_y1);
-            if (epoch_before_stroke == composited_epoch) composited_epoch = layer_epoch;
+            mark_dab_bounds_dirty(w, h, x0, y0, x0, y0, d_bound);
         }
         return;
     }
@@ -2698,18 +2707,7 @@ W_EXPORT void w_brush_stroke_ext_f(int32_t state, float x0, float y0, float x1, 
         float min_y = (y0 < y1 ? y0 : y1);
         float max_x = (x0 > x1 ? x0 : x1);
         float max_y = (y0 > y1 ? y0 : y1);
-        int d_x0 = (int)__builtin_floorf(min_x) - d_bound;
-        int d_y0 = (int)__builtin_floorf(min_y) - d_bound;
-        int d_x1 = (int)__builtin_ceilf(max_x) + d_bound;
-        int d_y1 = (int)__builtin_ceilf(max_y) + d_bound;
-        if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
-            d_x0 = 0; d_x1 = w - 1;
-        }
-        if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
-            d_y0 = 0; d_y1 = h - 1;
-        }
-        composite_region(d_x0, d_y0, d_x1, d_y1);
-        if (epoch_before_stroke == composited_epoch) composited_epoch = layer_epoch;
+        mark_dab_bounds_dirty(w, h, min_x, min_y, max_x, max_y, d_bound);
     }
 }
 
@@ -2724,11 +2722,23 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
     w_brush_stroke_ext_f(state, (float)x0, (float)y0, (float)x1, (float)y1, color, eraser, 1000, 0, 0);
 }
 
+static void ensure_composited(void) {
+    init_surface_if_needed();
+    if (surface_dirty || composited_epoch != layer_epoch) {
+        if (dirty_x1 >= dirty_x0 && dirty_y1 >= dirty_y0 && !surface_dirty) {
+            composite_region(dirty_x0, dirty_y0, dirty_x1, dirty_y1);
+            composited_epoch = layer_epoch;
+        } else {
+            force_composite();
+        }
+    }
+}
+
 W_EXPORT uint32_t w_pick_color(int32_t x, int32_t y, int32_t sample_composite) {
     init_surface_if_needed();
     if (x < 0 || y < 0 || (uint32_t)x >= doc_width || (uint32_t)y >= doc_height) return 0;
     if (sample_composite) {
-        if (!out_pixels || surface_dirty) force_composite();
+        ensure_composited();
         if (!out_pixels) return 0;
         return out_pixels[y * doc_width + x];
     }
@@ -2748,14 +2758,11 @@ W_EXPORT void w_force_composite(void) {
 W_EXPORT void w_composite_region(int32_t rx0, int32_t ry0, int32_t rx1, int32_t ry1) {
     init_surface_if_needed();
     composite_region(rx0, ry0, rx1, ry1);
+    composited_epoch = layer_epoch;
 }
 
 W_EXPORT uint32_t* w_render(void) {
-    init_surface_if_needed();
-    /* Recompose when flagged dirty OR when the layer epoch moved since the last
-     * composite (catches direct JS writes that were followed by
-     * w_invalidate_layers). Idle frames take the cheap compare path. */
-    if (surface_dirty || composited_epoch != layer_epoch) force_composite();
+    ensure_composited();
     return out_pixels;
 }
 
@@ -2775,7 +2782,10 @@ uint32_t *get_layer_pixels(int32_t idx) {
     return 0;
 }
 
-uint32_t *get_composite_pixels(void) { return out_pixels; }
+uint32_t *get_composite_pixels(void) {
+    ensure_composited();
+    return out_pixels;
+}
 int32_t get_active_layer(void) { return active_layer; }
 int32_t get_layer_count(void) { return layer_count; }
 int32_t get_width(void) {

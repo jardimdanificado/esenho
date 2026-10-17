@@ -6180,7 +6180,8 @@ async function main() {
         const speed = Math.hypot(t0.clientX - lastTouchPoint.x, t0.clientY - lastTouchPoint.y) / dt;
         const force = t0.force || ((t0.radiusX || 12) / 25);
         estimatedFingerPressure = Math.max(0.1, Math.min(1.0, 0.3 + (force * 0.4) + Math.min(0.3, speed * 0.08)));
-        lastTouchPoint = { x: t0.clientX, y: t0.clientY };
+        lastTouchPoint.x = t0.clientX;
+        lastTouchPoint.y = t0.clientY;
         lastTouchTime = now;
       }
 
