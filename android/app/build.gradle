@@ -97,7 +97,7 @@ android {
     }
 }
 
-tasks.register('syncWebAssets', Sync) {
+tasks.register('syncWebAssets', Copy) {
     def repoRoot = rootProject.projectDir.parentFile
     from(repoRoot) {
         include 'index.html'
@@ -118,7 +118,14 @@ tasks.register('syncWebAssets', Sync) {
     into layout.projectDirectory.dir("src/main/assets")
 }
 
+tasks.register('generateNativePlugins', Exec) {
+    def repoRoot = rootProject.projectDir.parentFile
+    workingDir repoRoot
+    commandLine 'node', 'scripts/generate-native-plugins.js'
+}
+
 preBuild.dependsOn(tasks.named('syncWebAssets'))
+preBuild.dependsOn(tasks.named('generateNativePlugins'))
 
 dependencies {
     implementation 'androidx.webkit:webkit:1.11.0'

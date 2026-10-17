@@ -308,9 +308,9 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
         int cw = get_width();
         int ch = get_height();
 
-        if (!pixels || cw <= 0 || ch <= 0) return;
-
-        float pNorm = (float)pressure / 255.0f;
+        float pNorm = (float)pressure / 1000.0f;
+        if (pNorm <= 0.001f) pNorm = 0.85f;
+        if (pNorm > 1.0f) pNorm = 1.0f;
         float radius = (g_brush_size * 0.5f) * (0.3f + 0.7f * pNorm);
         if (radius < 1.0f) radius = 1.0f;
 

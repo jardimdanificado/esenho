@@ -199,7 +199,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 }
 
                 val (cx, cy) = mapToCanvas(event.x, event.y)
-                val pressure = if (event.pressure > 0.01f) event.pressure else 0.5f
+                val pressure = if (event.pressure > 0.01f) event.pressure else 0.85f
                 val tilt = (event.getAxisValue(MotionEvent.AXIS_TILT) * 180f / Math.PI).toInt()
 
                 engine?.onTouchDown(cx, cy, pressure, tilt, 0)
@@ -317,11 +317,11 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     for (h in 0 until historySize) {
                         val (hcx, hcy) = mapToCanvas(event.getHistoricalX(h), event.getHistoricalY(h))
                         val hp = event.getHistoricalPressure(h)
-                        engine?.onTouchMove(hcx, hcy, if (hp > 0.01f) hp else 0.5f)
+                        engine?.onTouchMove(hcx, hcy, if (hp > 0.01f) hp else 0.85f)
                     }
 
                     val (cx, cy) = mapToCanvas(event.x, event.y)
-                    val pressure = if (event.pressure > 0.01f) event.pressure else 0.5f
+                    val pressure = if (event.pressure > 0.01f) event.pressure else 0.85f
                     val tilt = (event.getAxisValue(MotionEvent.AXIS_TILT) * 180f / Math.PI).toInt()
 
                     engine?.onTouchMove(cx, cy, pressure, tilt, 0)
@@ -387,7 +387,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 }
 
                 val (cx, cy) = mapToCanvas(event.x, event.y)
-                val pressure = if (event.pressure > 0.01f) event.pressure else 0.5f
+                val pressure = if (event.pressure > 0.01f) event.pressure else 0.85f
                 engine?.onTouchUp(cx, cy, pressure)
                 onStateChanged?.invoke()
                 invalidate()

@@ -159,7 +159,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap) -> Unit) {
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = selectedBrush?.title ?: "Pincel Clássico",
+                                    text = engine.activeBrushDisplayName,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -446,11 +446,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap) -> Unit) {
         if (showBrushDrawer) {
             BrushDrawer(
                 engine = engine,
-                selectedBrush = selectedBrush,
-                onBrushSelect = { brush ->
-                    engine.selectBrush(brush)
-                    refreshState()
-                },
+                onBrushUpdated = { refreshState() },
                 onDismiss = { showBrushDrawer = false }
             )
         }

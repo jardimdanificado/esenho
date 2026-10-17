@@ -113,6 +113,147 @@ for (const ffile of filterFiles) {
   });
 }
 
+// 3. Process Curated Brush Presets from src/presets_data.js
+const presetsPath = path.join(rootDir, 'src/presets_data.js');
+let presetEntries = [];
+if (fs.existsSync(presetsPath)) {
+  const presetsContent = fs.readFileSync(presetsPath, 'utf8');
+  const vm = require('vm');
+  const sandbox = {};
+  try {
+    vm.runInNewContext(presetsContent + '; presets = CURATED_BRUSH_PRESETS;', sandbox);
+    if (sandbox.presets) {
+      for (const [k, v] of Object.entries(sandbox.presets)) {
+        if (!v || !v.name || !v.category) continue;
+
+        // Unpack nested tip/dynamics/wet/jitter objects if present
+        let shape = v.shape || 'circle';
+        let size = v.size || 10;
+        let hardness = v.hardness != null ? v.hardness : 70;
+        let roundness = v.roundness != null ? v.roundness : 100;
+        let angle = v.angle || 0;
+        let spacing = v.spacing != null ? v.spacing : 5;
+        let smoothing = v.smoothing != null ? v.smoothing : 15;
+        let pressure_size = v.pressure_size != null ? (v.pressure_size ? 1 : 0) : 1;
+        let pressure_flow = v.pressure_flow != null ? (v.pressure_flow ? 1 : 0) : 1;
+        let tilt_angle = v.tilt_angle ? 1 : 0;
+        let velocity = v.velocity || 0;
+        let taper_in = v.taper_in || 0;
+        let taper_out = v.taper_out || 0;
+        let buildup = v.buildup ? 1 : 0;
+        let wetness = v.wetness || 0;
+        let smudge = v.smudge || 0;
+        let color_pickup = v.color_pickup || 0;
+        let depletion = v.depletion || 0;
+        let size_jitter = v.size_jitter || 0;
+        let angle_jitter = v.angle_jitter || 0;
+        let opacity_jitter = v.opacity_jitter || 0;
+        let color_jitter = v.color_jitter || 0;
+
+        if (v.tip && typeof v.tip === 'object') {
+          if (v.tip.ref) shape = v.tip.ref;
+          if (v.tip.size != null) size = v.tip.size;
+          if (v.tip.hardness != null) hardness = v.tip.hardness;
+          if (v.tip.roundness != null) roundness = v.tip.roundness;
+          if (v.tip.angle != null) angle = v.tip.angle;
+        }
+
+        if (v.dynamics && typeof v.dynamics === 'object') {
+          if (v.dynamics.spacing != null) spacing = v.dynamics.spacing;
+          if (v.dynamics.stabilizer && v.dynamics.stabilizer.smoothing != null) smoothing = v.dynamics.stabilizer.smoothing;
+          if (v.dynamics.pressureSize != null) pressure_size = v.dynamics.pressureSize ? 1 : 0;
+          if (v.dynamics.pressureFlow != null) pressure_flow = v.dynamics.pressureFlow ? 1 : 0;
+          if (v.dynamics.tiltAngle != null) tilt_angle = v.dynamics.tiltAngle ? 1 : 0;
+          if (v.dynamics.velocityScaling != null) velocity = v.dynamics.velocityScaling;
+          if (v.dynamics.taper) {
+            if (v.dynamics.taper.in != null) taper_in = v.dynamics.taper.in;
+            if (v.dynamics.taper.out != null) taper_out = v.dynamics.taper.out;
+          }
+          if (v.dynamics.buildup != null) buildup = v.dynamics.buildup ? 1 : 0;
+        }
+
+        if (v.wet && typeof v.wet === 'object') {
+          if (v.wet.wetness != null) wetness = v.wet.wetness;
+          if (v.wet.smudge != null) smudge = v.wet.smudge;
+          if (v.wet.colorPickup != null) color_pickup = v.wet.colorPickup;
+          if (v.wet.color_pickup != null) color_pickup = v.wet.color_pickup;
+          if (v.wet.depletion != null) depletion = v.wet.depletion;
+        }
+
+        if (v.jitter && typeof v.jitter === 'object') {
+          if (v.jitter.size != null) size_jitter = v.jitter.size;
+          if (v.jitter.angle != null) angle_jitter = v.jitter.angle;
+          if (v.jitter.opacity != null) opacity_jitter = v.jitter.opacity;
+          if (v.jitter.color != null) color_jitter = v.jitter.color;
+        }
+
+        let shape_id = 0;
+        const shLower = String(shape).toLowerCase();
+        if (shLower === 'square' || shape === 1) shape_id = 1;
+        else if (shLower === 'chisel' || shLower === 'flat' || shLower === 'dagger' || shLower === 'rake' || shape === 2) shape_id = 2;
+
+        presetEntries.push({
+          id: k,
+          name: v.name,
+          desc: v.desc || '',
+          category: v.category || 'general',
+          shape: String(shape),
+          shape_id: shape_id,
+          size: size,
+          opacity: v.opacity != null ? v.opacity : 100,
+          hardness: hardness,
+          flow: v.flow != null ? v.flow : 100,
+          spacing: spacing,
+          roundness: roundness,
+          angle: angle,
+          smoothing: smoothing,
+          midpoint: v.midpoint != null ? v.midpoint : 50,
+          scatter: v.scatter || 0,
+          grain: v.grain || 0,
+          tex_mode: v.tex_mode || 0,
+          texture: typeof v.texture === 'string' ? v.texture : (v.texture?.ref || ''),
+          texture_scale: v.texture_scale || 100,
+          texture_contrast: v.texture_contrast || 100,
+          tex_scale_with_size: v.tex_scale_with_size ? 1 : 0,
+          tex_angle: v.texture_angle || v.tex_angle || 0,
+          auto_rotate: v.auto_rotate ? 1 : 0,
+          velocity: velocity,
+          taper_in: taper_in,
+          taper_out: taper_out,
+          fade: v.fade || 0,
+          size_jitter: size_jitter,
+          angle_jitter: angle_jitter,
+          opacity_jitter: opacity_jitter,
+          color_jitter: color_jitter,
+          dab_blend: v.dab_blend || 0,
+          subpixel: v.subpixel ? 1 : 0,
+          smudge: smudge,
+          wetness: wetness,
+          depletion: depletion,
+          color_pickup: color_pickup,
+          pressure_size: pressure_size,
+          pressure_flow: pressure_flow,
+          tilt_angle: tilt_angle,
+          buildup: buildup,
+          water: v.water || 0,
+          bleed: v.bleed || 0,
+          granulation: v.granulation || 0,
+          fringe: v.fringe || 0,
+          pigment_mode: v.pigment_mode ? 1 : 0,
+          impasto: v.impasto || 0,
+          drying_rate: v.drying_rate || 0,
+          mode: v.mode || 0,
+          eraser: v.eraser ? 1 : 0,
+          color: v.color || ''
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Error parsing presets_data.js:', err);
+  }
+}
+console.log(`Processing ${presetEntries.length} curated presets...`);
+
 // 3. Generate Header & Registry C
 let headerContent = `/* Auto-generated Plugin Registry Header */
 #ifndef ESENHO_PLUGINS_REGISTRY_H
@@ -242,13 +383,25 @@ fs.writeFileSync(path.join(cppGenDir, 'esenho_plugins_registry.c'), regC);
 
 // Save JSON metadata for Kotlin to load
 const metadata = {
+  presets: presetEntries,
   brushes: brushEntries,
   filters: filterEntries
 };
 
+const metaJson = JSON.stringify(metadata, null, 2);
+
 fs.writeFileSync(
   path.join(rootDir, 'android/app/src/main/assets/esenho_native_metadata.json'),
-  JSON.stringify(metadata, null, 2)
+  metaJson
 );
 
-console.log('Plugin code generation complete!');
+const rawDir = path.join(rootDir, 'android/app/src/main/res/raw');
+if (!fs.existsSync(rawDir)) {
+  fs.mkdirSync(rawDir, { recursive: true });
+}
+fs.writeFileSync(
+  path.join(rawDir, 'esenho_native_metadata.json'),
+  metaJson
+);
+
+console.log(`Plugin code generation complete! (${presetEntries.length} presets, ${brushEntries.length} brushes, ${filterEntries.length} filters)`);
