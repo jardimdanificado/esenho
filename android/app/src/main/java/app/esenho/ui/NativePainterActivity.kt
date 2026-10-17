@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -138,24 +139,38 @@ fun EsenhoMainScreen(onExportImage: (Bitmap) -> Unit) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text("esenho", style = MaterialTheme.typography.titleMedium)
-                        // Active Brush Chip Button
+                        // Active Brush Chip Button (Quick Catalog & Tuning)
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
                             modifier = Modifier
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable { showBrushDrawer = true }
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Brush, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    Icons.Default.Brush,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = selectedBrush?.title ?: "Clássico",
-                                    fontSize = 11.sp,
+                                    text = selectedBrush?.title ?: "Pincel Clássico",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     maxLines = 1
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
                         }
@@ -325,7 +340,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Pincel
+                    // Pincel (Clique abre o catálogo de 59 pincéis procedurais)
                     ToolNavButton(
                         icon = Icons.Default.Brush,
                         isSelected = currentTool == ToolMode.BRUSH,
@@ -333,6 +348,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap) -> Unit) {
                         onClick = {
                             currentTool = ToolMode.BRUSH
                             engine.currentTool = ToolMode.BRUSH
+                            showBrushDrawer = true
                         }
                     )
 
@@ -399,6 +415,17 @@ fun EsenhoMainScreen(onExportImage: (Bitmap) -> Unit) {
                         onClick = {
                             currentTool = ToolMode.EYEDROPPER
                             engine.currentTool = ToolMode.EYEDROPPER
+                        }
+                    )
+
+                    // Mover Tela (Pan)
+                    ToolNavButton(
+                        icon = Icons.Default.PanTool,
+                        isSelected = currentTool == ToolMode.PAN,
+                        description = "Mover Tela",
+                        onClick = {
+                            currentTool = ToolMode.PAN
+                            engine.currentTool = ToolMode.PAN
                         }
                     )
                 }

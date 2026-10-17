@@ -25,6 +25,14 @@ object EsenhoNativeBridge {
         tiltY: Int
     )
 
+    // Native C Memory Undo / Redo
+    external fun nativePushUndo()
+    external fun nativeUndo(): Boolean
+    external fun nativeRedo(): Boolean
+    external fun nativeCanUndo(): Boolean
+    external fun nativeCanRedo(): Boolean
+    external fun nativeCancelStroke()
+
     // Brush Selection & Dynamic Parameters
     external fun nativeGetBrushCount(): Int
     external fun nativeGetBrushInfo(idx: Int): String

@@ -66,12 +66,164 @@ static float g_brush_size = 14.0f;
 static float g_last_dab_x = 0.0f;
 static float g_last_dab_y = 0.0f;
 
+// ── Native C Undo / Redo Stack (Fast Raw Memory Snapshots) ──
+#define MAX_UNDO_DEPTH 24
+typedef struct {
+    int layer_idx;
+    int width;
+    int height;
+    uint32_t *pixels;
+} layer_snapshot_t;
+
+static layer_snapshot_t s_undo_stack[MAX_UNDO_DEPTH];
+static int s_undo_count = 0;
+
+static layer_snapshot_t s_redo_stack[MAX_UNDO_DEPTH];
+static int s_redo_count = 0;
+
+static void free_snapshot(layer_snapshot_t *snap) {
+    if (snap->pixels) {
+        free(snap->pixels);
+        snap->pixels = NULL;
+    }
+}
+
+static void clear_snapshot_stack(layer_snapshot_t *stack, int *count) {
+    for (int i = 0; i < *count; i++) {
+        free_snapshot(&stack[i]);
+    }
+    *count = 0;
+}
+
+static int push_layer_snapshot(layer_snapshot_t *stack, int *count, int max_depth) {
+    int active = w_layer_get_active();
+    uint32_t *src_pix = w_layer_get_pixels(active);
+    int w = w_layer_get_width(active);
+    int h = w_layer_get_height(active);
+    if (!src_pix || w <= 0 || h <= 0) return 0;
+
+    size_t byte_size = (size_t)w * (size_t)h * sizeof(uint32_t);
+    uint32_t *buf = (uint32_t *)malloc(byte_size);
+    if (!buf) return 0;
+    memcpy(buf, src_pix, byte_size);
+
+    if (*count >= max_depth) {
+        free_snapshot(&stack[0]);
+        for (int i = 0; i < *count - 1; i++) {
+            stack[i] = stack[i + 1];
+        }
+        (*count)--;
+    }
+
+    stack[*count].layer_idx = active;
+    stack[*count].width = w;
+    stack[*count].height = h;
+    stack[*count].pixels = buf;
+    (*count)++;
+    return 1;
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativePushUndo(
+    JNIEnv *env, jobject thiz) {
+    clear_snapshot_stack(s_redo_stack, &s_redo_count);
+    push_layer_snapshot(s_undo_stack, &s_undo_count, MAX_UNDO_DEPTH);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeUndo(
+    JNIEnv *env, jobject thiz) {
+    if (s_undo_count <= 0) return JNI_FALSE;
+
+    // 1. Save current state to redo
+    push_layer_snapshot(s_redo_stack, &s_redo_count, MAX_UNDO_DEPTH);
+
+    // 2. Pop from undo
+    s_undo_count--;
+    layer_snapshot_t *snap = &s_undo_stack[s_undo_count];
+
+    uint32_t *dst_pix = w_layer_get_pixels(snap->layer_idx);
+    int w = w_layer_get_width(snap->layer_idx);
+    int h = w_layer_get_height(snap->layer_idx);
+
+    if (dst_pix && w == snap->width && h == snap->height) {
+        memcpy(dst_pix, snap->pixels, (size_t)w * (size_t)h * sizeof(uint32_t));
+        free_snapshot(snap);
+        force_composite();
+        w_invalidate_layers();
+        return JNI_TRUE;
+    }
+
+    free_snapshot(snap);
+    return JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeRedo(
+    JNIEnv *env, jobject thiz) {
+    if (s_redo_count <= 0) return JNI_FALSE;
+
+    // 1. Save current state to undo
+    push_layer_snapshot(s_undo_stack, &s_undo_count, MAX_UNDO_DEPTH);
+
+    // 2. Pop from redo
+    s_redo_count--;
+    layer_snapshot_t *snap = &s_redo_stack[s_redo_count];
+
+    uint32_t *dst_pix = w_layer_get_pixels(snap->layer_idx);
+    int w = w_layer_get_width(snap->layer_idx);
+    int h = w_layer_get_height(snap->layer_idx);
+
+    if (dst_pix && w == snap->width && h == snap->height) {
+        memcpy(dst_pix, snap->pixels, (size_t)w * (size_t)h * sizeof(uint32_t));
+        free_snapshot(snap);
+        force_composite();
+        w_invalidate_layers();
+        return JNI_TRUE;
+    }
+
+    free_snapshot(snap);
+    return JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeCanUndo(
+    JNIEnv *env, jobject thiz) {
+    return s_undo_count > 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeCanRedo(
+    JNIEnv *env, jobject thiz) {
+    return s_redo_count > 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeCancelStroke(
+    JNIEnv *env, jobject thiz) {
+    if (s_undo_count > 0) {
+        layer_snapshot_t *snap = &s_undo_stack[s_undo_count - 1];
+        uint32_t *dst_pix = w_layer_get_pixels(snap->layer_idx);
+        int w = w_layer_get_width(snap->layer_idx);
+        int h = w_layer_get_height(snap->layer_idx);
+        if (dst_pix && w == snap->width && h == snap->height) {
+            memcpy(dst_pix, snap->pixels, (size_t)w * (size_t)h * sizeof(uint32_t));
+            force_composite();
+            w_invalidate_layers();
+        }
+        s_undo_count--;
+        free_snapshot(snap);
+    }
+}
+
 JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeInit(
     JNIEnv *env, jobject thiz, jint width, jint height) {
     LOGI("Initializing Esenho Quadro Native: %dx%d", width, height);
     w_init((uint32_t)width, (uint32_t)height);
     g_current_brush = NULL;
+    clear_snapshot_stack(s_undo_stack, &s_undo_count);
+    clear_snapshot_stack(s_redo_stack, &s_redo_count);
 }
 
 JNIEXPORT void JNICALL
@@ -79,6 +231,8 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeResize(
     JNIEnv *env, jobject thiz, jint width, jint height) {
     LOGI("Resizing Esenho Quadro: %dx%d", width, height);
     w_resize((uint32_t)width, (uint32_t)height);
+    clear_snapshot_stack(s_undo_stack, &s_undo_count);
+    clear_snapshot_stack(s_redo_stack, &s_redo_count);
 }
 
 // ── Brush Selection & Parameter Configuration ──

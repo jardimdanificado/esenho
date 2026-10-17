@@ -14,7 +14,8 @@ enum class ToolMode(val id: Int, val displayName: String) {
     LINE(6, "Linha"),
     RECTANGLE(7, "Retângulo"),
     CIRCLE(8, "Círculo"),
-    EYEDROPPER(5, "Conta-gotas")
+    EYEDROPPER(5, "Conta-gotas"),
+    PAN(9, "Mover Tela")
 }
 
 enum class LayerBlendMode(val id: Int, val displayName: String) {
@@ -474,17 +475,6 @@ class EsenhoEngine(
         return currentColor
     }
 
-    private fun pushUndoSnapshot() {
-        renderBitmap?.let { bmp ->
-            if (undoStack.size >= maxUndoSteps) {
-                undoStack.removeLast()
-            }
-            val copy = bmp.copy(Bitmap.Config.ARGB_8888, false)
-            undoStack.push(copy)
-            redoStack.clear()
-        }
-    }
-
     fun onTouchDown(x: Float, y: Float, pressure: Float = 0.5f, tiltX: Int = 0, tiltY: Int = 0) {
         if (currentTool == ToolMode.EYEDROPPER) {
             pickColorAt(x, y)
@@ -565,31 +555,30 @@ class EsenhoEngine(
         }
     }
 
+    private fun pushUndoSnapshot() {
+        EsenhoNativeBridge.nativePushUndo()
+    }
+
+    fun cancelActiveStroke() {
+        isStrokeActive = false
+        EsenhoNativeBridge.nativeCancelStroke()
+        getRenderBitmap()
+    }
+
     fun undo(): Boolean {
-        if (undoStack.isEmpty()) return false
-        renderBitmap?.let { bmp ->
-            redoStack.push(bmp.copy(Bitmap.Config.ARGB_8888, false))
+        val ok = EsenhoNativeBridge.nativeUndo()
+        if (ok) {
+            getRenderBitmap()
         }
-        val prev = undoStack.pop()
-        EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
-        renderBitmap?.let { bmp ->
-            val canvas = android.graphics.Canvas(bmp)
-            canvas.drawBitmap(prev, 0f, 0f, null)
-        }
-        return true
+        return ok
     }
 
     fun redo(): Boolean {
-        if (redoStack.isEmpty()) return false
-        renderBitmap?.let { bmp ->
-            undoStack.push(bmp.copy(Bitmap.Config.ARGB_8888, false))
+        val ok = EsenhoNativeBridge.nativeRedo()
+        if (ok) {
+            getRenderBitmap()
         }
-        val next = redoStack.pop()
-        renderBitmap?.let { bmp ->
-            val canvas = android.graphics.Canvas(bmp)
-            canvas.drawBitmap(next, 0f, 0f, null)
-        }
-        return true
+        return ok
     }
 
     fun clearCanvas() {
@@ -598,6 +587,7 @@ class EsenhoEngine(
         if (activeLayerIndex <= 3) {
             EsenhoNativeBridge.nativeDrawRect(0, 0, width, height, toNativeColor(Color.WHITE))
         }
+        getRenderBitmap()
     }
 
     fun render(targetBitmap: Bitmap): Boolean {
@@ -611,6 +601,6 @@ class EsenhoEngine(
         return renderBitmap
     }
 
-    val canUndo: Boolean get() = undoStack.isNotEmpty()
-    val canRedo: Boolean get() = redoStack.isNotEmpty()
+    val canUndo: Boolean get() = EsenhoNativeBridge.nativeCanUndo()
+    val canRedo: Boolean get() = EsenhoNativeBridge.nativeCanRedo()
 }
