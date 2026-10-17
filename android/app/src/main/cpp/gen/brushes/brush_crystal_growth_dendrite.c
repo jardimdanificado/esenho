@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for crystal_growth_dendrite */
+#define w_brush_get_info brush_crystal_growth_dendrite_get_info
+#define w_brush_get_inputs brush_crystal_growth_dendrite_get_inputs
+#define w_brush_init brush_crystal_growth_dendrite_init
+#define w_brush_set_param brush_crystal_growth_dendrite_set_param
+#define w_brush_stroke_begin brush_crystal_growth_dendrite_stroke_begin
+#define w_brush_stroke_end brush_crystal_growth_dendrite_stroke_end
+#define w_brush_render_dab brush_crystal_growth_dendrite_render_dab
+
+#include "crystal_growth_dendrite.c"

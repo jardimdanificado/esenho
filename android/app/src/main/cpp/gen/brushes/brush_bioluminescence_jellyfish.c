@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for bioluminescence_jellyfish */
+#define w_brush_get_info brush_bioluminescence_jellyfish_get_info
+#define w_brush_get_inputs brush_bioluminescence_jellyfish_get_inputs
+#define w_brush_init brush_bioluminescence_jellyfish_init
+#define w_brush_set_param brush_bioluminescence_jellyfish_set_param
+#define w_brush_stroke_begin brush_bioluminescence_jellyfish_stroke_begin
+#define w_brush_stroke_end brush_bioluminescence_jellyfish_stroke_end
+#define w_brush_render_dab brush_bioluminescence_jellyfish_render_dab
+
+#include "bioluminescence_jellyfish.c"

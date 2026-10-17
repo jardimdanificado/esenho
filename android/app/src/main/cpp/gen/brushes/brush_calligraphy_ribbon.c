@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for calligraphy_ribbon */
+#define w_brush_get_info brush_calligraphy_ribbon_get_info
+#define w_brush_get_inputs brush_calligraphy_ribbon_get_inputs
+#define w_brush_init brush_calligraphy_ribbon_init
+#define w_brush_set_param brush_calligraphy_ribbon_set_param
+#define w_brush_stroke_begin brush_calligraphy_ribbon_stroke_begin
+#define w_brush_stroke_end brush_calligraphy_ribbon_stroke_end
+#define w_brush_render_dab brush_calligraphy_ribbon_render_dab
+
+#include "calligraphy_ribbon.c"

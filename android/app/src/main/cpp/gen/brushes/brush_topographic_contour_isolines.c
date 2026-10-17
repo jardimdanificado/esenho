@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for topographic_contour_isolines */
+#define w_brush_get_info brush_topographic_contour_isolines_get_info
+#define w_brush_get_inputs brush_topographic_contour_isolines_get_inputs
+#define w_brush_init brush_topographic_contour_isolines_init
+#define w_brush_set_param brush_topographic_contour_isolines_set_param
+#define w_brush_stroke_begin brush_topographic_contour_isolines_stroke_begin
+#define w_brush_stroke_end brush_topographic_contour_isolines_stroke_end
+#define w_brush_render_dab brush_topographic_contour_isolines_render_dab
+
+#include "topographic_contour_isolines.c"

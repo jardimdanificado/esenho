@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for aurora_borealis */
+#define w_brush_get_info brush_aurora_borealis_get_info
+#define w_brush_get_inputs brush_aurora_borealis_get_inputs
+#define w_brush_init brush_aurora_borealis_init
+#define w_brush_set_param brush_aurora_borealis_set_param
+#define w_brush_stroke_begin brush_aurora_borealis_stroke_begin
+#define w_brush_stroke_end brush_aurora_borealis_stroke_end
+#define w_brush_render_dab brush_aurora_borealis_render_dab
+
+#include "aurora_borealis.c"

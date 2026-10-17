@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for radioactive_cloud_chamber */
+#define w_brush_get_info brush_radioactive_cloud_chamber_get_info
+#define w_brush_get_inputs brush_radioactive_cloud_chamber_get_inputs
+#define w_brush_init brush_radioactive_cloud_chamber_init
+#define w_brush_set_param brush_radioactive_cloud_chamber_set_param
+#define w_brush_stroke_begin brush_radioactive_cloud_chamber_stroke_begin
+#define w_brush_stroke_end brush_radioactive_cloud_chamber_stroke_end
+#define w_brush_render_dab brush_radioactive_cloud_chamber_render_dab
+
+#include "radioactive_cloud_chamber.c"

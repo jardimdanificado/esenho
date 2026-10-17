@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for holographic_stereogram */
+#define w_brush_get_info brush_holographic_stereogram_get_info
+#define w_brush_get_inputs brush_holographic_stereogram_get_inputs
+#define w_brush_init brush_holographic_stereogram_init
+#define w_brush_set_param brush_holographic_stereogram_set_param
+#define w_brush_stroke_begin brush_holographic_stereogram_stroke_begin
+#define w_brush_stroke_end brush_holographic_stereogram_stroke_end
+#define w_brush_render_dab brush_holographic_stereogram_render_dab
+
+#include "holographic_stereogram.c"

@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for fractal_lightning */
+#define w_brush_get_info brush_fractal_lightning_get_info
+#define w_brush_get_inputs brush_fractal_lightning_get_inputs
+#define w_brush_init brush_fractal_lightning_init
+#define w_brush_set_param brush_fractal_lightning_set_param
+#define w_brush_stroke_begin brush_fractal_lightning_stroke_begin
+#define w_brush_stroke_end brush_fractal_lightning_stroke_end
+#define w_brush_render_dab brush_fractal_lightning_render_dab
+
+#include "fractal_lightning.c"

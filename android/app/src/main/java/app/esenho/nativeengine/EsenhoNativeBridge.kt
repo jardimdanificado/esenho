@@ -3,7 +3,7 @@ package app.esenho.nativeengine
 import android.graphics.Bitmap
 
 /**
- * Direct JNI bindings for the C Quadro drawing and raster engine.
+ * Direct JNI bindings for the C Quadro drawing, layers, filters, and procedural brushes.
  */
 object EsenhoNativeBridge {
     init {
@@ -24,21 +24,53 @@ object EsenhoNativeBridge {
         tiltX: Int,
         tiltY: Int
     )
+
+    // Brush Selection & Dynamic Parameters
+    external fun nativeGetBrushCount(): Int
+    external fun nativeGetBrushInfo(idx: Int): String
+    external fun nativeSelectBrush(brushId: String?): Boolean
+    external fun nativeSetBrushParam(paramIdx: Int, value: Int)
+    external fun nativeBrushSetSize(size: Float)
+
+    // Classic brush params
     external fun nativeBrushSetParam(paramId: Int, value: Int)
     external fun nativeBrushSetType(type: Int)
     external fun nativeBrushSetShape(shape: Int)
     external fun nativeBrushReset()
-    external fun nativeRenderToBitmap(bitmap: Bitmap): Boolean
 
+    // Filters Suite
+    external fun nativeGetFilterCount(): Int
+    external fun nativeGetFilterInfo(idx: Int): String
+    external fun nativeApplyFilter(filterId: String, p1: Int, p2: Int): Boolean
+
+    // Eyedropper
+    external fun nativePickColor(x: Int, y: Int, sampleComposite: Int): Int
+
+    // Layer Operations (Full Stack)
     external fun nativeLayerAdd(): Int
+    external fun nativeLayerDuplicate(idx: Int): Int
     external fun nativeLayerSelect(idx: Int)
     external fun nativeLayerGetActive(): Int
     external fun nativeLayerClear(idx: Int)
     external fun nativeLayerDelete(idx: Int)
     external fun nativeLayerSetOpacity(idx: Int, opacity: Int)
+    external fun nativeLayerGetOpacity(idx: Int): Int
     external fun nativeLayerSetVisible(idx: Int, visible: Int)
+    external fun nativeLayerGetVisible(idx: Int): Int
+    external fun nativeLayerSetBlendMode(idx: Int, mode: Int)
+    external fun nativeLayerGetBlendMode(idx: Int): Int
+    external fun nativeLayerSetAlphaLock(idx: Int, lock: Int)
+    external fun nativeLayerGetAlphaLock(idx: Int): Int
+    external fun nativeLayerSetClipping(idx: Int, clip: Int)
+    external fun nativeLayerGetClipping(idx: Int): Int
+    external fun nativeLayerMoveUp(idx: Int): Int
+    external fun nativeLayerMoveDown(idx: Int): Int
+    external fun nativeLayerMergeDown(idx: Int): Int
     external fun nativeLayerGetCount(): Int
+    external fun nativeLayerGetOrder(pos: Int): Int
 
+    // Shapes & Buffers
+    external fun nativeRenderToBitmap(bitmap: Bitmap): Boolean
     external fun nativeDrawLine(x0: Int, y0: Int, x1: Int, y1: Int, color: Int)
     external fun nativeDrawRect(x: Int, y: Int, w: Int, h: Int, color: Int)
     external fun nativeDrawCircle(cx: Int, cy: Int, r: Int, color: Int)

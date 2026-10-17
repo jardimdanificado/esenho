@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for moire_interference_silk */
+#define w_brush_get_info brush_moire_interference_silk_get_info
+#define w_brush_get_inputs brush_moire_interference_silk_get_inputs
+#define w_brush_init brush_moire_interference_silk_init
+#define w_brush_set_param brush_moire_interference_silk_set_param
+#define w_brush_stroke_begin brush_moire_interference_silk_stroke_begin
+#define w_brush_stroke_end brush_moire_interference_silk_stroke_end
+#define w_brush_render_dab brush_moire_interference_silk_render_dab
+
+#include "moire_interference_silk.c"

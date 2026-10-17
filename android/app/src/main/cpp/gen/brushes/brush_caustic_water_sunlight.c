@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for caustic_water_sunlight */
+#define w_brush_get_info brush_caustic_water_sunlight_get_info
+#define w_brush_get_inputs brush_caustic_water_sunlight_get_inputs
+#define w_brush_init brush_caustic_water_sunlight_init
+#define w_brush_set_param brush_caustic_water_sunlight_set_param
+#define w_brush_stroke_begin brush_caustic_water_sunlight_stroke_begin
+#define w_brush_stroke_end brush_caustic_water_sunlight_stroke_end
+#define w_brush_render_dab brush_caustic_water_sunlight_render_dab
+
+#include "caustic_water_sunlight.c"

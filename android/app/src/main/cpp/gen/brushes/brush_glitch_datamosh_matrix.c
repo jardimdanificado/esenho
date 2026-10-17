@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for glitch_datamosh_matrix */
+#define w_brush_get_info brush_glitch_datamosh_matrix_get_info
+#define w_brush_get_inputs brush_glitch_datamosh_matrix_get_inputs
+#define w_brush_init brush_glitch_datamosh_matrix_init
+#define w_brush_set_param brush_glitch_datamosh_matrix_set_param
+#define w_brush_stroke_begin brush_glitch_datamosh_matrix_stroke_begin
+#define w_brush_stroke_end brush_glitch_datamosh_matrix_stroke_end
+#define w_brush_render_dab brush_glitch_datamosh_matrix_render_dab
+
+#include "glitch_datamosh_matrix.c"

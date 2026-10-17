@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for magnetohydrodynamic_dynamo */
+#define w_brush_get_info brush_magnetohydrodynamic_dynamo_get_info
+#define w_brush_get_inputs brush_magnetohydrodynamic_dynamo_get_inputs
+#define w_brush_init brush_magnetohydrodynamic_dynamo_init
+#define w_brush_set_param brush_magnetohydrodynamic_dynamo_set_param
+#define w_brush_stroke_begin brush_magnetohydrodynamic_dynamo_stroke_begin
+#define w_brush_stroke_end brush_magnetohydrodynamic_dynamo_stroke_end
+#define w_brush_render_dab brush_magnetohydrodynamic_dynamo_render_dab
+
+#include "magnetohydrodynamic_dynamo.c"

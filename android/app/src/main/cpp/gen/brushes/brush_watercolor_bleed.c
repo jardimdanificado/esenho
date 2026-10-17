@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for watercolor_bleed */
+#define w_brush_get_info brush_watercolor_bleed_get_info
+#define w_brush_get_inputs brush_watercolor_bleed_get_inputs
+#define w_brush_init brush_watercolor_bleed_init
+#define w_brush_set_param brush_watercolor_bleed_set_param
+#define w_brush_stroke_begin brush_watercolor_bleed_stroke_begin
+#define w_brush_stroke_end brush_watercolor_bleed_stroke_end
+#define w_brush_render_dab brush_watercolor_bleed_render_dab
+
+#include "watercolor_bleed.c"

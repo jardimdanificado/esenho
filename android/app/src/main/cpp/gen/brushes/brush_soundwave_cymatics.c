@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for soundwave_cymatics */
+#define w_brush_get_info brush_soundwave_cymatics_get_info
+#define w_brush_get_inputs brush_soundwave_cymatics_get_inputs
+#define w_brush_init brush_soundwave_cymatics_init
+#define w_brush_set_param brush_soundwave_cymatics_set_param
+#define w_brush_stroke_begin brush_soundwave_cymatics_stroke_begin
+#define w_brush_stroke_end brush_soundwave_cymatics_stroke_end
+#define w_brush_render_dab brush_soundwave_cymatics_render_dab
+
+#include "soundwave_cymatics.c"

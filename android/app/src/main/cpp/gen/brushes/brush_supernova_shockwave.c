@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for supernova_shockwave */
+#define w_brush_get_info brush_supernova_shockwave_get_info
+#define w_brush_get_inputs brush_supernova_shockwave_get_inputs
+#define w_brush_init brush_supernova_shockwave_init
+#define w_brush_set_param brush_supernova_shockwave_set_param
+#define w_brush_stroke_begin brush_supernova_shockwave_stroke_begin
+#define w_brush_stroke_end brush_supernova_shockwave_stroke_end
+#define w_brush_render_dab brush_supernova_shockwave_render_dab
+
+#include "supernova_shockwave.c"

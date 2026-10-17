@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for reaction_diffusion */
+#define w_brush_get_info brush_reaction_diffusion_get_info
+#define w_brush_get_inputs brush_reaction_diffusion_get_inputs
+#define w_brush_init brush_reaction_diffusion_init
+#define w_brush_set_param brush_reaction_diffusion_set_param
+#define w_brush_stroke_begin brush_reaction_diffusion_stroke_begin
+#define w_brush_stroke_end brush_reaction_diffusion_stroke_end
+#define w_brush_render_dab brush_reaction_diffusion_render_dab
+
+#include "reaction_diffusion.c"

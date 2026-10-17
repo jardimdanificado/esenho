@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for neon_cyber_circuit */
+#define w_brush_get_info brush_neon_cyber_circuit_get_info
+#define w_brush_get_inputs brush_neon_cyber_circuit_get_inputs
+#define w_brush_init brush_neon_cyber_circuit_init
+#define w_brush_set_param brush_neon_cyber_circuit_set_param
+#define w_brush_stroke_begin brush_neon_cyber_circuit_stroke_begin
+#define w_brush_stroke_end brush_neon_cyber_circuit_stroke_end
+#define w_brush_render_dab brush_neon_cyber_circuit_render_dab
+
+#include "neon_cyber_circuit.c"

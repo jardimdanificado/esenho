@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for smoke_ring_vortex */
+#define w_brush_get_info brush_smoke_ring_vortex_get_info
+#define w_brush_get_inputs brush_smoke_ring_vortex_get_inputs
+#define w_brush_init brush_smoke_ring_vortex_init
+#define w_brush_set_param brush_smoke_ring_vortex_set_param
+#define w_brush_stroke_begin brush_smoke_ring_vortex_stroke_begin
+#define w_brush_stroke_end brush_smoke_ring_vortex_stroke_end
+#define w_brush_render_dab brush_smoke_ring_vortex_render_dab
+
+#include "smoke_ring_vortex.c"

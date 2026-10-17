@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for lichen_symbiosis */
+#define w_brush_get_info brush_lichen_symbiosis_get_info
+#define w_brush_get_inputs brush_lichen_symbiosis_get_inputs
+#define w_brush_init brush_lichen_symbiosis_init
+#define w_brush_set_param brush_lichen_symbiosis_set_param
+#define w_brush_stroke_begin brush_lichen_symbiosis_stroke_begin
+#define w_brush_stroke_end brush_lichen_symbiosis_stroke_end
+#define w_brush_render_dab brush_lichen_symbiosis_render_dab
+
+#include "lichen_symbiosis.c"

@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for ferrofluid_magnetic */
+#define w_brush_get_info brush_ferrofluid_magnetic_get_info
+#define w_brush_get_inputs brush_ferrofluid_magnetic_get_inputs
+#define w_brush_init brush_ferrofluid_magnetic_init
+#define w_brush_set_param brush_ferrofluid_magnetic_set_param
+#define w_brush_stroke_begin brush_ferrofluid_magnetic_stroke_begin
+#define w_brush_stroke_end brush_ferrofluid_magnetic_stroke_end
+#define w_brush_render_dab brush_ferrofluid_magnetic_render_dab
+
+#include "ferrofluid_magnetic.c"

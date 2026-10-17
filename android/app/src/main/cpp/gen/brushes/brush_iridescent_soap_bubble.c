@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for iridescent_soap_bubble */
+#define w_brush_get_info brush_iridescent_soap_bubble_get_info
+#define w_brush_get_inputs brush_iridescent_soap_bubble_get_inputs
+#define w_brush_init brush_iridescent_soap_bubble_init
+#define w_brush_set_param brush_iridescent_soap_bubble_set_param
+#define w_brush_stroke_begin brush_iridescent_soap_bubble_stroke_begin
+#define w_brush_stroke_end brush_iridescent_soap_bubble_stroke_end
+#define w_brush_render_dab brush_iridescent_soap_bubble_render_dab
+
+#include "iridescent_soap_bubble.c"

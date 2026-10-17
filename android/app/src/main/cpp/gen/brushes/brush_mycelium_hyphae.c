@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for mycelium_hyphae */
+#define w_brush_get_info brush_mycelium_hyphae_get_info
+#define w_brush_get_inputs brush_mycelium_hyphae_get_inputs
+#define w_brush_init brush_mycelium_hyphae_init
+#define w_brush_set_param brush_mycelium_hyphae_set_param
+#define w_brush_stroke_begin brush_mycelium_hyphae_stroke_begin
+#define w_brush_stroke_end brush_mycelium_hyphae_stroke_end
+#define w_brush_render_dab brush_mycelium_hyphae_render_dab
+
+#include "mycelium_hyphae.c"

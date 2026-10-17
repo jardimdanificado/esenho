@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for charcoal_chalk */
+#define w_brush_get_info brush_charcoal_chalk_get_info
+#define w_brush_get_inputs brush_charcoal_chalk_get_inputs
+#define w_brush_init brush_charcoal_chalk_init
+#define w_brush_set_param brush_charcoal_chalk_set_param
+#define w_brush_stroke_begin brush_charcoal_chalk_stroke_begin
+#define w_brush_stroke_end brush_charcoal_chalk_stroke_end
+#define w_brush_render_dab brush_charcoal_chalk_render_dab
+
+#include "charcoal_chalk.c"

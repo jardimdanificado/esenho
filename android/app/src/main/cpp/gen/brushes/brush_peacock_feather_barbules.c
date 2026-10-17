@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for peacock_feather_barbules */
+#define w_brush_get_info brush_peacock_feather_barbules_get_info
+#define w_brush_get_inputs brush_peacock_feather_barbules_get_inputs
+#define w_brush_init brush_peacock_feather_barbules_init
+#define w_brush_set_param brush_peacock_feather_barbules_set_param
+#define w_brush_stroke_begin brush_peacock_feather_barbules_stroke_begin
+#define w_brush_stroke_end brush_peacock_feather_barbules_stroke_end
+#define w_brush_render_dab brush_peacock_feather_barbules_render_dab
+
+#include "peacock_feather_barbules.c"

@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for fiber_optic_strands */
+#define w_brush_get_info brush_fiber_optic_strands_get_info
+#define w_brush_get_inputs brush_fiber_optic_strands_get_inputs
+#define w_brush_init brush_fiber_optic_strands_init
+#define w_brush_set_param brush_fiber_optic_strands_set_param
+#define w_brush_stroke_begin brush_fiber_optic_strands_stroke_begin
+#define w_brush_stroke_end brush_fiber_optic_strands_stroke_end
+#define w_brush_render_dab brush_fiber_optic_strands_render_dab
+
+#include "fiber_optic_strands.c"

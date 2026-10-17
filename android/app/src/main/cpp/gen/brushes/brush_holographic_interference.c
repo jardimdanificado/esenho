@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for holographic_interference */
+#define w_brush_get_info brush_holographic_interference_get_info
+#define w_brush_get_inputs brush_holographic_interference_get_inputs
+#define w_brush_init brush_holographic_interference_init
+#define w_brush_set_param brush_holographic_interference_set_param
+#define w_brush_stroke_begin brush_holographic_interference_stroke_begin
+#define w_brush_stroke_end brush_holographic_interference_stroke_end
+#define w_brush_render_dab brush_holographic_interference_render_dab
+
+#include "holographic_interference.c"

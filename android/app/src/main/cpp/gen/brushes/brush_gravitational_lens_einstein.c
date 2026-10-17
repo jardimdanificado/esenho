@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for gravitational_lens_einstein */
+#define w_brush_get_info brush_gravitational_lens_einstein_get_info
+#define w_brush_get_inputs brush_gravitational_lens_einstein_get_inputs
+#define w_brush_init brush_gravitational_lens_einstein_init
+#define w_brush_set_param brush_gravitational_lens_einstein_set_param
+#define w_brush_stroke_begin brush_gravitational_lens_einstein_stroke_begin
+#define w_brush_stroke_end brush_gravitational_lens_einstein_stroke_end
+#define w_brush_render_dab brush_gravitational_lens_einstein_render_dab
+
+#include "gravitational_lens_einstein.c"

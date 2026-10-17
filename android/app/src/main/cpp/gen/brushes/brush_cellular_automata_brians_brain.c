@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for cellular_automata_brians_brain */
+#define w_brush_get_info brush_cellular_automata_brians_brain_get_info
+#define w_brush_get_inputs brush_cellular_automata_brians_brain_get_inputs
+#define w_brush_init brush_cellular_automata_brians_brain_init
+#define w_brush_set_param brush_cellular_automata_brians_brain_set_param
+#define w_brush_stroke_begin brush_cellular_automata_brians_brain_stroke_begin
+#define w_brush_stroke_end brush_cellular_automata_brians_brain_stroke_end
+#define w_brush_render_dab brush_cellular_automata_brians_brain_render_dab
+
+#include "cellular_automata_brians_brain.c"

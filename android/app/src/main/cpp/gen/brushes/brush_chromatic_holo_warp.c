@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for chromatic_holo_warp */
+#define w_brush_get_info brush_chromatic_holo_warp_get_info
+#define w_brush_get_inputs brush_chromatic_holo_warp_get_inputs
+#define w_brush_init brush_chromatic_holo_warp_init
+#define w_brush_set_param brush_chromatic_holo_warp_set_param
+#define w_brush_stroke_begin brush_chromatic_holo_warp_stroke_begin
+#define w_brush_stroke_end brush_chromatic_holo_warp_stroke_end
+#define w_brush_render_dab brush_chromatic_holo_warp_render_dab
+
+#include "chromatic_holo_warp.c"

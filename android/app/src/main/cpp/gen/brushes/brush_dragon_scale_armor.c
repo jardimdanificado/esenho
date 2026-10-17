@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for dragon_scale_armor */
+#define w_brush_get_info brush_dragon_scale_armor_get_info
+#define w_brush_get_inputs brush_dragon_scale_armor_get_inputs
+#define w_brush_init brush_dragon_scale_armor_init
+#define w_brush_set_param brush_dragon_scale_armor_set_param
+#define w_brush_stroke_begin brush_dragon_scale_armor_stroke_begin
+#define w_brush_stroke_end brush_dragon_scale_armor_stroke_end
+#define w_brush_render_dab brush_dragon_scale_armor_render_dab
+
+#include "dragon_scale_armor.c"

@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for crystal_birefringence_calcite */
+#define w_brush_get_info brush_crystal_birefringence_calcite_get_info
+#define w_brush_get_inputs brush_crystal_birefringence_calcite_get_inputs
+#define w_brush_init brush_crystal_birefringence_calcite_init
+#define w_brush_set_param brush_crystal_birefringence_calcite_set_param
+#define w_brush_stroke_begin brush_crystal_birefringence_calcite_stroke_begin
+#define w_brush_stroke_end brush_crystal_birefringence_calcite_stroke_end
+#define w_brush_render_dab brush_crystal_birefringence_calcite_render_dab
+
+#include "crystal_birefringence_calcite.c"

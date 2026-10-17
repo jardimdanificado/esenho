@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for quantum_probability_cloud */
+#define w_brush_get_info brush_quantum_probability_cloud_get_info
+#define w_brush_get_inputs brush_quantum_probability_cloud_get_inputs
+#define w_brush_init brush_quantum_probability_cloud_init
+#define w_brush_set_param brush_quantum_probability_cloud_set_param
+#define w_brush_stroke_begin brush_quantum_probability_cloud_stroke_begin
+#define w_brush_stroke_end brush_quantum_probability_cloud_stroke_end
+#define w_brush_render_dab brush_quantum_probability_cloud_render_dab
+
+#include "quantum_probability_cloud.c"

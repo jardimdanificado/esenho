@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for biomimetic_gecko_setae */
+#define w_brush_get_info brush_biomimetic_gecko_setae_get_info
+#define w_brush_get_inputs brush_biomimetic_gecko_setae_get_inputs
+#define w_brush_init brush_biomimetic_gecko_setae_init
+#define w_brush_set_param brush_biomimetic_gecko_setae_set_param
+#define w_brush_stroke_begin brush_biomimetic_gecko_setae_stroke_begin
+#define w_brush_stroke_end brush_biomimetic_gecko_setae_stroke_end
+#define w_brush_render_dab brush_biomimetic_gecko_setae_render_dab
+
+#include "biomimetic_gecko_setae.c"

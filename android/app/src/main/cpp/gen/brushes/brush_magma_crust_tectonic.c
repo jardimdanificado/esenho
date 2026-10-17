@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for magma_crust_tectonic */
+#define w_brush_get_info brush_magma_crust_tectonic_get_info
+#define w_brush_get_inputs brush_magma_crust_tectonic_get_inputs
+#define w_brush_init brush_magma_crust_tectonic_init
+#define w_brush_set_param brush_magma_crust_tectonic_set_param
+#define w_brush_stroke_begin brush_magma_crust_tectonic_stroke_begin
+#define w_brush_stroke_end brush_magma_crust_tectonic_stroke_end
+#define w_brush_render_dab brush_magma_crust_tectonic_render_dab
+
+#include "magma_crust_tectonic.c"

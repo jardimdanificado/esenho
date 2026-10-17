@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for ferroelectric_domain_walls */
+#define w_brush_get_info brush_ferroelectric_domain_walls_get_info
+#define w_brush_get_inputs brush_ferroelectric_domain_walls_get_inputs
+#define w_brush_init brush_ferroelectric_domain_walls_init
+#define w_brush_set_param brush_ferroelectric_domain_walls_set_param
+#define w_brush_stroke_begin brush_ferroelectric_domain_walls_stroke_begin
+#define w_brush_stroke_end brush_ferroelectric_domain_walls_stroke_end
+#define w_brush_render_dab brush_ferroelectric_domain_walls_render_dab
+
+#include "ferroelectric_domain_walls.c"

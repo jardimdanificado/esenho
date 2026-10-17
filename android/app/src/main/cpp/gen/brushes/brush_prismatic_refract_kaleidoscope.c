@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for prismatic_refract_kaleidoscope */
+#define w_brush_get_info brush_prismatic_refract_kaleidoscope_get_info
+#define w_brush_get_inputs brush_prismatic_refract_kaleidoscope_get_inputs
+#define w_brush_init brush_prismatic_refract_kaleidoscope_init
+#define w_brush_set_param brush_prismatic_refract_kaleidoscope_set_param
+#define w_brush_stroke_begin brush_prismatic_refract_kaleidoscope_stroke_begin
+#define w_brush_stroke_end brush_prismatic_refract_kaleidoscope_stroke_end
+#define w_brush_render_dab brush_prismatic_refract_kaleidoscope_render_dab
+
+#include "prismatic_refract_kaleidoscope.c"

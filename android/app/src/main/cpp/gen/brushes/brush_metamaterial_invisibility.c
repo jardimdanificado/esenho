@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for metamaterial_invisibility */
+#define w_brush_get_info brush_metamaterial_invisibility_get_info
+#define w_brush_get_inputs brush_metamaterial_invisibility_get_inputs
+#define w_brush_init brush_metamaterial_invisibility_init
+#define w_brush_set_param brush_metamaterial_invisibility_set_param
+#define w_brush_stroke_begin brush_metamaterial_invisibility_stroke_begin
+#define w_brush_stroke_end brush_metamaterial_invisibility_stroke_end
+#define w_brush_render_dab brush_metamaterial_invisibility_render_dab
+
+#include "metamaterial_invisibility.c"

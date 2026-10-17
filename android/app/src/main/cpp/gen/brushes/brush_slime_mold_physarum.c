@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for slime_mold_physarum */
+#define w_brush_get_info brush_slime_mold_physarum_get_info
+#define w_brush_get_inputs brush_slime_mold_physarum_get_inputs
+#define w_brush_init brush_slime_mold_physarum_init
+#define w_brush_set_param brush_slime_mold_physarum_set_param
+#define w_brush_stroke_begin brush_slime_mold_physarum_stroke_begin
+#define w_brush_stroke_end brush_slime_mold_physarum_stroke_end
+#define w_brush_render_dab brush_slime_mold_physarum_render_dab
+
+#include "slime_mold_physarum.c"

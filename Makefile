@@ -61,6 +61,7 @@ test-brush-dyn: bin/test_brush_dynamics
 	./bin/test_brush_dynamics
 
 apk: $(CORE_WASM) $(PLUGINS) plugins/manifest.json $(BRUSH_PLUGINS) plugins/brushes/manifest.json
+	node scripts/generate-native-plugins.js
 	@TOOLS_DIR="$$HOME/.local/share/esenho-android-tools"; \
 	if [ -d "$$TOOLS_DIR/jdk17" ]; then export JAVA_HOME="$$TOOLS_DIR/jdk17"; fi; \
 	if [ -d "$$TOOLS_DIR/android-sdk" ]; then export ANDROID_HOME="$$TOOLS_DIR/android-sdk"; export ANDROID_SDK_ROOT="$$ANDROID_HOME"; fi; \

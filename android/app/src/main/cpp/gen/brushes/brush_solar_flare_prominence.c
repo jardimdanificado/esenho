@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for solar_flare_prominence */
+#define w_brush_get_info brush_solar_flare_prominence_get_info
+#define w_brush_get_inputs brush_solar_flare_prominence_get_inputs
+#define w_brush_init brush_solar_flare_prominence_init
+#define w_brush_set_param brush_solar_flare_prominence_set_param
+#define w_brush_stroke_begin brush_solar_flare_prominence_stroke_begin
+#define w_brush_stroke_end brush_solar_flare_prominence_stroke_end
+#define w_brush_render_dab brush_solar_flare_prominence_render_dab
+
+#include "solar_flare_prominence.c"
