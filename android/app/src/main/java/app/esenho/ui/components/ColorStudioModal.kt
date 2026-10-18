@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -123,6 +124,7 @@ fun ColorStudioModal(
                 var newPaletteName by remember { mutableStateOf("") }
                 var newPaletteError by remember { mutableStateOf<String?>(null) }
                 var showDeletePaletteDialog by remember { mutableStateOf(false) }
+                var paletteMenuExpanded by remember { mutableStateOf(false) }
 
                 val currentPalettes = remember(engine?.palettes?.size, paletteVersion) {
                     engine?.palettes ?: ColorPaletteModel.getDefaultPalettes()
@@ -183,35 +185,56 @@ fun ColorStudioModal(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Palette Tabs + "+ Nova Paleta" button
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(currentPalettes) { pal ->
-                        FilterChip(
-                            selected = pal.id == activePaletteId,
-                            onClick = {
-                                activePaletteId = pal.id
-                                engine?.activePaletteId = pal.id
-                            },
-                            label = { Text(pal.name, fontSize = 10.sp) }
-                        )
-                    }
-                    item {
-                        AssistChip(
-                            onClick = {
-                                newPaletteName = ""
-                                newPaletteError = null
-                                showNewPaletteDialog = true
-                            },
-                            label = { Text("+ Nova", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                            leadingIcon = {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
+                    Box {
+                        OutlinedButton(
+                            onClick = { paletteMenuExpanded = true },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text(activePalette?.name ?: "Selecionar paleta", fontSize = 12.sp, maxLines = 1)
+                            Spacer(Modifier.width(6.dp))
+                            Icon(Icons.Default.ExpandMore, contentDescription = "Escolher paleta", modifier = Modifier.size(18.dp))
+                        }
+                        DropdownMenu(
+                            expanded = paletteMenuExpanded,
+                            onDismissRequest = { paletteMenuExpanded = false }
+                        ) {
+                            currentPalettes.forEach { palette ->
+                                DropdownMenuItem(
+                                    text = { Text(palette.name) },
+                                    onClick = {
+                                        activePaletteId = palette.id
+                                        engine?.activePaletteId = palette.id
+                                        paletteMenuExpanded = false
+                                    },
+                                    trailingIcon = if (palette.id == activePaletteId) {
+                                        { Text("✓", color = MaterialTheme.colorScheme.primary) }
+                                    } else null
+                                )
                             }
-                        )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Nova paleta") },
+                                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+                                onClick = {
+                                    paletteMenuExpanded = false
+                                    newPaletteName = ""
+                                    newPaletteError = null
+                                    showNewPaletteDialog = true
+                                }
+                            )
+                        }
                     }
+                    Text(
+                        text = "${activePalette?.colors?.size ?: 0} cores",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
