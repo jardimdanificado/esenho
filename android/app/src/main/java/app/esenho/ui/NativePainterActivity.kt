@@ -197,7 +197,7 @@ fun EsenhoMainScreen(
     var canvasViewRef by remember { mutableStateOf<EsenhoCanvasView?>(null) }
     val engine = remember { EsenhoEngine(context, 1080, 1920) }
     val storageManager = remember { EsenhoStorageManager(context) }
-    var sideSliderParams by remember { mutableStateOf<List<Int>>(storageManager.loadSideSliders()) }
+    var sideSliderSettings by remember { mutableStateOf(storageManager.loadSideSliders()) }
 
     // UI Dialog & Drawer States
     var showBrushDrawer by remember { mutableStateOf(false) }
@@ -785,10 +785,10 @@ fun EsenhoMainScreen(
             // 3. Translucent Configurable Thumb Sliders (Left Edge)
             ThumbSliders(
                 engine = engine,
-                configuredParamIds = sideSliderParams,
-                onConfiguredParamsChange = { newParams ->
-                    sideSliderParams = newParams
-                    storageManager.saveSideSliders(newParams)
+                configuredSliders = sideSliderSettings,
+                onConfiguredSlidersChange = { newSettings ->
+                    sideSliderSettings = newSettings
+                    storageManager.saveSideSliders(newSettings)
                 },
                 onSizeChangeActive = { active ->
                     canvasViewRef?.previewBrushSize = if (active) engine.brushSize else 0f
@@ -803,7 +803,7 @@ fun EsenhoMainScreen(
                 Surface(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = if (showAnimationTimeline) 252.dp else 24.dp)
+                        .padding(bottom = if (showAnimationTimeline) 204.dp else 24.dp)
                         .shadow(16.dp, RoundedCornerShape(24.dp)),
                     color = MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(24.dp),

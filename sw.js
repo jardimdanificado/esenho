@@ -1,4 +1,4 @@
-const CACHE_NAME = 'esenho-v0.14.51';
+const CACHE_NAME = 'esenho-v0.14.52';
 
 const PRECACHE_ASSETS = [
   './',

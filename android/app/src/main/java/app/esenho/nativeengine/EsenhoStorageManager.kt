@@ -316,10 +316,17 @@ class EsenhoStorageManager(private val context: Context) {
     private val sideSlidersFile: File
         get() = File(context.filesDir, "esenho_side_sliders.json")
 
-    fun saveSideSliders(paramIds: List<Int>): Boolean {
+    data class SideSliderSetting(val paramId: Int, val minVal: Float? = null, val maxVal: Float? = null)
+
+    fun saveSideSliders(settings: List<SideSliderSetting>): Boolean {
         return try {
             val arr = JSONArray()
-            paramIds.forEach { arr.put(it) }
+            settings.forEach { setting ->
+                arr.put(JSONObject().put("paramId", setting.paramId).apply {
+                    setting.minVal?.let { put("min", it) }
+                    setting.maxVal?.let { put("max", it) }
+                })
+            }
             atomicWrite(sideSlidersFile, arr.toString())
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save side sliders", e)
@@ -327,18 +334,25 @@ class EsenhoStorageManager(private val context: Context) {
         }
     }
 
-    fun loadSideSliders(): List<Int> {
-        val content = safeRead(sideSlidersFile) ?: return listOf(1, 2)
+    fun loadSideSliders(): List<SideSliderSetting> {
+        val content = safeRead(sideSlidersFile) ?: return listOf(SideSliderSetting(1), SideSliderSetting(2))
         return try {
             val arr = JSONArray(content)
-            val result = mutableListOf<Int>()
+            val result = mutableListOf<SideSliderSetting>()
             for (i in 0 until arr.length()) {
-                result.add(arr.getInt(i))
+                when (val item = arr.get(i)) {
+                    is Number -> result.add(SideSliderSetting(item.toInt()))
+                    is JSONObject -> result.add(SideSliderSetting(
+                        item.optInt("paramId", 1),
+                        if (item.has("min")) item.optDouble("min").toFloat() else null,
+                        if (item.has("max")) item.optDouble("max").toFloat() else null
+                    ))
+                }
             }
-            if (result.isEmpty()) listOf(1, 2) else result
+            if (result.isEmpty()) listOf(SideSliderSetting(1), SideSliderSetting(2)) else result
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load side sliders", e)
-            listOf(1, 2)
+            listOf(SideSliderSetting(1), SideSliderSetting(2))
         }
     }
 }

@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import app.esenho.nativeengine.EsenhoEngine
+import app.esenho.nativeengine.EsenhoStorageManager.SideSliderSetting
 
 data class SliderParamConfig(
     val paramId: Int,
@@ -68,12 +69,15 @@ val AVAILABLE_SLIDER_PARAMS = listOf(
 @Composable
 fun ThumbSliders(
     engine: EsenhoEngine,
-    configuredParamIds: List<Int>,
-    onConfiguredParamsChange: (List<Int>) -> Unit,
+    configuredSliders: List<SideSliderSetting>,
+    onConfiguredSlidersChange: (List<SideSliderSetting>) -> Unit,
     onSizeChangeActive: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var editingSliderIndex by remember { mutableStateOf<Int?>(null) }
+    var editingParamId by remember { mutableIntStateOf(1) }
+    var rangeMinText by remember { mutableStateOf("1") }
+    var rangeMaxText by remember { mutableStateOf("300") }
     var refreshTrigger by remember { mutableIntStateOf(0) }
 
     Column(
@@ -83,11 +87,12 @@ fun ThumbSliders(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        configuredParamIds.forEachIndexed { index, paramId ->
-            val cfg = AVAILABLE_SLIDER_PARAMS.find { it.paramId == paramId }
-                ?: AVAILABLE_SLIDER_PARAMS[0]
+        configuredSliders.forEachIndexed { index, setting ->
+            val template = AVAILABLE_SLIDER_PARAMS.find { it.paramId == setting.paramId } ?: AVAILABLE_SLIDER_PARAMS[0]
+            val minVal = setting.minVal ?: template.minVal
+            val cfg = template.copy(minVal = minVal, maxVal = (setting.maxVal ?: template.maxVal).coerceAtLeast(minVal + 0.01f))
 
-            val currentRawVal = remember(cfg.paramId, engine.selectedPreset, engine.brushSize, engine.brushOpacity, refreshTrigger) {
+            val currentRawVal = remember(cfg.paramId, cfg.minVal, cfg.maxVal, engine.selectedPreset, engine.brushSize, engine.brushOpacity, refreshTrigger) {
                 if (cfg.paramId == 1) {
                     engine.brushSize.coerceIn(cfg.minVal, cfg.maxVal)
                 } else if (cfg.paramId == 2) {
@@ -109,7 +114,12 @@ fun ThumbSliders(
                 value = norm,
                 label = "${cfg.shortLabel} ${currentRawVal.toInt()}${cfg.unit}",
                 fillColor = barColor,
-                onClick = { editingSliderIndex = index },
+                onClick = {
+                    editingSliderIndex = index
+                    editingParamId = setting.paramId
+                    rangeMinText = cfg.minVal.toString().removeSuffix(".0")
+                    rangeMaxText = cfg.maxVal.toString().removeSuffix(".0")
+                },
                 onValueChange = { newNorm ->
                     val newVal = cfg.minVal + newNorm * (cfg.maxVal - cfg.minVal)
                     if (cfg.paramId == 1) engine.brushSize = newVal
@@ -122,7 +132,7 @@ fun ThumbSliders(
         }
 
         // Add/Manage Slider action button
-        if (configuredParamIds.size < 4) {
+        if (configuredSliders.size < 4) {
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
@@ -130,11 +140,9 @@ fun ThumbSliders(
                     .size(26.dp)
                     .clip(CircleShape)
                     .clickable {
-                        // Add next unassigned parameter
-                        val next = AVAILABLE_SLIDER_PARAMS.firstOrNull { it.paramId !in configuredParamIds }
+                        val next = AVAILABLE_SLIDER_PARAMS.firstOrNull { option -> configuredSliders.none { it.paramId == option.paramId } }
                             ?: AVAILABLE_SLIDER_PARAMS[4] // Smoothing
-                        val newList = configuredParamIds + next.paramId
-                        onConfiguredParamsChange(newList)
+                        onConfiguredSlidersChange(configuredSliders + SideSliderSetting(next.paramId))
                     }
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -151,7 +159,7 @@ fun ThumbSliders(
 
     // Modal Dialog to Select Property for the Tapped Slider
     editingSliderIndex?.let { editIdx ->
-        val currentParamId = configuredParamIds.getOrNull(editIdx) ?: 1
+        val selectedTemplate = AVAILABLE_SLIDER_PARAMS.find { it.paramId == editingParamId } ?: AVAILABLE_SLIDER_PARAMS[0]
 
         Dialog(onDismissRequest = { editingSliderIndex = null }) {
             Surface(
@@ -188,6 +196,22 @@ fun ThumbSliders(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
+                    Text("Faixa de ${selectedTemplate.name}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = rangeMinText,
+                            onValueChange = { rangeMinText = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' } },
+                            label = { Text("Mínimo") }, singleLine = true, modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = rangeMaxText,
+                            onValueChange = { rangeMaxText = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' } },
+                            label = { Text("Máximo") }, singleLine = true, modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Text("Unidade: ${selectedTemplate.unit.ifBlank { "sem unidade" }}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -195,7 +219,7 @@ fun ThumbSliders(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         items(AVAILABLE_SLIDER_PARAMS) { opt ->
-                            val isSelected = opt.paramId == currentParamId
+                            val isSelected = opt.paramId == editingParamId
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
                                 color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
@@ -203,12 +227,9 @@ fun ThumbSliders(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
                                     .clickable {
-                                        val mutable = configuredParamIds.toMutableList()
-                                        if (editIdx < mutable.size) {
-                                            mutable[editIdx] = opt.paramId
-                                        }
-                                        onConfiguredParamsChange(mutable)
-                                        editingSliderIndex = null
+                                        editingParamId = opt.paramId
+                                        rangeMinText = opt.minVal.toString().removeSuffix(".0")
+                                        rangeMaxText = opt.maxVal.toString().removeSuffix(".0")
                                     }
                             ) {
                                 Row(
@@ -225,7 +246,7 @@ fun ThumbSliders(
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                         )
                                         Text(
-                                            text = "Faixa: ${opt.minVal.toInt()} a ${opt.maxVal.toInt()}${opt.unit}",
+                                            text = "Padrão: ${opt.minVal} a ${opt.maxVal}${opt.unit}",
                                             fontSize = 11.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -243,23 +264,30 @@ fun ThumbSliders(
                         }
                     }
 
-                    // Remove option if more than 1 slider
-                    if (configuredParamIds.size > 1) {
-                        Spacer(modifier = Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         TextButton(
+                            enabled = configuredSliders.size > 1,
                             onClick = {
-                                val mutable = configuredParamIds.toMutableList()
-                                if (editIdx < mutable.size) {
-                                    mutable.removeAt(editIdx)
-                                }
-                                onConfiguredParamsChange(mutable)
+                                val mutable = configuredSliders.toMutableList()
+                                if (editIdx < mutable.size) mutable.removeAt(editIdx)
+                                onConfiguredSlidersChange(mutable)
                                 editingSliderIndex = null
                             },
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        ) {
-                            Text("Remover este Slider", fontSize = 12.sp)
-                        }
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) { Text("Remover", fontSize = 12.sp) }
+                        val minValue = rangeMinText.replace(',', '.').toFloatOrNull()
+                        val maxValue = rangeMaxText.replace(',', '.').toFloatOrNull()
+                        Button(
+                            enabled = minValue != null && maxValue != null && maxValue > minValue,
+                            onClick = {
+                                if (minValue != null && maxValue != null && maxValue > minValue) {
+                                    val mutable = configuredSliders.toMutableList()
+                                    if (editIdx < mutable.size) mutable[editIdx] = SideSliderSetting(editingParamId, minValue, maxValue)
+                                    onConfiguredSlidersChange(mutable)
+                                    editingSliderIndex = null
+                                }
+                            }
+                        ) { Text("Aplicar") }
                     }
                 }
             }
