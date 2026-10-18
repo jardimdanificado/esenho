@@ -39,8 +39,22 @@ class EsenhoCanvasView @JvmOverloads constructor(
     private var initialTwoFingerTime = 0L
     private var initialTwoFingerMidX = 0f
     private var initialTwoFingerMidY = 0f
+    private var initialTwoFingerSpan = 0f
+    private var initialP0X = 0f
+    private var initialP0Y = 0f
+    private var initialP1X = 0f
+    private var initialP1Y = 0f
+    private val matrixBeforeTwoFinger = Matrix()
     private var twoFingerMoved = false
     private var maxPointersInGesture = 0
+
+    // Floating Transform Tool gesture state (M4 / R1)
+    private var activeTransformHandle: app.esenho.nativeengine.TransformState.Handle = app.esenho.nativeengine.TransformState.Handle.NONE
+    private var transformDragStartX = 0f
+    private var transformDragStartY = 0f
+    private var initialHandleDist = 0f
+    private var initialHandleAngle = 0f
+    private val initialCenter = PointF()
 
     // Single-finger Pan tracking
     private var lastSingleTouchX = 0f
@@ -130,20 +144,21 @@ class EsenhoCanvasView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
-    private val selectionMarqueePaint = Paint().apply {
+    private val selectionAntsBlackPaint = Paint().apply {
         style = Paint.Style.STROKE
         strokeWidth = 2.5f
-        color = Color.WHITE
-        pathEffect = DashPathEffect(floatArrayOf(8f, 8f), 0f)
+        color = Color.BLACK
         isAntiAlias = true
     }
 
-    private val selectionBorderShadowPaint = Paint().apply {
+    private val selectionAntsWhitePaint = Paint().apply {
         style = Paint.Style.STROKE
-        strokeWidth = 4.5f
-        color = 0xBB000000.toInt()
+        strokeWidth = 2.5f
+        color = Color.WHITE
         isAntiAlias = true
     }
+
+    private var antsPhase = 0f
 
     private val selectionFillPaint = Paint().apply {
         style = Paint.Style.FILL
@@ -238,6 +253,26 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 lastSingleTouchX = event.x
                 lastSingleTouchY = event.y
 
+                val tState = engine?.transformState
+                if (tState != null) {
+                    transformMatrix.getValues(matrixValues)
+                    val currentScale = hypot(matrixValues[Matrix.MSCALE_X], matrixValues[Matrix.MSKEW_Y])
+                    val (cx, cy) = mapToCanvas(event.x, event.y)
+                    val handleRadius = 26f / currentScale.coerceAtLeast(0.1f)
+                    val hit = tState.hitTest(cx, cy, handleRadius)
+                    if (hit != app.esenho.nativeengine.TransformState.Handle.NONE) {
+                        activeTransformHandle = hit
+                        transformDragStartX = cx
+                        transformDragStartY = cy
+                        val c = tState.getCenter()
+                        initialCenter.set(c.x, c.y)
+                        initialHandleDist = hypot(cx - c.x, cy - c.y)
+                        initialHandleAngle = Math.toDegrees(atan2((cy - c.y).toDouble(), (cx - c.x).toDouble())).toFloat()
+                        invalidate()
+                        return true
+                    }
+                }
+
                 if (engine?.currentTool == ToolMode.PAN) {
                     return true
                 }
@@ -251,6 +286,10 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     loupePickedColor = c
                     onColorPicked?.invoke(c)
                     invalidate()
+                    return true
+                }
+
+                if (engine?.transformState != null) {
                     return true
                 }
 
@@ -287,6 +326,12 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     initialTwoFingerTime = System.currentTimeMillis()
                     initialTwoFingerMidX = lastMidX
                     initialTwoFingerMidY = lastMidY
+                    initialTwoFingerSpan = lastSpan
+                    initialP0X = p0x
+                    initialP0Y = p0y
+                    initialP1X = p1x
+                    initialP1Y = p1y
+                    matrixBeforeTwoFinger.set(transformMatrix)
                     twoFingerMoved = false
 
                     invalidate()
@@ -295,6 +340,40 @@ class EsenhoCanvasView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_MOVE -> {
+                val tState = engine?.transformState
+                if (tState != null && activeTransformHandle != app.esenho.nativeengine.TransformState.Handle.NONE && pointerCount == 1) {
+                    val (cx, cy) = mapToCanvas(event.x, event.y)
+                    when (activeTransformHandle) {
+                        app.esenho.nativeengine.TransformState.Handle.BODY -> {
+                            val dx = cx - transformDragStartX
+                            val dy = cy - transformDragStartY
+                            tState.translate(dx, dy)
+                            transformDragStartX = cx
+                            transformDragStartY = cy
+                            invalidate()
+                            return true
+                        }
+                        app.esenho.nativeengine.TransformState.Handle.ROTATION -> {
+                            val currentAngle = Math.toDegrees(atan2((cy - initialCenter.y).toDouble(), (cx - initialCenter.x).toDouble())).toFloat()
+                            var dAngle = currentAngle - initialHandleAngle
+                            while (dAngle > 180f) dAngle -= 360f
+                            while (dAngle < -180f) dAngle += 360f
+                            tState.rotate(dAngle, initialCenter.x, initialCenter.y)
+                            initialHandleAngle = currentAngle
+                            invalidate()
+                            return true
+                        }
+                        else -> {
+                            val currentDist = hypot(cx - initialCenter.x, cy - initialCenter.y)
+                            val scaleFactor = if (initialHandleDist > 0.001f) (currentDist / initialHandleDist) else 1f
+                            tState.scale(scaleFactor, scaleFactor, initialCenter.x, initialCenter.y)
+                            initialHandleDist = currentDist
+                            invalidate()
+                            return true
+                        }
+                    }
+                }
+
                 if (isEyedropperActive) {
                     loupeScreenX = event.x
                     loupeScreenY = event.y
@@ -335,7 +414,13 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     while (angleDelta > 180f) angleDelta -= 360f
                     while (angleDelta < -180f) angleDelta += 360f
 
-                    if (hypot(currMidX - initialTwoFingerMidX, currMidY - initialTwoFingerMidY) > 8f || abs(currSpan - lastSpan) > 6f || abs(angleDelta) > 1.8f) {
+                    // Accurate displacement check: if either finger traveled or span changed, it's a zoom/pan gesture, NOT a tap
+                    val d0 = hypot(p0x - initialP0X, p0y - initialP0Y)
+                    val d1 = hypot(p1x - initialP1X, p1y - initialP1Y)
+                    val spanDelta = abs(currSpan - initialTwoFingerSpan)
+                    val midDelta = hypot(currMidX - initialTwoFingerMidX, currMidY - initialTwoFingerMidY)
+
+                    if (d0 > 8f || d1 > 8f || spanDelta > 6f || midDelta > 6f) {
                         twoFingerMoved = true
                     }
 
@@ -371,6 +456,10 @@ class EsenhoCanvasView @JvmOverloads constructor(
                         return true
                     }
 
+                    if (engine?.transformState != null) {
+                        return true
+                    }
+
                     val historySize = event.historySize
                     for (h in 0 until historySize) {
                         val (hcx, hcy) = mapToCanvas(event.getHistoricalX(h), event.getHistoricalY(h))
@@ -391,7 +480,11 @@ class EsenhoCanvasView @JvmOverloads constructor(
             MotionEvent.ACTION_POINTER_UP -> {
                 if (isTransforming) {
                     val dt = System.currentTimeMillis() - initialTwoFingerTime
-                    if (!twoFingerMoved && dt < 280) {
+                    if (!twoFingerMoved && dt in 40..250) {
+                        // Revert matrix micro-shift before executing tap action
+                        transformMatrix.set(matrixBeforeTwoFinger)
+                        transformMatrix.invert(inverseMatrix)
+
                         if (maxPointersInGesture == 2) {
                             // Two-finger Tap = UNDO
                             engine?.undo()
@@ -424,6 +517,12 @@ class EsenhoCanvasView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_UP -> {
+                if (activeTransformHandle != app.esenho.nativeengine.TransformState.Handle.NONE) {
+                    activeTransformHandle = app.esenho.nativeengine.TransformState.Handle.NONE
+                    invalidate()
+                    return true
+                }
+
                 if (isEyedropperActive) {
                     isEyedropperActive = false
                     if (engine?.currentTool == ToolMode.EYEDROPPER) {
@@ -444,6 +543,10 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     return true
                 }
 
+                if (engine?.transformState != null) {
+                    return true
+                }
+
                 val (cx, cy) = mapToCanvas(event.x, event.y)
                 val pressure = if (event.pressure > 0.01f) event.pressure else 0.85f
                 engine?.onTouchUp(cx, cy, pressure)
@@ -453,6 +556,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_CANCEL -> {
+                activeTransformHandle = app.esenho.nativeengine.TransformState.Handle.NONE
                 isEyedropperActive = false
                 isTransforming = false
                 engine?.onTouchUp(0f, 0f)
@@ -535,11 +639,29 @@ class EsenhoCanvasView @JvmOverloads constructor(
             }
         }
 
-        // 6. Active Selection Boundary
-        if (eng.selectionActive && eng.selectionBounds != null) {
-            val b = eng.selectionBounds!!
-            canvas.drawRect(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(), selectionBorderShadowPaint)
-            canvas.drawRect(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(), selectionMarqueePaint)
+        // 6. Active Selection Boundary (Dynamic High-Contrast Marching Ants)
+        if (eng.selectionActive) {
+            selectionAntsBlackPaint.pathEffect = DashPathEffect(floatArrayOf(8f, 8f), antsPhase)
+            selectionAntsWhitePaint.pathEffect = DashPathEffect(floatArrayOf(8f, 8f), antsPhase + 8f)
+
+            val path = eng.selectionPath
+            if (path != null) {
+                canvas.drawPath(path, selectionFillPaint)
+                canvas.drawPath(path, selectionAntsBlackPaint)
+                canvas.drawPath(path, selectionAntsWhitePaint)
+            } else if (eng.selectionBounds != null) {
+                val b = eng.selectionBounds!!
+                val left = b.left.toFloat()
+                val top = b.top.toFloat()
+                val right = b.right.toFloat()
+                val bottom = b.bottom.toFloat()
+                canvas.drawRect(left, top, right, bottom, selectionFillPaint)
+                canvas.drawRect(left, top, right, bottom, selectionAntsBlackPaint)
+                canvas.drawRect(left, top, right, bottom, selectionAntsWhitePaint)
+            }
+
+            antsPhase = (antsPhase + 1f) % 16f
+            postInvalidateOnAnimation()
         }
 
         // 7. Interactive Shape Drag Previews
@@ -570,9 +692,11 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     val ry = min(sy, cy)
                     val rw = max(sx, cx)
                     val rh = max(sy, cy)
+                    selectionAntsBlackPaint.pathEffect = DashPathEffect(floatArrayOf(8f, 8f), antsPhase)
+                    selectionAntsWhitePaint.pathEffect = DashPathEffect(floatArrayOf(8f, 8f), antsPhase + 8f)
                     canvas.drawRect(rx, ry, rw, rh, selectionFillPaint)
-                    canvas.drawRect(rx, ry, rw, rh, selectionBorderShadowPaint)
-                    canvas.drawRect(rx, ry, rw, rh, selectionMarqueePaint)
+                    canvas.drawRect(rx, ry, rw, rh, selectionAntsBlackPaint)
+                    canvas.drawRect(rx, ry, rw, rh, selectionAntsWhitePaint)
                 }
                 ToolMode.SELECT_LASSO -> {
                     if (eng.lassoPoints.size >= 2) {
@@ -583,9 +707,11 @@ class EsenhoCanvasView @JvmOverloads constructor(
                         }
                         val closedPath = Path(path)
                         closedPath.close()
+                        selectionAntsBlackPaint.pathEffect = DashPathEffect(floatArrayOf(8f, 8f), antsPhase)
+                        selectionAntsWhitePaint.pathEffect = DashPathEffect(floatArrayOf(8f, 8f), antsPhase + 8f)
                         canvas.drawPath(closedPath, selectionFillPaint)
-                        canvas.drawPath(path, selectionBorderShadowPaint)
-                        canvas.drawPath(path, selectionMarqueePaint)
+                        canvas.drawPath(path, selectionAntsBlackPaint)
+                        canvas.drawPath(path, selectionAntsWhitePaint)
                     }
                 }
                 ToolMode.LASSO_FILL -> {
@@ -608,6 +734,13 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 }
                 else -> {}
             }
+        }
+
+        // 8. Floating Transform Tool Overlay (M4 / R1)
+        eng.transformState?.let { tState ->
+            transformMatrix.getValues(matrixValues)
+            val currentScale = hypot(matrixValues[Matrix.MSCALE_X], matrixValues[Matrix.MSKEW_Y])
+            tState.draw(canvas, currentScale)
         }
 
         canvas.restore()

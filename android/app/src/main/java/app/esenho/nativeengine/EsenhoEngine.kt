@@ -2,7 +2,12 @@ package app.esenho.nativeengine
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.RectF
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.ArrayDeque
 import kotlin.math.*
@@ -20,7 +25,8 @@ enum class ToolMode(val id: Int, val displayName: String) {
     CIRCLE(8, "Círculo"),
     SELECT_RECT(9, "Seleção Retangular"),
     SELECT_LASSO(9, "Seleção com Laço"),
-    PAN(10, "Mover Tela")
+    PAN(10, "Mover Tela"),
+    TRANSFORM(11, "Transformar")
 }
 
 enum class SymmetryMode(val id: Int, val displayName: String) {
@@ -58,9 +64,10 @@ data class BrushParamModel(
 
 data class BrushPresetModel(
     val id: String,
-    val name: String,
-    val desc: String,
-    val category: String,
+    var name: String,
+    var desc: String,
+    var category: String,
+    var isCustom: Boolean = false,
     var shape: String = "circle",
     var shapeId: Int = 0,
     var size: Int = 16,
@@ -108,8 +115,217 @@ data class BrushPresetModel(
     var dryingRate: Int = 0,
     var mode: Int = 0,
     var eraser: Int = 0,
-    val color: String = ""
-)
+    var color: String = ""
+) {
+    fun toJson(): JSONObject {
+        val obj = JSONObject()
+        obj.put("id", id)
+        obj.put("name", name)
+        obj.put("desc", desc)
+        obj.put("category", category)
+        obj.put("isCustom", isCustom)
+        obj.put("shape", shape)
+        obj.put("shape_id", shapeId)
+        obj.put("size", size)
+        obj.put("opacity", opacity)
+        obj.put("hardness", hardness)
+        obj.put("flow", flow)
+        obj.put("spacing", spacing)
+        obj.put("roundness", roundness)
+        obj.put("angle", angle)
+        obj.put("smoothing", smoothing)
+        obj.put("midpoint", midpoint)
+        obj.put("scatter", scatter)
+        obj.put("grain", grain)
+        obj.put("tex_mode", texMode)
+        obj.put("texture", texture)
+        obj.put("texture_scale", textureScale)
+        obj.put("texture_contrast", textureContrast)
+        obj.put("tex_scale_with_size", texScaleWithSize)
+        obj.put("tex_angle", texAngle)
+        obj.put("auto_rotate", autoRotate)
+        obj.put("velocity", velocity)
+        obj.put("taper_in", taperIn)
+        obj.put("taper_out", taperOut)
+        obj.put("fade", fade)
+        obj.put("size_jitter", sizeJitter)
+        obj.put("angle_jitter", angleJitter)
+        obj.put("opacity_jitter", opacityJitter)
+        obj.put("color_jitter", colorJitter)
+        obj.put("dab_blend", dabBlend)
+        obj.put("subpixel", subpixel)
+        obj.put("smudge", smudge)
+        obj.put("wetness", wetness)
+        obj.put("depletion", depletion)
+        obj.put("color_pickup", colorPickup)
+        obj.put("pressure_size", pressureSize)
+        obj.put("pressure_flow", pressureFlow)
+        obj.put("tilt_angle", tiltAngle)
+        obj.put("buildup", buildup)
+        obj.put("water", water)
+        obj.put("bleed", bleed)
+        obj.put("granulation", granulation)
+        obj.put("fringe", fringe)
+        obj.put("pigment_mode", pigmentMode)
+        obj.put("impasto", impasto)
+        obj.put("drying_rate", dryingRate)
+        obj.put("mode", mode)
+        obj.put("eraser", eraser)
+        obj.put("color", color)
+        return obj
+    }
+
+    companion object {
+        fun fromJson(obj: JSONObject): BrushPresetModel {
+            return BrushPresetModel(
+                id = obj.optString("id", "custom_${System.currentTimeMillis()}"),
+                name = obj.optString("name", "Custom Preset"),
+                desc = obj.optString("desc", ""),
+                category = obj.optString("category", "Personalizado"),
+                isCustom = obj.optBoolean("isCustom", true),
+                shape = obj.optString("shape", "circle"),
+                shapeId = obj.optInt("shape_id", 0),
+                size = obj.optInt("size", 16),
+                opacity = obj.optInt("opacity", 100),
+                hardness = obj.optInt("hardness", 100),
+                flow = obj.optInt("flow", 100),
+                spacing = obj.optInt("spacing", 5),
+                roundness = obj.optInt("roundness", 100),
+                angle = obj.optInt("angle", 0),
+                smoothing = obj.optInt("smoothing", 15),
+                midpoint = obj.optInt("midpoint", 50),
+                scatter = obj.optInt("scatter", 0),
+                grain = obj.optInt("grain", 0),
+                texMode = obj.optInt("tex_mode", 0),
+                texture = obj.optString("texture", ""),
+                textureScale = obj.optInt("texture_scale", 100),
+                textureContrast = obj.optInt("texture_contrast", 100),
+                texScaleWithSize = obj.optInt("tex_scale_with_size", 0),
+                texAngle = obj.optInt("tex_angle", 0),
+                autoRotate = obj.optInt("auto_rotate", 0),
+                velocity = obj.optInt("velocity", 0),
+                taperIn = obj.optInt("taper_in", 0),
+                taperOut = obj.optInt("taper_out", 0),
+                fade = obj.optInt("fade", 0),
+                sizeJitter = obj.optInt("size_jitter", 0),
+                angleJitter = obj.optInt("angle_jitter", 0),
+                opacityJitter = obj.optInt("opacity_jitter", 0),
+                colorJitter = obj.optInt("color_jitter", 0),
+                dabBlend = obj.optInt("dab_blend", 0),
+                subpixel = obj.optInt("subpixel", 1),
+                smudge = obj.optInt("smudge", 0),
+                wetness = obj.optInt("wetness", 0),
+                depletion = obj.optInt("depletion", 0),
+                colorPickup = obj.optInt("color_pickup", 0),
+                pressureSize = obj.optInt("pressure_size", 1),
+                pressureFlow = obj.optInt("pressure_flow", 1),
+                tiltAngle = obj.optInt("tilt_angle", 0),
+                buildup = obj.optInt("buildup", 0),
+                water = obj.optInt("water", 0),
+                bleed = obj.optInt("bleed", 0),
+                granulation = obj.optInt("granulation", 0),
+                fringe = obj.optInt("fringe", 0),
+                pigmentMode = obj.optInt("pigment_mode", 0),
+                impasto = obj.optInt("impasto", 0),
+                dryingRate = obj.optInt("drying_rate", 0),
+                mode = obj.optInt("mode", 0),
+                eraser = obj.optInt("eraser", 0),
+                color = obj.optString("color", "")
+            )
+        }
+    }
+}
+
+data class ColorPaletteModel(
+    val id: String,
+    var name: String,
+    val colors: MutableList<Int>,
+    val isBuiltIn: Boolean = false
+) {
+    fun toJson(): JSONObject {
+        val obj = JSONObject()
+        obj.put("id", id)
+        obj.put("name", name)
+        obj.put("isBuiltIn", isBuiltIn)
+        val arr = JSONArray()
+        for (c in colors) {
+            arr.put(c)
+        }
+        obj.put("colors", arr)
+        return obj
+    }
+
+    companion object {
+        fun fromJson(obj: JSONObject): ColorPaletteModel {
+            val id = obj.optString("id", "pal_${System.currentTimeMillis()}")
+            val name = obj.optString("name", "Paleta")
+            val isBuiltIn = obj.optBoolean("isBuiltIn", false)
+            val colorsList = mutableListOf<Int>()
+            val arr = obj.optJSONArray("colors")
+            if (arr != null) {
+                for (i in 0 until arr.length()) {
+                    colorsList.add(arr.getInt(i))
+                }
+            }
+            return ColorPaletteModel(id, name, colorsList, isBuiltIn)
+        }
+
+        fun getDefaultPalettes(): List<ColorPaletteModel> {
+            return listOf(
+                ColorPaletteModel(
+                    id = "classic",
+                    name = "Clássico",
+                    colors = mutableListOf(
+                        0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0xFFE63946.toInt(),
+                        0xFFF4A261.toInt(), 0xFFE9C46A.toInt(), 0xFF2A9D8F.toInt(),
+                        0xFF264653.toInt(), 0xFF457B9D.toInt(), 0xFF9C27B0.toInt(), 0xFFE91E63.toInt()
+                    ),
+                    isBuiltIn = true
+                ),
+                ColorPaletteModel(
+                    id = "skin",
+                    name = "Pele",
+                    colors = mutableListOf(
+                        0xFFFFDFC4.toInt(), 0xFFF0D5BE.toInt(), 0xFFEECEB3.toInt(),
+                        0xFFE1B899.toInt(), 0xFFCEAB93.toInt(), 0xFFB68B68.toInt(),
+                        0xFF966847.toInt(), 0xFF654321.toInt(), 0xFF3D2314.toInt()
+                    ),
+                    isBuiltIn = true
+                ),
+                ColorPaletteModel(
+                    id = "cyberpunk",
+                    name = "Cyberpunk",
+                    colors = mutableListOf(
+                        0xFF00FFCC.toInt(), 0xFFFF0055.toInt(), 0xFF7928CA.toInt(),
+                        0xFF0070F3.toInt(), 0xFFF5A623.toInt(), 0xFF50E3C2.toInt(),
+                        0xFFFF007F.toInt(), 0xFF00F0FF.toInt(), 0xFF7000FF.toInt()
+                    ),
+                    isBuiltIn = true
+                ),
+                ColorPaletteModel(
+                    id = "pastel",
+                    name = "Pastel",
+                    colors = mutableListOf(
+                        0xFFFFB3BA.toInt(), 0xFFFFDFBA.toInt(), 0xFFFFFFBA.toInt(),
+                        0xFFBAFFC9.toInt(), 0xFFBAE1FF.toInt(), 0xFFE8BAFF.toInt(),
+                        0xFFC5BAFF.toInt(), 0xFFFFBAED.toInt()
+                    ),
+                    isBuiltIn = true
+                ),
+                ColorPaletteModel(
+                    id = "manga",
+                    name = "Manga",
+                    colors = mutableListOf(
+                        0xFF1A1A24.toInt(), 0xFF2E3440.toInt(), 0xFF4C566A.toInt(),
+                        0xFFD8DEE9.toInt(), 0xFFECEFF4.toInt(), 0xFF88C0D0.toInt(),
+                        0xFFBF616A.toInt(), 0xFFA3BE8C.toInt()
+                    ),
+                    isBuiltIn = true
+                )
+            )
+        }
+    }
+}
 
 data class BrushModel(
     val id: String,
@@ -214,13 +430,28 @@ class EsenhoEngine(
             EsenhoNativeBridge.nativeBrushSetParam(19, field)
         }
 
+    // Storage & Custom Palettes
+    val storageManager by lazy { EsenhoStorageManager(context) }
+    val palettes = mutableListOf<ColorPaletteModel>()
+    var activePaletteId: String = "classic"
+
+    fun getActivePalette(): ColorPaletteModel? {
+        return palettes.find { it.id == activePaletteId } ?: palettes.firstOrNull()
+    }
+
     var currentColor: Int = Color.rgb(24, 24, 24)
         set(value) {
             field = value
             if (!recentColors.contains(value)) {
                 recentColors.add(0, value)
                 if (recentColors.size > 16) recentColors.removeLast()
+                try {
+                    storageManager.saveRecentColors(recentColors)
+                } catch (_: Exception) {}
             }
+            try {
+                storageManager.saveSessionState(selectedPreset?.id, activePaletteId, value)
+            } catch (_: Exception) {}
         }
 
     val recentColors = mutableListOf<Int>().apply {
@@ -247,6 +478,9 @@ class EsenhoEngine(
         private set
     var selectionBounds: android.graphics.Rect? = null
         private set
+    var selectionHasMask: Boolean = false
+        private set
+    var selectionPath: android.graphics.Path? = null
 
     var pixelArtGrid: Boolean = false
     var pixelArtGridStep: Int = 16
@@ -353,6 +587,18 @@ class EsenhoEngine(
                 }
             }
 
+            // 1b. User Custom Presets (persisted in filesDir)
+            try {
+                val customPresets = storageManager.loadCustomPresets()
+                for (cp in customPresets) {
+                    if (presetCatalog.none { it.id == cp.id }) {
+                        presetCatalog.add(cp)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
             // 2. Procedural Brushes (from src/plugins/brushes/*.c)
             val brushesArr = root.optJSONArray("brushes")
             brushCatalog.clear()
@@ -406,6 +652,36 @@ class EsenhoEngine(
                     }
                     filterCatalog.add(FilterModel(id, title, paramsList))
                 }
+            }
+
+            // 4. Load Palettes and Recent Colors from persistent storage
+            try {
+                palettes.clear()
+                palettes.addAll(storageManager.loadPalettes())
+
+                val savedRecent = storageManager.loadRecentColors()
+                if (savedRecent.isNotEmpty()) {
+                    recentColors.clear()
+                    recentColors.addAll(savedRecent)
+                }
+
+                // 5. Restore session state
+                val session = storageManager.loadSessionState()
+                if (session.activePaletteId != null && palettes.any { it.id == session.activePaletteId }) {
+                    activePaletteId = session.activePaletteId
+                }
+                if (session.currentColor != null) {
+                    currentColor = session.currentColor
+                }
+                if (selectedPreset == null && presetCatalog.isNotEmpty()) {
+                    val restorePreset = if (session.lastPresetId != null) {
+                        presetCatalog.find { it.id == session.lastPresetId }
+                    } else null
+                    val defaultPreset = restorePreset ?: presetCatalog.find { it.id == "pencil_hb" } ?: presetCatalog.first()
+                    selectPreset(defaultPreset)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -593,6 +869,57 @@ class EsenhoEngine(
         EsenhoNativeBridge.nativeBrushSetParam(paramId, value)
     }
 
+    fun getPresetParam(paramId: Int): Int {
+        val p = selectedPreset ?: return 0
+        return when (paramId) {
+            1 -> p.size
+            2 -> p.opacity
+            3 -> p.hardness
+            4 -> p.flow
+            5 -> p.spacing
+            6 -> p.angle
+            7 -> p.roundness
+            8 -> p.scatter
+            10 -> p.smudge
+            11 -> p.wetness
+            12 -> p.grain
+            13 -> p.texMode
+            14 -> p.shapeId
+            15 -> p.mode
+            16 -> p.texAngle
+            17 -> p.textureScale
+            19 -> p.smoothing
+            20 -> p.midpoint
+            21 -> p.textureContrast
+            22 -> p.autoRotate
+            23 -> p.velocity
+            24 -> p.taperIn
+            25 -> p.taperOut
+            26 -> p.fade
+            27 -> p.sizeJitter
+            28 -> p.angleJitter
+            29 -> p.opacityJitter
+            30 -> p.colorJitter
+            31 -> p.dabBlend
+            32 -> p.subpixel
+            33 -> p.depletion
+            34 -> p.colorPickup
+            39 -> p.pressureSize
+            40 -> p.pressureFlow
+            41 -> p.tiltAngle
+            42 -> p.buildup
+            50 -> p.water
+            51 -> p.bleed
+            52 -> p.granulation
+            53 -> p.fringe
+            54 -> p.pigmentMode
+            55 -> p.impasto
+            56 -> p.dryingRate
+            57 -> p.texScaleWithSize
+            else -> 0
+        }
+    }
+
     fun setPresetShape(shapeName: String) {
         val p = selectedPreset ?: return
         p.shape = shapeName
@@ -641,6 +968,194 @@ class EsenhoEngine(
         loadCatalogs()
         val original = presetCatalog.find { it.id == p.id } ?: return
         selectPreset(original)
+    }
+
+    // ── Custom Presets CRUD & Persistence ──
+
+    fun saveCurrentPresetAsCustom(name: String, category: String = "Personalizado"): BrushPresetModel {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) {
+            throw IllegalArgumentException("O nome do preset não pode ser vazio")
+        }
+
+        val base = selectedPreset
+        val existing = presetCatalog.find { it.isCustom && it.name.equals(trimmed, ignoreCase = true) }
+        val presetId = existing?.id ?: "custom_${System.currentTimeMillis()}"
+
+        val newPreset = BrushPresetModel(
+            id = presetId,
+            name = trimmed,
+            desc = base?.desc ?: "Preset personalizado",
+            category = category,
+            isCustom = true,
+            shape = base?.shape ?: "circle",
+            shapeId = base?.shapeId ?: 0,
+            size = brushSize.toInt(),
+            opacity = (brushOpacity * 100).toInt(),
+            hardness = brushHardness,
+            flow = base?.flow ?: 100,
+            spacing = base?.spacing ?: 5,
+            roundness = base?.roundness ?: 100,
+            angle = base?.angle ?: 0,
+            smoothing = brushSmooth,
+            midpoint = base?.midpoint ?: 50,
+            scatter = base?.scatter ?: 0,
+            grain = base?.grain ?: 0,
+            texMode = base?.texMode ?: 0,
+            texture = base?.texture ?: "",
+            textureScale = base?.textureScale ?: 100,
+            textureContrast = base?.textureContrast ?: 100,
+            texScaleWithSize = base?.texScaleWithSize ?: 0,
+            texAngle = base?.texAngle ?: 0,
+            autoRotate = base?.autoRotate ?: 0,
+            velocity = base?.velocity ?: 0,
+            taperIn = base?.taperIn ?: 0,
+            taperOut = base?.taperOut ?: 0,
+            fade = base?.fade ?: 0,
+            sizeJitter = base?.sizeJitter ?: 0,
+            angleJitter = base?.angleJitter ?: 0,
+            opacityJitter = base?.opacityJitter ?: 0,
+            colorJitter = base?.colorJitter ?: 0,
+            dabBlend = base?.dabBlend ?: 0,
+            subpixel = base?.subpixel ?: 1,
+            smudge = base?.smudge ?: 0,
+            wetness = base?.wetness ?: 0,
+            depletion = base?.depletion ?: 0,
+            colorPickup = base?.colorPickup ?: 0,
+            pressureSize = base?.pressureSize ?: 1,
+            pressureFlow = base?.pressureFlow ?: 1,
+            tiltAngle = base?.tiltAngle ?: 0,
+            buildup = base?.buildup ?: 0,
+            water = base?.water ?: 0,
+            bleed = base?.bleed ?: 0,
+            granulation = base?.granulation ?: 0,
+            fringe = base?.fringe ?: 0,
+            pigmentMode = base?.pigmentMode ?: 0,
+            impasto = base?.impasto ?: 0,
+            dryingRate = base?.dryingRate ?: 0,
+            mode = base?.mode ?: 0,
+            eraser = if (currentTool == ToolMode.ERASER) 1 else (base?.eraser ?: 0),
+            color = String.format("#%06X", 0xFFFFFF and currentColor)
+        )
+
+        if (existing != null) {
+            val idx = presetCatalog.indexOf(existing)
+            presetCatalog[idx] = newPreset
+        } else {
+            presetCatalog.add(newPreset)
+        }
+
+        selectPreset(newPreset)
+        storageManager.saveCustomPresets(presetCatalog.filter { it.isCustom })
+        storageManager.saveSessionState(newPreset.id, activePaletteId, currentColor)
+        return newPreset
+    }
+
+    fun deleteCustomPreset(presetId: String): Boolean {
+        val p = presetCatalog.find { it.id == presetId } ?: return false
+        if (!p.isCustom) return false
+
+        presetCatalog.remove(p)
+        storageManager.saveCustomPresets(presetCatalog.filter { it.isCustom })
+
+        if (selectedPreset?.id == presetId) {
+            val fallback = presetCatalog.find { it.id == "pencil_hb" } ?: presetCatalog.firstOrNull()
+            if (fallback != null) {
+                selectPreset(fallback)
+            }
+        }
+        return true
+    }
+
+    // ── Custom Palettes CRUD & Persistence ──
+
+    fun parseColorHex(hex: String): Int {
+        val clean = hex.trim()
+        if (!clean.matches(Regex("^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$"))) {
+            throw IllegalArgumentException("Formato de cor hexadecimal inválido: $hex")
+        }
+        val formatted = if (clean.startsWith("#")) clean else "#$clean"
+        return Color.parseColor(formatted)
+    }
+
+    fun createCustomPalette(name: String): ColorPaletteModel {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) {
+            throw IllegalArgumentException("O nome da paleta não pode ser vazio")
+        }
+
+        val id = "custom_pal_${System.currentTimeMillis()}"
+        val newPal = ColorPaletteModel(
+            id = id,
+            name = trimmed,
+            colors = mutableListOf(),
+            isBuiltIn = false
+        )
+        palettes.add(newPal)
+        activePaletteId = id
+        storageManager.savePalettes(palettes)
+        storageManager.saveSessionState(selectedPreset?.id, activePaletteId, currentColor)
+        return newPal
+    }
+
+    fun deletePalette(paletteId: String): Boolean {
+        val pal = palettes.find { it.id == paletteId } ?: return false
+        if (pal.isBuiltIn) {
+            throw IllegalArgumentException("Paletas padrão não podem ser excluídas")
+        }
+        palettes.remove(pal)
+        if (activePaletteId == paletteId) {
+            activePaletteId = palettes.firstOrNull()?.id ?: "classic"
+        }
+        storageManager.savePalettes(palettes)
+        storageManager.saveSessionState(selectedPreset?.id, activePaletteId, currentColor)
+        return true
+    }
+
+    fun deletePalette(index: Int): Boolean {
+        if (index !in palettes.indices) return false
+        val pal = palettes[index]
+        if (pal.isBuiltIn) {
+            throw IllegalArgumentException("Paletas padrão não podem ser excluídas")
+        }
+        return deletePalette(pal.id)
+    }
+
+    fun addColorToActivePalette(color: Int): Boolean {
+        return addColorToPalette(activePaletteId, color)
+    }
+
+    fun addColorToActivePalette(hex: String): Boolean {
+        val colorInt = parseColorHex(hex)
+        return addColorToActivePalette(colorInt)
+    }
+
+    fun addColorToPalette(paletteId: String, color: Int): Boolean {
+        val pal = palettes.find { it.id == paletteId } ?: return false
+        if (pal.isBuiltIn) return false
+        pal.colors.add(color)
+        storageManager.savePalettes(palettes)
+        return true
+    }
+
+    fun addColorToPalette(paletteId: String, hex: String): Boolean {
+        val colorInt = parseColorHex(hex)
+        return addColorToPalette(paletteId, colorInt)
+    }
+
+    fun removeColorFromActivePalette(index: Int): Boolean {
+        return removeColorFromPalette(activePaletteId, index)
+    }
+
+    fun removeColorFromPalette(paletteId: String, index: Int): Boolean {
+        val pal = palettes.find { it.id == paletteId } ?: return false
+        if (pal.isBuiltIn) return false
+        if (index in pal.colors.indices) {
+            pal.colors.removeAt(index)
+            storageManager.savePalettes(palettes)
+            return true
+        }
+        return false
     }
 
     fun setBrushCustomParam(paramIdx: Int, value: Int) {
@@ -1082,18 +1597,25 @@ class EsenhoEngine(
     // ── Selection Operations ──
 
     fun updateSelectionInfo() {
-        val info = IntArray(5)
+        val info = IntArray(6)
         val hasSel = EsenhoNativeBridge.nativeSelectGetInfo(info)
         if (hasSel && info[0] != 0 && info[3] > 0 && info[4] > 0) {
             selectionActive = true
             selectionBounds = android.graphics.Rect(info[1], info[2], info[1] + info[3], info[2] + info[4])
+            selectionHasMask = (info.size >= 6 && info[5] != 0)
+            if (!selectionHasMask) {
+                selectionPath = null
+            }
         } else {
             selectionActive = false
             selectionBounds = null
+            selectionHasMask = false
+            selectionPath = null
         }
     }
 
     fun selectRect(x: Int, y: Int, w: Int, h: Int, op: SelectionOp = selectionOp) {
+        selectionPath = null
         EsenhoNativeBridge.nativeSelectRect(x, y, w, h, op.id)
         updateSelectionInfo()
     }
@@ -1106,20 +1628,31 @@ class EsenhoEngine(
             arr[i * 2 + 1] = p.second
         }
         EsenhoNativeBridge.nativeSelectLasso(arr, points.size, op.id)
+        val path = android.graphics.Path()
+        path.moveTo(points[0].first.toFloat(), points[0].second.toFloat())
+        for (i in 1 until points.size) {
+            path.lineTo(points[i].first.toFloat(), points[i].second.toFloat())
+        }
+        path.close()
+        selectionPath = path
         updateSelectionInfo()
     }
 
     fun selectAll(op: SelectionOp = selectionOp) {
+        selectionPath = null
         EsenhoNativeBridge.nativeSelectAll(op.id)
         updateSelectionInfo()
     }
 
     fun clearSelection() {
+        selectionPath = null
+        selectionHasMask = false
         EsenhoNativeBridge.nativeSelectClear()
         updateSelectionInfo()
     }
 
     fun invertSelection() {
+        selectionPath = null
         EsenhoNativeBridge.nativeSelectInvert()
         updateSelectionInfo()
     }
@@ -1209,6 +1742,176 @@ class EsenhoEngine(
             EsenhoNativeBridge.nativeRenderToBitmap(bmp)
         }
         return renderBitmap
+    }
+
+    // ── Floating Transform Tool (M4 / R1) ──
+
+    var transformState: TransformState? = null
+
+    fun beginTransform(selectionOnly: Boolean = false): Boolean {
+        if (width <= 0 || height <= 0) return false
+
+        val fullLayerBackup = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        if (!EsenhoNativeBridge.nativeLayerGetBitmap(activeLayerIndex, fullLayerBackup)) {
+            fullLayerBackup.recycle()
+            return false
+        }
+
+        val isSel = selectionOnly || selectionActive
+        if (isSel && selectionActive) {
+            val info = IntArray(6)
+            if (EsenhoNativeBridge.nativeSelectGetInfo(info) && info[0] == 1) {
+                val sx = info[1].coerceIn(0, width - 1)
+                val sy = info[2].coerceIn(0, height - 1)
+                val sw = info[3].coerceIn(1, width - sx)
+                val sh = info[4].coerceIn(1, height - sy)
+                val hasMask = info[5] == 1
+
+                val selBmp = Bitmap.createBitmap(fullLayerBackup, sx, sy, sw, sh)
+                val sourceBmp = selBmp.copy(Bitmap.Config.ARGB_8888, true)
+                if (selBmp != sourceBmp) selBmp.recycle()
+
+                if (hasMask) {
+                    val maskBytes = ByteArray(width * height)
+                    if (EsenhoNativeBridge.nativeSelectGetMask(maskBytes)) {
+                        val pixels = IntArray(sw * sh)
+                        sourceBmp.getPixels(pixels, 0, sw, 0, 0, sw, sh)
+                        for (y in 0 until sh) {
+                            val my = sy + y
+                            for (x in 0 until sw) {
+                                val mx = sx + x
+                                val mVal = maskBytes[my * width + mx].toInt() and 0xFF
+                                val p = pixels[y * sw + x]
+                                val a = ((p ushr 24) * mVal) / 255
+                                pixels[y * sw + x] = (a shl 24) or (p and 0x00FFFFFF)
+                            }
+                        }
+                        sourceBmp.setPixels(pixels, 0, sw, 0, 0, sw, sh)
+                    }
+                }
+
+                pushUndoSnapshot()
+                EsenhoNativeBridge.nativeClearSelectedPixels()
+
+                transformState?.release()
+                transformState = TransformState(
+                    sourceBitmap = sourceBmp,
+                    initialBounds = RectF(sx.toFloat(), sy.toFloat(), (sx + sw).toFloat(), (sy + sh).toFloat()),
+                    isSelectionOnly = true,
+                    originalLayerBackup = fullLayerBackup
+                )
+                currentTool = ToolMode.TRANSFORM
+                getRenderBitmap()
+                return true
+            }
+        }
+
+        // Whole active layer transform
+        pushUndoSnapshot()
+        EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
+
+        var minX = width
+        var minY = height
+        var maxX = 0
+        var maxY = 0
+        val rowPixels = IntArray(width)
+        for (y in 0 until height) {
+            fullLayerBackup.getPixels(rowPixels, 0, width, 0, y, width, 1)
+            for (x in 0 until width) {
+                if ((rowPixels[x] ushr 24) > 0) {
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+            }
+        }
+
+        val initialBounds: RectF
+        val sourceBmp: Bitmap
+        if (minX <= maxX && minY <= maxY) {
+            val bw = (maxX - minX + 1).coerceAtLeast(1)
+            val bh = (maxY - minY + 1).coerceAtLeast(1)
+            initialBounds = RectF(minX.toFloat(), minY.toFloat(), (maxX + 1).toFloat(), (maxY + 1).toFloat())
+            val cropped = Bitmap.createBitmap(fullLayerBackup, minX, minY, bw, bh)
+            sourceBmp = cropped.copy(Bitmap.Config.ARGB_8888, true)
+            if (cropped != sourceBmp) cropped.recycle()
+        } else {
+            initialBounds = RectF(0f, 0f, width.toFloat(), height.toFloat())
+            sourceBmp = fullLayerBackup.copy(Bitmap.Config.ARGB_8888, true)
+        }
+
+        transformState?.release()
+        transformState = TransformState(
+            sourceBitmap = sourceBmp,
+            initialBounds = initialBounds,
+            isSelectionOnly = false,
+            originalLayerBackup = fullLayerBackup
+        )
+        currentTool = ToolMode.TRANSFORM
+        getRenderBitmap()
+        return true
+    }
+
+    fun commitTransform() {
+        val state = transformState ?: return
+
+        val resultBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(resultBmp)
+
+        if (state.isSelectionOnly) {
+            val existingLayerBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            EsenhoNativeBridge.nativeLayerGetBitmap(activeLayerIndex, existingLayerBmp)
+            canvas.drawBitmap(existingLayerBmp, 0f, 0f, null)
+            existingLayerBmp.recycle()
+        }
+
+        val w = state.sourceBitmap.width.toFloat()
+        val h = state.sourceBitmap.height.toFloat()
+        val drawMatrix = Matrix()
+        val srcPoly = floatArrayOf(0f, 0f, w, 0f, w, h, 0f, h)
+        drawMatrix.setPolyToPoly(srcPoly, 0, state.dstPts, 0, 4)
+
+        val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+        canvas.drawBitmap(state.sourceBitmap, drawMatrix, paint)
+
+        EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
+        EsenhoNativeBridge.nativeLayerDrawBitmap(activeLayerIndex, resultBmp, 0, 0, width, height)
+        resultBmp.recycle()
+
+        state.release()
+        transformState = null
+        currentTool = ToolMode.BRUSH
+        getRenderBitmap()
+    }
+
+    fun cancelTransform() {
+        val state = transformState ?: return
+        state.originalLayerBackup?.let { backup ->
+            if (!backup.isRecycled) {
+                EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
+                EsenhoNativeBridge.nativeLayerDrawBitmap(activeLayerIndex, backup, 0, 0, width, height)
+            }
+        }
+        state.release()
+        transformState = null
+        currentTool = ToolMode.BRUSH
+        getRenderBitmap()
+    }
+
+    fun flipTransformH() {
+        transformState?.flipHorizontal()
+        getRenderBitmap()
+    }
+
+    fun flipTransformV() {
+        transformState?.flipVertical()
+        getRenderBitmap()
+    }
+
+    fun rotateTransform90() {
+        transformState?.rotate90()
+        getRenderBitmap()
     }
 
     val canUndo: Boolean get() = EsenhoNativeBridge.nativeCanUndo()

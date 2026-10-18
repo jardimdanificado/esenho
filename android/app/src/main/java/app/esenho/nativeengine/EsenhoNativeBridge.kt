@@ -81,6 +81,7 @@ object EsenhoNativeBridge {
 
     // Shapes & Buffers
     external fun nativeRenderToBitmap(bitmap: Bitmap): Boolean
+    external fun nativeLayerGetBitmap(layerIdx: Int, bitmap: Bitmap): Boolean
     external fun nativeDrawLine(x0: Int, y0: Int, x1: Int, y1: Int, color: Int)
     external fun nativeDrawRect(x: Int, y: Int, w: Int, h: Int, color: Int)
     external fun nativeDrawCircle(cx: Int, cy: Int, r: Int, color: Int)
@@ -96,7 +97,8 @@ object EsenhoNativeBridge {
     external fun nativeSelectAll(opMode: Int)
     external fun nativeSelectClear()
     external fun nativeSelectInvert()
-    external fun nativeSelectGetInfo(out5words: IntArray): Boolean
+    external fun nativeSelectGetInfo(outWords: IntArray): Boolean
+    external fun nativeSelectGetMask(outBuffer: ByteArray): Boolean
     external fun nativeClearSelectedPixels()
 
     // Flip & Transform

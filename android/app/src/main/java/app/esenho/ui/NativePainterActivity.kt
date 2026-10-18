@@ -33,12 +33,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import app.esenho.R
 import app.esenho.nativeengine.*
 import app.esenho.ui.components.*
 import java.io.OutputStream
@@ -109,6 +113,8 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
     val context = LocalContext.current
     var canvasViewRef by remember { mutableStateOf<EsenhoCanvasView?>(null) }
     val engine = remember { EsenhoEngine(context, 1080, 1920) }
+    val storageManager = remember { EsenhoStorageManager(context) }
+    var sideSliderParams by remember { mutableStateOf<List<Int>>(storageManager.loadSideSliders()) }
 
     // UI Dialog & Drawer States
     var showBrushDrawer by remember { mutableStateOf(false) }
@@ -173,6 +179,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
             TopAppBar(
                 title = {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -182,11 +189,12 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
                             modifier = Modifier
+                                .weight(1f, fill = false)
                                 .clip(RoundedCornerShape(12.dp))
                                 .clickable { showBrushDrawer = true }
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
@@ -195,15 +203,16 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                                     modifier = Modifier.size(14.dp),
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     text = engine.activeBrushDisplayName,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(2.dp))
                                 Icon(
                                     Icons.Default.ArrowDropDown,
                                     contentDescription = null,
@@ -219,41 +228,52 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                 ),
                 actions = {
                     // Undo
-                    IconButton(
+                    TooltipIconButton(
                         onClick = {
                             engine.undo()
                             refreshState()
                         },
-                        enabled = canUndo
+                        enabled = canUndo,
+                        description = "Desfazer",
+                        modifier = Modifier.size(36.dp)
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Desfazer")
+                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Desfazer", modifier = Modifier.size(18.dp))
                     }
 
                     // Redo
-                    IconButton(
+                    TooltipIconButton(
                         onClick = {
                             engine.redo()
                             refreshState()
                         },
-                        enabled = canRedo
+                        enabled = canRedo,
+                        description = "Refazer",
+                        modifier = Modifier.size(36.dp)
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Refazer")
+                        Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Refazer", modifier = Modifier.size(18.dp))
                     }
 
                     // Animation Toggle
-                    IconButton(
-                        onClick = { showAnimationTimeline = !showAnimationTimeline }
+                    TooltipIconButton(
+                        onClick = { showAnimationTimeline = !showAnimationTimeline },
+                        description = "Animação",
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
                             Icons.Default.Animation,
                             contentDescription = "Animação",
-                            tint = if (showAnimationTimeline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            tint = if (showAnimationTimeline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
                     // Filters Gallery
-                    IconButton(onClick = { showFilterModal = true }) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = "Filtros")
+                    TooltipIconButton(
+                        onClick = { showFilterModal = true },
+                        description = "Filtros",
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = "Filtros", modifier = Modifier.size(18.dp))
                     }
 
                     // Layers Drawer
@@ -261,30 +281,73 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                         badge = {
                             Badge { Text("$activeLayerCount") }
                         },
-                        modifier = Modifier.padding(end = 6.dp)
+                        modifier = Modifier.padding(end = 4.dp)
                     ) {
-                        IconButton(onClick = { showLayerDrawer = true }) {
-                            Icon(Icons.Default.Layers, contentDescription = "Camadas")
+                        TooltipIconButton(
+                            onClick = { showLayerDrawer = true },
+                            description = "Camadas",
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(Icons.Default.Layers, contentDescription = "Camadas", modifier = Modifier.size(18.dp))
                         }
                     }
 
-                    // Active Color Circle Swatch
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(Color(currentColor))
-                            .border(2.dp, Color.White, CircleShape)
-                            .clickable { showColorStudio = true }
-                    )
+                    // Active Color Circle Swatch & Quick Palette Color Chips (F17)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        modifier = Modifier.padding(horizontal = 2.dp)
+                    ) {
+                        TooltipBox(
+                            positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                            tooltip = { PlainTooltip { Text("Seletor de Cores", fontSize = 11.sp) } },
+                            state = rememberTooltipState()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(currentColor))
+                                    .border(2.dp, Color.White, CircleShape)
+                                    .clickable { showColorStudio = true }
+                            )
+                        }
 
-                    Spacer(modifier = Modifier.width(6.dp))
+                        // Compact horizontal strip of active palette colors (capped at 6 chips)
+                        val activePalette = engine.getActivePalette()
+                        val quickChips = activePalette?.colors?.take(6) ?: emptyList()
+                        for (chipColor in quickChips) {
+                            val isSelected = chipColor == currentColor
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isSelected) 18.dp else 14.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(chipColor))
+                                    .border(
+                                        width = if (isSelected) 2.dp else 1.dp,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f),
+                                        shape = CircleShape
+                                    )
+                                    .clickable {
+                                        currentColor = chipColor
+                                        engine.currentColor = chipColor
+                                        refreshState()
+                                    }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
 
                     // Overflow Menu (Full project & canvas operations)
                     var showMenu by remember { mutableStateOf(false) }
                     Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Mais")
+                        TooltipIconButton(
+                            onClick = { showMenu = true },
+                            description = "Mais Opções",
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Mais", modifier = Modifier.size(18.dp))
                         }
                         DropdownMenu(
                             expanded = showMenu,
@@ -402,97 +465,203 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(top = 16.dp)
-                        .shadow(8.dp, RoundedCornerShape(20.dp)),
+                        .shadow(8.dp, RoundedCornerShape(18.dp)),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-                    shape = RoundedCornerShape(20.dp)
+                    shape = RoundedCornerShape(18.dp)
                 ) {
                     Row(
-                        modifier = Modifier
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            "Seleção Ativa",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        SuggestionChip(
+                        // Select All
+                        TooltipIconButton(
                             onClick = { engine.selectAll(); refreshState() },
-                            label = { Text("Tudo", fontSize = 10.sp) }
-                        )
-                        SuggestionChip(
+                            description = "Selecionar Tudo",
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.SelectAll, contentDescription = "Selecionar Tudo", modifier = Modifier.size(18.dp))
+                        }
+
+                        // Invert Selection
+                        TooltipIconButton(
                             onClick = { engine.invertSelection(); refreshState() },
-                            label = { Text("Inverter", fontSize = 10.sp) }
-                        )
-                        SuggestionChip(
+                            description = "Inverter Seleção",
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.InvertColors, contentDescription = "Inverter Seleção", modifier = Modifier.size(18.dp))
+                        }
+
+                        // Deselect
+                        TooltipIconButton(
                             onClick = { engine.clearSelection(); refreshState() },
-                            label = { Text("Deselecionar", fontSize = 10.sp) }
-                        )
-                        SuggestionChip(
+                            description = "Deselecionar",
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.Deselect, contentDescription = "Deselecionar", modifier = Modifier.size(18.dp))
+                        }
+
+                        // Delete Selected Pixels
+                        TooltipIconButton(
                             onClick = { engine.clearSelectedPixels(); refreshState() },
-                            label = { Text("Apagar Pixels", fontSize = 10.sp, color = MaterialTheme.colorScheme.error) }
-                        )
+                            description = "Apagar Pixels Selecionados",
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.DeleteOutline,
+                                contentDescription = "Apagar Pixels Selecionados",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        // Transform Selection (M4 / R1)
+                        TooltipIconButton(
+                            onClick = {
+                                val ok = engine.beginTransform(selectionOnly = true)
+                                if (ok) {
+                                    currentTool = ToolMode.TRANSFORM
+                                    refreshState()
+                                }
+                            },
+                            description = "Transformar Seleção",
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.OpenWith, contentDescription = "Transformar Seleção", modifier = Modifier.size(18.dp))
+                        }
                     }
                 }
             }
 
-            // 3. Translucent Thumb Sliders (Left Edge)
+            // 3. Translucent Configurable Thumb Sliders (Left Edge)
             ThumbSliders(
-                size = brushSize,
-                opacity = brushOpacity,
-                onSizeChange = {
-                    brushSize = it
-                    engine.brushSize = it
-                    canvasViewRef?.previewBrushSize = it
+                engine = engine,
+                configuredParamIds = sideSliderParams,
+                onConfiguredParamsChange = { newParams ->
+                    sideSliderParams = newParams
+                    storageManager.saveSideSliders(newParams)
                 },
                 onSizeChangeActive = { active ->
-                    canvasViewRef?.previewBrushSize = if (active) brushSize else 0f
-                },
-                onOpacityChange = {
-                    brushOpacity = it
-                    engine.brushOpacity = it
+                    canvasViewRef?.previewBrushSize = if (active) engine.brushSize else 0f
                 },
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .padding(start = 6.dp)
             )
 
-            // 4. Floating Bottom Toolbar (Full Suite of Tools & Action Modes)
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = if (showAnimationTimeline) 120.dp else 16.dp)
-                    .shadow(16.dp, RoundedCornerShape(28.dp)),
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(28.dp),
-                tonalElevation = 6.dp
-            ) {
+            // 4. Floating Action & Toolbars (Transform HUD or Main Tools)
+            if (engine.transformState != null || currentTool == ToolMode.TRANSFORM) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = if (showAnimationTimeline) 120.dp else 24.dp)
+                        .shadow(16.dp, RoundedCornerShape(24.dp)),
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(24.dp),
+                    tonalElevation = 6.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Transformar",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+
+                        TooltipIconButton(
+                            onClick = { engine.flipTransformH(); canvasViewRef?.invalidate() },
+                            description = "Espelhar Horizontal",
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(Icons.Default.Flip, contentDescription = "Espelhar Horizontal", modifier = Modifier.size(20.dp))
+                        }
+
+                        TooltipIconButton(
+                            onClick = { engine.rotateTransform90(); canvasViewRef?.invalidate() },
+                            description = "Girar 90°",
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(Icons.Default.RotateRight, contentDescription = "Girar 90°", modifier = Modifier.size(20.dp))
+                        }
+
+                        FilledTonalIconButton(
+                            onClick = {
+                                engine.cancelTransform()
+                                currentTool = ToolMode.BRUSH
+                                refreshState()
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Cancelar",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                engine.commitTransform()
+                                currentTool = ToolMode.BRUSH
+                                refreshState()
+                            },
+                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = "Confirmar Transformação",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            } else {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = if (showAnimationTimeline) 120.dp else 16.dp)
+                        .shadow(16.dp, RoundedCornerShape(28.dp)),
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(28.dp),
+                    tonalElevation = 6.dp
+                ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(3.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Pincel (Clique seleciona, segundo clique abre catálogo)
+                    // Pincel
                     ToolNavButton(
                         icon = Icons.Default.Brush,
                         isSelected = currentTool == ToolMode.BRUSH,
                         description = "Pincel",
                         onClick = {
-                            if (currentTool == ToolMode.BRUSH) {
-                                showBrushDrawer = true
-                            } else {
-                                currentTool = ToolMode.BRUSH
-                                engine.currentTool = ToolMode.BRUSH
-                            }
+                            currentTool = ToolMode.BRUSH
+                            engine.currentTool = ToolMode.BRUSH
+                        }
+                    )
+
+                    // Biblioteca de Pincéis
+                    ToolNavButton(
+                        icon = Icons.Default.AutoAwesomeMosaic,
+                        isSelected = showBrushDrawer,
+                        description = "Biblioteca de Pincéis",
+                        onClick = {
+                            showBrushDrawer = true
                         }
                     )
 
                     // Borracha
                     ToolNavButton(
-                        icon = Icons.Default.AutoFixNormal,
+                        painter = painterResource(R.drawable.ic_eraser),
                         isSelected = currentTool == ToolMode.ERASER,
                         description = "Borracha",
                         onClick = {
@@ -589,6 +758,20 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                             }
                         }
                     }
+
+                    // Transformar (M4 / R1)
+                    ToolNavButton(
+                        icon = Icons.Default.OpenWith,
+                        isSelected = currentTool == ToolMode.TRANSFORM,
+                        description = "Transformar (Mover / Redimensionar / Girar)",
+                        onClick = {
+                            val ok = engine.beginTransform(selectionOnly = engine.selectionActive)
+                            if (ok) {
+                                currentTool = ToolMode.TRANSFORM
+                                refreshState()
+                            }
+                        }
+                    )
 
                     // Formas (Dropdown: Linha, Retângulo, Círculo)
                     Box {
@@ -694,6 +877,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                     )
                 }
             }
+        }
 
             // 5. Animation Timeline Bar (Raster Animator)
             if (showAnimationTimeline) {
@@ -737,6 +921,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
 
         if (showColorStudio) {
             ColorStudioModal(
+                engine = engine,
                 initialColor = currentColor,
                 recentColors = engine.recentColors,
                 onColorChanged = { c ->
@@ -766,21 +951,66 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TooltipIconButton(
+    onClick: () -> Unit,
+    description: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
+    content: @Composable () -> Unit
+) {
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = {
+            PlainTooltip {
+                Text(description, fontSize = 11.sp)
+            }
+        },
+        state = rememberTooltipState()
+    ) {
+        IconButton(
+            onClick = onClick,
+            modifier = modifier,
+            enabled = enabled,
+            colors = colors,
+            content = content
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ToolNavButton(
-    icon: ImageVector,
+    icon: ImageVector? = null,
+    painter: Painter? = null,
     isSelected: Boolean,
     description: String,
     onClick: () -> Unit
 ) {
-    IconButton(
-        onClick = onClick,
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-            contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-        ),
-        modifier = Modifier.size(38.dp)
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = {
+            PlainTooltip {
+                Text(description, fontSize = 11.sp)
+            }
+        },
+        state = rememberTooltipState()
     ) {
-        Icon(icon, contentDescription = description, modifier = Modifier.size(19.dp))
+        IconButton(
+            onClick = onClick,
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+            ),
+            modifier = Modifier.size(38.dp)
+        ) {
+            if (icon != null) {
+                Icon(icon, contentDescription = description, modifier = Modifier.size(19.dp))
+            } else if (painter != null) {
+                Icon(painter, contentDescription = description, modifier = Modifier.size(19.dp))
+            }
+        }
     }
 }

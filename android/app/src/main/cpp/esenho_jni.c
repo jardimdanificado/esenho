@@ -66,7 +66,10 @@ extern void w_select_lasso(const int32_t *points_xy, int32_t point_count, int32_
 extern void w_select_all(int32_t op_mode);
 extern void w_select_clear(void);
 extern void w_select_invert(void);
-extern int32_t w_select_get_info(int32_t *out_5words);
+extern int32_t w_select_get_info(int32_t *out_words);
+extern int32_t w_select_get_mask_info(int32_t *out_words);
+extern uint8_t *w_select_get_mask_ptr(void);
+extern int32_t w_select_get_mask(uint8_t *out_mask, uint32_t max_bytes);
 extern void w_layer_flip_h(int32_t layer_idx);
 extern void w_layer_flip_v(int32_t layer_idx);
 extern int32_t w_layer_transform(int32_t src_layer_idx, int32_t dst_layer_idx, int32_t dx, int32_t dy, int32_t scale_x_pct, int32_t scale_y_pct, int32_t rot_deg, int32_t skew_x, int32_t bilinear);
@@ -663,6 +666,39 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeRenderToBitmap(
     return JNI_TRUE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerGetBitmap(
+    JNIEnv *env, jobject thiz, jint layer_idx, jobject bitmap) {
+    AndroidBitmapInfo info;
+    void *pixels = NULL;
+
+    if (AndroidBitmap_getInfo(env, bitmap, &info) < 0) return JNI_FALSE;
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return JNI_FALSE;
+    if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return JNI_FALSE;
+
+    int active = (layer_idx >= 0) ? layer_idx : w_layer_get_active();
+    uint32_t *layer_pixels = w_layer_get_pixels(active);
+    int lw = w_layer_get_width(active);
+    int lh = w_layer_get_height(active);
+
+    if (layer_pixels != NULL && pixels != NULL && lw > 0 && lh > 0) {
+        int copy_w = ((int)info.width < lw) ? (int)info.width : lw;
+        int copy_h = ((int)info.height < lh) ? (int)info.height : lh;
+        if (copy_w == (int)info.width && copy_w == lw) {
+            memcpy(pixels, layer_pixels, (size_t)(copy_w * copy_h * 4));
+        } else {
+            for (int y = 0; y < copy_h; y++) {
+                uint32_t *dst_row = (uint32_t *)((char *)pixels + y * info.stride);
+                uint32_t *src_row = layer_pixels + y * lw;
+                memcpy(dst_row, src_row, (size_t)(copy_w * 4));
+            }
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+    return JNI_TRUE;
+}
+
 JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDrawLine(
     JNIEnv *env, jobject thiz, jint x0, jint y0, jint x1, jint y1, jint color) {
@@ -744,34 +780,55 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectInvert(
 
 JNIEXPORT jboolean JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectGetInfo(
-    JNIEnv *env, jobject thiz, jintArray out_5words) {
-    if (!out_5words) return JNI_FALSE;
-    int32_t buf[5] = {0};
+    JNIEnv *env, jobject thiz, jintArray out_words) {
+    if (!out_words) return JNI_FALSE;
+    jsize len = (*env)->GetArrayLength(env, out_words);
+    if (len < 5) return JNI_FALSE;
+    int32_t buf[6] = {0};
     int res = w_select_get_info(buf);
     if (res) {
-        (*env)->SetIntArrayRegion(env, out_5words, 0, 5, buf);
+        int count = (len >= 6) ? 6 : 5;
+        (*env)->SetIntArrayRegion(env, out_words, 0, count, buf);
         return JNI_TRUE;
     }
     return JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectGetMask(
+    JNIEnv *env, jobject thiz, jbyteArray out_buffer) {
+    if (!out_buffer) return JNI_FALSE;
+    jsize len = (*env)->GetArrayLength(env, out_buffer);
+    if (len <= 0) return JNI_FALSE;
+    jbyte *buf = (*env)->GetByteArrayElements(env, out_buffer, NULL);
+    if (!buf) return JNI_FALSE;
+    int32_t copied = w_select_get_mask((uint8_t*)buf, (uint32_t)len);
+    (*env)->ReleaseByteArrayElements(env, out_buffer, buf, 0);
+    return (copied > 0) ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeClearSelectedPixels(
     JNIEnv *env, jobject thiz) {
-    int32_t info[5] = {0};
+    int32_t info[6] = {0};
     if (w_select_get_info(info) && info[0]) {
         int active = w_layer_get_active();
         uint32_t *pix = w_layer_get_pixels(active);
         int lw = w_layer_get_width(active);
         int lh = w_layer_get_height(active);
         int cx = info[1], cy = info[2], cw = info[3], ch = info[4];
-        if (pix && lw > 0 && lh > 0) {
+        int has_mask = info[5];
+        uint8_t *mask = (has_mask) ? w_select_get_mask_ptr() : NULL;
+        if (pix && lw > 0 && lh > 0 && cw > 0 && ch > 0) {
             for (int y = 0; y < ch; y++) {
                 int py = cy + y;
                 if (py < 0 || py >= lh) continue;
                 for (int x = 0; x < cw; x++) {
                     int px = cx + x;
                     if (px < 0 || px >= lw) continue;
+                    if (has_mask && mask) {
+                        if (mask[y * cw + x] == 0) continue;
+                    }
                     pix[py * lw + px] = 0;
                 }
             }

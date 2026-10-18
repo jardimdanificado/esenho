@@ -3898,14 +3898,33 @@ W_EXPORT void w_select_feather(int32_t radius) {
     }
 }
 
-W_EXPORT int32_t w_select_get_info(int32_t *out_5words) {
-    if (!out_5words) return 0;
-    out_5words[0] = clip_active;
-    out_5words[1] = clip_x;
-    out_5words[2] = clip_y;
-    out_5words[3] = clip_w;
-    out_5words[4] = clip_h;
+W_EXPORT int32_t w_select_get_info(int32_t *out_6words) {
+    if (!out_6words) return 0;
+    out_6words[0] = clip_active;
+    out_6words[1] = clip_x;
+    out_6words[2] = clip_y;
+    out_6words[3] = clip_w;
+    out_6words[4] = clip_h;
+    out_6words[5] = clip_has_mask;
     return 1;
+}
+
+W_EXPORT int32_t w_select_get_mask_info(int32_t *out_6words) {
+    return w_select_get_info(out_6words);
+}
+
+W_EXPORT uint8_t *w_select_get_mask_ptr(void) {
+    return clip_mask_ptr;
+}
+
+W_EXPORT int32_t w_select_get_mask(uint8_t *out_mask, uint32_t max_bytes) {
+    if (!out_mask || !clip_has_mask || !clip_mask_ptr) return 0;
+    uint32_t size = (uint32_t)(clip_w * clip_h);
+    if (size > max_bytes) size = max_bytes;
+    for (uint32_t i = 0; i < size; i++) {
+        out_mask[i] = clip_mask_ptr[i];
+    }
+    return (int32_t)size;
 }
 
 /* =========================================================================

@@ -10,8 +10,13 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,13 +27,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import app.esenho.nativeengine.ColorPaletteModel
+import app.esenho.nativeengine.EsenhoEngine
 import kotlin.math.*
 
 @Composable
 fun ColorStudioModal(
+    engine: EsenhoEngine? = null,
     initialColor: Int,
     recentColors: List<Int>,
     onColorChanged: (Int) -> Unit,
@@ -108,75 +117,258 @@ fun ColorStudioModal(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 3. Preset Palettes
-                val palettes = remember {
-                    listOf(
-                        "Clássico" to listOf(
-                            0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0xFFE63946.toInt(),
-                            0xFFF4A261.toInt(), 0xFFE9C46A.toInt(), 0xFF2A9D8F.toInt(),
-                            0xFF264653.toInt(), 0xFF457B9D.toInt(), 0xFF9C27B0.toInt(), 0xFFE91E63.toInt()
-                        ),
-                        "Pele" to listOf(
-                            0xFFFFDFC4.toInt(), 0xFFF0D5BE.toInt(), 0xFFEECEB3.toInt(),
-                            0xFFE1B899.toInt(), 0xFFCEAB93.toInt(), 0xFFB68B68.toInt(),
-                            0xFF966847.toInt(), 0xFF654321.toInt(), 0xFF3D2314.toInt()
-                        ),
-                        "Cyberpunk" to listOf(
-                            0xFF00FFCC.toInt(), 0xFFFF0055.toInt(), 0xFF7928CA.toInt(),
-                            0xFF0070F3.toInt(), 0xFFF5A623.toInt(), 0xFF50E3C2.toInt(),
-                            0xFFFF007F.toInt(), 0xFF00F0FF.toInt(), 0xFF7000FF.toInt()
-                        ),
-                        "Pastel" to listOf(
-                            0xFFFFB3BA.toInt(), 0xFFFFDFBA.toInt(), 0xFFFFFFBA.toInt(),
-                            0xFFBAFFC9.toInt(), 0xFFBAE1FF.toInt(), 0xFFE8BAFF.toInt(),
-                            0xFFC5BAFF.toInt(), 0xFFFFBAED.toInt()
-                        ),
-                        "Manga" to listOf(
-                            0xFF1A1A24.toInt(), 0xFF2E3440.toInt(), 0xFF4C566A.toInt(),
-                            0xFFD8DEE9.toInt(), 0xFFECEFF4.toInt(), 0xFF88C0D0.toInt(),
-                            0xFFBF616A.toInt(), 0xFFA3BE8C.toInt()
-                        )
-                    )
+                // 3. Preset & Custom Color Palettes (F16)
+                var paletteVersion by remember { mutableIntStateOf(0) }
+                var showNewPaletteDialog by remember { mutableStateOf(false) }
+                var newPaletteName by remember { mutableStateOf("") }
+                var newPaletteError by remember { mutableStateOf<String?>(null) }
+                var showDeletePaletteDialog by remember { mutableStateOf(false) }
+
+                val currentPalettes = remember(engine?.palettes?.size, paletteVersion) {
+                    engine?.palettes ?: ColorPaletteModel.getDefaultPalettes()
                 }
 
-                var selectedPaletteIdx by remember { mutableIntStateOf(0) }
+                var activePaletteId by remember {
+                    mutableStateOf(engine?.activePaletteId ?: currentPalettes.firstOrNull()?.id ?: "classic")
+                }
 
+                val activePalette = currentPalettes.find { it.id == activePaletteId } ?: currentPalettes.firstOrNull()
+
+                // Header for Palettes
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Paletas de Cores",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (activePalette != null && !activePalette.isBuiltIn) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            // + Cor action button
+                            OutlinedButton(
+                                onClick = {
+                                    engine?.addColorToPalette(activePalette.id, currentColor)
+                                    paletteVersion++
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(26.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("+ Cor", fontSize = 10.sp)
+                            }
+
+                            // Delete palette button
+                            IconButton(
+                                onClick = { showDeletePaletteDialog = true },
+                                modifier = Modifier.size(26.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Excluir Paleta",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Palette Tabs + "+ Nova Paleta" button
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(palettes.indices.toList()) { idx ->
+                    items(currentPalettes) { pal ->
                         FilterChip(
-                            selected = selectedPaletteIdx == idx,
-                            onClick = { selectedPaletteIdx = idx },
-                            label = { Text(palettes[idx].first, fontSize = 10.sp) }
+                            selected = pal.id == activePaletteId,
+                            onClick = {
+                                activePaletteId = pal.id
+                                engine?.activePaletteId = pal.id
+                            },
+                            label = { Text(pal.name, fontSize = 10.sp) }
+                        )
+                    }
+                    item {
+                        AssistChip(
+                            onClick = {
+                                newPaletteName = ""
+                                newPaletteError = null
+                                showNewPaletteDialog = true
+                            },
+                            label = { Text("+ Nova", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                            leadingIcon = {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
+                            }
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(palettes[selectedPaletteIdx].second) { c ->
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(Color(c))
-                                .border(1.dp, Color.Gray, CircleShape)
-                                .clickable {
-                                    val arr = FloatArray(3)
-                                    AndroidColor.colorToHSV(c, arr)
-                                    hue = arr[0]
-                                    sat = arr[1]
-                                    value = arr[2]
-                                    onColorChanged(c)
-                                }
+                // Swatches row of the active palette
+                if (activePalette != null) {
+                    if (activePalette.colors.isEmpty()) {
+                        Text(
+                            text = "Paleta vazia. Toque em '+ Cor' para adicionar a cor selecionada.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(vertical = 4.dp)
                         )
+                    } else {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            itemsIndexed(activePalette.colors) { idx, c ->
+                                Box(contentAlignment = Alignment.TopEnd) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(c))
+                                            .border(
+                                                width = if (c == currentColor) 2.dp else 1.dp,
+                                                color = if (c == currentColor) MaterialTheme.colorScheme.primary else Color.Gray,
+                                                shape = CircleShape
+                                            )
+                                            .clickable {
+                                                val arr = FloatArray(3)
+                                                AndroidColor.colorToHSV(c, arr)
+                                                hue = arr[0]
+                                                sat = arr[1]
+                                                value = arr[2]
+                                                onColorChanged(c)
+                                            }
+                                    )
+                                    // If custom palette, allow removing color swatch
+                                    if (!activePalette.isBuiltIn) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .offset(x = 2.dp, y = (-2).dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.error)
+                                                .clickable {
+                                                    engine?.removeColorFromPalette(activePalette.id, idx)
+                                                    paletteVersion++
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Remover Cor",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(8.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
+                }
+
+                // New Palette Dialog
+                if (showNewPaletteDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showNewPaletteDialog = false },
+                        title = { Text("Nova Paleta de Cores", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column {
+                                Text(
+                                    "Digite um nome para a sua nova paleta customizada:",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                OutlinedTextField(
+                                    value = newPaletteName,
+                                    onValueChange = {
+                                        newPaletteName = it
+                                        newPaletteError = null
+                                    },
+                                    label = { Text("Nome da Paleta") },
+                                    isError = newPaletteError != null,
+                                    supportingText = if (newPaletteError != null) {
+                                        { Text(newPaletteError!!, color = MaterialTheme.colorScheme.error, fontSize = 11.sp) }
+                                    } else null,
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    val trimmed = newPaletteName.trim()
+                                    if (trimmed.isEmpty()) {
+                                        newPaletteError = "O nome da paleta não pode ser vazio"
+                                        return@Button
+                                    }
+                                    try {
+                                        val created = engine?.createCustomPalette(trimmed)
+                                        if (created != null) {
+                                            activePaletteId = created.id
+                                        }
+                                        paletteVersion++
+                                        showNewPaletteDialog = false
+                                    } catch (e: Exception) {
+                                        newPaletteError = e.message ?: "Erro ao criar paleta"
+                                    }
+                                }
+                            ) {
+                                Text("Criar")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showNewPaletteDialog = false }) {
+                                Text("Cancelar")
+                            }
+                        }
+                    )
+                }
+
+                // Delete Palette Dialog
+                if (showDeletePaletteDialog && activePalette != null && !activePalette.isBuiltIn) {
+                    AlertDialog(
+                        onDismissRequest = { showDeletePaletteDialog = false },
+                        title = { Text("Excluir Paleta?", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Text(
+                                "Tem certeza que deseja excluir a paleta '${activePalette.name}'? Todas as suas cores salvas serão removidas.",
+                                fontSize = 13.sp
+                            )
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    engine?.deletePalette(activePalette.id)
+                                    activePaletteId = engine?.activePaletteId ?: "classic"
+                                    paletteVersion++
+                                    showDeletePaletteDialog = false
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Excluir")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDeletePaletteDialog = false }) {
+                                Text("Cancelar")
+                            }
+                        }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))

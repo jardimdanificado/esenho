@@ -1,0 +1,308 @@
+package app.esenho.nativeengine
+
+import android.content.Context
+import android.util.Log
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.charset.StandardCharsets
+
+/**
+ * Manages persistent JSON storage in app private sandbox (context.filesDir).
+ * Supports atomic writes, error fallback, and corruption resilience for:
+ * - Custom brush presets (esenho_custom_presets.json)
+ * - Color palettes (esenho_palettes.json)
+ * - Recent colors (esenho_recent_colors.json)
+ * - Session state across cold restarts (esenho_session_state.json)
+ */
+class EsenhoStorageManager(private val context: Context) {
+
+    companion object {
+        private const val TAG = "EsenhoStorageManager"
+        const val PRESETS_FILENAME = "esenho_custom_presets.json"
+        const val PALETTES_FILENAME = "esenho_palettes.json"
+        const val RECENT_COLORS_FILENAME = "esenho_recent_colors.json"
+        const val SESSION_FILENAME = "esenho_session_state.json"
+    }
+
+    data class SessionState(
+        val lastPresetId: String? = null,
+        val activePaletteId: String? = null,
+        val currentColor: Int? = null
+    )
+
+    val presetsFile: File
+        get() = File(context.filesDir, PRESETS_FILENAME)
+
+    val palettesFile: File
+        get() = File(context.filesDir, PALETTES_FILENAME)
+
+    val recentColorsFile: File
+        get() = File(context.filesDir, RECENT_COLORS_FILENAME)
+
+    val sessionFile: File
+        get() = File(context.filesDir, SESSION_FILENAME)
+
+    /**
+     * Atomically writes content to the target file via temporary file and atomic rename.
+     * Guarantees that readers never see partially written or corrupted files.
+     */
+    private fun atomicWrite(targetFile: File, content: String): Boolean {
+        val parent = targetFile.parentFile ?: return false
+        if (!parent.exists()) {
+            parent.mkdirs()
+        }
+
+        val tmpFile = File(parent, "${targetFile.name}.tmp")
+        try {
+            FileOutputStream(tmpFile).use { fos ->
+                val bytes = content.toByteArray(StandardCharsets.UTF_8)
+                fos.write(bytes)
+                fos.flush()
+                try {
+                    fos.fd.sync()
+                } catch (e: Exception) {
+                    // Ignored if sync not supported on filesystem
+                }
+            }
+
+            if (tmpFile.renameTo(targetFile)) {
+                return true
+            }
+
+            // Fallback for filesystems that do not support atomic rename over existing file
+            if (targetFile.exists()) {
+                targetFile.delete()
+            }
+            if (tmpFile.renameTo(targetFile)) {
+                return true
+            }
+
+            // Secondary fallback: direct copy
+            tmpFile.copyTo(targetFile, overwrite = true)
+            tmpFile.delete()
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed atomic write to ${targetFile.absolutePath}", e)
+            if (tmpFile.exists()) {
+                tmpFile.delete()
+            }
+            return false
+        }
+    }
+
+    /**
+     * Reads text safely from file. Returns null if file does not exist, is empty, or cannot be read.
+     */
+    private fun safeRead(file: File): String? {
+        if (!file.exists() || file.length() == 0L) {
+            return null
+        }
+        return try {
+            file.readText(StandardCharsets.UTF_8)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading ${file.absolutePath}", e)
+            null
+        }
+    }
+
+    // ── Custom Presets Persistence ──
+
+    fun saveCustomPresets(presets: List<BrushPresetModel>): Boolean {
+        return try {
+            val jsonArray = JSONArray()
+            for (p in presets) {
+                if (p.isCustom) {
+                    jsonArray.put(p.toJson())
+                }
+            }
+            atomicWrite(presetsFile, jsonArray.toString(2))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save custom presets", e)
+            false
+        }
+    }
+
+    fun loadCustomPresets(): List<BrushPresetModel> {
+        val content = safeRead(presetsFile) ?: return emptyList()
+        val trimmed = content.trim()
+        if (trimmed.isEmpty() || !trimmed.startsWith("[")) {
+            Log.w(TAG, "Presets file does not start with JSON array. Fallback to empty list.")
+            return emptyList()
+        }
+
+        val result = mutableListOf<BrushPresetModel>()
+        try {
+            val array = JSONArray(trimmed)
+            for (i in 0 until array.length()) {
+                val obj = array.optJSONObject(i) ?: continue
+                try {
+                    val model = BrushPresetModel.fromJson(obj)
+                    result.add(model)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Skipping malformed preset at index $i", e)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse presets JSON. Returning empty list.", e)
+            return emptyList()
+        }
+        return result
+    }
+
+    // ── Color Palettes Persistence ──
+
+    fun savePalettes(palettes: List<ColorPaletteModel>): Boolean {
+        return try {
+            val jsonArray = JSONArray()
+            for (pal in palettes) {
+                jsonArray.put(pal.toJson())
+            }
+            atomicWrite(palettesFile, jsonArray.toString(2))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save palettes", e)
+            false
+        }
+    }
+
+    fun loadPalettes(): List<ColorPaletteModel> {
+        val content = safeRead(palettesFile)
+        if (content == null) {
+            return ColorPaletteModel.getDefaultPalettes()
+        }
+
+        val trimmed = content.trim()
+        if (trimmed.isEmpty() || !trimmed.startsWith("[")) {
+            Log.w(TAG, "Palettes file does not start with JSON array. Fallback to defaults.")
+            return ColorPaletteModel.getDefaultPalettes()
+        }
+
+        val result = mutableListOf<ColorPaletteModel>()
+        try {
+            val array = JSONArray(trimmed)
+            for (i in 0 until array.length()) {
+                val obj = array.optJSONObject(i) ?: continue
+                try {
+                    val model = ColorPaletteModel.fromJson(obj)
+                    result.add(model)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Skipping malformed palette at index $i", e)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse palettes JSON. Returning defaults.", e)
+            return ColorPaletteModel.getDefaultPalettes()
+        }
+
+        if (result.isEmpty()) {
+            return ColorPaletteModel.getDefaultPalettes()
+        }
+
+        // Ensure default built-in palettes always exist
+        val defaultPalettes = ColorPaletteModel.getDefaultPalettes()
+        for (def in defaultPalettes) {
+            if (result.none { it.id == def.id }) {
+                result.add(def)
+            }
+        }
+
+        return result
+    }
+
+    // ── Recent Colors Persistence ──
+
+    fun saveRecentColors(colors: List<Int>): Boolean {
+        return try {
+            val jsonArray = JSONArray()
+            for (c in colors) {
+                jsonArray.put(c)
+            }
+            atomicWrite(recentColorsFile, jsonArray.toString())
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save recent colors", e)
+            false
+        }
+    }
+
+    fun loadRecentColors(): List<Int> {
+        val content = safeRead(recentColorsFile) ?: return emptyList()
+        val trimmed = content.trim()
+        if (trimmed.isEmpty() || !trimmed.startsWith("[")) {
+            return emptyList()
+        }
+
+        val result = mutableListOf<Int>()
+        try {
+            val array = JSONArray(trimmed)
+            for (i in 0 until array.length()) {
+                result.add(array.getInt(i))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse recent colors JSON", e)
+            return emptyList()
+        }
+        return result
+    }
+
+    // ── Session State Persistence (Cold Boot & Lifecycle) ──
+
+    fun saveSessionState(lastPresetId: String?, activePaletteId: String?, currentColor: Int?): Boolean {
+        return try {
+            val obj = JSONObject()
+            if (lastPresetId != null) obj.put("lastPresetId", lastPresetId)
+            if (activePaletteId != null) obj.put("activePaletteId", activePaletteId)
+            if (currentColor != null) obj.put("currentColor", currentColor)
+            atomicWrite(sessionFile, obj.toString())
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save session state", e)
+            false
+        }
+    }
+
+    fun loadSessionState(): SessionState {
+        val content = safeRead(sessionFile) ?: return SessionState()
+        return try {
+            val obj = JSONObject(content)
+            SessionState(
+                lastPresetId = if (obj.has("lastPresetId")) obj.getString("lastPresetId") else null,
+                activePaletteId = if (obj.has("activePaletteId")) obj.getString("activePaletteId") else null,
+                currentColor = if (obj.has("currentColor")) obj.getInt("currentColor") else null
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load session state", e)
+            SessionState()
+        }
+    }
+
+    // ── Side Slider Configuration Persistence ──
+
+    private val sideSlidersFile: File
+        get() = File(context.filesDir, "esenho_side_sliders.json")
+
+    fun saveSideSliders(paramIds: List<Int>): Boolean {
+        return try {
+            val arr = JSONArray()
+            paramIds.forEach { arr.put(it) }
+            atomicWrite(sideSlidersFile, arr.toString())
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save side sliders", e)
+            false
+        }
+    }
+
+    fun loadSideSliders(): List<Int> {
+        val content = safeRead(sideSlidersFile) ?: return listOf(1, 2)
+        return try {
+            val arr = JSONArray(content)
+            val result = mutableListOf<Int>()
+            for (i in 0 until arr.length()) {
+                result.add(arr.getInt(i))
+            }
+            if (result.isEmpty()) listOf(1, 2) else result
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load side sliders", e)
+            listOf(1, 2)
+        }
+    }
+}
