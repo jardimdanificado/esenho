@@ -3,13 +3,17 @@
 #include <android/log.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
+#include <time.h>
 #include "quadro.h"
 #include "esenho_plugins_registry.h"
 
 #define TAG "EsenhoNative"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+
+static const native_brush_t *g_current_brush = NULL;
 
 // Quadro C exports
 extern void w_init(uint32_t width, uint32_t height);
@@ -19,6 +23,12 @@ extern void w_brush_set_param(int32_t param_id, int32_t val);
 extern void w_brush_set_type(int32_t type);
 extern void w_brush_set_shape(int32_t shape);
 extern void w_brush_reset(void);
+extern void w_brush_dyn_init(void);
+extern void w_brush_dyn_set_base(int32_t setting, float value);
+extern void w_brush_dyn_set_curve(int32_t setting, int32_t input, int32_t n, const float *x, const float *y);
+extern void w_brush_dyn_clear_curve(int32_t setting, int32_t input);
+extern void w_brush_dyn_reset_state(void);
+extern void w_brush_dyn_stroke_to(float x, float y, float pressure, float tilt_x, float tilt_y, float dtime, float viewzoom);
 extern uint32_t* w_render(void);
 extern void force_composite(void);
 extern void w_invalidate_layers(void);
@@ -31,6 +41,96 @@ extern int32_t w_texture_create(int32_t width, int32_t height);
 extern uint32_t* w_texture_get_pixels(int32_t tex_id);
 extern uint8_t w_layer_get_visible(int32_t layer_idx);
 extern uint8_t w_layer_get_opacity(int32_t layer_idx);
+
+static int g_dynamic_brush_enabled = 0;
+static int64_t g_dynamic_last_stroke_ns = 0;
+static int g_pressure_min = 0, g_pressure_max = 100;
+static int g_pressure_curve = 0;
+static float g_pressure_gamma = 1.0f;
+static float g_procedural_spacing = -1.0f;
+static float g_procedural_opacity = 1.0f;
+static int g_procedural_symmetry = 0;
+static int g_procedural_last_pressure = 1000;
+static int64_t g_procedural_last_ns = 0;
+
+JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushSetPressureMap(JNIEnv *env, jobject thiz, jint min, jint max, jint curve, jfloat gamma) {
+    g_pressure_min = min < 0 ? 0 : (min > 99 ? 99 : min);
+    g_pressure_max = max < g_pressure_min + 1 ? g_pressure_min + 1 : (max > 100 ? 100 : max);
+    g_pressure_curve = curve < 0 ? 0 : (curve > 4 ? 0 : curve);
+    g_pressure_gamma = gamma < 0.05f ? 0.05f : (gamma > 8.0f ? 8.0f : gamma);
+}
+JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushSetProceduralSpacing(JNIEnv *env, jobject thiz, jfloat spacing) {
+    g_procedural_spacing = spacing < 0.0f ? -1.0f : fminf(0.25f, fmaxf(0.02f, spacing));
+}
+JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushSetProceduralOpacity(JNIEnv *env, jobject thiz, jfloat opacity) {
+    g_procedural_opacity = fminf(1.0f, fmaxf(0.0f, opacity));
+}
+JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushSetSymmetry(JNIEnv *env, jobject thiz, jint mode) {
+    g_procedural_symmetry = mode < 0 || mode > 4 ? 0 : mode;
+}
+
+static int mapped_pressure(int pressure) {
+    float p = (float)pressure / 1000.0f;
+    float lo = (float)g_pressure_min / 100.0f, hi = (float)g_pressure_max / 100.0f;
+    if (p < lo) p = 0.0f; else if (p > hi) p = 1.0f; else p = (p - lo) / (hi - lo);
+    if (g_pressure_curve == 1) p = powf(p, 0.6f);
+    else if (g_pressure_curve == 2) p = powf(p, 1.8f);
+    else if (g_pressure_curve == 3) p = p * p * (3.0f - 2.0f * p);
+    else if (g_pressure_curve == 4) p = powf(p, g_pressure_gamma);
+    return (int)(fminf(1.0f, fmaxf(0.0f, p)) * 1000.0f + 0.5f);
+}
+
+static int procedural_accepts(const char *input) {
+    if (!g_current_brush || !g_current_brush->get_info) return 1;
+    const char *info = g_current_brush->get_info();
+    const char *inputs = info ? strstr(info, "\"inputs\"") : NULL;
+    if (!inputs) return 1;
+    const char *open = strchr(inputs, '['), *close = open ? strchr(open, ']') : NULL;
+    if (!open || !close) return 1;
+    char token[40]; snprintf(token, sizeof(token), "\"%s\"", input);
+    const char *found = strstr(open, token);
+    return found && found < close;
+}
+
+static void render_procedural_dab(uint32_t *pixels, int cw, int ch, float x, float y, float radius,
+    float pressure, float angle, float speed, uint32_t color, int eraser) {
+    g_current_brush->render_dab(pixels, cw, ch, x, y, radius, pressure, angle, speed, color, eraser);
+    if (g_procedural_symmetry == 1 || g_procedural_symmetry == 3) g_current_brush->render_dab(pixels, cw, ch, (float)(cw - 1) - x, y, radius, pressure, 180.0f - angle, speed, color, eraser);
+    if (g_procedural_symmetry == 2 || g_procedural_symmetry == 3) g_current_brush->render_dab(pixels, cw, ch, x, (float)(ch - 1) - y, radius, pressure, -angle, speed, color, eraser);
+    if (g_procedural_symmetry == 3) g_current_brush->render_dab(pixels, cw, ch, (float)(cw - 1) - x, (float)(ch - 1) - y, radius, pressure, 180.0f + angle, speed, color, eraser);
+    if (g_procedural_symmetry == 4) {
+        float cx = ((float)cw - 1.0f) * 0.5f, cy = ((float)ch - 1.0f) * 0.5f;
+        float dx = x - cx, dy = y - cy;
+        for (int i = 1; i < 8; i++) {
+            float a = (float)i * 0.7853981634f, ca = cosf(a), sa = sinf(a);
+            g_current_brush->render_dab(pixels, cw, ch, cx + dx * ca - dy * sa, cy + dx * sa + dy * ca, radius, pressure, angle + (float)i * 45.0f, speed, color, eraser);
+        }
+    }
+}
+
+JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDynBrushEnable(JNIEnv *env, jobject thiz, jboolean enabled) {
+    g_dynamic_brush_enabled = enabled ? 1 : 0;
+    w_brush_dyn_init();
+    w_brush_dyn_reset_state();
+    g_dynamic_last_stroke_ns = 0;
+}
+JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDynBrushReset(JNIEnv *env, jobject thiz) {
+    w_brush_dyn_reset_state(); g_dynamic_last_stroke_ns = 0;
+}
+JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDynBrushSetBase(JNIEnv *env, jobject thiz, jint setting, jfloat value) {
+    if (setting >= 0 && setting < 48) w_brush_dyn_set_base(setting, value);
+}
+JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDynBrushSetCurve(JNIEnv *env, jobject thiz, jint setting, jint input, jfloatArray xArray, jfloatArray yArray) {
+    if (!xArray || !yArray || setting < 0 || setting >= 48 || input < 0 || input >= 16) return;
+    jsize nx = (*env)->GetArrayLength(env, xArray), ny = (*env)->GetArrayLength(env, yArray);
+    if (nx != ny || nx < 2 || nx > 16) return;
+    jfloat x[16], y[16];
+    (*env)->GetFloatArrayRegion(env, xArray, 0, nx, x); (*env)->GetFloatArrayRegion(env, yArray, 0, ny, y);
+    if (!(*env)->ExceptionCheck(env)) w_brush_dyn_set_curve(setting, input, nx, x, y);
+}
+JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDynBrushClearCurve(JNIEnv *env, jobject thiz, jint setting, jint input) {
+    if (setting >= 0 && setting < 48 && input >= 0 && input < 16) w_brush_dyn_clear_curve(setting, input);
+}
 
 extern int32_t w_layer_add(void);
 extern int32_t w_layer_restore_slot(int32_t idx, int32_t width, int32_t height, int32_t visible, int32_t order_position);
@@ -92,7 +192,6 @@ extern void w_brush_select_shape_by_name(const char *name);
 extern void w_brush_select_texture_by_name(const char *name);
 
 // Active Procedural Brush State
-static const native_brush_t *g_current_brush = NULL;
 static float g_brush_size = 14.0f;
 static float g_last_dab_x = 0.0f;
 static float g_last_dab_y = 0.0f;
@@ -371,6 +470,32 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
     JNIEnv *env, jobject thiz,
     jint state, jfloat x0, jfloat y0, jfloat x1, jfloat y1,
     jint color, jint eraser, jint pressure, jint tilt_x, jint tilt_y) {
+    int stroke_pressure = mapped_pressure(pressure);
+
+    if (g_dynamic_brush_enabled) {
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        int64_t now_ns = (int64_t)now.tv_sec * 1000000000LL + now.tv_nsec;
+        if (state == 0) { w_brush_dyn_reset_state(); g_dynamic_last_stroke_ns = 0; }
+        float dt = g_dynamic_last_stroke_ns > 0 ? (float)(now_ns - g_dynamic_last_stroke_ns) / 1000000000.0f : 1.0f / 60.0f;
+        if (dt < 0.001f) dt = 0.001f;
+        if (dt > 0.25f) dt = 0.25f;
+        g_dynamic_last_stroke_ns = now_ns;
+        float p = fminf(1.0f, fmaxf(0.0f, (float)stroke_pressure / 1000.0f));
+        float r = (float)(color & 255) / 255.0f, g = (float)((color >> 8) & 255) / 255.0f, b = (float)((color >> 16) & 255) / 255.0f;
+        float maxc = fmaxf(r, fmaxf(g, b)), minc = fminf(r, fminf(g, b)), delta = maxc - minc;
+        float h = 0.0f, s = maxc <= 0.0001f ? 0.0f : delta / maxc;
+        if (delta > 0.0001f) { if (maxc == r) h = (g - b) / delta; else if (maxc == g) h = 2.0f + (b - r) / delta; else h = 4.0f + (r - g) / delta; h /= 6.0f; if (h < 0.0f) h += 1.0f; }
+        w_brush_dyn_set_base(19, h); w_brush_dyn_set_base(20, s); w_brush_dyn_set_base(21, maxc);
+        w_brush_dyn_set_base(32, eraser ? 1.0f : 0.0f);
+        w_brush_dyn_stroke_to(x1, y1, p, (float)tilt_x / 90.0f, (float)tilt_y / 90.0f, dt, 1.0f);
+        int pad = (int)fmaxf(g_brush_size * 4.0f, 64.0f);
+        w_mark_dirty_rect((int)x1 - pad, (int)y1 - pad, (int)x1 + pad, (int)y1 + pad);
+        force_composite();
+        w_invalidate_layers();
+        if (state == 2) g_dynamic_last_stroke_ns = 0;
+        return;
+    }
 
     // If procedural brush is selected:
     if (g_current_brush && g_current_brush->render_dab) {
@@ -379,22 +504,29 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
         int cw = get_width();
         int ch = get_height();
 
-        float pNorm = (float)pressure / 1000.0f;
+        float pNorm = (float)stroke_pressure / 1000.0f;
         if (pNorm <= 0.001f) pNorm = 0.85f;
         if (pNorm > 1.0f) pNorm = 1.0f;
-        float radius = (g_brush_size * 0.5f) * (0.3f + 0.7f * pNorm);
+        float radius = g_brush_size * 0.5f;
         if (radius < 1.0f) radius = 1.0f;
+        uint32_t procedural_color = ((uint32_t)color & 0x00FFFFFFu) |
+            ((uint32_t)((((uint32_t)color >> 24) & 255u) * g_procedural_opacity + 0.5f) << 24);
 
-        float spacing = g_current_brush->default_spacing;
+        float spacing = g_procedural_spacing >= 0.0f ? g_procedural_spacing : g_current_brush->default_spacing;
         if (spacing < 0.02f) spacing = 0.05f;
         float step = radius * 2.0f * spacing;
         if (step < 1.0f) step = 1.0f;
 
         if (state == 0) { // Touch down / start
+            g_procedural_last_pressure = stroke_pressure;
+            struct timespec now; clock_gettime(CLOCK_MONOTONIC, &now);
+            g_procedural_last_ns = (int64_t)now.tv_sec * 1000000000LL + now.tv_nsec;
             if (g_current_brush->stroke_begin) {
-                g_current_brush->stroke_begin(x1, y1, pNorm, (float)tilt_x, (float)tilt_y, (uint32_t)color, eraser);
+                g_current_brush->stroke_begin(x1, y1, procedural_accepts("pressure") ? pNorm : 1.0f,
+                    procedural_accepts("tilt") ? (float)tilt_x : 0.0f, procedural_accepts("tilt") ? (float)tilt_y : 0.0f,
+                    procedural_color, eraser);
             }
-            g_current_brush->render_dab(pixels, cw, ch, x1, y1, radius, pNorm, 0.0f, 0.0f, (uint32_t)color, eraser);
+            render_procedural_dab(pixels, cw, ch, x1, y1, radius, procedural_accepts("pressure") ? pNorm : 1.0f, 0.0f, 0.0f, procedural_color, eraser);
             g_last_dab_x = x1;
             g_last_dab_y = y1;
             int r_int = (int)radius + 4;
@@ -406,22 +538,33 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
             float dist = sqrtf(dx * dx + dy * dy);
 
             if (dist >= step) {
+                struct timespec now; clock_gettime(CLOCK_MONOTONIC, &now);
+                int64_t now_ns = (int64_t)now.tv_sec * 1000000000LL + now.tv_nsec;
+                float dt = g_procedural_last_ns > 0 ? (float)(now_ns - g_procedural_last_ns) / 1000000000.0f : 1.0f / 60.0f;
+                float speed = dt > 0.0001f ? dist / dt : 0.0f;
                 float angle_deg = atan2f(dy, dx) * 180.0f / 3.14159265f;
                 int steps = (int)(dist / step);
                 for (int s = 1; s <= steps; s++) {
                     float t = (float)s / (float)steps;
                     float ix = g_last_dab_x + dx * t;
                     float iy = g_last_dab_y + dy * t;
-                    g_current_brush->render_dab(pixels, cw, ch, ix, iy, radius, pNorm, angle_deg, dist, (uint32_t)color, eraser);
+                    float dab_pressure = ((float)g_procedural_last_pressure + (float)stroke_pressure * t) / 1000.0f;
+                    render_procedural_dab(pixels, cw, ch, ix, iy, radius,
+                        procedural_accepts("pressure") ? dab_pressure : 1.0f,
+                        procedural_accepts("angle") ? angle_deg : 0.0f,
+                        procedural_accepts("speed") ? speed : 0.0f, procedural_color, eraser);
                 }
                 g_last_dab_x = x1;
                 g_last_dab_y = y1;
+                g_procedural_last_pressure = stroke_pressure;
+                g_procedural_last_ns = now_ns;
                 int r_int = (int)radius + 4;
                 int min_x = (int)(x0 < x1 ? x0 : x1) - r_int;
                 int min_y = (int)(y0 < y1 ? y0 : y1) - r_int;
                 int max_x = (int)(x0 > x1 ? x0 : x1) + r_int;
                 int max_y = (int)(y0 > y1 ? y0 : y1) + r_int;
-                w_mark_dirty_rect(min_x, min_y, max_x, max_y);
+                if (g_procedural_symmetry) w_mark_dirty_rect(0, 0, cw - 1, ch - 1);
+                else w_mark_dirty_rect(min_x, min_y, max_x, max_y);
                 w_invalidate_layers();
             }
         } else if (state == 2) { // Up / end
@@ -430,12 +573,13 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
             }
             force_composite();
             w_invalidate_layers();
+            g_procedural_last_ns = 0;
         }
         return;
     }
 
     // Classic Quadro stroke
-    w_brush_stroke_ext_f(state, x0, y0, x1, y1, (uint32_t)color, eraser, pressure, tilt_x, tilt_y);
+    w_brush_stroke_ext_f(state, x0, y0, x1, y1, (uint32_t)color, eraser, stroke_pressure, tilt_x, tilt_y);
 }
 
 // ── Filters Suite (All 29 Filters) ──

@@ -122,7 +122,7 @@ internal object WebRasterProjectIO {
             repeat(frameJson.length()) { i ->
                 val frame = frameJson.optJSONObject(i) ?: return@repeat
                 frames += AnimationCel(
-                    frame.optString("name", "Frame ${i + 1}"), decodeBitmap(frame, w, h, preserveSourceSize = true),
+                    frame.optString("name", "Frame ${i + 1}"), decodeBitmap(frame, w, h),
                     frame.optInt("duration", 1).coerceAtLeast(1), jsonBool(frame.opt("visible"), true),
                     frame.optInt("opacity", 255).coerceIn(0, 255)
                 )

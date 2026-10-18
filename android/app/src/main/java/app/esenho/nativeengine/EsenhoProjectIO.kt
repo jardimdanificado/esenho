@@ -332,7 +332,7 @@ object EsenhoProjectIO {
                 repeat(trackJson.optInt("frameCount", 0).coerceIn(0, 10000)) { frameIndex ->
                     val bytes = entries["animation/$trackIndex/$frameIndex.png"] ?: error("Cel ${frameIndex + 1} da camada ${layer.name} ausente")
                     val decoded = BitmapFactoryCompat.decode(bytes) ?: error("Cel ${frameIndex + 1} inválido")
-                    val bitmap = decoded.copy(Bitmap.Config.ARGB_8888, true)
+                    val bitmap = normalizeCel(decoded, width, height)
                     decoded.recycle()
                     frames += AnimationCel(
                         "Frame ${frameIndex + 1}", bitmap,
@@ -358,7 +358,7 @@ object EsenhoProjectIO {
                 repeat(frameCount) { index ->
                     val bytes = entries["animation/$index.png"] ?: error("Quadro de animação ${index + 1} ausente")
                     val decoded = BitmapFactoryCompat.decode(bytes) ?: error("Quadro de animação ${index + 1} inválido")
-                    val bitmap = decoded.copy(Bitmap.Config.ARGB_8888, true)
+                    val bitmap = normalizeCel(decoded, width, height)
                     decoded.recycle()
                     frames += AnimationCel("Frame ${index + 1}", bitmap, durations?.optInt(index, 1)?.coerceAtLeast(1) ?: 1)
                 }
@@ -390,6 +390,10 @@ object EsenhoProjectIO {
         engine.getRenderBitmap()
     }
 }
+
+private fun normalizeCel(source: Bitmap, width: Int, height: Int): Bitmap =
+    if (source.width == width && source.height == height) source.copy(Bitmap.Config.ARGB_8888, true)
+    else Bitmap.createScaledBitmap(source, width, height, true)
 
 private object BitmapFactoryCompat {
     fun decode(bytes: ByteArray): Bitmap? = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)

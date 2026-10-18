@@ -1112,8 +1112,10 @@ static inline int color_match_rgba_distance(uint32_t c1, uint32_t c2, int tol) {
     int r1 = c1 & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = (c1 >> 16) & 0xFF, a1 = (c1 >> 24) & 0xFF;
     int r2 = c2 & 0xFF, g2 = (c2 >> 8) & 0xFF, b2 = (c2 >> 16) & 0xFF, a2 = (c2 >> 24) & 0xFF;
     int dr = r1 - r2, dg = g1 - g2, db = b1 - b2, da = a1 - a2;
-    int64_t distance_sq = (int64_t)dr * dr + (int64_t)dg * dg + (int64_t)db * db + (int64_t)da * da;
     int64_t tolerance = tol < 0 ? 0 : tol;
+    // Keep the native wand's threshold identical to the web implementation:
+    // Euclidean distance across RGBA, rather than a per-channel threshold.
+    int64_t distance_sq = (int64_t)dr * dr + (int64_t)dg * dg + (int64_t)db * db + (int64_t)da * da;
     return distance_sq <= tolerance * tolerance;
 }
 

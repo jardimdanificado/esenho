@@ -101,8 +101,7 @@ fun ThumbSliders(
             val norm = ((currentRawVal - cfg.minVal) / (cfg.maxVal - cfg.minVal)).coerceIn(0f, 1f)
             val barColor = when (index) {
                 0 -> Color(0xFF42464B) // dark gray
-                // Keep the second slot neutral so the editor chrome stays gray-led.
-                1 -> Color(0xFF50565B)
+                1 -> Color(0xFF4CAF50) // green
                 2 -> Color(0xFFFFC107) // yellow
                 else -> Color(0xFFE53935) // red
             }

@@ -159,9 +159,9 @@ fun EsenhoNativeTheme(content: @Composable () -> Unit) {
         colorScheme = darkColorScheme(
             // Keep large surfaces neutral; reserve color for interaction and
             // selection accents so the editor does not read as green overall.
-            primary = Color(0xFFFFC857),
-            onPrimary = Color(0xFF241E12),
-            primaryContainer = Color(0xFF4A402B),
+            primary = Color(0xFFFFA83D),
+            onPrimary = Color(0xFF27190A),
+            primaryContainer = Color(0xFF52391F),
             secondary = Color(0xFFB7BCC1),
             onSecondary = Color(0xFF202326),
             secondaryContainer = Color(0xFF34383C),

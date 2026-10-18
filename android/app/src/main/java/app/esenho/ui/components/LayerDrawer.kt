@@ -43,11 +43,11 @@ fun LayerDrawer(
     val activeLayer = layersList.find { it.id == activeLayerId }
     val activeCelBitmap = engine.animationTracks[activeLayerId]?.frames?.getOrNull(engine.animationTracks[activeLayerId]?.activeCelIndex ?: -1)?.bitmap
     var showResizeDialog by remember(activeLayerId) { mutableStateOf(false) }
-    var resizeWidth by remember(activeLayerId, engine.currentFrameIndex, activeCelBitmap?.width) {
-        mutableStateOf((activeCelBitmap?.width ?: engine.width).toString())
+    var resizeWidth by remember(engine.width, engine.height) {
+        mutableStateOf(engine.width.toString())
     }
-    var resizeHeight by remember(activeLayerId, engine.currentFrameIndex, activeCelBitmap?.height) {
-        mutableStateOf((activeCelBitmap?.height ?: engine.height).toString())
+    var resizeHeight by remember(engine.width, engine.height) {
+        mutableStateOf(engine.height.toString())
     }
     var resizeResample by remember { mutableStateOf(true) }
 
@@ -480,25 +480,25 @@ fun LayerDrawer(
                         OutlinedTextField(
                             value = resizeWidth,
                             onValueChange = { resizeWidth = it.filter(Char::isDigit).take(5) },
-                            label = { Text("Largura") },
+                            label = { Text("Largura do projeto") },
                             singleLine = true,
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
                             value = resizeHeight,
                             onValueChange = { resizeHeight = it.filter(Char::isDigit).take(5) },
-                            label = { Text("Altura") },
+                            label = { Text("Altura do projeto") },
                             singleLine = true,
                             modifier = Modifier.weight(1f)
                         )
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = resizeResample, onClick = { resizeResample = true }, label = { Text("Escalar") })
-                        FilterChip(selected = !resizeResample, onClick = { resizeResample = false }, label = { Text("Cortar / expandir") })
+                        FilterChip(selected = !resizeResample, onClick = { resizeResample = false }, label = { Text("Centralizar") })
                     }
                     Text(
-                        if (resizeResample) "Reamostra o conteúdo para as novas dimensões."
-                        else "Mantém os pixels e corta ou acrescenta espaço transparente.",
+                        if (resizeResample) "Redimensiona o conteúdo de todas as camadas e cels."
+                        else "Mantém os pixels e centraliza o conteúdo no novo canvas.",
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
@@ -507,7 +507,7 @@ fun LayerDrawer(
                 TextButton(onClick = {
                     val width = resizeWidth.toIntOrNull()
                     val height = resizeHeight.toIntOrNull()
-                    if (width != null && height != null && engine.resizeActiveCel(width, height, resizeResample)) {
+                    if (width != null && height != null && engine.resizeCanvas(width, height, resizeResample)) {
                         showResizeDialog = false
                         refresh()
                     }
