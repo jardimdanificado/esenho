@@ -262,6 +262,12 @@ class EsenhoEngine(
         private set
     private var lastX = 0f
     private var lastY = 0f
+    private var strokeSmoothX = 0f
+    private var strokeSmoothY = 0f
+    private var strokeLastMidX = 0f
+    private var strokeLastMidY = 0f
+    private var strokePrevTargetX = 0f
+    private var strokePrevTargetY = 0f
 
     init {
         loadCatalogs()
@@ -587,6 +593,32 @@ class EsenhoEngine(
         EsenhoNativeBridge.nativeBrushSetParam(paramId, value)
     }
 
+    fun setPresetShape(shapeName: String) {
+        val p = selectedPreset ?: return
+        p.shape = shapeName
+        val slot = EsenhoNativeBridge.nativeSelectShape(shapeName)
+        p.shapeId = slot
+        EsenhoNativeBridge.nativeBrushSetParam(14, slot)
+    }
+
+    fun setPresetTexture(textureName: String) {
+        val p = selectedPreset ?: return
+        p.texture = textureName
+        if (textureName.isNotBlank() && textureName != "none") {
+            val slot = EsenhoNativeBridge.nativeSelectTexture(textureName)
+            if (slot >= 0) {
+                EsenhoNativeBridge.nativeBrushSetParam(18, slot)
+                p.texMode = 1
+                EsenhoNativeBridge.nativeBrushSetParam(13, 1)
+            }
+        } else {
+            EsenhoNativeBridge.nativeSelectTexture("none")
+            EsenhoNativeBridge.nativeBrushSetParam(18, -1)
+            p.texMode = 0
+            EsenhoNativeBridge.nativeBrushSetParam(13, 0)
+        }
+    }
+
     fun selectBrush(brush: BrushModel?) {
         selectedBrush = brush
         selectedPreset = null
@@ -825,6 +857,12 @@ class EsenhoEngine(
         strokeCurrentY = y
         lastX = x
         lastY = y
+        strokeSmoothX = x
+        strokeSmoothY = y
+        strokeLastMidX = x
+        strokeLastMidY = y
+        strokePrevTargetX = x
+        strokePrevTargetY = y
 
         val isEraser = if (currentTool == ToolMode.ERASER) 1 else 0
         val nativeCol = toNativeColor(currentColor)
@@ -871,20 +909,73 @@ class EsenhoEngine(
         val pInt = (pressure.coerceIn(0.01f, 1f) * 1000).toInt()
 
         when (currentTool) {
-            ToolMode.BRUSH, ToolMode.ERASER -> {
-                EsenhoNativeBridge.nativeStrokeExt(1, x, y, lastX, lastY, nativeCol, isEraser, pInt, tiltX, tiltY)
-                lastX = x
-                lastY = y
-            }
-            ToolMode.SMUDGE -> {
-                EsenhoNativeBridge.nativeStrokeExt(1, x, y, lastX, lastY, nativeCol, 0, pInt, tiltX, tiltY)
-                lastX = x
-                lastY = y
-            }
-            ToolMode.BLEND -> {
-                EsenhoNativeBridge.nativeStrokeExt(1, x, y, lastX, lastY, nativeCol, 0, pInt, tiltX, tiltY)
-                lastX = x
-                lastY = y
+            ToolMode.BRUSH, ToolMode.ERASER, ToolMode.SMUDGE, ToolMode.BLEND -> {
+                val p = selectedPreset
+                val smooth = p?.smoothing ?: brushSmooth
+                val midpoint = p?.midpoint ?: 50
+
+                // Responsive Exponential Moving Average when smooth > 0; direct 1.0 tracking when smooth == 0
+                val s = smooth / 100f
+                val factor = if (smooth > 0) max(0.015f, (1.0f - s * 0.96f).pow(2.2f)) else 1.0f
+                val targetX = strokeSmoothX + (x - strokeSmoothX) * factor
+                val targetY = strokeSmoothY + (y - strokeSmoothY) * factor
+
+                val pPrevX = strokeSmoothX
+                val pPrevY = strokeSmoothY
+                val pCurrX = targetX
+                val pCurrY = targetY
+
+                // Midpoint & Curvature Tension Dynamics:
+                // - 0%: tension = 0 -> collapses into straight chords
+                // - 50%: tension = 1.0 -> standard smooth quadratic Bézier curve
+                // - 100%: tension = 2.0 -> deep elastic curvature
+                val midClamped = midpoint.coerceIn(0, 100)
+                val ratio = 0.15f + (midClamped / 100f) * 0.70f
+                val tension = midClamped / 50f
+
+                val midPrevX = strokeLastMidX
+                val midPrevY = strokeLastMidY
+                val midCurrX = pPrevX + (pCurrX - pPrevX) * ratio
+                val midCurrY = pPrevY + (pCurrY - pPrevY) * ratio
+
+                val chordMidX = (midPrevX + midCurrX) * 0.5f
+                val chordMidY = (midPrevY + midCurrY) * 0.5f
+                val ctrlX = chordMidX + (pPrevX - chordMidX) * tension
+                val ctrlY = chordMidY + (pPrevY - chordMidY) * tension
+
+                val chordDist = hypot(midCurrX - midPrevX, midCurrY - midPrevY)
+                val arcDist = hypot(ctrlX - midPrevX, ctrlY - midPrevY) + hypot(midCurrX - ctrlX, midCurrY - ctrlY)
+                val curveLen = (chordDist + arcDist) * 0.5f
+                val deltaArc = arcDist - chordDist
+
+                var steps = 1
+                if (tension > 0.05f && curveLen > 1.5f && deltaArc > 0.35f) {
+                    steps = min(8, max(2, ceil(curveLen / 4.0f).toInt()))
+                }
+
+                var lastSubX = midPrevX
+                var lastSubY = midPrevY
+
+                for (step in 1..steps) {
+                    val t = step.toFloat() / steps.toFloat()
+                    val invT = 1.0f - t
+                    val bx = invT * invT * midPrevX + 2.0f * invT * t * ctrlX + t * t * midCurrX
+                    val by = invT * invT * midPrevY + 2.0f * invT * t * ctrlY + t * t * midCurrY
+
+                    val strokeEraser = if (currentTool == ToolMode.ERASER) 1 else 0
+                    EsenhoNativeBridge.nativeStrokeExt(1, bx, by, lastSubX, lastSubY, nativeCol, strokeEraser, pInt, tiltX, tiltY)
+                    lastSubX = bx
+                    lastSubY = by
+                }
+
+                strokeSmoothX = targetX
+                strokeSmoothY = targetY
+                strokeLastMidX = midCurrX
+                strokeLastMidY = midCurrY
+                strokePrevTargetX = pPrevX
+                strokePrevTargetY = pPrevY
+                lastX = targetX
+                lastY = targetY
             }
             ToolMode.LASSO_FILL -> {
                 EsenhoNativeBridge.nativeStrokeExt(1, x, y, lastX, lastY, nativeCol, 0, 1000, 0, 0)
@@ -910,14 +1001,26 @@ class EsenhoEngine(
         val pInt = (pressure.coerceIn(0.01f, 1f) * 1000).toInt()
 
         when (currentTool) {
-            ToolMode.BRUSH, ToolMode.ERASER -> {
-                EsenhoNativeBridge.nativeStrokeExt(2, x, y, lastX, lastY, nativeCol, isEraser, pInt, tiltX, tiltY)
-            }
-            ToolMode.SMUDGE -> {
-                EsenhoNativeBridge.nativeStrokeExt(2, x, y, lastX, lastY, nativeCol, 0, pInt, tiltX, tiltY)
-            }
-            ToolMode.BLEND -> {
-                EsenhoNativeBridge.nativeStrokeExt(2, x, y, lastX, lastY, nativeCol, 0, pInt, tiltX, tiltY)
+            ToolMode.BRUSH, ToolMode.ERASER, ToolMode.SMUDGE, ToolMode.BLEND -> {
+                val finalX = strokeSmoothX
+                val finalY = strokeSmoothY
+                val dEnd = hypot(finalX - strokeLastMidX, finalY - strokeLastMidY)
+                var lastSubX = strokeLastMidX
+                var lastSubY = strokeLastMidY
+
+                if (dEnd > 0.25f) {
+                    val steps = max(1, min(8, ceil(dEnd / 3.0f).toInt()))
+                    for (step in 1..steps) {
+                        val t = step.toFloat() / steps.toFloat()
+                        val invT = 1.0f - t
+                        val bx = invT * invT * strokeLastMidX + 2.0f * invT * t * finalX + t * t * finalX
+                        val by = invT * invT * strokeLastMidY + 2.0f * invT * t * finalY + t * t * finalY
+                        EsenhoNativeBridge.nativeStrokeExt(1, bx, by, lastSubX, lastSubY, nativeCol, isEraser, pInt, tiltX, tiltY)
+                        lastSubX = bx
+                        lastSubY = by
+                    }
+                }
+                EsenhoNativeBridge.nativeStrokeExt(2, finalX, finalY, lastSubX, lastSubY, nativeCol, isEraser, pInt, tiltX, tiltY)
             }
             ToolMode.LASSO_FILL -> {
                 EsenhoNativeBridge.nativeStrokeExt(2, x, y, lastX, lastY, nativeCol, 0, 1000, 0, 0)
