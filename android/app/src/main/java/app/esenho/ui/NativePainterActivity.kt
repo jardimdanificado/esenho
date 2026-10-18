@@ -140,6 +140,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
     var selectionActive by remember { mutableStateOf(engine.selectionActive) }
     var symmetryMode by remember { mutableStateOf(engine.symmetryMode) }
     var pixelArtGrid by remember { mutableStateOf(engine.pixelArtGrid) }
+    var isTransformActive by remember { mutableStateOf(engine.transformState != null) }
 
     fun refreshState() {
         canUndo = engine.canUndo
@@ -152,6 +153,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
         selectionActive = engine.selectionActive
         symmetryMode = engine.symmetryMode
         pixelArtGrid = engine.pixelArtGrid
+        isTransformActive = engine.transformState != null
         canvasViewRef?.invalidate()
     }
 
@@ -230,6 +232,10 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                     // Undo
                     TooltipIconButton(
                         onClick = {
+                            if (isTransformActive) {
+                                isTransformActive = false
+                                engine.cancelTransform()
+                            }
                             engine.undo()
                             refreshState()
                         },
@@ -243,6 +249,10 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                     // Redo
                     TooltipIconButton(
                         onClick = {
+                            if (isTransformActive) {
+                                isTransformActive = false
+                                engine.cancelTransform()
+                            }
                             engine.redo()
                             refreshState()
                         },
@@ -520,6 +530,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                             onClick = {
                                 val ok = engine.beginTransform(selectionOnly = true)
                                 if (ok) {
+                                    isTransformActive = true
                                     currentTool = ToolMode.TRANSFORM
                                     refreshState()
                                 }
@@ -550,7 +561,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
             )
 
             // 4. Floating Action & Toolbars (Transform HUD or Main Tools)
-            if (engine.transformState != null || currentTool == ToolMode.TRANSFORM) {
+            if (isTransformActive) {
                 Surface(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -589,12 +600,14 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                             Icon(Icons.Default.RotateRight, contentDescription = "Girar 90°", modifier = Modifier.size(20.dp))
                         }
 
-                        FilledTonalIconButton(
+                        TooltipIconButton(
                             onClick = {
+                                isTransformActive = false
                                 engine.cancelTransform()
                                 currentTool = ToolMode.BRUSH
                                 refreshState()
                             },
+                            description = "Cancelar Transformação",
                             modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
@@ -605,12 +618,14 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                             )
                         }
 
-                        IconButton(
+                        TooltipIconButton(
                             onClick = {
+                                isTransformActive = false
                                 engine.commitTransform()
                                 currentTool = ToolMode.BRUSH
                                 refreshState()
                             },
+                            description = "Confirmar Transformação",
                             colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
                             modifier = Modifier.size(36.dp)
                         ) {
@@ -762,11 +777,12 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                     // Transformar (M4 / R1)
                     ToolNavButton(
                         icon = Icons.Default.OpenWith,
-                        isSelected = currentTool == ToolMode.TRANSFORM,
+                        isSelected = isTransformActive || currentTool == ToolMode.TRANSFORM,
                         description = "Transformar (Mover / Redimensionar / Girar)",
                         onClick = {
                             val ok = engine.beginTransform(selectionOnly = engine.selectionActive)
                             if (ok) {
+                                isTransformActive = true
                                 currentTool = ToolMode.TRANSFORM
                                 refreshState()
                             }

@@ -1854,49 +1854,65 @@ class EsenhoEngine(
     }
 
     fun commitTransform() {
-        val state = transformState ?: return
-
-        val resultBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(resultBmp)
-
-        if (state.isSelectionOnly) {
-            val existingLayerBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            EsenhoNativeBridge.nativeLayerGetBitmap(activeLayerIndex, existingLayerBmp)
-            canvas.drawBitmap(existingLayerBmp, 0f, 0f, null)
-            existingLayerBmp.recycle()
+        val state = transformState ?: run {
+            currentTool = ToolMode.BRUSH
+            return
         }
 
-        val w = state.sourceBitmap.width.toFloat()
-        val h = state.sourceBitmap.height.toFloat()
-        val drawMatrix = Matrix()
-        val srcPoly = floatArrayOf(0f, 0f, w, 0f, w, h, 0f, h)
-        drawMatrix.setPolyToPoly(srcPoly, 0, state.dstPts, 0, 4)
+        try {
+            val resultBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(resultBmp)
 
-        val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
-        canvas.drawBitmap(state.sourceBitmap, drawMatrix, paint)
+            if (state.isSelectionOnly) {
+                val existingLayerBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                EsenhoNativeBridge.nativeLayerGetBitmap(activeLayerIndex, existingLayerBmp)
+                canvas.drawBitmap(existingLayerBmp, 0f, 0f, null)
+                existingLayerBmp.recycle()
+            }
 
-        EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
-        EsenhoNativeBridge.nativeLayerDrawBitmap(activeLayerIndex, resultBmp, 0, 0, width, height)
-        resultBmp.recycle()
+            val w = state.sourceBitmap.width.toFloat()
+            val h = state.sourceBitmap.height.toFloat()
+            val drawMatrix = Matrix()
+            val srcPoly = floatArrayOf(0f, 0f, w, 0f, w, h, 0f, h)
+            drawMatrix.setPolyToPoly(srcPoly, 0, state.dstPts, 0, 4)
 
-        state.release()
-        transformState = null
-        currentTool = ToolMode.BRUSH
-        getRenderBitmap()
+            val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+            canvas.drawBitmap(state.sourceBitmap, drawMatrix, paint)
+
+            EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
+            EsenhoNativeBridge.nativeLayerDrawBitmap(activeLayerIndex, resultBmp, 0, 0, width, height)
+            resultBmp.recycle()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            state.release()
+            transformState = null
+            currentTool = ToolMode.BRUSH
+            getRenderBitmap()
+        }
     }
 
     fun cancelTransform() {
-        val state = transformState ?: return
-        state.originalLayerBackup?.let { backup ->
-            if (!backup.isRecycled) {
-                EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
-                EsenhoNativeBridge.nativeLayerDrawBitmap(activeLayerIndex, backup, 0, 0, width, height)
-            }
+        val state = transformState ?: run {
+            currentTool = ToolMode.BRUSH
+            return
         }
-        state.release()
-        transformState = null
-        currentTool = ToolMode.BRUSH
-        getRenderBitmap()
+
+        try {
+            state.originalLayerBackup?.let { backup ->
+                if (!backup.isRecycled) {
+                    EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
+                    EsenhoNativeBridge.nativeLayerDrawBitmap(activeLayerIndex, backup, 0, 0, width, height)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            state.release()
+            transformState = null
+            currentTool = ToolMode.BRUSH
+            getRenderBitmap()
+        }
     }
 
     fun flipTransformH() {
