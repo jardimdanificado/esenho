@@ -55,14 +55,20 @@ extern uint32_t w_pick_color(int32_t x, int32_t y, int32_t sample_composite);
 extern void w_draw_line(int x0, int y0, int x1, int y1, uint32_t color);
 extern void w_draw_rect(int x, int y, int w, int h, uint32_t color);
 extern void w_draw_circle(int cx, int cy, int r, uint32_t color);
+extern void w_draw_ellipse(int cx, int cy, int rx, int ry, uint32_t color);
+extern void w_erase_rect(int x, int y, int w, int h);
+extern void w_erase_ellipse(int cx, int cy, int rx, int ry);
 extern void w_draw_grid(int step, uint32_t color);
 extern int32_t w_has_dirty_rect(void);
 extern void w_clear_dirty_bounds(void);
 extern void w_mark_dirty_rect(int32_t x0, int32_t y0, int32_t x1, int32_t y1);
 
 extern void w_select_rect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t op_mode);
+extern void w_select_ellipse(int32_t x, int32_t y, int32_t w, int32_t h, int32_t op_mode);
 extern int32_t w_select_wand(int32_t layer_idx, int32_t seed_x, int32_t seed_y, int32_t tolerance, int32_t contiguous, int32_t op_mode);
 extern void w_select_lasso(const int32_t *points_xy, int32_t point_count, int32_t op_mode);
+extern void w_select_apply_mask(const uint8_t *mask, int32_t x, int32_t y, int32_t w, int32_t h, int32_t op_mode);
+extern int32_t w_get_selection_scratch_layer(void);
 extern void w_select_all(int32_t op_mode);
 extern void w_select_clear(void);
 extern void w_select_invert(void);
@@ -718,6 +724,24 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDrawCircle(
 }
 
 JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDrawEllipse(
+    JNIEnv *env, jobject thiz, jint cx, jint cy, jint rx, jint ry, jint color) {
+    w_draw_ellipse(cx, cy, rx, ry, (uint32_t)color);
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeEraseRect(
+    JNIEnv *env, jobject thiz, jint x, jint y, jint w, jint h) {
+    w_erase_rect(x, y, w, h);
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeEraseEllipse(
+    JNIEnv *env, jobject thiz, jint cx, jint cy, jint rx, jint ry) {
+    w_erase_ellipse(cx, cy, rx, ry);
+}
+
+JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDrawGrid(
     JNIEnv *env, jobject thiz, jint step, jint color) {
     w_draw_grid(step, (uint32_t)color);
@@ -744,6 +768,12 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectRect(
 }
 
 JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectEllipse(
+    JNIEnv *env, jobject thiz, jint x, jint y, jint w, jint h, jint op_mode) {
+    w_select_ellipse(x, y, w, h, op_mode);
+}
+
+JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectLasso(
     JNIEnv *env, jobject thiz, jintArray points_xy, jint point_count, jint op_mode) {
     if (!points_xy || point_count < 3) return;
@@ -752,6 +782,35 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectLasso(
         w_select_lasso(pts, point_count, op_mode);
         (*env)->ReleaseIntArrayElements(env, points_xy, pts, JNI_ABORT);
     }
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectBrushMask(
+    JNIEnv *env, jobject thiz, jintArray points_xy, jint point_count, jint radius, jint op_mode) {
+    if (!points_xy || point_count <= 0) return;
+    jint *pts = (*env)->GetIntArrayElements(env, points_xy, NULL);
+    if (pts) {
+        w_select_brush(pts, point_count, radius, op_mode);
+        (*env)->ReleaseIntArrayElements(env, points_xy, pts, JNI_ABORT);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectApplyMask(
+    JNIEnv *env, jobject thiz, jbyteArray mask, jint x, jint y, jint w, jint h, jint op_mode) {
+    if (!mask || w <= 0 || h <= 0 || (int64_t)w * h > INT32_MAX) return;
+    jsize len = (*env)->GetArrayLength(env, mask);
+    if ((int64_t)w * h > len) return;
+    jbyte *bytes = (*env)->GetByteArrayElements(env, mask, NULL);
+    if (!bytes) return;
+    w_select_apply_mask((const uint8_t*)bytes, x, y, w, h, op_mode);
+    (*env)->ReleaseByteArrayElements(env, mask, bytes, JNI_ABORT);
+}
+
+JNIEXPORT jint JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeGetSelectionScratchLayer(
+    JNIEnv *env, jobject thiz) {
+    return w_get_selection_scratch_layer();
 }
 
 JNIEXPORT jint JNICALL
@@ -776,6 +835,12 @@ JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectInvert(
     JNIEnv *env, jobject thiz) {
     w_select_invert();
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectFeather(
+    JNIEnv *env, jobject thiz, jint radius) {
+    w_select_feather(radius);
 }
 
 JNIEXPORT jboolean JNICALL

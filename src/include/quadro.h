@@ -1071,6 +1071,8 @@ enum {
 W_EXPORT void    w_select_rect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t op_mode);
 W_EXPORT int32_t w_select_wand(int32_t layer_idx, int32_t seed_x, int32_t seed_y, int32_t tolerance, int32_t contiguous, int32_t op_mode);
 W_EXPORT void    w_select_lasso(const int32_t *points_xy, int32_t point_count, int32_t op_mode);
+W_EXPORT void    w_select_brush(const int32_t *points_xy, int32_t point_count, int32_t radius, int32_t op_mode);
+W_EXPORT void    w_select_apply_mask(const uint8_t *mask, int32_t x, int32_t y, int32_t w, int32_t h, int32_t op_mode);
 W_EXPORT void    w_select_all(int32_t op_mode);
 W_EXPORT void    w_select_clear(void);
 W_EXPORT void    w_select_invert(void);

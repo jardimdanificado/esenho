@@ -85,6 +85,9 @@ object EsenhoNativeBridge {
     external fun nativeDrawLine(x0: Int, y0: Int, x1: Int, y1: Int, color: Int)
     external fun nativeDrawRect(x: Int, y: Int, w: Int, h: Int, color: Int)
     external fun nativeDrawCircle(cx: Int, cy: Int, r: Int, color: Int)
+    external fun nativeDrawEllipse(cx: Int, cy: Int, rx: Int, ry: Int, color: Int)
+    external fun nativeEraseRect(x: Int, y: Int, w: Int, h: Int)
+    external fun nativeEraseEllipse(cx: Int, cy: Int, rx: Int, ry: Int)
     external fun nativeDrawGrid(step: Int, color: Int)
 
     external fun nativeHasDirtyRect(): Int
@@ -92,11 +95,16 @@ object EsenhoNativeBridge {
 
     // Selection
     external fun nativeSelectRect(x: Int, y: Int, w: Int, h: Int, opMode: Int)
+    external fun nativeSelectEllipse(centerX: Int, centerY: Int, radiusX: Int, radiusY: Int, opMode: Int)
     external fun nativeSelectLasso(pointsXy: IntArray, pointCount: Int, opMode: Int)
+    external fun nativeSelectBrushMask(pointsXy: IntArray, pointCount: Int, radius: Int, opMode: Int)
+    external fun nativeSelectApplyMask(mask: ByteArray, x: Int, y: Int, width: Int, height: Int, opMode: Int)
+    external fun nativeGetSelectionScratchLayer(): Int
     external fun nativeSelectWand(layerIdx: Int, seedX: Int, seedY: Int, tolerance: Int, contiguous: Int, opMode: Int): Int
     external fun nativeSelectAll(opMode: Int)
     external fun nativeSelectClear()
     external fun nativeSelectInvert()
+    external fun nativeSelectFeather(radius: Int)
     external fun nativeSelectGetInfo(outWords: IntArray): Boolean
     external fun nativeSelectGetMask(outBuffer: ByteArray): Boolean
     external fun nativeClearSelectedPixels()

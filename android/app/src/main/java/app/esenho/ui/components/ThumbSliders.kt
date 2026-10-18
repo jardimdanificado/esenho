@@ -47,6 +47,7 @@ val AVAILABLE_SLIDER_PARAMS = listOf(
     SliderParamConfig(7, "Arredondamento", "Arred", 1f, 100f, "%"),
     SliderParamConfig(6, "Ângulo de Rotação", "Âng", 0f, 360f, "°"),
     SliderParamConfig(8, "Dispersão (Scatter)", "Disp", 0f, 100f, "%"),
+    SliderParamConfig(9, "Tolerância do Balde", "Tol", 0f, 255f, ""),
     SliderParamConfig(20, "Ponto Médio Bézier", "Bézier", 0f, 100f, "%"),
     SliderParamConfig(10, "Borrar (Smudge)", "Borr", 0f, 100f, "%"),
     SliderParamConfig(11, "Umidade (Wetness)", "Umid", 0f, 100f, "%"),

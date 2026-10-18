@@ -42,19 +42,28 @@ class EsenhoCanvasView @JvmOverloads constructor(
     private var maxPointersInGesture = 0
     private var historyGestureHandled = false
     private val initialPointerPositions = mutableMapOf<Int, Pair<Float, Float>>()
+    private data class PendingCanvasDown(val x: Float, val y: Float, val pressure: Float, val tilt: Int)
+    private var pendingCanvasDown: PendingCanvasDown? = null
 
     // Floating Transform Tool gesture state (M4 / R1)
     private var activeTransformHandle: app.esenho.nativeengine.TransformState.Handle = app.esenho.nativeengine.TransformState.Handle.NONE
     private var transformDragStartX = 0f
     private var transformDragStartY = 0f
-    private var initialHandleDist = 0f
     private var initialHandleAngle = 0f
+    private var transformDragOrigin = FloatArray(8)
     private val initialCenter = PointF()
 
     // Single-finger Pan tracking
     private var lastSingleTouchX = 0f
     private var lastSingleTouchY = 0f
     private val matrixValues = FloatArray(9)
+    private var stylusEraserPreviousTool: ToolMode? = null
+
+    private fun restoreStylusEraserTool() {
+        val previous = stylusEraserPreviousTool ?: return
+        engine?.currentTool = previous
+        stylusEraserPreviousTool = null
+    }
 
     // Eyedropper Loupe state
     var isEyedropperActive = false
@@ -90,12 +99,12 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
     private val onionPrevPaint = Paint().apply {
         alpha = 90
-        colorFilter = LightingColorFilter(0xFFFF6666.toInt(), 0x00000000)
+        colorFilter = PorterDuffColorFilter(0xFFFF3C3C.toInt(), PorterDuff.Mode.SRC_IN)
     }
 
     private val onionNextPaint = Paint().apply {
         alpha = 90
-        colorFilter = LightingColorFilter(0xFF66AAFF.toInt(), 0x00000000)
+        colorFilter = PorterDuffColorFilter(0xFF3C8CFF.toInt(), PorterDuff.Mode.SRC_IN)
     }
 
     private val loupeRingPaint = Paint().apply {
@@ -172,16 +181,26 @@ class EsenhoCanvasView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
+    private val selectionBrushPreviewPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        color = 0x66FFD166
+        isAntiAlias = true
+    }
+
     private val pixelGridPaint = Paint().apply {
         style = Paint.Style.STROKE
         strokeWidth = 0f // device-pixel hairline, independent of canvas zoom
-        color = 0x40FFFFFF
+        // Match the subtle warm grid used by the web canvas.
+        color = 0x2EEBDBB2
         isAntiAlias = false
     }
 
     init {
         gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
             override fun onLongPress(e: MotionEvent) {
+                if (e.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER) return
                 if (!isTransforming) {
                     isEyedropperActive = true
                     loupeScreenX = e.x
@@ -266,8 +285,8 @@ class EsenhoCanvasView @JvmOverloads constructor(
                         transformDragStartX = cx
                         transformDragStartY = cy
                         val c = tState.getCenter()
+                        transformDragOrigin = tState.dstPts.copyOf()
                         initialCenter.set(c.x, c.y)
-                        initialHandleDist = hypot(cx - c.x, cy - c.y)
                         initialHandleAngle = Math.toDegrees(atan2((cy - c.y).toDouble(), (cx - c.x).toDouble())).toFloat()
                         invalidate()
                         return true
@@ -294,11 +313,24 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     return true
                 }
 
+                // A stylus eraser tip should erase without changing the
+                // selected toolbar tool, matching the web pointer behavior.
+                if (event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER && engine?.currentTool != ToolMode.ERASER) {
+                    stylusEraserPreviousTool = engine?.currentTool
+                    engine?.currentTool = ToolMode.ERASER
+                }
+
                 val (cx, cy) = mapToCanvas(event.x, event.y)
                 val pressure = if (event.pressure > 0.01f) event.pressure else 0.85f
                 val tilt = (event.getAxisValue(MotionEvent.AXIS_TILT) * 180f / Math.PI).toInt()
-
-                engine?.onTouchDown(cx, cy, pressure, tilt, 0)
+                if (event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) {
+                    // Delay finger dabs until a move confirms drawing. This
+                    // keeps two/three-finger history gestures from creating a
+                    // stray dab and clearing the native redo stack.
+                    pendingCanvasDown = PendingCanvasDown(cx, cy, pressure, tilt)
+                } else {
+                    engine?.onTouchDown(cx, cy, pressure, tilt, 0)
+                }
                 invalidate()
                 return true
             }
@@ -312,9 +344,11 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 if (pointerCount >= 2) {
                     // Enter 2-Finger Transform Mode (Pan, Zoom, Rotate)
                     isTransforming = true
+                    pendingCanvasDown = null
 
                     // Cancel and erase any single-finger dab painted when finger 0 touched down
                     engine?.cancelActiveStroke()
+                    restoreStylusEraserTool()
 
                     val p0x = event.getX(0)
                     val p0y = event.getY(0)
@@ -354,16 +388,21 @@ class EsenhoCanvasView @JvmOverloads constructor(
                             var dAngle = currentAngle - initialHandleAngle
                             while (dAngle > 180f) dAngle -= 360f
                             while (dAngle < -180f) dAngle += 360f
-                            tState.rotate(dAngle, initialCenter.x, initialCenter.y)
-                            initialHandleAngle = currentAngle
+                            if ((event.metaState and android.view.KeyEvent.META_SHIFT_ON) != 0) {
+                                dAngle = (dAngle / 15f).roundToInt() * 15f
+                            }
+                            tState.rotateFromOrigin(dAngle, transformDragOrigin, initialCenter.x, initialCenter.y)
                             invalidate()
                             return true
                         }
                         else -> {
-                            val currentDist = hypot(cx - initialCenter.x, cy - initialCenter.y)
-                            val scaleFactor = if (initialHandleDist > 0.001f) (currentDist / initialHandleDist) else 1f
-                            tState.scale(scaleFactor, scaleFactor, initialCenter.x, initialCenter.y)
-                            initialHandleDist = currentDist
+                            tState.moveHandle(
+                                activeTransformHandle,
+                                cx - transformDragStartX,
+                                cy - transformDragStartY,
+                                transformDragOrigin,
+                                (event.metaState and android.view.KeyEvent.META_SHIFT_ON) != 0
+                            )
                             invalidate()
                             return true
                         }
@@ -453,6 +492,11 @@ class EsenhoCanvasView @JvmOverloads constructor(
                         return true
                     }
 
+                    pendingCanvasDown?.let { pending ->
+                        pendingCanvasDown = null
+                        engine?.onTouchDown(pending.x, pending.y, pending.pressure, pending.tilt, 0)
+                    }
+
                     val historySize = event.historySize
                     for (h in 0 until historySize) {
                         val (hcx, hcy) = mapToCanvas(event.getHistoricalX(h), event.getHistoricalY(h))
@@ -497,8 +541,12 @@ class EsenhoCanvasView @JvmOverloads constructor(
                         historyGestureHandled = true
                         transformMatrix.set(matrixBeforeTwoFinger)
                         transformMatrix.invert(inverseMatrix)
-                        engine?.transformState?.let { engine?.cancelTransform() }
-                        if (maxPointersInGesture >= 3) {
+                        if (engine?.transformState != null) {
+                            // Cancelling a pending transform rolls back its own
+                            // reserved snapshot; don't consume the preceding
+                            // user action as part of the same tap gesture.
+                            engine?.cancelTransform()
+                        } else if (maxPointersInGesture >= 3) {
                             engine?.redo()
                         } else if (maxPointersInGesture == 2) {
                             engine?.undo()
@@ -542,7 +590,12 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
                 val (cx, cy) = mapToCanvas(event.x, event.y)
                 val pressure = if (event.pressure > 0.01f) event.pressure else 0.85f
+                pendingCanvasDown?.let { pending ->
+                    pendingCanvasDown = null
+                    engine?.onTouchDown(pending.x, pending.y, pending.pressure, pending.tilt, 0)
+                }
                 engine?.onTouchUp(cx, cy, pressure)
+                restoreStylusEraserTool()
                 onStateChanged?.invoke()
                 invalidate()
                 return true
@@ -552,7 +605,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 activeTransformHandle = app.esenho.nativeengine.TransformState.Handle.NONE
                 isEyedropperActive = false
                 isTransforming = false
-                engine?.onTouchUp(0f, 0f)
+                pendingCanvasDown = null
+                engine?.cancelActiveStroke()
+                restoreStylusEraserTool()
                 invalidate()
                 return true
             }
@@ -578,13 +633,17 @@ class EsenhoCanvasView @JvmOverloads constructor(
         // Solid document paper background (white)
         canvas.drawRect(0f, 0f, eng.width.toFloat(), eng.height.toFloat(), paperPaint)
 
-        // 2. Onion Skinning (Previous Frame Tinted Red, Next Frame Tinted Blue)
-        eng.getOnionSkinPrevBitmap()?.let { prevBmp ->
-            canvas.drawBitmap(prevBmp, 0f, 0f, onionPrevPaint)
+        // 2. Onion skin shows configurable neighboring cels in the active layer.
+        eng.getOnionSkinPreviews().forEach { preview ->
+            val paint = if (preview.isPrevious) onionPrevPaint else onionNextPaint
+            paint.alpha = preview.alpha
+            paint.colorFilter = PorterDuffColorFilter(preview.tint, PorterDuff.Mode.SRC_IN)
+            canvas.drawBitmap(preview.bitmap, 0f, 0f, paint)
         }
-        eng.getOnionSkinNextBitmap()?.let { nextBmp ->
-            canvas.drawBitmap(nextBmp, 0f, 0f, onionNextPaint)
-        }
+        onionPrevPaint.alpha = 90
+        onionNextPaint.alpha = 90
+        onionPrevPaint.colorFilter = PorterDuffColorFilter(0xFFFF3C3C.toInt(), PorterDuff.Mode.SRC_IN)
+        onionNextPaint.colorFilter = PorterDuffColorFilter(0xFF3C8CFF.toInt(), PorterDuff.Mode.SRC_IN)
 
         // 3. Document Flattened Composite Bitmap
         val bmp = eng.getRenderBitmap()
@@ -593,9 +652,14 @@ class EsenhoCanvasView @JvmOverloads constructor(
         }
 
         // 4. Pixel Art Grid Overlay
-        val gridScale = FloatArray(9).also(transformMatrix::getValues)[Matrix.MSCALE_X]
+        transformMatrix.getValues(matrixValues)
+        // MSCALE_X alone drops toward zero as the canvas rotates, which made
+        // the grid disappear even though individual pixels were still large.
+        val scaleX = hypot(matrixValues[Matrix.MSCALE_X], matrixValues[Matrix.MSKEW_Y])
+        val scaleY = hypot(matrixValues[Matrix.MSKEW_X], matrixValues[Matrix.MSCALE_Y])
+        val gridScale = min(scaleX, scaleY)
         if (eng.pixelArtGrid && gridScale >= 4f) {
-            val step = eng.pixelArtGridStep.toFloat()
+            val step = eng.pixelArtGridStep.coerceAtLeast(1).toFloat()
             var gx = 0f
             while (gx <= eng.width) {
                 canvas.drawLine(gx, 0f, gx, eng.height.toFloat(), pixelGridPaint)
@@ -668,18 +732,22 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 ToolMode.LINE -> {
                     canvas.drawLine(sx, sy, cx, cy, shapePreviewPaint)
                 }
-                ToolMode.RECTANGLE -> {
+                ToolMode.RECTANGLE, ToolMode.ERASE_RECTANGLE -> {
                     val rx = min(sx, cx)
                     val ry = min(sy, cy)
                     val rw = max(sx, cx)
                     val rh = max(sy, cy)
                     canvas.drawRect(rx, ry, rw, rh, shapePreviewPaint)
                 }
-                ToolMode.CIRCLE -> {
-                    val mx = (sx + cx) / 2f
-                    val my = (sy + cy) / 2f
-                    val r = hypot(cx - sx, cy - sy) / 2f
-                    canvas.drawCircle(mx, my, r, shapePreviewPaint)
+                ToolMode.ELLIPSE -> {
+                    canvas.drawOval(RectF(min(sx, cx), min(sy, cy), max(sx, cx), max(sy, cy)), shapePreviewPaint)
+                }
+                ToolMode.ERASE_ELLIPSE -> {
+                    val rx = min(sx, cx)
+                    val ry = min(sy, cy)
+                    val rw = max(sx, cx)
+                    val rh = max(sy, cy)
+                    canvas.drawOval(RectF(rx, ry, rw, rh), shapePreviewPaint)
                 }
                 ToolMode.SELECT_RECT -> {
                     val rx = min(sx, cx)
@@ -691,6 +759,18 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     canvas.drawRect(rx, ry, rw, rh, selectionFillPaint)
                     canvas.drawRect(rx, ry, rw, rh, selectionAntsBlackPaint)
                     canvas.drawRect(rx, ry, rw, rh, selectionAntsWhitePaint)
+                }
+                ToolMode.SELECT_ELLIPSE -> {
+                    val rx = min(sx, cx)
+                    val ry = min(sy, cy)
+                    val rw = max(sx, cx)
+                    val rh = max(sy, cy)
+                    val oval = RectF(rx, ry, rw, rh)
+                    selectionAntsBlackPaint.pathEffect = DashPathEffect(floatArrayOf(8f, 8f), antsPhase)
+                    selectionAntsWhitePaint.pathEffect = DashPathEffect(floatArrayOf(8f, 8f), antsPhase + 8f)
+                    canvas.drawOval(oval, selectionFillPaint)
+                    canvas.drawOval(oval, selectionAntsBlackPaint)
+                    canvas.drawOval(oval, selectionAntsWhitePaint)
                 }
                 ToolMode.SELECT_LASSO -> {
                     if (eng.lassoPoints.size >= 2) {
@@ -706,6 +786,22 @@ class EsenhoCanvasView @JvmOverloads constructor(
                         canvas.drawPath(closedPath, selectionFillPaint)
                         canvas.drawPath(path, selectionAntsBlackPaint)
                         canvas.drawPath(path, selectionAntsWhitePaint)
+                    }
+                }
+                ToolMode.SELECT_BRUSH_MASK -> {
+                    if (eng.lassoPoints.isNotEmpty()) {
+                        val path = Path().apply {
+                            moveTo(eng.lassoPoints[0].first.toFloat(), eng.lassoPoints[0].second.toFloat())
+                            for (i in 1 until eng.lassoPoints.size) {
+                                lineTo(eng.lassoPoints[i].first.toFloat(), eng.lassoPoints[i].second.toFloat())
+                            }
+                        }
+                        selectionBrushPreviewPaint.strokeWidth = eng.brushSize.coerceAtLeast(1f)
+                        canvas.drawPath(path, selectionBrushPreviewPaint)
+                        if (eng.lassoPoints.size == 1) {
+                            val p = eng.lassoPoints.first()
+                            canvas.drawCircle(p.first.toFloat(), p.second.toFloat(), eng.brushSize.coerceAtLeast(1f) / 2f, selectionBrushPreviewPaint)
+                        }
                     }
                 }
                 ToolMode.LASSO_FILL -> {

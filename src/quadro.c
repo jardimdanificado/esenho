@@ -1,4 +1,5 @@
 #include "quadro.h"
+#include <math.h>
 #if defined(__wasm_simd128__)
 #include <wasm_simd128.h>
 #endif
@@ -728,6 +729,40 @@ static void draw_ellipse(int cx, int cy, int rx, int ry, uint32_t color) {
     }
 }
 
+static void erase_rect_pixels(int rx, int ry, int rw, int rh) {
+    int w = 0, h = 0;
+    uint32_t *pix = get_current_draw_target(&w, &h);
+    if (!pix || w <= 0 || h <= 0 || rw <= 0 || rh <= 0) return;
+    int x0 = rx < 0 ? 0 : rx;
+    int y0 = ry < 0 ? 0 : ry;
+    int64_t right = (int64_t)rx + rw, bottom = (int64_t)ry + rh;
+    int x1 = right > w ? w : (int)right;
+    int y1 = bottom > h ? h : (int)bottom;
+    for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++) {
+        if (!is_pixel_clipped(x, y)) pix[y * w + x] = 0;
+    }
+}
+
+static void erase_ellipse_pixels(int cx, int cy, int rx, int ry) {
+    int w = 0, h = 0;
+    uint32_t *pix = get_current_draw_target(&w, &h);
+    if (!pix || w <= 0 || h <= 0 || rx <= 0 || ry <= 0) return;
+    int64_t rx2 = (int64_t)rx * rx, ry2 = (int64_t)ry * ry;
+    int64_t limit = rx2 * ry2;
+    int x0 = (int64_t)cx - rx < 0 ? 0 : cx - rx;
+    int y0 = (int64_t)cy - ry < 0 ? 0 : cy - ry;
+    int x1 = (int64_t)cx + rx >= w ? w - 1 : cx + rx;
+    int y1 = (int64_t)cy + ry >= h ? h - 1 : cy + ry;
+    for (int y = y0; y <= y1; y++) {
+        int64_t dy = (int64_t)y - cy;
+        int64_t dy_term = dy * dy * rx2;
+        for (int x = x0; x <= x1; x++) {
+            int64_t dx = (int64_t)x - cx;
+            if (dx * dx * ry2 + dy_term <= limit && !is_pixel_clipped(x, y)) pix[y * w + x] = 0;
+        }
+    }
+}
+
 static void draw_grid(int step, uint32_t color) {
     int w = 0, h = 0;
     uint32_t *pix = get_current_draw_target(&w, &h);
@@ -1016,6 +1051,15 @@ static inline int color_match(uint32_t c1, uint32_t c2, int tol) {
     int db = b1 - b2; if (db < 0) db = -db;
     int da = a1 - a2; if (da < 0) da = -da;
     return (dr <= tol && dg <= tol && db <= tol && da <= tol);
+}
+
+static inline int color_match_rgba_distance(uint32_t c1, uint32_t c2, int tol) {
+    int r1 = c1 & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = (c1 >> 16) & 0xFF, a1 = (c1 >> 24) & 0xFF;
+    int r2 = c2 & 0xFF, g2 = (c2 >> 8) & 0xFF, b2 = (c2 >> 16) & 0xFF, a2 = (c2 >> 24) & 0xFF;
+    int dr = r1 - r2, dg = g1 - g2, db = b1 - b2, da = a1 - a2;
+    int64_t distance_sq = (int64_t)dr * dr + (int64_t)dg * dg + (int64_t)db * db + (int64_t)da * da;
+    int64_t tolerance = tol < 0 ? 0 : tol;
+    return distance_sq <= tolerance * tolerance;
 }
 
 static inline uint32_t mix_color_subtractive(uint32_t c1, uint32_t c2, int rate) {
@@ -2178,6 +2222,18 @@ W_EXPORT void w_draw_circle(int cx, int cy, int r, uint32_t color) {
 W_EXPORT void w_draw_ellipse(int cx, int cy, int rx, int ry, uint32_t color) {
     init_surface_if_needed();
     draw_ellipse(cx, cy, rx, ry, color);
+    force_composite();
+}
+
+W_EXPORT void w_erase_rect(int x, int y, int w, int h) {
+    init_surface_if_needed();
+    erase_rect_pixels(x, y, w, h);
+    force_composite();
+}
+
+W_EXPORT void w_erase_ellipse(int cx, int cy, int rx, int ry) {
+    init_surface_if_needed();
+    erase_ellipse_pixels(cx, cy, rx, ry);
     force_composite();
 }
 
@@ -3637,7 +3693,7 @@ W_EXPORT int32_t w_select_wand(int32_t layer_idx, int32_t seed_x, int32_t seed_y
             int idx = q[head++];
             int cx = idx % lw, cy = idx / lw;
 
-            if (color_match(pix[idx], seed_color, tolerance)) {
+            if (color_match_rgba_distance(pix[idx], seed_color, tolerance)) {
                 wand_mask[idx] = 1;
 
                 if (cx > 0 && !visited[idx - 1]) { visited[idx - 1] = 1; q[tail++] = idx - 1; }
@@ -3649,7 +3705,7 @@ W_EXPORT int32_t w_select_wand(int32_t layer_idx, int32_t seed_x, int32_t seed_y
     } else {
         for (int y = 0; y < lh; y++) {
             for (int x = 0; x < lw; x++) {
-                if (color_match(pix[y * lw + x], seed_color, tolerance)) {
+                if (color_match_rgba_distance(pix[y * lw + x], seed_color, tolerance)) {
                     wand_mask[y * lw + x] = 1;
                 }
             }
@@ -3814,6 +3870,183 @@ W_EXPORT void w_select_lasso(const int32_t *points_xy, int32_t point_count, int3
             clip_mask_ptr[cy * clip_w + cx] = temp[(clip_y + cy) * doc_width + (clip_x + cx)];
         }
     }
+}
+
+W_EXPORT void w_select_ellipse(int32_t cx, int32_t cy, int32_t rx, int32_t ry, int32_t op_mode) {
+    init_surface_if_needed();
+    if (rx <= 0 || ry <= 0 || doc_width == 0 || doc_height == 0) {
+        if (op_mode == W_SEL_REPLACE || op_mode == W_SEL_INTERSECT) w_select_clear();
+        return;
+    }
+
+    int64_t left = (int64_t)cx - rx, top = (int64_t)cy - ry;
+    int64_t right = (int64_t)cx + rx, bottom = (int64_t)cy + ry;
+    int x0 = left < 0 ? 0 : (int)left;
+    int y0 = top < 0 ? 0 : (int)top;
+    int x1 = right >= (int64_t)doc_width ? (int)doc_width - 1 : (int)right;
+    int y1 = bottom >= (int64_t)doc_height ? (int)doc_height - 1 : (int)bottom;
+    if (x1 < x0 || y1 < y0) {
+        if (op_mode == W_SEL_REPLACE || op_mode == W_SEL_INTERSECT) w_select_clear();
+        return;
+    }
+
+    uint32_t doc_size = doc_width * doc_height;
+    uint8_t *ellipse_mask = (uint8_t*)canvas_alloc(doc_size);
+    uint8_t *temp = (uint8_t*)canvas_alloc(doc_size);
+    if (!ellipse_mask || !temp) return;
+    memset(ellipse_mask, 0, doc_size);
+    memset(temp, 0, doc_size);
+
+    int64_t rx2 = (int64_t)rx * rx;
+    int64_t ry2 = (int64_t)ry * ry;
+    int64_t denom = rx2 * ry2;
+    for (int py = y0; py <= y1; py++) {
+        int64_t dy = (int64_t)py - cy;
+        for (int px = x0; px <= x1; px++) {
+            int64_t dx = (int64_t)px - cx;
+            if (dx * dx * ry2 + dy * dy * rx2 <= denom) {
+                ellipse_mask[(uint32_t)py * doc_width + (uint32_t)px] = 1;
+            }
+        }
+    }
+
+    if (op_mode != W_SEL_REPLACE && clip_active) {
+        for (int sy = 0; sy < clip_h; sy++) for (int sx = 0; sx < clip_w; sx++) {
+            int dx = clip_x + sx, dy = clip_y + sy;
+            if (dx >= 0 && dx < (int)doc_width && dy >= 0 && dy < (int)doc_height) {
+                temp[(uint32_t)dy * doc_width + (uint32_t)dx] = clip_has_mask ? clip_mask_ptr[sy * clip_w + sx] : 1;
+            }
+        }
+    }
+
+    int min_x = (int)doc_width, min_y = (int)doc_height, max_x = -1, max_y = -1;
+    for (uint32_t i = 0; i < doc_size; i++) {
+        uint8_t inside = ellipse_mask[i];
+        if (op_mode == W_SEL_REPLACE) temp[i] = inside;
+        else if (op_mode == W_SEL_ADD) { if (inside) temp[i] = 1; }
+        else if (op_mode == W_SEL_SUB) { if (inside) temp[i] = 0; }
+        else if (op_mode == W_SEL_INTERSECT) temp[i] = (temp[i] && inside) ? 1 : 0;
+        if (temp[i]) {
+            int px = (int)(i % doc_width), py = (int)(i / doc_width);
+            if (px < min_x) min_x = px;
+            if (px > max_x) max_x = px;
+            if (py < min_y) min_y = py;
+            if (py > max_y) max_y = py;
+        }
+    }
+    if (max_x < min_x || max_y < min_y) {
+        w_select_clear();
+        return;
+    }
+
+    clip_active = 1;
+    clip_has_mask = 1;
+    clip_x = min_x;
+    clip_y = min_y;
+    clip_w = max_x - min_x + 1;
+    clip_h = max_y - min_y + 1;
+    w_get_clip_mask_buffer((uint32_t)clip_w * (uint32_t)clip_h);
+    if (!clip_mask_ptr) return;
+    for (int py = 0; py < clip_h; py++) for (int px = 0; px < clip_w; px++) {
+        clip_mask_ptr[py * clip_w + px] = temp[(uint32_t)(clip_y + py) * doc_width + (uint32_t)(clip_x + px)];
+    }
+}
+
+W_EXPORT void w_select_apply_mask(const uint8_t *mask, int32_t x, int32_t y, int32_t w, int32_t h, int32_t op_mode) {
+    init_surface_if_needed();
+    if (!mask || w <= 0 || h <= 0 || doc_width == 0 || doc_height == 0) return;
+    uint32_t doc_size = doc_width * doc_height;
+    uint8_t *result = (uint8_t*)canvas_alloc(doc_size);
+    if (!result) return;
+    memset(result, 0, doc_size);
+
+    if (op_mode != W_SEL_REPLACE && clip_active && clip_mask_ptr) {
+        for (int sy = 0; sy < clip_h; sy++) for (int sx = 0; sx < clip_w; sx++) {
+            int dx = clip_x + sx, dy = clip_y + sy;
+            if (dx >= 0 && dx < (int)doc_width && dy >= 0 && dy < (int)doc_height) {
+                result[(uint32_t)dy * doc_width + (uint32_t)dx] = clip_has_mask ? clip_mask_ptr[sy * clip_w + sx] : 1;
+            }
+        }
+    }
+
+    int x0 = x < 0 ? 0 : x;
+    int y0 = y < 0 ? 0 : y;
+    int x1 = (int64_t)x + w > (int64_t)doc_width ? (int)doc_width : x + w;
+    int y1 = (int64_t)y + h > (int64_t)doc_height ? (int)doc_height : y + h;
+    for (int dy = y0; dy < y1; dy++) for (int dx = x0; dx < x1; dx++) {
+        uint8_t selected = mask[(dy - y) * w + (dx - x)] != 0;
+        uint32_t index = (uint32_t)dy * doc_width + (uint32_t)dx;
+        if (op_mode == W_SEL_REPLACE) result[index] = selected;
+        else if (op_mode == W_SEL_ADD) { if (selected) result[index] = 1; }
+        else if (op_mode == W_SEL_SUB) { if (selected) result[index] = 0; }
+        else if (op_mode == W_SEL_INTERSECT) result[index] = (result[index] && selected) ? 1 : 0;
+    }
+
+    int min_x = (int)doc_width, min_y = (int)doc_height, max_x = -1, max_y = -1;
+    for (uint32_t i = 0; i < doc_size; i++) if (result[i]) {
+        int px = (int)(i % doc_width), py = (int)(i / doc_width);
+        if (px < min_x) min_x = px;
+        if (px > max_x) max_x = px;
+        if (py < min_y) min_y = py;
+        if (py > max_y) max_y = py;
+    }
+    if (max_x < min_x || max_y < min_y) { w_select_clear(); return; }
+    clip_active = 1;
+    clip_has_mask = 1;
+    clip_x = min_x; clip_y = min_y;
+    clip_w = max_x - min_x + 1;
+    clip_h = max_y - min_y + 1;
+    w_get_clip_mask_buffer((uint32_t)clip_w * (uint32_t)clip_h);
+    if (!clip_mask_ptr) { w_select_clear(); return; }
+    for (int py = 0; py < clip_h; py++) for (int px = 0; px < clip_w; px++) {
+        clip_mask_ptr[py * clip_w + px] = result[(uint32_t)(clip_y + py) * doc_width + (uint32_t)(clip_x + px)];
+    }
+}
+
+W_EXPORT void w_select_brush(const int32_t *points_xy, int32_t point_count, int32_t radius, int32_t op_mode) {
+    init_surface_if_needed();
+    if (!points_xy || point_count <= 0 || doc_width == 0 || doc_height == 0) return;
+
+    uint32_t doc_size = doc_width * doc_height;
+    uint8_t *stroke_mask = (uint8_t*)canvas_alloc(doc_size);
+    if (!stroke_mask) return;
+    memset(stroke_mask, 0, doc_size);
+
+    int r = radius < 1 ? 1 : radius;
+    int max_radius = (int)(doc_width > doc_height ? doc_width : doc_height);
+    if (r > max_radius) r = max_radius;
+    int64_t r2 = (int64_t)r * r;
+    int segment_count = point_count > 1 ? point_count - 1 : 1;
+    for (int segment = 0; segment < segment_count; segment++) {
+        double x0 = points_xy[segment * 2];
+        double y0 = points_xy[segment * 2 + 1];
+        double x1 = point_count > 1 ? points_xy[(segment + 1) * 2] : x0;
+        double y1 = point_count > 1 ? points_xy[(segment + 1) * 2 + 1] : y0;
+        double dx = x1 - x0, dy = y1 - y0;
+        double length = sqrt(dx * dx + dy * dy);
+        int stamps = (int)ceil(length / (double)(r > 1 ? r : 1));
+        if (stamps < 1) stamps = 1;
+        for (int stamp = 0; stamp <= stamps; stamp++) {
+            double t = (double)stamp / (double)stamps;
+            int cx = (int)llround(x0 + dx * t);
+            int cy = (int)llround(y0 + dy * t);
+            int left = cx - r, right = cx + r;
+            int top = cy - r, bottom = cy + r;
+            if (left < 0) left = 0;
+            if (top < 0) top = 0;
+            if (right >= (int)doc_width) right = (int)doc_width - 1;
+            if (bottom >= (int)doc_height) bottom = (int)doc_height - 1;
+            for (int py = top; py <= bottom; py++) {
+                int64_t oy = (int64_t)py - cy;
+                for (int px = left; px <= right; px++) {
+                    int64_t ox = (int64_t)px - cx;
+                    if (ox * ox + oy * oy <= r2) stroke_mask[(uint32_t)py * doc_width + (uint32_t)px] = 1;
+                }
+            }
+        }
+    }
+
+    w_select_apply_mask(stroke_mask, 0, 0, (int32_t)doc_width, (int32_t)doc_height, op_mode);
 }
 
 W_EXPORT void w_select_invert(void) {

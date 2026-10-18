@@ -22,11 +22,16 @@ enum class ToolMode(val id: Int, val displayName: String) {
     EYEDROPPER(5, "Conta-gotas"),
     LINE(6, "Linha"),
     RECTANGLE(7, "Retângulo"),
-    CIRCLE(8, "Círculo"),
+    ELLIPSE(8, "Elipse"),
     SELECT_RECT(9, "Seleção Retangular"),
     SELECT_LASSO(9, "Seleção com Laço"),
+    SELECT_ELLIPSE(9, "Seleção Elíptica"),
+    SELECT_BRUSH_MASK(9, "Pincel de Seleção"),
+    SELECT_WAND(12, "Varinha Mágica"),
     PAN(10, "Mover Tela"),
-    TRANSFORM(11, "Transformar")
+    TRANSFORM(11, "Transformar"),
+    ERASE_RECTANGLE(13, "Apagar Retângulo"),
+    ERASE_ELLIPSE(14, "Apagar Elipse")
 }
 
 enum class SymmetryMode(val id: Int, val displayName: String) {
@@ -75,6 +80,7 @@ data class BrushPresetModel(
     var hardness: Int = 100,
     var flow: Int = 100,
     var spacing: Int = 5,
+    var tolerance: Int = 32,
     var roundness: Int = 100,
     var angle: Int = 0,
     var smoothing: Int = 15,
@@ -131,6 +137,7 @@ data class BrushPresetModel(
         obj.put("hardness", hardness)
         obj.put("flow", flow)
         obj.put("spacing", spacing)
+        obj.put("tolerance", tolerance)
         obj.put("roundness", roundness)
         obj.put("angle", angle)
         obj.put("smoothing", smoothing)
@@ -190,6 +197,7 @@ data class BrushPresetModel(
                 hardness = obj.optInt("hardness", 100),
                 flow = obj.optInt("flow", 100),
                 spacing = obj.optInt("spacing", 5),
+                tolerance = obj.optInt("tolerance", 32),
                 roundness = obj.optInt("roundness", 100),
                 angle = obj.optInt("angle", 0),
                 smoothing = obj.optInt("smoothing", 15),
@@ -365,8 +373,28 @@ data class LayerModel(
 data class AnimationCel(
     val id: String,
     var bitmap: Bitmap,
-    var duration: Int = 1
+    var duration: Int = 1,
+    var visible: Boolean = true,
+    var opacity: Int = 255
 )
+
+data class AnimationTrack(
+    val layerId: Int,
+    val frames: MutableList<AnimationCel> = mutableListOf(),
+    var activeCelIndex: Int = 0
+)
+
+data class RasterLayerGroup(
+    val id: String,
+    var name: String,
+    val layerIds: MutableList<Int> = mutableListOf(),
+    val childGroupIds: MutableList<String> = mutableListOf(),
+    var collapsed: Boolean = false,
+    var visible: Boolean = true,
+    var parentId: String? = null
+)
+
+data class OnionSkinPreview(val bitmap: Bitmap, val alpha: Int, val isPrevious: Boolean, val tint: Int)
 
 class EsenhoEngine(
     val context: Context,
@@ -374,12 +402,19 @@ class EsenhoEngine(
     var height: Int = 1920
 ) {
 
+    private val rasterUiPreferences = context.getSharedPreferences("esenho_raster_preferences", Context.MODE_PRIVATE)
+
     // Catalogs
     val presetCatalog = mutableListOf<BrushPresetModel>()
     val brushCatalog = mutableListOf<BrushModel>()
     val filterCatalog = mutableListOf<FilterModel>()
     var selectedPreset: BrushPresetModel? = null
         private set
+    private val liveBrushSliderParams = mutableMapOf(
+        3 to 75, 4 to 100, 5 to 5, 6 to 0, 7 to 100, 8 to 0, 9 to 32,
+        10 to 0, 11 to 0, 12 to 0, 17 to 100, 19 to 30, 20 to 50, 21 to 100,
+        27 to 0, 28 to 0, 29 to 0, 30 to 0
+    )
     var selectedBrush: BrushModel? = null
         private set
 
@@ -388,6 +423,12 @@ class EsenhoEngine(
 
     // Layer Stack
     val layers = mutableListOf<LayerModel>()
+    val layerNames = mutableMapOf<Int, String>()
+    val layerBaseOpacities = mutableMapOf<Int, Int>()
+    val layerBaseVisibility = mutableMapOf<Int, Boolean>()
+    val rasterLayerGroups = linkedMapOf<String, RasterLayerGroup>()
+    val rasterGroupOrder = mutableListOf<String>()
+    private var nextRasterGroupId = 1
     var activeLayerIndex: Int = 3
 
     // History / Undo / Redo
@@ -396,17 +437,132 @@ class EsenhoEngine(
     private val maxUndoSteps = 25
 
     // Animation / Raster Animator
-    val animationFrames = mutableListOf<AnimationCel>()
-    var currentFrameIndex: Int = 0
+    val animationTracks = linkedMapOf<Int, AnimationTrack>()
+    val animationFrames: MutableList<AnimationCel>
+        get() = activeAnimationTrack().frames
+    var currentFrameIndex: Int
+        get() = activeAnimationTrack().activeCelIndex
+        set(value) {
+            val track = activeAnimationTrack()
+            track.activeCelIndex = if (track.frames.isEmpty()) 0 else value.coerceIn(track.frames.indices)
+        }
+    var currentAnimationTick: Int = 0
     var isAnimationPlaying: Boolean = false
+    var animationLoop: Boolean = true
     var animationFps: Int = 12
     var onionSkinEnabled: Boolean = false
+    var onionPrevFrames: Int = 2
+    var onionNextFrames: Int = 1
+    var onionOpacity: Float = 0.35f
+    var onionPrevTint: Int = Color.rgb(255, 60, 60)
+    var onionNextTint: Int = Color.rgb(60, 140, 255)
+
+    private fun activeAnimationTrack(): AnimationTrack {
+        animationTracks[activeLayerIndex]?.let { return it }
+
+        // Drawable layers must never borrow another layer's timeline. This can
+        // happen briefly while layer state is being synchronized (for example
+        // after importing a project or creating a layer).
+        val activeLayerIsDrawable = layers.any { it.id == activeLayerIndex && it.id >= 3 }
+        if (!activeLayerIsDrawable) {
+            animationTracks.values.firstOrNull()?.let { return it }
+        }
+
+        return run {
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            EsenhoNativeBridge.nativeLayerGetBitmap(activeLayerIndex, bitmap)
+            AnimationTrack(activeLayerIndex, mutableListOf(AnimationCel("Frame 1", bitmap))).also {
+                animationTracks[activeLayerIndex] = it
+            }
+        }
+    }
+
+    fun syncAnimationTracks() {
+        val drawingLayerIds = layers.map { it.id }.filter { it >= 3 }.toSet()
+        drawingLayerIds.forEach { layerId ->
+            if (layerId !in animationTracks) {
+                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                EsenhoNativeBridge.nativeLayerGetBitmap(layerId, bitmap)
+                animationTracks[layerId] = AnimationTrack(layerId, mutableListOf(AnimationCel(
+                    // Layer visibility and opacity are stored separately as base state.
+                    // Keep a new cel neutral so applyAnimationTick doesn't apply them twice.
+                    "Frame 1", bitmap, visible = true, opacity = 255
+                )))
+            }
+        }
+        (animationTracks.keys - drawingLayerIds).forEach { staleId ->
+            animationTracks.remove(staleId)?.frames?.forEach { if (!it.bitmap.isRecycled) it.bitmap.recycle() }
+        }
+    }
+
+    fun totalAnimationTicks(): Int = animationTracks.values.maxOfOrNull { track ->
+        track.frames.sumOf { it.duration.coerceAtLeast(1) }
+    }?.coerceAtLeast(1) ?: 1
+
+    fun advanceAnimationTick() {
+        val next = currentAnimationTick + 1
+        if (next >= totalAnimationTicks()) {
+            if (!animationLoop) {
+                isAnimationPlaying = false
+                return
+            }
+            currentAnimationTick = 0
+        } else {
+            currentAnimationTick = next
+        }
+        applyAnimationTick(currentAnimationTick, captureActive = false)
+    }
+
+    fun startAnimationPlayback() {
+        captureCurrentFrame()
+        isAnimationPlaying = true
+    }
+
+    fun renderAnimationFrames(): List<Bitmap> {
+        captureCurrentFrame()
+        val originalTick = currentAnimationTick
+        val frames = mutableListOf<Bitmap>()
+        repeat(totalAnimationTicks()) { tick ->
+            applyAnimationTick(tick, captureActive = false)
+            val composite = getRenderBitmap()
+            composite?.let { frames += it.copy(Bitmap.Config.ARGB_8888, false) }
+        }
+        applyAnimationTick(originalTick, captureActive = false)
+        return frames
+    }
+
+    fun applyAnimationTick(tick: Int, captureActive: Boolean = true) {
+        if (captureActive) captureCurrentFrame()
+        currentAnimationTick = tick.coerceIn(0, totalAnimationTicks() - 1)
+        animationTracks.values.forEach { track ->
+            var remaining = currentAnimationTick
+            var frameIndex = 0
+            while (frameIndex < track.frames.lastIndex && remaining >= track.frames[frameIndex].duration.coerceAtLeast(1)) {
+                remaining -= track.frames[frameIndex].duration.coerceAtLeast(1)
+                frameIndex++
+            }
+            track.activeCelIndex = frameIndex
+            track.frames.getOrNull(frameIndex)?.let { cel ->
+                EsenhoNativeBridge.nativeLayerClear(track.layerId)
+                EsenhoNativeBridge.nativeLayerDrawBitmap(track.layerId, cel.bitmap, 0, 0, width, height)
+                val baseVisible = layerBaseVisibility[track.layerId] ?: true
+                val baseOpacity = layerBaseOpacities[track.layerId] ?: 255
+                EsenhoNativeBridge.nativeLayerSetVisible(
+                    track.layerId,
+                    if (baseVisible && isRasterLayerGroupVisible(track.layerId) && cel.visible) 1 else 0
+                )
+                EsenhoNativeBridge.nativeLayerSetOpacity(track.layerId, (baseOpacity * cel.opacity.coerceIn(0, 255)) / 255)
+            }
+        }
+        getRenderBitmap()
+    }
 
     // State
     var currentTool: ToolMode = ToolMode.BRUSH
     var brushSize: Float = 14f
         set(value) {
             field = value.coerceIn(1f, 300f)
+            liveBrushSliderParams[1] = field.toInt()
             EsenhoNativeBridge.nativeBrushSetSize(field)
             EsenhoNativeBridge.nativeBrushSetParam(1, field.toInt())
         }
@@ -415,6 +571,7 @@ class EsenhoEngine(
         set(value) {
             field = value.coerceIn(0.01f, 1.0f)
             val opInt = (field * 100).toInt()
+            liveBrushSliderParams[2] = opInt
             EsenhoNativeBridge.nativeBrushSetParam(2, opInt)
             selectedPreset?.let { it.opacity = opInt }
         }
@@ -422,12 +579,14 @@ class EsenhoEngine(
     var brushHardness: Int = 75
         set(value) {
             field = value.coerceIn(0, 100)
+            liveBrushSliderParams[3] = field
             EsenhoNativeBridge.nativeBrushSetParam(3, field)
         }
 
     var brushSmooth: Int = 30
         set(value) {
             field = value.coerceIn(0, 100)
+            liveBrushSliderParams[19] = field
             EsenhoNativeBridge.nativeBrushSetParam(19, field)
         }
 
@@ -474,7 +633,23 @@ class EsenhoEngine(
             EsenhoNativeBridge.nativeBrushSetParam(38, value.id)
         }
 
-    var selectionOp: SelectionOp = SelectionOp.REPLACE
+    var selectionOp: SelectionOp = SelectionOp.values().firstOrNull {
+        it.name == rasterUiPreferences.getString("selection_op", SelectionOp.REPLACE.name)
+    } ?: SelectionOp.REPLACE
+        set(value) {
+            field = value
+            rasterUiPreferences.edit().putString("selection_op", value.name).apply()
+        }
+    var wandTolerance: Int = rasterUiPreferences.getInt("wand_tolerance", 30).coerceIn(0, 255)
+        set(value) {
+            field = value.coerceIn(0, 255)
+            rasterUiPreferences.edit().putInt("wand_tolerance", field).apply()
+        }
+    var wandContiguous: Boolean = rasterUiPreferences.getBoolean("wand_contiguous", true)
+        set(value) {
+            field = value
+            rasterUiPreferences.edit().putBoolean("wand_contiguous", value).apply()
+        }
     var selectionActive: Boolean = false
         private set
     var selectionBounds: android.graphics.Rect? = null
@@ -482,12 +657,21 @@ class EsenhoEngine(
     var selectionHasMask: Boolean = false
         private set
     var selectionPath: android.graphics.Path? = null
+    private data class TransformSelectionBackup(val bounds: android.graphics.Rect, val mask: ByteArray?)
+    private var transformSelectionBackup: TransformSelectionBackup? = null
+    private var selectionClipboard: Bitmap? = null
+    val hasSelectionClipboard: Boolean
+        get() = selectionClipboard?.isRecycled == false
 
     var pixelArtGrid: Boolean = false
     // The pixel art overlay follows the actual document pixel boundaries.
     var pixelArtGridStep: Int = 1
 
     val lassoPoints = mutableListOf<Pair<Int, Int>>()
+    private var selectionBrushScratchLayer = -1
+    private var selectionBrushRestoreLayer = -1
+    private var selectionBrushOriginalInfo: IntArray? = null
+    private var selectionBrushOriginalMask: ByteArray? = null
     var strokeStartX = 0f
     var strokeStartY = 0f
     var strokeCurrentX = 0f
@@ -536,6 +720,7 @@ class EsenhoEngine(
                             hardness = p.optInt("hardness", 70),
                             flow = p.optInt("flow", 100),
                             spacing = p.optInt("spacing", 5),
+                            tolerance = p.optInt("tolerance", 32),
                             roundness = p.optInt("roundness", 100),
                             angle = p.optInt("angle", 0),
                             smoothing = p.optInt("smoothing", 15),
@@ -684,8 +869,52 @@ class EsenhoEngine(
     }
 
     fun initEngine(w: Int, h: Int) {
+        cancelActiveStroke()
+        transformState?.release()
+        transformState = null
+        if (renderBitmap != null) {
+            // w_init() resizes an initialized native canvas; it does not discard its layers.
+            // Keep one ordered layer as the new background and remove the old document stack.
+            val existingLayerIds = (0 until EsenhoNativeBridge.nativeLayerGetCount())
+                .mapNotNull { EsenhoNativeBridge.nativeLayerGetOrder(it).takeIf { id -> id >= 0 } }
+            existingLayerIds.firstOrNull()?.let { backgroundId ->
+                existingLayerIds.drop(1).forEach(EsenhoNativeBridge::nativeLayerDelete)
+                EsenhoNativeBridge.nativeLayerSelect(backgroundId)
+                EsenhoNativeBridge.nativeLayerClear(backgroundId)
+                EsenhoNativeBridge.nativeLayerSetVisible(backgroundId, 1)
+                EsenhoNativeBridge.nativeLayerSetOpacity(backgroundId, 255)
+                EsenhoNativeBridge.nativeLayerSetBlendMode(backgroundId, LayerBlendMode.NORMAL.id)
+                EsenhoNativeBridge.nativeLayerSetAlphaLock(backgroundId, 0)
+                EsenhoNativeBridge.nativeLayerSetClipping(backgroundId, 0)
+            }
+        }
+        renderBitmap?.takeUnless { it.isRecycled }?.recycle()
+        undoStack.forEach { if (!it.isRecycled) it.recycle() }
+        redoStack.forEach { if (!it.isRecycled) it.recycle() }
+        undoStack.clear()
+        redoStack.clear()
+        EsenhoNativeBridge.nativeSelectClear()
+        selectionActive = false
+        selectionBounds = null
+        selectionHasMask = false
+        selectionPath = null
+        transformSelectionBackup = null
+        clearSelectionBrushState()
+        currentTool = ToolMode.BRUSH
+        isAnimationPlaying = false
         width = w
         height = h
+        selectionClipboard?.takeUnless { it.isRecycled }?.recycle()
+        selectionClipboard = null
+        animationTracks.values.flatMap { it.frames }.forEach { if (!it.bitmap.isRecycled) it.bitmap.recycle() }
+        animationTracks.clear()
+        layerNames.clear()
+        layerBaseOpacities.clear()
+        layerBaseVisibility.clear()
+        rasterLayerGroups.clear()
+        rasterGroupOrder.clear()
+        nextRasterGroupId = 1
+        currentAnimationTick = 0
         EsenhoNativeBridge.nativeInit(width, height)
         renderBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
 
@@ -708,11 +937,7 @@ class EsenhoEngine(
 
         syncLayers()
 
-        // Init initial animation frame
-        animationFrames.clear()
-        val firstFrame = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        render(firstFrame)
-        animationFrames.add(AnimationCel("Frame 1", firstFrame))
+        // syncLayers creates one first cel for each drawable layer.
         currentFrameIndex = 0
     }
 
@@ -762,6 +987,7 @@ class EsenhoEngine(
         EsenhoNativeBridge.nativeBrushSetParam(3, preset.hardness)
         EsenhoNativeBridge.nativeBrushSetParam(4, preset.flow)
         EsenhoNativeBridge.nativeBrushSetParam(5, preset.spacing)
+        EsenhoNativeBridge.nativeBrushSetParam(9, preset.tolerance.coerceIn(0, 255))
         EsenhoNativeBridge.nativeBrushSetParam(6, preset.angle)
         EsenhoNativeBridge.nativeBrushSetParam(7, preset.roundness)
         EsenhoNativeBridge.nativeBrushSetParam(8, preset.scatter)
@@ -802,6 +1028,9 @@ class EsenhoEngine(
         EsenhoNativeBridge.nativeBrushSetParam(56, preset.dryingRate)
         EsenhoNativeBridge.nativeBrushSetParam(57, preset.texScaleWithSize)
 
+        listOf(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 17, 19, 20, 21, 27, 28, 29, 30)
+            .forEach { liveBrushSliderParams[it] = getPresetParam(it) }
+
         if (preset.color.isNotBlank()) {
             try {
                 if (preset.color.startsWith("#")) {
@@ -814,13 +1043,19 @@ class EsenhoEngine(
     }
 
     fun setPresetParam(paramId: Int, value: Int) {
-        val p = selectedPreset ?: return
+        val p = selectedPreset
+        liveBrushSliderParams[paramId] = value
+        if (p == null) {
+            EsenhoNativeBridge.nativeBrushSetParam(paramId, value)
+            return
+        }
         when (paramId) {
             1 -> { p.size = value; brushSize = value.toFloat() }
             2 -> { p.opacity = value; brushOpacity = value / 100f }
             3 -> { p.hardness = value; brushHardness = value }
             4 -> p.flow = value
             5 -> p.spacing = value
+            9 -> p.tolerance = value.coerceIn(0, 255)
             6 -> p.angle = value
             7 -> p.roundness = value
             8 -> p.scatter = value
@@ -865,13 +1100,14 @@ class EsenhoEngine(
     }
 
     fun getPresetParam(paramId: Int): Int {
-        val p = selectedPreset ?: return 0
+        val p = selectedPreset ?: return liveBrushSliderParams[paramId] ?: 0
         return when (paramId) {
             1 -> p.size
             2 -> p.opacity
             3 -> p.hardness
             4 -> p.flow
             5 -> p.spacing
+            9 -> p.tolerance
             6 -> p.angle
             7 -> p.roundness
             8 -> p.scatter
@@ -955,6 +1191,9 @@ class EsenhoEngine(
                 EsenhoNativeBridge.nativeSetBrushParam(idx, p.currentVal)
             }
         }
+        liveBrushSliderParams.forEach { (paramId, value) ->
+            EsenhoNativeBridge.nativeBrushSetParam(paramId, value)
+        }
         currentTool = ToolMode.BRUSH
     }
 
@@ -990,6 +1229,7 @@ class EsenhoEngine(
             hardness = brushHardness,
             flow = base?.flow ?: 100,
             spacing = base?.spacing ?: 5,
+            tolerance = base?.tolerance ?: 32,
             roundness = base?.roundness ?: 100,
             angle = base?.angle ?: 0,
             smoothing = brushSmooth,
@@ -1167,6 +1407,7 @@ class EsenhoEngine(
         pushUndoSnapshot()
         val ok = EsenhoNativeBridge.nativeApplyFilter(filter.id, p1, p2)
         if (ok) {
+            captureCurrentFrame()
             getRenderBitmap()
         }
         return ok
@@ -1181,16 +1422,159 @@ class EsenhoEngine(
 
         for (pos in 0 until count) {
             val layerIdx = EsenhoNativeBridge.nativeLayerGetOrder(pos)
-            val opacity = EsenhoNativeBridge.nativeLayerGetOpacity(layerIdx)
-            val visible = EsenhoNativeBridge.nativeLayerGetVisible(layerIdx) == 1
+            val opacity = layerBaseOpacities.getOrPut(layerIdx) { EsenhoNativeBridge.nativeLayerGetOpacity(layerIdx) }.coerceIn(0, 255)
+            val visible = layerBaseVisibility.getOrPut(layerIdx) { EsenhoNativeBridge.nativeLayerGetVisible(layerIdx) == 1 }
             val blendModeInt = EsenhoNativeBridge.nativeLayerGetBlendMode(layerIdx)
             val blendMode = LayerBlendMode.values().find { it.id == blendModeInt } ?: LayerBlendMode.NORMAL
             val alphaLock = EsenhoNativeBridge.nativeLayerGetAlphaLock(layerIdx) == 1
             val clipping = EsenhoNativeBridge.nativeLayerGetClipping(layerIdx) == 1
 
-            val name = if (layerIdx <= 3) "Plano de Fundo" else "Camada ${layerIdx - 3}"
+            val defaultName = if (layerIdx <= 3) "Plano de Fundo" else "Camada ${layerIdx - 3}"
+            val name = layerNames.getOrPut(layerIdx) { defaultName }
             layers.add(LayerModel(layerIdx, name, opacity, visible, blendMode, alphaLock, clipping))
         }
+        layerNames.keys.retainAll(layers.map { it.id }.toSet())
+        layerBaseOpacities.keys.retainAll(layers.map { it.id }.toSet())
+        layerBaseVisibility.keys.retainAll(layers.map { it.id }.toSet())
+        val validLayerIds = layers.map { it.id }.toSet()
+        rasterLayerGroups.values.forEach { group -> group.layerIds.retainAll(validLayerIds) }
+        rasterGroupOrder.retainAll(rasterLayerGroups.keys)
+        rasterLayerGroups.values.forEach { group -> group.childGroupIds.retainAll(rasterLayerGroups.keys) }
+        syncAnimationTracks()
+    }
+
+    fun createRasterLayerGroup(name: String? = null): RasterLayerGroup {
+        while ("raster_group_$nextRasterGroupId" in rasterLayerGroups) nextRasterGroupId++
+        val id = "raster_group_${nextRasterGroupId++}"
+        return RasterLayerGroup(id, name?.trim()?.takeIf { it.isNotEmpty() } ?: "Grupo ${rasterLayerGroups.size + 1}")
+            .also { rasterLayerGroups[id] = it; rasterGroupOrder.add(0, id) }
+    }
+
+    fun renameRasterLayerGroup(id: String, name: String) {
+        val normalized = name.trim()
+        if (normalized.isNotEmpty()) rasterLayerGroups[id]?.name = normalized
+    }
+
+    fun moveLayerToRasterGroup(layerId: Int, groupId: String?) {
+        rasterLayerGroups.values.forEach { it.layerIds.remove(layerId) }
+        if (groupId != null) rasterLayerGroups[groupId]?.let { group ->
+            if (layerId in layers.map { it.id }) group.layerIds.add(layerId)
+        }
+        val celVisible = animationTracks[layerId]?.let { track -> track.frames.getOrNull(track.activeCelIndex)?.visible } ?: true
+        val layerVisible = layerBaseVisibility[layerId] ?: true
+        EsenhoNativeBridge.nativeLayerSetVisible(
+            layerId,
+            if (layerVisible && isRasterLayerGroupVisible(layerId) && celVisible) 1 else 0
+        )
+        syncNativeLayerOrderFromRasterGroups()
+    }
+
+    fun nestRasterLayerGroup(groupId: String, parentId: String?) {
+        val group = rasterLayerGroups[groupId] ?: return
+        if (groupId == parentId || (parentId != null && isRasterGroupDescendant(groupId, parentId))) return
+        rasterLayerGroups.values.forEach { it.childGroupIds.remove(groupId) }
+        rasterGroupOrder.remove(groupId)
+        group.parentId = parentId
+        if (parentId == null) rasterGroupOrder.add(0, groupId)
+        else rasterLayerGroups[parentId]?.childGroupIds?.add(0, groupId) ?: run {
+            group.parentId = null
+            rasterGroupOrder.add(0, groupId)
+        }
+        applyRasterGroupVisibility(groupId)
+        syncNativeLayerOrderFromRasterGroups()
+    }
+
+    private fun isRasterGroupDescendant(groupId: String, possibleDescendantId: String): Boolean {
+        val group = rasterLayerGroups[groupId] ?: return false
+        return possibleDescendantId in group.childGroupIds || group.childGroupIds.any { isRasterGroupDescendant(it, possibleDescendantId) }
+    }
+
+    fun rasterGroupLayerIds(groupId: String): List<Int> {
+        val group = rasterLayerGroups[groupId] ?: return emptyList()
+        return group.layerIds.toList() + group.childGroupIds.flatMap(::rasterGroupLayerIds)
+    }
+
+    private fun isRasterGroupEffectivelyVisible(groupId: String): Boolean {
+        val group = rasterLayerGroups[groupId] ?: return true
+        return group.visible && (group.parentId?.let(::isRasterGroupEffectivelyVisible) ?: true)
+    }
+
+    private fun isRasterLayerGroupVisible(layerId: Int): Boolean {
+        val owner = rasterLayerGroups.values.firstOrNull { layerId in it.layerIds } ?: return true
+        return isRasterGroupEffectivelyVisible(owner.id)
+    }
+
+    private fun applyRasterGroupVisibility(groupId: String) {
+        rasterGroupLayerIds(groupId).forEach { layerId ->
+            val celVisible = animationTracks[layerId]?.let { track -> track.frames.getOrNull(track.activeCelIndex)?.visible } ?: true
+            val layerVisible = layerBaseVisibility[layerId] ?: true
+            EsenhoNativeBridge.nativeLayerSetVisible(
+                layerId,
+                if (layerVisible && isRasterLayerGroupVisible(layerId) && celVisible) 1 else 0
+            )
+        }
+        getRenderBitmap()
+    }
+
+    private fun syncNativeLayerOrderFromRasterGroups() {
+        if (rasterLayerGroups.isEmpty() || layers.isEmpty()) return
+        val orderedDrawingIds = mutableListOf<Int>()
+        val visited = mutableSetOf<String>()
+        fun appendGroup(id: String) {
+            if (!visited.add(id)) return
+            val group = rasterLayerGroups[id] ?: return
+            group.layerIds.forEach { if (it >= 3 && it in layers.map(LayerModel::id)) orderedDrawingIds.add(it) }
+            group.childGroupIds.forEach(::appendGroup)
+        }
+        rasterGroupOrder.forEach(::appendGroup)
+        rasterLayerGroups.keys.forEach(::appendGroup)
+        val orderedIds = layers.asSequence().map { it.id }.filter { it >= 3 && it !in orderedDrawingIds }.toList()
+        val drawingOrder = (orderedDrawingIds + orderedIds).distinct()
+        val drawingIterator = drawingOrder.iterator()
+        val targetOrder = layers.map { layer -> if (layer.id >= 3) drawingIterator.next() else layer.id }
+        for (targetPosition in targetOrder.indices) {
+            val targetId = targetOrder[targetPosition]
+            var currentPosition = (0 until EsenhoNativeBridge.nativeLayerGetCount())
+                .firstOrNull { EsenhoNativeBridge.nativeLayerGetOrder(it) == targetId } ?: continue
+            while (currentPosition > targetPosition) {
+                EsenhoNativeBridge.nativeLayerMoveDown(targetId)
+                currentPosition--
+            }
+            while (currentPosition < targetPosition) {
+                EsenhoNativeBridge.nativeLayerMoveUp(targetId)
+                currentPosition++
+            }
+        }
+        syncLayers()
+    }
+
+    fun toggleRasterLayerGroupVisibility(id: String) {
+        val group = rasterLayerGroups[id] ?: return
+        group.visible = !group.visible
+        applyRasterGroupVisibility(group.id)
+    }
+
+    fun deleteRasterLayerGroup(id: String) {
+        val group = rasterLayerGroups.remove(id) ?: return
+        val ungroupedLayers = group.layerIds.toList()
+        if (group.parentId == null) rasterGroupOrder.remove(id)
+        else rasterLayerGroups[group.parentId]?.childGroupIds?.remove(id)
+        group.childGroupIds.forEach { childId -> nestRasterLayerGroup(childId, group.parentId) }
+        group.layerIds.clear()
+        ungroupedLayers.forEach { layerId ->
+            val layerVisible = layerBaseVisibility[layerId] ?: true
+            val celVisible = animationTracks[layerId]?.let { track -> track.frames.getOrNull(track.activeCelIndex)?.visible } ?: true
+            EsenhoNativeBridge.nativeLayerSetVisible(layerId, if (layerVisible && celVisible) 1 else 0)
+        }
+        syncNativeLayerOrderFromRasterGroups()
+        getRenderBitmap()
+    }
+
+    fun renameLayer(idx: Int, name: String) {
+        val normalized = name.trim()
+        if (normalized.isEmpty() || layers.none { it.id == idx }) return
+        layerNames[idx] = normalized
+        layers.firstOrNull { it.id == idx }?.name = normalized
     }
 
     fun addLayer(): Int {
@@ -1208,8 +1592,14 @@ class EsenhoEngine(
     }
 
     fun selectLayer(idx: Int) {
+        val preservedTick = currentAnimationTick
+        captureCurrentFrame()
         EsenhoNativeBridge.nativeLayerSelect(idx)
         activeLayerIndex = idx
+        syncAnimationTracks()
+        // Changing the active layer must not move the shared timeline. Resolve
+        // the cel for every layer at the existing global tick instead.
+        applyAnimationTick(preservedTick, captureActive = false)
     }
 
     fun deleteLayer(idx: Int) {
@@ -1223,14 +1613,22 @@ class EsenhoEngine(
         if (commitUndo) {
             pushUndoSnapshot()
         }
-        EsenhoNativeBridge.nativeLayerSetOpacity(idx, opacity.coerceIn(0, 255))
+        val baseOpacity = opacity.coerceIn(0, 255)
+        layerBaseOpacities[idx] = baseOpacity
+        val celOpacity = animationTracks[idx]?.frames?.getOrNull(animationTracks[idx]?.activeCelIndex ?: -1)?.opacity ?: 255
+        EsenhoNativeBridge.nativeLayerSetOpacity(idx, baseOpacity * celOpacity / 255)
         syncLayers()
         getRenderBitmap()
     }
 
     fun setLayerVisible(idx: Int, visible: Boolean) {
         pushUndoSnapshot()
-        EsenhoNativeBridge.nativeLayerSetVisible(idx, if (visible) 1 else 0)
+        layerBaseVisibility[idx] = visible
+        val celVisible = animationTracks[idx]?.frames?.getOrNull(animationTracks[idx]?.activeCelIndex ?: -1)?.visible ?: true
+        EsenhoNativeBridge.nativeLayerSetVisible(
+            idx,
+            if (visible && isRasterLayerGroupVisible(idx) && celVisible) 1 else 0
+        )
         syncLayers()
     }
 
@@ -1263,51 +1661,99 @@ class EsenhoEngine(
         syncLayers()
     }
 
+    fun moveLayerByOrderDelta(idx: Int, delta: Int) {
+        if (delta == 0) return
+        pushUndoSnapshot()
+        var moved = false
+        if (delta < 0) {
+            for (step in 0 until -delta) {
+                if (EsenhoNativeBridge.nativeLayerMoveUp(idx) != 1) break
+                moved = true
+            }
+        } else {
+            for (step in 0 until delta) {
+                if (EsenhoNativeBridge.nativeLayerMoveDown(idx) != 1) break
+                moved = true
+            }
+        }
+        if (moved) syncLayers()
+    }
+
     fun mergeDown(idx: Int) {
         pushUndoSnapshot()
         EsenhoNativeBridge.nativeLayerMergeDown(idx)
         syncLayers()
+        captureCurrentFrame()
     }
 
     fun clearActiveLayer() {
         pushUndoSnapshot()
         EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
+        captureCurrentFrame()
     }
 
     // ── Animation Frame-by-Frame (Raster Animator) ──
 
-    fun captureCurrentFrame() {
-        if (currentFrameIndex in animationFrames.indices) {
-            val bmp = animationFrames[currentFrameIndex].bitmap
-            render(bmp)
+    fun captureCurrentFrame(layerId: Int = activeLayerIndex) {
+        val track = animationTracks[layerId] ?: return
+        if (track.activeCelIndex in track.frames.indices) {
+            val cel = track.frames[track.activeCelIndex]
+            val bmp = cel.bitmap
+            EsenhoNativeBridge.nativeLayerGetBitmap(track.layerId, bmp)
         }
+    }
+
+    private fun captureAllCurrentFrames() {
+        animationTracks.keys.toList().forEach(::captureCurrentFrame)
     }
 
     fun restoreFrame(index: Int) {
-        if (index !in animationFrames.indices) return
+        val track = animationTracks[activeLayerIndex] ?: return
+        if (index !in track.frames.indices) return
         captureCurrentFrame()
-        currentFrameIndex = index
-        val bmp = animationFrames[index].bitmap
-        EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
-        renderBitmap?.let { compBmp ->
-            val canvas = android.graphics.Canvas(compBmp)
-            canvas.drawBitmap(bmp, 0f, 0f, null)
-        }
+        track.activeCelIndex = index
+        currentAnimationTick = track.frames.take(index).sumOf { it.duration.coerceAtLeast(1) }
+            .coerceAtMost(totalAnimationTicks() - 1)
+        applyAnimationTick(currentAnimationTick, captureActive = false)
     }
 
     fun setCurrentFrameDuration(duration: Int) {
-        animationFrames.getOrNull(currentFrameIndex)?.duration = duration.coerceIn(1, 120)
+        val track = animationTracks[activeLayerIndex] ?: return
+        captureCurrentFrame()
+        track.frames.getOrNull(track.activeCelIndex)?.duration = duration.coerceAtLeast(1)
+        currentAnimationTick = track.frames.take(track.activeCelIndex).sumOf { it.duration.coerceAtLeast(1) }
+            .coerceAtMost(totalAnimationTicks() - 1)
+        applyAnimationTick(currentAnimationTick, captureActive = false)
+    }
+
+    fun setCurrentCelVisible(visible: Boolean) {
+        val track = animationTracks[activeLayerIndex] ?: return
+        captureCurrentFrame()
+        track.frames.getOrNull(track.activeCelIndex)?.visible = visible
+        applyAnimationTick(currentAnimationTick, captureActive = false)
+    }
+
+    fun setCurrentCelOpacity(opacity: Int) {
+        val track = animationTracks[activeLayerIndex] ?: return
+        captureCurrentFrame()
+        track.frames.getOrNull(track.activeCelIndex)?.opacity = opacity.coerceIn(0, 255)
+        applyAnimationTick(currentAnimationTick, captureActive = false)
     }
 
     fun addAnimationFrame(): Int {
         captureCurrentFrame()
         val newBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val newIndex = currentFrameIndex + 1
-        val cel = AnimationCel("Frame ${animationFrames.size + 1}", newBmp)
+        val currentCel = animationFrames.getOrNull(currentFrameIndex)
+        val cel = AnimationCel(
+            "Frame ${animationFrames.size + 1}", newBmp,
+            visible = currentCel?.visible ?: true,
+            opacity = currentCel?.opacity ?: 255
+        )
         animationFrames.add(newIndex, cel)
-        // Clear active layer for new blank drawing
-        EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
         currentFrameIndex = newIndex
+        currentAnimationTick = animationFrames.take(newIndex).sumOf { it.duration.coerceAtLeast(1) }
+        applyAnimationTick(currentAnimationTick, captureActive = false)
         return newIndex
     }
 
@@ -1316,22 +1762,70 @@ class EsenhoEngine(
         val currBmp = animationFrames[currentFrameIndex].bitmap
         val copyBmp = currBmp.copy(Bitmap.Config.ARGB_8888, true)
         val newIndex = currentFrameIndex + 1
-        val cel = AnimationCel("Frame ${animationFrames.size + 1}", copyBmp)
+        val current = animationFrames[currentFrameIndex]
+        val cel = AnimationCel("Frame ${animationFrames.size + 1}", copyBmp, current.duration, current.visible, current.opacity)
         animationFrames.add(newIndex, cel)
         currentFrameIndex = newIndex
+        currentAnimationTick = animationFrames.take(newIndex).sumOf { it.duration.coerceAtLeast(1) }
+        applyAnimationTick(currentAnimationTick, captureActive = false)
         return newIndex
     }
 
     fun deleteAnimationFrame() {
         if (animationFrames.size <= 1) return
-        animationFrames.removeAt(currentFrameIndex)
+        captureCurrentFrame()
+        animationFrames.removeAt(currentFrameIndex).bitmap.let { if (!it.isRecycled) it.recycle() }
         currentFrameIndex = currentFrameIndex.coerceIn(0, animationFrames.size - 1)
-        restoreFrame(currentFrameIndex)
+        currentAnimationTick = animationFrames.take(currentFrameIndex).sumOf { it.duration.coerceAtLeast(1) }
+            .coerceAtMost(totalAnimationTicks() - 1)
+        applyAnimationTick(currentAnimationTick, captureActive = false)
+    }
+
+    fun moveAnimationFrame(from: Int, to: Int) {
+        val frames = animationFrames
+        if (from !in frames.indices || to !in frames.indices || from == to) return
+        captureCurrentFrame()
+        val moved = frames.removeAt(from)
+        frames.add(to, moved)
+        currentFrameIndex = to
+        currentAnimationTick = frames.take(to).sumOf { it.duration.coerceAtLeast(1) }
+            .coerceAtMost(totalAnimationTicks() - 1)
+        applyAnimationTick(currentAnimationTick, captureActive = false)
+    }
+
+    fun clearCurrentAnimationFrame() {
+        captureCurrentFrame()
+        pushUndoSnapshot()
+        animationFrames.getOrNull(currentFrameIndex)?.bitmap?.eraseColor(Color.TRANSPARENT)
+        EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
+        getRenderBitmap()
     }
 
     fun getOnionSkinPrevBitmap(): Bitmap? {
         if (!onionSkinEnabled || currentFrameIndex <= 0) return null
         return animationFrames[currentFrameIndex - 1].bitmap
+    }
+
+    fun getOnionSkinPreviews(): List<OnionSkinPreview> {
+        if (!onionSkinEnabled || isAnimationPlaying) return emptyList()
+        val track = animationTracks[activeLayerIndex] ?: return emptyList()
+        if (track.frames.size <= 1) return emptyList()
+        val result = mutableListOf<OnionSkinPreview>()
+        for (step in onionPrevFrames.coerceIn(0, 5) downTo 1) {
+            val idx = track.activeCelIndex - step
+            if (idx in track.frames.indices) {
+                val falloff = (onionPrevFrames - step + 1).toFloat() / (onionPrevFrames + 1).coerceAtLeast(1)
+                result += OnionSkinPreview(track.frames[idx].bitmap, (255f * onionOpacity.coerceIn(0.1f, 0.85f) * falloff).toInt(), true, onionPrevTint)
+            }
+        }
+        for (step in onionNextFrames.coerceIn(0, 5) downTo 1) {
+            val idx = track.activeCelIndex + step
+            if (idx in track.frames.indices) {
+                val falloff = (onionNextFrames - step + 1).toFloat() / (onionNextFrames + 1).coerceAtLeast(1)
+                result += OnionSkinPreview(track.frames[idx].bitmap, (255f * onionOpacity.coerceIn(0.1f, 0.85f) * falloff).toInt(), false, onionNextTint)
+            }
+        }
+        return result
     }
 
     fun getOnionSkinNextBitmap(): Bitmap? {
@@ -1364,7 +1858,22 @@ class EsenhoEngine(
             return
         }
 
-        if (currentTool != ToolMode.PAN && currentTool != ToolMode.SELECT_RECT && currentTool != ToolMode.SELECT_LASSO) {
+        if (currentTool == ToolMode.SELECT_WAND) {
+            selectionPath = null
+            EsenhoNativeBridge.nativeSelectWand(
+                activeLayerIndex,
+                x.roundToInt().coerceIn(0, width - 1),
+                y.roundToInt().coerceIn(0, height - 1),
+                wandTolerance.coerceIn(0, 255),
+                if (wandContiguous) 1 else 0,
+                selectionOp.id
+            )
+            updateSelectionInfo()
+            isStrokeActive = false
+            return
+        }
+
+        if (currentTool != ToolMode.PAN && currentTool != ToolMode.SELECT_RECT && currentTool != ToolMode.SELECT_LASSO && currentTool != ToolMode.SELECT_ELLIPSE && currentTool != ToolMode.SELECT_BRUSH_MASK) {
             pushUndoSnapshot()
         }
 
@@ -1403,6 +1912,7 @@ class EsenhoEngine(
                 EsenhoNativeBridge.nativeBrushSetType(3) // W_MODE_FILL
                 EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, nativeCol, 0, 1000, 0, 0)
                 isStrokeActive = false
+                captureCurrentFrame()
             }
             ToolMode.LASSO_FILL -> {
                 lassoPoints.clear()
@@ -1414,8 +1924,29 @@ class EsenhoEngine(
                 lassoPoints.clear()
                 lassoPoints.add(Pair(x.toInt(), y.toInt()))
             }
+            ToolMode.SELECT_BRUSH_MASK -> {
+                lassoPoints.clear()
+                lassoPoints.add(Pair(x.roundToInt(), y.roundToInt()))
+                selectionBrushRestoreLayer = activeLayerIndex
+                selectionBrushScratchLayer = EsenhoNativeBridge.nativeGetSelectionScratchLayer()
+                val info = IntArray(6)
+                selectionBrushOriginalInfo = if (EsenhoNativeBridge.nativeSelectGetInfo(info) && info[0] != 0) info else null
+                selectionBrushOriginalMask = selectionBrushOriginalInfo?.takeIf { it[5] != 0 }?.let { selection ->
+                    ByteArray(selection[3] * selection[4]).also { EsenhoNativeBridge.nativeSelectGetMask(it) }
+                }
+                if (selectionBrushScratchLayer >= 0) {
+                    EsenhoNativeBridge.nativeSelectClear()
+                    EsenhoNativeBridge.nativeLayerSelect(selectionBrushScratchLayer)
+                    EsenhoNativeBridge.nativeLayerClear(selectionBrushScratchLayer)
+                    EsenhoNativeBridge.nativeBrushSetType(0)
+                    EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, toNativeColor(Color.WHITE), 0, pInt, tiltX, tiltY)
+                    lastX = x
+                    lastY = y
+                }
+            }
             else -> {}
         }
+
     }
 
     fun onTouchMove(x: Float, y: Float, pressure: Float = 0.85f, tiltX: Int = 0, tiltY: Int = 0) {
@@ -1424,7 +1955,6 @@ class EsenhoEngine(
         strokeCurrentX = x
         strokeCurrentY = y
 
-        val isEraser = if (currentTool == ToolMode.ERASER) 1 else 0
         val nativeCol = toNativeColor(currentColor)
         val pInt = (pressure.coerceIn(0.01f, 1f) * 1000).toInt()
 
@@ -1506,6 +2036,9 @@ class EsenhoEngine(
             ToolMode.SELECT_LASSO -> {
                 lassoPoints.add(Pair(x.toInt(), y.toInt()))
             }
+            ToolMode.SELECT_BRUSH_MASK -> {
+                lassoPoints.add(Pair(x.roundToInt(), y.roundToInt()))
+            }
             else -> {}
         }
     }
@@ -1561,15 +2094,30 @@ class EsenhoEngine(
                     EsenhoNativeBridge.nativeDrawRect(rx, ry, rw, rh, nativeCol)
                 }
             }
-            ToolMode.CIRCLE -> {
+            ToolMode.ELLIPSE -> {
                 val cx = ((strokeStartX + x) / 2f).toInt()
                 val cy = ((strokeStartY + y) / 2f).toInt()
-                val dx = x - strokeStartX
-                val dy = y - strokeStartY
-                val r = (hypot(dx.toDouble(), dy.toDouble()) / 2.0).toInt()
-                if (r > 0) {
-                    EsenhoNativeBridge.nativeDrawCircle(cx, cy, r, nativeCol)
+                val rx = (abs(x - strokeStartX) / 2f).roundToInt()
+                val ry = (abs(y - strokeStartY) / 2f).roundToInt()
+                if (rx > 0 && ry > 0) {
+                    EsenhoNativeBridge.nativeDrawEllipse(cx, cy, rx, ry, nativeCol)
                 }
+            }
+            ToolMode.ERASE_RECTANGLE -> {
+                val rx = min(strokeStartX, x).toInt()
+                val ry = min(strokeStartY, y).toInt()
+                val rw = abs(x - strokeStartX).toInt()
+                val rh = abs(y - strokeStartY).toInt()
+                if (rw > 0 && rh > 0) EsenhoNativeBridge.nativeEraseRect(rx, ry, rw, rh)
+                getRenderBitmap()
+            }
+            ToolMode.ERASE_ELLIPSE -> {
+                val cx = ((strokeStartX + x) / 2f).roundToInt()
+                val cy = ((strokeStartY + y) / 2f).roundToInt()
+                val rx = (abs(x - strokeStartX) / 2f).roundToInt()
+                val ry = (abs(y - strokeStartY) / 2f).roundToInt()
+                if (rx > 0 && ry > 0) EsenhoNativeBridge.nativeEraseEllipse(cx, cy, rx, ry)
+                getRenderBitmap()
             }
             ToolMode.SELECT_RECT -> {
                 val rx = Math.min(strokeStartX, x).toInt()
@@ -1580,6 +2128,15 @@ class EsenhoEngine(
                     selectRect(rx, ry, rw, rh)
                 }
             }
+            ToolMode.SELECT_ELLIPSE -> {
+                val centerX = ((strokeStartX + x) / 2f).roundToInt()
+                val centerY = ((strokeStartY + y) / 2f).roundToInt()
+                val radiusX = (abs(x - strokeStartX) / 2f).roundToInt()
+                val radiusY = (abs(y - strokeStartY) / 2f).roundToInt()
+                if (radiusX > 0 && radiusY > 0) {
+                    selectEllipse(centerX, centerY, radiusX, radiusY)
+                }
+            }
             ToolMode.SELECT_LASSO -> {
                 lassoPoints.add(Pair(x.toInt(), y.toInt()))
                 if (lassoPoints.size >= 3) {
@@ -1587,8 +2144,22 @@ class EsenhoEngine(
                 }
                 lassoPoints.clear()
             }
+            ToolMode.SELECT_BRUSH_MASK -> {
+                lassoPoints.add(Pair(x.roundToInt(), y.roundToInt()))
+                if (selectionBrushScratchLayer >= 0) {
+                    EsenhoNativeBridge.nativeStrokeExt(2, x, y, lastX, lastY, toNativeColor(Color.WHITE), 0, pInt, tiltX, tiltY)
+                    finishSelectionBrushStroke()
+                } else {
+                    selectBrushMask(lassoPoints, max(1, (brushSize / 2f).roundToInt()))
+                }
+                lassoPoints.clear()
+            }
             else -> {}
         }
+
+        // Keep the active cel and its timeline thumbnail in sync with edits as
+        // soon as a stroke or raster shape is committed.
+        captureCurrentFrame()
     }
 
     // ── Selection Operations ──
@@ -1600,15 +2171,39 @@ class EsenhoEngine(
             selectionActive = true
             selectionBounds = android.graphics.Rect(info[1], info[2], info[1] + info[3], info[2] + info[4])
             selectionHasMask = (info.size >= 6 && info[5] != 0)
-            if (!selectionHasMask) {
-                selectionPath = null
-            }
+            selectionPath = if (selectionHasMask) buildSelectionOutline(info) else null
         } else {
             selectionActive = false
             selectionBounds = null
             selectionHasMask = false
             selectionPath = null
         }
+    }
+
+    private fun buildSelectionOutline(info: IntArray): android.graphics.Path? {
+        val left = info[1]
+        val top = info[2]
+        val maskWidth = info[3]
+        val maskHeight = info[4]
+        if (maskWidth <= 0 || maskHeight <= 0 || maskWidth.toLong() * maskHeight > Int.MAX_VALUE) return null
+        val mask = ByteArray(maskWidth * maskHeight)
+        if (!EsenhoNativeBridge.nativeSelectGetMask(mask)) return null
+        fun isSelected(x: Int, y: Int): Boolean =
+            x in 0 until maskWidth && y in 0 until maskHeight && mask[y * maskWidth + x].toInt() != 0
+
+        val outline = android.graphics.Path()
+        for (y in 0 until maskHeight) {
+            for (x in 0 until maskWidth) {
+                if (!isSelected(x, y)) continue
+                val docX = (left + x).toFloat()
+                val docY = (top + y).toFloat()
+                if (!isSelected(x, y - 1)) { outline.moveTo(docX, docY); outline.lineTo(docX + 1f, docY) }
+                if (!isSelected(x + 1, y)) { outline.moveTo(docX + 1f, docY); outline.lineTo(docX + 1f, docY + 1f) }
+                if (!isSelected(x, y + 1)) { outline.moveTo(docX + 1f, docY + 1f); outline.lineTo(docX, docY + 1f) }
+                if (!isSelected(x - 1, y)) { outline.moveTo(docX, docY + 1f); outline.lineTo(docX, docY) }
+            }
+        }
+        return outline
     }
 
     fun selectRect(x: Int, y: Int, w: Int, h: Int, op: SelectionOp = selectionOp) {
@@ -1635,7 +2230,109 @@ class EsenhoEngine(
         updateSelectionInfo()
     }
 
-    fun selectAll(op: SelectionOp = selectionOp) {
+    fun selectBrushMask(points: List<Pair<Int, Int>>, radius: Int, op: SelectionOp = selectionOp) {
+        if (points.isEmpty()) return
+        val arr = IntArray(points.size * 2)
+        points.forEachIndexed { i, point ->
+            arr[i * 2] = point.first
+            arr[i * 2 + 1] = point.second
+        }
+        EsenhoNativeBridge.nativeSelectBrushMask(arr, points.size, radius.coerceAtLeast(1), op.id)
+        selectionPath = null
+        updateSelectionInfo()
+    }
+
+    private fun finishSelectionBrushStroke() {
+        val scratchId = selectionBrushScratchLayer
+        val originalLayerId = selectionBrushRestoreLayer
+        var brushBounds: android.graphics.Rect? = null
+        var brushMask: ByteArray? = null
+
+        if (scratchId >= 0 && width > 0 && height > 0) {
+            val scratchBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            if (EsenhoNativeBridge.nativeLayerGetBitmap(scratchId, scratchBitmap)) {
+                val rowPixels = IntArray(width)
+                var minX = width
+                var minY = height
+                var maxX = -1
+                var maxY = -1
+                for (y in 0 until height) {
+                    scratchBitmap.getPixels(rowPixels, 0, width, 0, y, width, 1)
+                    for (x in 0 until width) {
+                        if ((rowPixels[x] ushr 24) != 0) {
+                            if (x < minX) minX = x
+                            if (x > maxX) maxX = x
+                            if (y < minY) minY = y
+                            if (y > maxY) maxY = y
+                        }
+                    }
+                }
+                if (maxX >= minX && maxY >= minY) {
+                    val maskWidth = maxX - minX + 1
+                    val maskHeight = maxY - minY + 1
+                    val mask = ByteArray(maskWidth * maskHeight)
+                    for (y in 0 until maskHeight) {
+                        scratchBitmap.getPixels(rowPixels, 0, width, 0, minY + y, width, 1)
+                        for (x in 0 until maskWidth) {
+                            if ((rowPixels[minX + x] ushr 24) != 0) mask[y * maskWidth + x] = 1
+                        }
+                    }
+                    brushBounds = android.graphics.Rect(minX, minY, maxX + 1, maxY + 1)
+                    brushMask = mask
+                }
+            }
+            scratchBitmap.recycle()
+            EsenhoNativeBridge.nativeLayerClear(scratchId)
+        }
+
+        if (originalLayerId >= 0) EsenhoNativeBridge.nativeLayerSelect(originalLayerId)
+        restoreSelectionBrushOriginal()
+        if (brushBounds != null && brushMask != null) {
+            EsenhoNativeBridge.nativeSelectApplyMask(
+                brushMask,
+                brushBounds.left,
+                brushBounds.top,
+                brushBounds.width(),
+                brushBounds.height(),
+                selectionOp.id
+            )
+        }
+
+        clearSelectionBrushState()
+        updateSelectionInfo()
+        getRenderBitmap()
+    }
+
+    private fun restoreSelectionBrushOriginal() {
+        selectionBrushOriginalInfo?.let { info ->
+            val mask = selectionBrushOriginalMask
+            if (info[5] != 0 && mask != null) {
+                EsenhoNativeBridge.nativeSelectApplyMask(mask, info[1], info[2], info[3], info[4], SelectionOp.REPLACE.id)
+            } else {
+                EsenhoNativeBridge.nativeSelectRect(info[1], info[2], info[3], info[4], SelectionOp.REPLACE.id)
+            }
+        }
+    }
+
+    private fun clearSelectionBrushState() {
+        selectionBrushScratchLayer = -1
+        selectionBrushRestoreLayer = -1
+        selectionBrushOriginalInfo = null
+        selectionBrushOriginalMask = null
+    }
+
+    fun selectEllipse(centerX: Int, centerY: Int, radiusX: Int, radiusY: Int, op: SelectionOp = selectionOp) {
+        if (radiusX <= 0 || radiusY <= 0) return
+        selectionPath = android.graphics.Path().apply {
+            addOval(android.graphics.RectF((centerX - radiusX).toFloat(), (centerY - radiusY).toFloat(), (centerX + radiusX).toFloat(), (centerY + radiusY).toFloat()), android.graphics.Path.Direction.CW)
+        }
+        EsenhoNativeBridge.nativeSelectEllipse(centerX, centerY, radiusX, radiusY, op.id)
+        updateSelectionInfo()
+    }
+
+    // Match the web command: Select All replaces the current selection,
+    // regardless of the boolean operation chosen for subsequent marquee tools.
+    fun selectAll(op: SelectionOp = SelectionOp.REPLACE) {
         selectionPath = null
         EsenhoNativeBridge.nativeSelectAll(op.id)
         updateSelectionInfo()
@@ -1654,10 +2351,79 @@ class EsenhoEngine(
         updateSelectionInfo()
     }
 
+    fun featherSelection(radius: Int) {
+        EsenhoNativeBridge.nativeSelectFeather(radius.coerceIn(1, 16))
+        selectionPath = null
+        updateSelectionInfo()
+        getRenderBitmap()
+    }
+
     fun clearSelectedPixels() {
         pushUndoSnapshot()
         EsenhoNativeBridge.nativeClearSelectedPixels()
+        captureCurrentFrame()
         getRenderBitmap()
+    }
+
+    fun copySelectionToClipboard(): Boolean {
+        val bounds = selectionBounds ?: return false
+        val left = bounds.left.coerceIn(0, width)
+        val top = bounds.top.coerceIn(0, height)
+        val right = bounds.right.coerceIn(left, width)
+        val bottom = bounds.bottom.coerceIn(top, height)
+        val copyWidth = right - left
+        val copyHeight = bottom - top
+        if (copyWidth <= 0 || copyHeight <= 0) return false
+
+        val layerBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        if (!EsenhoNativeBridge.nativeLayerGetBitmap(activeLayerIndex, layerBitmap)) {
+            layerBitmap.recycle()
+            return false
+        }
+        val cropped = Bitmap.createBitmap(layerBitmap, left, top, copyWidth, copyHeight)
+        layerBitmap.recycle()
+        val copied = cropped.copy(Bitmap.Config.ARGB_8888, true)
+        if (cropped !== copied) cropped.recycle()
+        if (selectionHasMask) {
+            val mask = ByteArray(copyWidth * copyHeight)
+            if (EsenhoNativeBridge.nativeSelectGetMask(mask)) {
+                val pixels = IntArray(copyWidth * copyHeight)
+                copied.getPixels(pixels, 0, copyWidth, 0, 0, copyWidth, copyHeight)
+                for (y in 0 until copyHeight) for (x in 0 until copyWidth) {
+                    if ((mask[y * copyWidth + x].toInt() and 0xFF) == 0) {
+                        pixels[y * copyWidth + x] = 0
+                    }
+                }
+                copied.setPixels(pixels, 0, copyWidth, 0, 0, copyWidth, copyHeight)
+            }
+        }
+        selectionClipboard?.takeUnless { it.isRecycled }?.recycle()
+        selectionClipboard = copied
+        return true
+    }
+
+    fun cutSelectionToClipboard(): Boolean {
+        if (!copySelectionToClipboard()) return false
+        pushUndoSnapshot()
+        EsenhoNativeBridge.nativeClearSelectedPixels()
+        captureCurrentFrame()
+        getRenderBitmap()
+        return true
+    }
+
+    fun pasteSelectionClipboard(): Boolean {
+        val clipboard = selectionClipboard?.takeUnless { it.isRecycled } ?: return false
+        pushUndoSnapshot()
+        val bounds = selectionBounds
+        val x = bounds?.left ?: ((width - clipboard.width) / 2)
+        val y = bounds?.top ?: ((height - clipboard.height) / 2)
+        EsenhoNativeBridge.nativeLayerDrawBitmap(activeLayerIndex, clipboard, x, y, clipboard.width, clipboard.height)
+        EsenhoNativeBridge.nativeSelectRect(x, y, clipboard.width, clipboard.height, SelectionOp.REPLACE.id)
+        selectionPath = null
+        updateSelectionInfo()
+        captureCurrentFrame()
+        getRenderBitmap()
+        return true
     }
 
     // ── Flip & Transform Operations ──
@@ -1665,32 +2431,51 @@ class EsenhoEngine(
     fun flipLayerH(layerIdx: Int = activeLayerIndex) {
         pushUndoSnapshot()
         EsenhoNativeBridge.nativeLayerFlipH(layerIdx)
+        captureCurrentFrame(layerIdx)
         getRenderBitmap()
     }
 
     fun flipLayerV(layerIdx: Int = activeLayerIndex) {
         pushUndoSnapshot()
         EsenhoNativeBridge.nativeLayerFlipV(layerIdx)
+        captureCurrentFrame(layerIdx)
         getRenderBitmap()
     }
 
     fun flipCanvasH() {
         pushUndoSnapshot()
         EsenhoNativeBridge.nativeCanvasFlipH()
+        captureAllCurrentFrames()
         getRenderBitmap()
     }
 
     fun flipCanvasV() {
         pushUndoSnapshot()
         EsenhoNativeBridge.nativeCanvasFlipV()
+        captureAllCurrentFrames()
         getRenderBitmap()
     }
 
     fun importImageToLayer(bitmap: Bitmap, addNewLayer: Boolean = true): Int {
         pushUndoSnapshot()
         val targetLayer = if (addNewLayer) addLayer() else activeLayerIndex
-        EsenhoNativeBridge.nativeLayerDrawBitmap(targetLayer, bitmap, 0, 0, width, height)
+        // Match the web import path: preserve aspect ratio, shrink only when
+        // needed, and center the image on the canvas before starting transform.
+        val scale = min(width.toFloat() / bitmap.width, height.toFloat() / bitmap.height).coerceAtMost(1f)
+        val drawWidth = (bitmap.width * scale).roundToInt().coerceAtLeast(1)
+        val drawHeight = (bitmap.height * scale).roundToInt().coerceAtLeast(1)
+        val drawX = (width - drawWidth) / 2
+        val drawY = (height - drawHeight) / 2
+        val drawBitmap = if (drawWidth != bitmap.width || drawHeight != bitmap.height) {
+            Bitmap.createScaledBitmap(bitmap, drawWidth, drawHeight, true)
+        } else bitmap
+        try {
+            EsenhoNativeBridge.nativeLayerDrawBitmap(targetLayer, drawBitmap, drawX, drawY, drawWidth, drawHeight)
+        } finally {
+            if (drawBitmap !== bitmap && !drawBitmap.isRecycled) drawBitmap.recycle()
+        }
         syncLayers()
+        captureCurrentFrame(targetLayer)
         getRenderBitmap()
         return targetLayer
     }
@@ -1700,14 +2485,27 @@ class EsenhoEngine(
     }
 
     fun cancelActiveStroke() {
+        val hadActiveStroke = isStrokeActive
         isStrokeActive = false
-        EsenhoNativeBridge.nativeCancelStroke()
+        // nativeCancelStroke rolls back and pops the latest undo snapshot, so
+        // only call it when this engine actually began a stroke. Multi-touch
+        // gestures and other idle cancellations must not consume history.
+        if (hadActiveStroke) EsenhoNativeBridge.nativeCancelStroke()
+        if (selectionBrushScratchLayer >= 0) {
+            EsenhoNativeBridge.nativeLayerClear(selectionBrushScratchLayer)
+            if (selectionBrushRestoreLayer >= 0) EsenhoNativeBridge.nativeLayerSelect(selectionBrushRestoreLayer)
+            restoreSelectionBrushOriginal()
+            clearSelectionBrushState()
+            lassoPoints.clear()
+            updateSelectionInfo()
+        }
         getRenderBitmap()
     }
 
     fun undo(): Boolean {
         val ok = EsenhoNativeBridge.nativeUndo()
         if (ok) {
+            captureCurrentFrame()
             getRenderBitmap()
         }
         return ok
@@ -1716,6 +2514,7 @@ class EsenhoEngine(
     fun redo(): Boolean {
         val ok = EsenhoNativeBridge.nativeRedo()
         if (ok) {
+            captureCurrentFrame()
             getRenderBitmap()
         }
         return ok
@@ -1727,6 +2526,7 @@ class EsenhoEngine(
         if (activeLayerIndex <= 3) {
             EsenhoNativeBridge.nativeDrawRect(0, 0, width, height, toNativeColor(Color.WHITE))
         }
+        captureCurrentFrame()
         getRenderBitmap()
     }
 
@@ -1744,6 +2544,14 @@ class EsenhoEngine(
     // ── Floating Transform Tool (M4 / R1) ──
 
     var transformState: TransformState? = null
+    var transformInterpolation: TransformState.Interpolation = TransformState.Interpolation.NEAREST
+    var transformModePreference: TransformState.Mode = TransformState.Mode.values().firstOrNull {
+        it.name == rasterUiPreferences.getString("transform_mode", TransformState.Mode.SCALE.name)
+    } ?: TransformState.Mode.SCALE
+        set(value) {
+            field = value
+            rasterUiPreferences.edit().putString("transform_mode", value.name).apply()
+        }
 
     fun beginTransform(selectionOnly: Boolean = false): Boolean {
         if (width <= 0 || height <= 0) return false
@@ -1763,29 +2571,42 @@ class EsenhoEngine(
                 val sw = info[3].coerceIn(1, width - sx)
                 val sh = info[4].coerceIn(1, height - sy)
                 val hasMask = info[5] == 1
+                var originalMask: ByteArray? = null
 
                 val selBmp = Bitmap.createBitmap(fullLayerBackup, sx, sy, sw, sh)
                 val sourceBmp = selBmp.copy(Bitmap.Config.ARGB_8888, true)
                 if (selBmp != sourceBmp) selBmp.recycle()
 
                 if (hasMask) {
-                    val maskBytes = ByteArray(width * height)
-                    if (EsenhoNativeBridge.nativeSelectGetMask(maskBytes)) {
-                        val pixels = IntArray(sw * sh)
-                        sourceBmp.getPixels(pixels, 0, sw, 0, 0, sw, sh)
-                        for (y in 0 until sh) {
-                            val my = sy + y
-                            for (x in 0 until sw) {
-                                val mx = sx + x
-                                val mVal = maskBytes[my * width + mx].toInt() and 0xFF
-                                val p = pixels[y * sw + x]
-                                val a = ((p ushr 24) * mVal) / 255
-                                pixels[y * sw + x] = (a shl 24) or (p and 0x00FFFFFF)
-                            }
-                        }
-                        sourceBmp.setPixels(pixels, 0, sw, 0, 0, sw, sh)
+                    val maskBytes = ByteArray(sw * sh)
+                    if (!EsenhoNativeBridge.nativeSelectGetMask(maskBytes)) {
+                        // Do not degrade a masked selection to its bounding
+                        // rectangle: that would transform pixels the user did
+                        // not select. No history snapshot has been reserved yet.
+                        sourceBmp.recycle()
+                        fullLayerBackup.recycle()
+                        return false
                     }
+                    originalMask = maskBytes
+                    val pixels = IntArray(sw * sh)
+                    sourceBmp.getPixels(pixels, 0, sw, 0, 0, sw, sh)
+                    for (y in 0 until sh) {
+                        for (x in 0 until sw) {
+                            val mVal = maskBytes[y * sw + x].toInt() and 0xFF
+                            val p = pixels[y * sw + x]
+                            // The native selection mask is binary (0/1);
+                            // tolerate 0..255 masks as well if that changes.
+                            val maskAlpha = if (mVal <= 1) mVal * 255 else mVal
+                            val a = ((p ushr 24) * maskAlpha) / 255
+                            pixels[y * sw + x] = (a shl 24) or (p and 0x00FFFFFF)
+                        }
+                    }
+                    sourceBmp.setPixels(pixels, 0, sw, 0, 0, sw, sh)
                 }
+
+                transformSelectionBackup = TransformSelectionBackup(
+                    android.graphics.Rect(sx, sy, sx + sw, sy + sh), originalMask
+                )
 
                 pushUndoSnapshot()
                 EsenhoNativeBridge.nativeClearSelectedPixels()
@@ -1796,7 +2617,10 @@ class EsenhoEngine(
                     initialBounds = RectF(sx.toFloat(), sy.toFloat(), (sx + sw).toFloat(), (sy + sh).toFloat()),
                     isSelectionOnly = true,
                     originalLayerBackup = fullLayerBackup
-                )
+                ).also {
+                    it.mode = transformModePreference
+                    it.interpolation = transformInterpolation
+                }
                 clearSelection()
                 currentTool = ToolMode.TRANSFORM
                 getRenderBitmap()
@@ -1845,7 +2669,11 @@ class EsenhoEngine(
             initialBounds = initialBounds,
             isSelectionOnly = false,
             originalLayerBackup = fullLayerBackup
-        )
+        ).also {
+            it.mode = transformModePreference
+            it.interpolation = transformInterpolation
+        }
+        transformSelectionBackup = null
         clearSelection()
         currentTool = ToolMode.TRANSFORM
         getRenderBitmap()
@@ -1858,8 +2686,8 @@ class EsenhoEngine(
             return
         }
 
+        val resultBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         try {
-            val resultBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(resultBmp)
 
             if (state.isSelectionOnly) {
@@ -1869,21 +2697,24 @@ class EsenhoEngine(
                 existingLayerBmp.recycle()
             }
 
-            val w = state.sourceBitmap.width.toFloat()
-            val h = state.sourceBitmap.height.toFloat()
-            val drawMatrix = Matrix()
-            val srcPoly = floatArrayOf(0f, 0f, w, 0f, w, h, 0f, h)
-            drawMatrix.setPolyToPoly(srcPoly, 0, state.dstPts, 0, 4)
-
             val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
-            canvas.drawBitmap(state.sourceBitmap, drawMatrix, paint)
+            state.drawTransformedBitmap(canvas, paint)
 
             EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
             EsenhoNativeBridge.nativeLayerDrawBitmap(activeLayerIndex, resultBmp, 0, 0, width, height)
-            resultBmp.recycle()
+            // A transform edits the active animation cel just like a brush
+            // stroke; keep its timeline thumbnail and saved pixels in sync.
+            captureCurrentFrame()
         } catch (e: Exception) {
             e.printStackTrace()
+            state.originalLayerBackup?.takeUnless { it.isRecycled }?.let { backup ->
+                EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
+                EsenhoNativeBridge.nativeLayerDrawBitmap(activeLayerIndex, backup, 0, 0, width, height)
+                captureCurrentFrame()
+            }
         } finally {
+            resultBmp.takeUnless { it.isRecycled }?.recycle()
+            transformSelectionBackup = null
             state.release()
             transformState = null
             currentTool = ToolMode.BRUSH
@@ -1898,15 +2729,34 @@ class EsenhoEngine(
         }
 
         try {
+            // beginTransform reserves one undo snapshot before clearing the
+            // layer. Rolling it back also removes that pending history entry.
+            EsenhoNativeBridge.nativeCancelStroke()
+            captureCurrentFrame()
+            transformSelectionBackup?.let { selection ->
+                val bounds = selection.bounds
+                if (selection.mask != null) {
+                    EsenhoNativeBridge.nativeSelectApplyMask(
+                        selection.mask, bounds.left, bounds.top, bounds.width(), bounds.height(), SelectionOp.REPLACE.id
+                    )
+                } else {
+                    EsenhoNativeBridge.nativeSelectRect(
+                        bounds.left, bounds.top, bounds.width(), bounds.height(), SelectionOp.REPLACE.id
+                    )
+                }
+                updateSelectionInfo()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
             state.originalLayerBackup?.let { backup ->
                 if (!backup.isRecycled) {
                     EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
                     EsenhoNativeBridge.nativeLayerDrawBitmap(activeLayerIndex, backup, 0, 0, width, height)
+                    captureCurrentFrame()
                 }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         } finally {
+            transformSelectionBackup = null
             state.release()
             transformState = null
             currentTool = ToolMode.BRUSH
@@ -1926,6 +2776,21 @@ class EsenhoEngine(
 
     fun rotateTransform90() {
         transformState?.rotate90()
+        getRenderBitmap()
+    }
+
+    fun resetTransform() {
+        transformState?.reset()
+        getRenderBitmap()
+    }
+
+    fun centerTransform() {
+        transformState?.centerOnCanvas(width, height)
+        getRenderBitmap()
+    }
+
+    fun fitTransformToCanvas() {
+        transformState?.fitToCanvas(width, height)
         getRenderBitmap()
     }
 

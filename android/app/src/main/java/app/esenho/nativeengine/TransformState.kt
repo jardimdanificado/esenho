@@ -9,6 +9,21 @@ class TransformState(
     val isSelectionOnly: Boolean,
     val originalLayerBackup: Bitmap? = null
 ) {
+    enum class Mode(val title: String) {
+        SCALE("Escala"),
+        DISTORT("Distorção livre"),
+        PERSPECTIVE("Perspectiva"),
+        SKEW("Inclinação")
+    }
+
+    enum class Interpolation(val title: String) {
+        NEAREST("Nítido"),
+        BILINEAR("Suave")
+    }
+
+    var mode: Mode = Mode.SCALE
+    var interpolation: Interpolation = Interpolation.NEAREST
+
     // Current transformation matrix in canvas coordinates
     val matrix = Matrix()
 
@@ -98,6 +113,23 @@ class TransformState(
         updatePoints()
     }
 
+    fun rotateFromOrigin(degrees: Float, origin: FloatArray, px: Float, py: Float) {
+        if (origin.size < 8) return
+        val radians = Math.toRadians(degrees.toDouble())
+        val cosA = cos(radians).toFloat()
+        val sinA = sin(radians).toFloat()
+        val rotated = origin.copyOf()
+        for (index in 0..3) {
+            val dx = origin[index * 2] - px
+            val dy = origin[index * 2 + 1] - py
+            rotated[index * 2] = px + dx * cosA - dy * sinA
+            rotated[index * 2 + 1] = py + dx * sinA + dy * cosA
+        }
+        matrix.reset()
+        matrix.setPolyToPoly(srcPts, 0, rotated, 0, 4)
+        updatePoints()
+    }
+
     fun flipHorizontal() {
         val c = getCenter()
         matrix.postScale(-1f, 1f, c.x, c.y)
@@ -114,6 +146,136 @@ class TransformState(
         val c = getCenter()
         matrix.postRotate(90f, c.x, c.y)
         updatePoints()
+    }
+
+    fun reset() {
+        matrix.reset()
+        updatePoints()
+    }
+
+    fun centerOnCanvas(canvasWidth: Int, canvasHeight: Int) {
+        val c = getCenter()
+        matrix.postTranslate(canvasWidth / 2f - c.x, canvasHeight / 2f - c.y)
+        updatePoints()
+    }
+
+    fun fitToCanvas(canvasWidth: Int, canvasHeight: Int, margin: Float = 0.05f) {
+        if (canvasWidth <= 0 || canvasHeight <= 0) return
+        val bounds = RectF(currentBounds)
+        if (bounds.width() <= 0f || bounds.height() <= 0f) return
+        val maxWidth = canvasWidth * (1f - margin.coerceIn(0f, 0.4f) * 2f)
+        val maxHeight = canvasHeight * (1f - margin.coerceIn(0f, 0.4f) * 2f)
+        val scale = min(maxWidth / bounds.width(), maxHeight / bounds.height())
+        val c = getCenter()
+        matrix.postScale(scale, scale, c.x, c.y)
+        val scaledCenter = getCenter()
+        matrix.postTranslate(canvasWidth / 2f - scaledCenter.x, canvasHeight / 2f - scaledCenter.y)
+        updatePoints()
+    }
+
+    fun moveHandle(handle: Handle, dx: Float, dy: Float, origin: FloatArray = dstPts.copyOf(), lockAspect: Boolean = false) {
+        if (origin.size < 8) return
+        val next = origin.copyOf()
+        fun movePoint(index: Int, x: Float, y: Float) {
+            next[index * 2] = x
+            next[index * 2 + 1] = y
+        }
+        fun point(index: Int) = PointF(origin[index * 2], origin[index * 2 + 1])
+
+        val corner = when (handle) {
+            Handle.TOP_LEFT -> 0
+            Handle.TOP_RIGHT -> 1
+            Handle.BOTTOM_RIGHT -> 2
+            Handle.BOTTOM_LEFT -> 3
+            else -> -1
+        }
+        if (corner >= 0) {
+            // Perspective and Free Distort both need independent corner
+            // control; their edge handles remain distinct below.
+            val free = mode == Mode.DISTORT || mode == Mode.PERSPECTIVE
+            if (free) {
+                movePoint(corner, origin[corner * 2] + dx, origin[corner * 2 + 1] + dy)
+            } else {
+                val opposite = point((corner + 2) % 4)
+                val topLeft = point(0)
+                val topRight = point(1)
+                val bottomLeft = point(3)
+                val uX = topRight.x - topLeft.x
+                val uY = topRight.y - topLeft.y
+                val vX = bottomLeft.x - topLeft.x
+                val vY = bottomLeft.y - topLeft.y
+                val uLen = hypot(uX, uY).coerceAtLeast(1e-4f)
+                val vLen = hypot(vX, vY).coerceAtLeast(1e-4f)
+                val ux = uX / uLen; val uy = uY / uLen
+                val vx = vX / vLen; val vy = vY / vLen
+                val oldX = origin[corner * 2] - opposite.x
+                val oldY = origin[corner * 2 + 1] - opposite.y
+                val newX = oldX + dx
+                val newY = oldY + dy
+                val oldU = oldX * ux + oldY * uy
+                val oldV = oldX * vx + oldY * vy
+                var scaleU = if (abs(oldU) > 1e-3f) (newX * ux + newY * uy) / oldU else 1f
+                var scaleV = if (abs(oldV) > 1e-3f) (newX * vx + newY * vy) / oldV else 1f
+                if (lockAspect) {
+                    val mag = (abs(scaleU) + abs(scaleV)) * 0.5f
+                    scaleU = if (scaleU < 0f) -mag else mag
+                    scaleV = if (scaleV < 0f) -mag else mag
+                }
+                for (index in 0..3) {
+                    val relativeX = origin[index * 2] - opposite.x
+                    val relativeY = origin[index * 2 + 1] - opposite.y
+                    val projectedU = (relativeX * ux + relativeY * uy) * scaleU
+                    val projectedV = (relativeX * vx + relativeY * vy) * scaleV
+                    movePoint(index, opposite.x + projectedU * ux + projectedV * vx, opposite.y + projectedU * uy + projectedV * vy)
+                }
+            }
+        } else {
+            val edge = when (handle) {
+                Handle.TOP -> intArrayOf(0, 1, 3, 2)
+                Handle.RIGHT -> intArrayOf(1, 2, 0, 3)
+                Handle.BOTTOM -> intArrayOf(2, 3, 1, 0)
+                Handle.LEFT -> intArrayOf(3, 0, 2, 1)
+                else -> return
+            }
+            val a = edge[0]; val b = edge[1]
+            if (mode == Mode.SKEW || mode == Mode.DISTORT) {
+                movePoint(a, origin[a * 2] + dx, origin[a * 2 + 1] + dy)
+                movePoint(b, origin[b * 2] + dx, origin[b * 2 + 1] + dy)
+            } else {
+                val pa = point(a)
+                val oppositeA = point(edge[2])
+                val axisX = pa.x - oppositeA.x
+                val axisY = pa.y - oppositeA.y
+                val axisLength = hypot(axisX, axisY).coerceAtLeast(1e-4f)
+                val ax = axisX / axisLength; val ay = axisY / axisLength
+                val projection = dx * ax + dy * ay
+                movePoint(a, pa.x + projection * ax, pa.y + projection * ay)
+                val pb = point(b)
+                movePoint(b, pb.x + projection * ax, pb.y + projection * ay)
+            }
+        }
+        matrix.reset()
+        if (!matrix.setPolyToPoly(srcPts, 0, next, 0, 4)) {
+            matrix.reset()
+            matrix.setPolyToPoly(srcPts, 0, origin, 0, 4)
+        }
+        updatePoints()
+    }
+
+    fun isCorner(handle: Handle): Boolean = handle in setOf(
+        Handle.TOP_LEFT, Handle.TOP_RIGHT, Handle.BOTTOM_RIGHT, Handle.BOTTOM_LEFT
+    )
+
+    fun isEdge(handle: Handle): Boolean = handle in setOf(Handle.TOP, Handle.RIGHT, Handle.BOTTOM, Handle.LEFT)
+
+    fun drawTransformedBitmap(canvas: Canvas, paint: Paint = bitmapPaint) {
+        paint.isFilterBitmap = interpolation == Interpolation.BILINEAR
+        val w = sourceBitmap.width.toFloat()
+        val h = sourceBitmap.height.toFloat()
+        val map = Matrix()
+        if (map.setPolyToPoly(floatArrayOf(0f, 0f, w, 0f, w, h, 0f, h), 0, dstPts, 0, 4)) {
+            canvas.drawBitmap(sourceBitmap, map, paint)
+        }
     }
 
     fun getCenter(): PointF {
@@ -208,14 +370,8 @@ class TransformState(
      * Renders the transformed bitmap, quad outline, and handles on the canvas.
      */
     fun draw(canvas: Canvas, canvasScale: Float = 1f) {
-        val w = sourceBitmap.width.toFloat()
-        val h = sourceBitmap.height.toFloat()
-
-        // 1. Render Transformed Bitmap with Bilinear Filter
-        val drawMatrix = Matrix()
-        val srcPoly = floatArrayOf(0f, 0f, w, 0f, w, h, 0f, h)
-        drawMatrix.setPolyToPoly(srcPoly, 0, dstPts, 0, 4)
-        canvas.drawBitmap(sourceBitmap, drawMatrix, bitmapPaint)
+        // Render the preview using perspective mapping or piecewise affine distortion.
+        drawTransformedBitmap(canvas)
 
         // 2. Render Bounding Box Quad
         val handleRadius = 7f / canvasScale.coerceAtLeast(0.1f)
