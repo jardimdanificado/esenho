@@ -231,6 +231,31 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
                 actions = {
+                    TooltipIconButton(
+                        onClick = { engine.pixelArtGrid = !engine.pixelArtGrid; refreshState() },
+                        description = if (pixelArtGrid) "Ocultar grade Pixel Art" else "Mostrar grade Pixel Art",
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Default.GridOn, contentDescription = "Grade Pixel Art", modifier = Modifier.size(18.dp), tint = if (pixelArtGrid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                    }
+                    Box {
+                        TooltipIconButton(
+                            onClick = { showSymmetryMenu = true },
+                            description = "Simetria: ${symmetryMode.displayName}",
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.Stream, contentDescription = "Simetria", modifier = Modifier.size(18.dp), tint = if (symmetryMode != SymmetryMode.OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        }
+                        DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
+                            SymmetryMode.values().forEach { mode ->
+                                DropdownMenuItem(
+                                    text = { Text(mode.displayName) },
+                                    trailingIcon = if (symmetryMode == mode) {{ Icon(Icons.Default.Check, null) }} else null,
+                                    onClick = { showSymmetryMenu = false; engine.symmetryMode = mode; refreshState() }
+                                )
+                            }
+                        }
+                    }
                     // Animation Toggle
                     TooltipIconButton(
                         onClick = { showAnimationTimeline = !showAnimationTimeline },
@@ -338,15 +363,6 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                                     refreshState()
                                 }
                             )
-                            DropdownMenuItem(
-                                text = { Text(if (engine.pixelArtGrid) "Desativar Grade" else "Grade Pixel Art") },
-                                leadingIcon = { Icon(Icons.Default.GridOn, null) },
-                                onClick = {
-                                    showMenu = false
-                                    engine.pixelArtGrid = !engine.pixelArtGrid
-                                    refreshState()
-                                }
-                            )
                             HorizontalDivider()
                             DropdownMenuItem(
                                 text = { Text("Resetar Zoom & Posição") },
@@ -364,6 +380,13 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                                     engine.clearActiveLayer()
                                     refreshState()
                                 }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("esenho v${context.getString(R.string.app_version).substringBefore('-')}") },
+                                leadingIcon = { Icon(Icons.Default.Info, null) },
+                                enabled = false,
+                                onClick = {}
                             )
                         }
                     }
@@ -637,42 +660,20 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                                     }
                                 )
                             }
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text(if (pixelArtGrid) "Ocultar grade" else "Grade Pixel Art") },
-                                leadingIcon = { Icon(Icons.Default.GridOn, null) },
-                                onClick = { showSelectMenu = false; engine.pixelArtGrid = !engine.pixelArtGrid; refreshState() }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Simetria: ${symmetryMode.displayName}") },
-                                leadingIcon = { Icon(Icons.Default.Stream, null) },
-                                onClick = { showSelectMenu = false; showSymmetryMenu = true }
-                            )
-                        }
-                    }
-                    DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
-                        SymmetryMode.values().forEach { mode ->
-                            DropdownMenuItem(text = { Text(mode.displayName) }, onClick = {
-                                showSymmetryMenu = false; engine.symmetryMode = mode; refreshState()
-                            })
                         }
                     }
 
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
-                        modifier = Modifier
-                            .widthIn(max = 142.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { showBrushDrawer = true }
-                    ) {
-                        Row(Modifier.padding(horizontal = 8.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Brush, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(activeBrushName, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp)
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
-                        }
-                    }
+                    val presetTypeIcon = engine.selectedPreset?.let { preset ->
+                        getPresetIcon(mapPresetCategory(preset.category))
+                    } ?: if (engine.selectedBrush != null) Icons.Default.AutoAwesome else Icons.Default.Brush
+                    ToolNavButton(
+                        icon = presetTypeIcon,
+                        isSelected = showBrushDrawer,
+                        description = "Preset: $activeBrushName",
+                        onClick = { showBrushDrawer = true }
+                    )
 
+                    Spacer(Modifier.weight(1f))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(2.dp),

@@ -36,19 +36,12 @@ class EsenhoCanvasView @JvmOverloads constructor(
     private var lastSpan = 0f
     private var lastAngle = 0f
 
-    private var initialTwoFingerTime = 0L
-    private var initialTwoFingerMidX = 0f
-    private var initialTwoFingerMidY = 0f
-    private var initialTwoFingerSpan = 0f
-    private var initialP0X = 0f
-    private var initialP0Y = 0f
-    private var initialP1X = 0f
-    private var initialP1Y = 0f
+    private var historyGestureStartTime = 0L
     private val matrixBeforeTwoFinger = Matrix()
     private var twoFingerMoved = false
     private var maxPointersInGesture = 0
     private var historyGestureHandled = false
-    private val initialPointerPositions = mutableListOf<Pair<Float, Float>>()
+    private val initialPointerPositions = mutableMapOf<Int, Pair<Float, Float>>()
 
     // Floating Transform Tool gesture state (M4 / R1)
     private var activeTransformHandle: app.esenho.nativeengine.TransformState.Handle = app.esenho.nativeengine.TransformState.Handle.NONE
@@ -252,7 +245,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 maxPointersInGesture = 1
                 historyGestureHandled = false
                 initialPointerPositions.clear()
-                initialPointerPositions.add(event.x to event.y)
+                initialPointerPositions[event.getPointerId(0)] = event.x to event.y
+                historyGestureStartTime = event.eventTime
+                twoFingerMoved = false
                 isTransforming = false
                 isEyedropperActive = false
                 lastSingleTouchX = event.x
@@ -309,10 +304,8 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
             MotionEvent.ACTION_POINTER_DOWN -> {
                 maxPointersInGesture = max(maxPointersInGesture, pointerCount)
-                while (initialPointerPositions.size < pointerCount) {
-                    val i = initialPointerPositions.size
-                    initialPointerPositions.add(event.getX(i) to event.getY(i))
-                }
+                initialPointerPositions[event.getPointerId(event.actionIndex)] =
+                    event.getX(event.actionIndex) to event.getY(event.actionIndex)
                 isEyedropperActive = false
 
                 if (pointerCount >= 2) {
@@ -332,16 +325,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     lastSpan = hypot(p1x - p0x, p1y - p0y)
                     lastAngle = Math.toDegrees(atan2((p1y - p0y).toDouble(), (p1x - p0x).toDouble())).toFloat()
 
-                    initialTwoFingerTime = System.currentTimeMillis()
-                    initialTwoFingerMidX = lastMidX
-                    initialTwoFingerMidY = lastMidY
-                    initialTwoFingerSpan = lastSpan
-                    initialP0X = p0x
-                    initialP0Y = p0y
-                    initialP1X = p1x
-                    initialP1Y = p1y
-                    matrixBeforeTwoFinger.set(transformMatrix)
-                    twoFingerMoved = false
+                    if (pointerCount == 2) {
+                        matrixBeforeTwoFinger.set(transformMatrix)
+                    }
 
                     invalidate()
                     return true
@@ -424,18 +410,11 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     while (angleDelta < -180f) angleDelta += 360f
 
                     // Accurate displacement check: if either finger traveled or span changed, it's a zoom/pan gesture, NOT a tap
-                    val d0 = hypot(p0x - initialP0X, p0y - initialP0Y)
-                    val d1 = hypot(p1x - initialP1X, p1y - initialP1Y)
-                    val extraPointerMoved = (2 until pointerCount).any { index ->
-                        val initial = initialPointerPositions.getOrNull(index) ?: return@any false
-                        hypot(event.getX(index) - initial.first, event.getY(index) - initial.second) > 8f
+                    val pointerMoved = (0 until pointerCount).any { index ->
+                        val initial = initialPointerPositions[event.getPointerId(index)] ?: return@any true
+                        hypot(event.getX(index) - initial.first, event.getY(index) - initial.second) > 12f
                     }
-                    val spanDelta = abs(currSpan - initialTwoFingerSpan)
-                    val midDelta = hypot(currMidX - initialTwoFingerMidX, currMidY - initialTwoFingerMidY)
-
-                    if (d0 > 8f || d1 > 8f || extraPointerMoved || spanDelta > 6f || midDelta > 6f) {
-                        twoFingerMoved = true
-                    }
+                    if (pointerMoved) twoFingerMoved = true
 
                     // 1. Pinch Scale around stable previous midpoint
                     transformMatrix.postScale(scaleDelta, scaleDelta, lastMidX, lastMidY)
@@ -492,28 +471,6 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
             MotionEvent.ACTION_POINTER_UP -> {
                 if (isTransforming) {
-                    val dt = System.currentTimeMillis() - initialTwoFingerTime
-                    if (!historyGestureHandled && !twoFingerMoved && dt <= 500L) {
-                        historyGestureHandled = true
-                        // Revert matrix micro-shift before executing tap action
-                        transformMatrix.set(matrixBeforeTwoFinger)
-                        transformMatrix.invert(inverseMatrix)
-
-                        if (maxPointersInGesture == 2) {
-                            // Two-finger tap = undo.
-                            engine?.transformState?.let { engine?.cancelTransform() }
-                            engine?.undo()
-                            onStateChanged?.invoke()
-                            invalidate()
-                        } else if (maxPointersInGesture >= 3) {
-                            // Three-finger tap = redo.
-                            engine?.transformState?.let { engine?.cancelTransform() }
-                            engine?.redo()
-                            onStateChanged?.invoke()
-                            invalidate()
-                        }
-                    }
-
                     val remaining = event.pointerCount - 1
                     if (remaining >= 2) {
                         val upIndex = event.actionIndex
@@ -533,6 +490,25 @@ class EsenhoCanvasView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_UP -> {
+                if (isTransforming) {
+                    val duration = event.eventTime - historyGestureStartTime
+                    if (!historyGestureHandled && !twoFingerMoved && duration <= 650L) {
+                        historyGestureHandled = true
+                        transformMatrix.set(matrixBeforeTwoFinger)
+                        transformMatrix.invert(inverseMatrix)
+                        engine?.transformState?.let { engine?.cancelTransform() }
+                        if (maxPointersInGesture >= 3) {
+                            engine?.redo()
+                        } else if (maxPointersInGesture == 2) {
+                            engine?.undo()
+                        }
+                        onStateChanged?.invoke()
+                    }
+                    isTransforming = false
+                    invalidate()
+                    return true
+                }
+
                 if (activeTransformHandle != app.esenho.nativeengine.TransformState.Handle.NONE) {
                     activeTransformHandle = app.esenho.nativeengine.TransformState.Handle.NONE
                     invalidate()

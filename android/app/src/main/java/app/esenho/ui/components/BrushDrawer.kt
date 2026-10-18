@@ -48,7 +48,7 @@ private fun mapWasmCategory(cat: String): String {
     }
 }
 
-private fun mapPresetCategory(cat: String): String {
+fun mapPresetCategory(cat: String): String {
     return when (cat.trim().lowercase()) {
         "personalizado", "personalizados", "custom" -> "Personalizados"
         "sketch" -> "Esboço & Lápis"
@@ -66,7 +66,7 @@ private fun mapPresetCategory(cat: String): String {
 }
 
 @Composable
-private fun getPresetIcon(group: String): ImageVector {
+fun getPresetIcon(group: String): ImageVector {
     return when (group) {
         "Personalizados" -> Icons.Default.Star
         "Esboço & Lápis" -> Icons.Default.Edit

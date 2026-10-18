@@ -267,26 +267,34 @@ fun VerticalThumbBar(
     onValueChange: (Float) -> Unit,
     onActiveChange: (Boolean) -> Unit
 ) {
+    // pointerInput(Unit) intentionally keeps its gesture coroutine alive while
+    // the thumb is dragged. Keep the callbacks fresh when the selected
+    // property changes during recomposition, otherwise the next drag can keep
+    // writing to the previous property.
+    val latestOnClick by rememberUpdatedState(onClick)
+    val latestOnValueChange by rememberUpdatedState(onValueChange)
+    val latestOnActiveChange by rememberUpdatedState(onActiveChange)
+
     Box(
         modifier = Modifier
             .width(42.dp)
             .height(115.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(Color(0x35000000))
-            .clickable(onClick = onClick)
+            .clickable(onClick = { latestOnClick() })
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onDragStart = { offset ->
-                        onActiveChange(true)
+                        latestOnActiveChange(true)
                         val norm = 1f - (offset.y / size.height).coerceIn(0f, 1f)
-                        onValueChange(norm)
+                        latestOnValueChange(norm)
                     },
-                    onDragEnd = { onActiveChange(false) },
-                    onDragCancel = { onActiveChange(false) },
+                    onDragEnd = { latestOnActiveChange(false) },
+                    onDragCancel = { latestOnActiveChange(false) },
                     onVerticalDrag = { change, _ ->
                         change.consume()
                         val norm = 1f - (change.position.y / size.height).coerceIn(0f, 1f)
-                        onValueChange(norm)
+                        latestOnValueChange(norm)
                     }
                 )
             },

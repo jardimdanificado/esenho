@@ -30,6 +30,7 @@ android {
         targetSdk 34
         versionCode computedVersionCode
         versionName pkgVersion
+        resValue "string", "app_version", pkgVersion
     }
 
     signingConfigs {
