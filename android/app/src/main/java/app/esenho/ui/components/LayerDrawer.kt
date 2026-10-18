@@ -42,12 +42,12 @@ fun LayerDrawer(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        windowInsets = WindowInsets.safeDrawing
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
                 .heightIn(max = 440.dp)
                 .padding(horizontal = 14.dp)
                 .padding(bottom = 16.dp)

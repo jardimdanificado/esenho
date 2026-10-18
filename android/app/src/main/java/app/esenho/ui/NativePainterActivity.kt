@@ -52,7 +52,7 @@ class NativePainterActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
             EsenhoNativeTheme {
@@ -184,6 +184,8 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
     }
 
     Scaffold(
+        modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {},
@@ -366,22 +368,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                         }
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        modifier = Modifier.padding(start = 2.dp, end = 6.dp)
-                    ) {
-                        (engine.getActivePalette()?.colors?.take(4) ?: emptyList()).forEach { chipColor ->
-                            Box(
-                                Modifier.size(16.dp).clip(CircleShape).background(Color(chipColor))
-                                    .border(1.dp, if (chipColor == currentColor) Color.White else Color.Gray, CircleShape)
-                                    .clickable { currentColor = chipColor; engine.currentColor = chipColor; refreshState() }
-                            )
-                        }
-                        TooltipIconButton(onClick = { showColorStudio = true }, description = "Color Studio", modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Default.Palette, contentDescription = "Color Studio", modifier = Modifier.size(18.dp), tint = Color(currentColor))
-                        }
-                    }
+
                 }
             )
         }
@@ -590,24 +577,6 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(3.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
-                        modifier = Modifier
-                            .widthIn(max = 142.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { showBrushDrawer = true }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Brush, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(activeBrushName, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp)
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
-                        }
-                    }
-
                     val modeIcon = when (currentTool) {
                         ToolMode.ERASER -> null
                         ToolMode.SMUDGE -> Icons.Default.WaterDrop
@@ -689,8 +658,37 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                         }
                     }
 
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+                        modifier = Modifier
+                            .widthIn(max = 142.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showBrushDrawer = true }
+                    ) {
+                        Row(Modifier.padding(horizontal = 8.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Brush, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(activeBrushName, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                    }
 
-
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier.padding(start = 2.dp, end = 6.dp)
+                    ) {
+                        (engine.getActivePalette()?.colors?.take(4) ?: emptyList()).forEach { chipColor ->
+                            Box(
+                                Modifier.size(16.dp).clip(CircleShape).background(Color(chipColor))
+                                    .border(1.dp, if (chipColor == currentColor) Color.White else Color.Gray, CircleShape)
+                                    .clickable { currentColor = chipColor; engine.currentColor = chipColor; refreshState() }
+                            )
+                        }
+                        TooltipIconButton(onClick = { showColorStudio = true }, description = "Color Studio", modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Palette, contentDescription = "Color Studio", modifier = Modifier.size(18.dp), tint = Color(currentColor))
+                        }
+                    }
                 }
             }
         }

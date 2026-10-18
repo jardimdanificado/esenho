@@ -86,7 +86,7 @@ fun ThumbSliders(
             val cfg = AVAILABLE_SLIDER_PARAMS.find { it.paramId == paramId }
                 ?: AVAILABLE_SLIDER_PARAMS[0]
 
-            val currentRawVal = remember(engine.selectedPreset, engine.brushSize, engine.brushOpacity, refreshTrigger) {
+            val currentRawVal = remember(cfg.paramId, engine.selectedPreset, engine.brushSize, engine.brushOpacity, refreshTrigger) {
                 if (cfg.paramId == 1) {
                     engine.brushSize.coerceIn(cfg.minVal, cfg.maxVal)
                 } else if (cfg.paramId == 2) {
