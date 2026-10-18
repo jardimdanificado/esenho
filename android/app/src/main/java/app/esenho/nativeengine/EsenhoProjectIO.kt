@@ -23,6 +23,7 @@ object EsenhoProjectIO {
         val active: Int,
         val layers: List<LayerSnapshot>,
         val frames: List<Bitmap>,
+        val frameDurations: List<Int>,
         val fps: Int,
         val currentFrame: Int
     )
@@ -31,6 +32,7 @@ object EsenhoProjectIO {
         engine.captureCurrentFrame()
         val layers = mutableListOf<LayerSnapshot>()
         val frames = mutableListOf<Bitmap>()
+        val frameDurations = mutableListOf<Int>()
         try {
             engine.layers.forEach { layer ->
                 val bitmap = Bitmap.createBitmap(engine.width, engine.height, Bitmap.Config.ARGB_8888)
@@ -39,6 +41,7 @@ object EsenhoProjectIO {
             }
             engine.animationFrames.forEach { frame ->
                 frames += frame.bitmap.copy(Bitmap.Config.ARGB_8888, false)
+                frameDurations += frame.duration
             }
             return Snapshot(
                 engine.width,
@@ -46,6 +49,7 @@ object EsenhoProjectIO {
                 engine.layers.indexOfFirst { it.id == engine.activeLayerIndex },
                 layers,
                 frames,
+                frameDurations,
                 engine.animationFps,
                 engine.currentFrameIndex
             )
@@ -80,6 +84,7 @@ object EsenhoProjectIO {
         val metadata = org.json.JSONObject().put("format", 1).put("width", snapshot.width).put("height", snapshot.height)
             .put("active", snapshot.active).put("layers", layersJson).put("fps", snapshot.fps)
             .put("currentFrame", snapshot.currentFrame).put("frameCount", snapshot.frames.size)
+            .put("frameDurations", org.json.JSONArray(snapshot.frameDurations))
         zip.putNextEntry(ZipEntry("project.json"))
         zip.write(metadata.toString().toByteArray(Charsets.UTF_8))
         zip.closeEntry()
@@ -145,7 +150,8 @@ object EsenhoProjectIO {
             val decoded = BitmapFactoryCompat.decode(bytes) ?: error("Quadro de animação ${index + 1} inválido")
             val bitmap = decoded.copy(Bitmap.Config.ARGB_8888, true)
             decoded.recycle()
-            engine.animationFrames += AnimationCel("Frame ${index + 1}", bitmap)
+            val durations = json.optJSONArray("frameDurations")
+            engine.animationFrames += AnimationCel("Frame ${index + 1}", bitmap, durations?.optInt(index, 1)?.coerceIn(1, 120) ?: 1)
         }
         if (engine.animationFrames.isEmpty()) {
             val frame = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)

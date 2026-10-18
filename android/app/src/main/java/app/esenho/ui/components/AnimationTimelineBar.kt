@@ -45,12 +45,14 @@ fun AnimationTimelineBar(
     var fps by remember { mutableIntStateOf(engine.animationFps) }
     var onionSkin by remember { mutableStateOf(engine.onionSkinEnabled) }
     var frameCount by remember { mutableIntStateOf(engine.animationFrames.size) }
+    var currentDuration by remember { mutableIntStateOf(engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1) }
     var fpsMenuExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(isPlaying, fps) {
         if (isPlaying) {
             while (isActive && isPlaying) {
-                delay(1000L / fps.coerceIn(1, 30))
+                val duration = engine.animationFrames.getOrNull(engine.currentFrameIndex)?.duration ?: 1
+                delay((1000L * duration / fps.coerceIn(1, 30)).coerceAtLeast(16L))
                 if (engine.animationFrames.isNotEmpty()) {
                     val next = (engine.currentFrameIndex + 1) % engine.animationFrames.size
                     engine.restoreFrame(next)
@@ -71,7 +73,7 @@ fun AnimationTimelineBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(112.dp)
+                .height(138.dp)
                 .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 6.dp)
         ) {
             // Transport controls and frame management stay in one compact strip.
@@ -122,6 +124,20 @@ fun AnimationTimelineBar(
                         }
                     }
                 }
+                TextButton(
+                    onClick = {
+                        currentDuration = (currentDuration - 1).coerceAtLeast(1)
+                        engine.setCurrentFrameDuration(currentDuration)
+                    }, contentPadding = PaddingValues(horizontal = 4.dp),
+                    modifier = Modifier.height(30.dp)
+                ) { Text("−", fontSize = 16.sp, color = Color(0xFFE0E3E6)) }
+                TextButton(
+                    onClick = {
+                        currentDuration = (currentDuration + 1).coerceAtMost(120)
+                        engine.setCurrentFrameDuration(currentDuration)
+                    }, contentPadding = PaddingValues(horizontal = 4.dp),
+                    modifier = Modifier.height(30.dp)
+                ) { Text("${currentDuration}f +", fontSize = 10.sp, color = Color(0xFFFFC857)) }
                 IconButton(
                     onClick = {
                         onionSkin = !onionSkin
@@ -137,6 +153,7 @@ fun AnimationTimelineBar(
                     engine.addAnimationFrame()
                     currentIdx = engine.currentFrameIndex
                     frameCount = engine.animationFrames.size
+                    currentDuration = engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1
                     onFrameChanged()
                 }, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.Add, contentDescription = "Adicionar quadro", tint = Color(0xFFD0D4D8), modifier = Modifier.size(19.dp))
@@ -145,6 +162,7 @@ fun AnimationTimelineBar(
                     engine.duplicateAnimationFrame()
                     currentIdx = engine.currentFrameIndex
                     frameCount = engine.animationFrames.size
+                    currentDuration = engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1
                     onFrameChanged()
                 }, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.ContentCopy, contentDescription = "Duplicar quadro", tint = Color(0xFFD0D4D8), modifier = Modifier.size(17.dp))
@@ -154,6 +172,7 @@ fun AnimationTimelineBar(
                         engine.deleteAnimationFrame()
                         currentIdx = engine.currentFrameIndex
                         frameCount = engine.animationFrames.size
+                        currentDuration = engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1
                         onFrameChanged()
                     },
                     enabled = frameCount > 1,
@@ -187,6 +206,7 @@ fun AnimationTimelineBar(
                                 engine.isAnimationPlaying = false
                                 engine.restoreFrame(index)
                                 currentIdx = index
+                                currentDuration = cel.duration
                                 onFrameChanged()
                             },
                         contentAlignment = Alignment.Center
@@ -205,6 +225,16 @@ fun AnimationTimelineBar(
                             modifier = Modifier.align(Alignment.BottomStart)
                                 .clip(RoundedCornerShape(topEnd = 4.dp))
                                 .background(Color(0xCC202326))
+                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                        Text(
+                            text = "${cel.duration}f",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (selected) Color(0xFF152016) else Color(0xFFE1E4E7),
+                            modifier = Modifier.align(Alignment.BottomEnd)
+                                .clip(RoundedCornerShape(topStart = 4.dp))
+                                .background(if (selected) Color(0xFF80C783) else Color(0xCC303438))
                                 .padding(horizontal = 4.dp, vertical = 1.dp)
                         )
                     }

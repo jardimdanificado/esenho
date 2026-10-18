@@ -364,7 +364,8 @@ data class LayerModel(
 
 data class AnimationCel(
     val id: String,
-    var bitmap: Bitmap
+    var bitmap: Bitmap,
+    var duration: Int = 1
 )
 
 class EsenhoEngine(
@@ -1287,13 +1288,15 @@ class EsenhoEngine(
         captureCurrentFrame()
         currentFrameIndex = index
         val bmp = animationFrames[index].bitmap
-        // Clear active layer and draw frame bitmap
         EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
-        // Draw bitmap into canvas
         renderBitmap?.let { compBmp ->
             val canvas = android.graphics.Canvas(compBmp)
             canvas.drawBitmap(bmp, 0f, 0f, null)
         }
+    }
+
+    fun setCurrentFrameDuration(duration: Int) {
+        animationFrames.getOrNull(currentFrameIndex)?.duration = duration.coerceIn(1, 120)
     }
 
     fun addAnimationFrame(): Int {
