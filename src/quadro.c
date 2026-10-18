@@ -294,6 +294,8 @@ static void init_builtin_shapes(void) {
     }
 }
 
+#include "builtin_textures.h"
+
 /* =========================================================================
  * Pixel Blending & Layer Operations
  * ========================================================================= */
@@ -1291,13 +1293,13 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
     if (max_stroke_a < 1 && brush_config.opacity > 0) max_stroke_a = 1;
 
     int shape_id = brush_config.shape;
-    if (shape_id < 0 || shape_id >= 3 || !layers[shape_id].in_use) {
+    if (shape_id < 0 || shape_id >= layer_count || !layers[shape_id].in_use) {
         shape_id = 0;
     }
     layer_t *stex = &layers[shape_id];
     int is_builtin_circle = (shape_id == 0);
     int is_builtin_square = (shape_id == 1);
-    int has_dual = (brush_config.dual_shape >= 0 && brush_config.dual_shape < 3 && layers[brush_config.dual_shape].in_use);
+    int has_dual = (brush_config.dual_shape >= 0 && brush_config.dual_shape < layer_count && layers[brush_config.dual_shape].in_use);
     layer_t *dtex = has_dual ? &layers[brush_config.dual_shape] : 0;
     int dual_r = has_dual ? ((r * brush_config.dual_size) / 100) : 1;
     if (dual_r < 1) dual_r = 1;
@@ -1319,7 +1321,8 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
         float v_scaled_sq = v_scaled * v_scaled;
 
         if (is_unrotated) {
-            if (!is_builtin_square && v_scaled_sq > r_sq + (brush_config.subpixel ? (2.0f * rf + 1.0f) : 0.0f)) continue;
+            if (is_builtin_circle && v_scaled_sq > r_sq + (brush_config.subpixel ? (2.0f * rf + 1.0f) : 0.0f)) continue;
+            else if (!is_builtin_circle && (dy < -rf || dy > rf)) continue;
         }
 
         for (int x = row_min_x; x <= row_max_x; x++) {
@@ -1342,12 +1345,12 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                 dist_sq = u * u + v_scaled * v_scaled;
             }
 
-            if (is_builtin_square) {
+            if (is_builtin_circle) {
+                if (dist_sq > r_sq + (brush_config.subpixel ? (2.0f * rf + 1.0f) : 0.0f)) continue;
+            } else {
                 float abs_u = u < 0.0f ? -u : u;
                 float abs_v = v_scaled < 0.0f ? -v_scaled : v_scaled;
                 if (abs_u > rf || abs_v > rf) continue;
-            } else {
-                if (dist_sq > r_sq + (brush_config.subpixel ? (2.0f * rf + 1.0f) : 0.0f)) continue;
             }
 
             uint32_t shape_a = 255;
@@ -1402,7 +1405,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                 if (shape_a == 0) continue;
             }
 
-            if (brush_config.subpixel && !is_builtin_square) {
+            if (brush_config.subpixel && is_builtin_circle) {
                 float dist = __builtin_sqrtf(dist_sq);
                 if (dist > rf) {
                     if (dist < rf + 1.0f) {
@@ -1427,7 +1430,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
 
             // Hardness / Softness falloff & Flow alpha calculation via LUT
             uint32_t a = DIV255(dab_flow_a * shape_a);
-            if (brush_config.hardness < 100 && r > 0 && !is_builtin_square) {
+            if (brush_config.hardness < 100 && r > 0 && is_builtin_circle) {
                 if (dist_sq > inner_r_sq) {
                     int lut_idx = (int)((dist_sq * 1023.0f) / (r_sq > 0.0f ? r_sq : 1.0f));
                     if (lut_idx > 1023) lut_idx = 1023;
@@ -2374,6 +2377,22 @@ W_EXPORT void w_brush_reset(void) {
     g_texture.pixels = 0;
     g_texture.width = 0;
     g_texture.height = 0;
+}
+
+W_EXPORT int32_t w_shape_find_or_create(const char *name) {
+    return w_shape_get_by_name(name);
+}
+
+W_EXPORT int32_t w_texture_find_or_create(const char *name) {
+    return w_texture_get_by_name(name);
+}
+
+W_EXPORT void w_brush_select_shape_by_name(const char *name) {
+    w_brush_select_shape(name);
+}
+
+W_EXPORT void w_brush_select_texture_by_name(const char *name) {
+    w_brush_select_texture(name);
 }
 
 static int32_t stroke_cum_dist = 0;

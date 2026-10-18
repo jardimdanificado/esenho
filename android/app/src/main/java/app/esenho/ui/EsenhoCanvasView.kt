@@ -74,6 +74,11 @@ class EsenhoCanvasView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
 
+    private val paperPaint = Paint().apply {
+        color = Color.WHITE
+        style = Paint.Style.FILL
+    }
+
     private val onionPrevPaint = Paint().apply {
         alpha = 90
         colorFilter = LightingColorFilter(0xFFFF6666.toInt(), 0x00000000)
@@ -310,12 +315,14 @@ class EsenhoCanvasView @JvmOverloads constructor(
                         twoFingerMoved = true
                     }
 
-                    // 1. Pan (Translate)
+                    // 1. Pinch Scale around stable previous midpoint
+                    transformMatrix.postScale(scaleDelta, scaleDelta, lastMidX, lastMidY)
+                    // 2. Rotate around stable previous midpoint
+                    if (abs(angleDelta) > 0.05f) {
+                        transformMatrix.postRotate(angleDelta, lastMidX, lastMidY)
+                    }
+                    // 3. Pan Translate to current midpoint
                     transformMatrix.postTranslate(panDx, panDy)
-                    // 2. Pinch (Scale around midpoint)
-                    transformMatrix.postScale(scaleDelta, scaleDelta, currMidX, currMidY)
-                    // 3. Rotate around midpoint
-                    transformMatrix.postRotate(angleDelta, currMidX, currMidY)
 
                     transformMatrix.invert(inverseMatrix)
 
@@ -446,6 +453,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
         // Drop shadow behind document
         canvas.drawRect(4f, 4f, eng.width.toFloat() + 8f, eng.height.toFloat() + 8f, shadowPaint)
+
+        // Solid document paper background (white)
+        canvas.drawRect(0f, 0f, eng.width.toFloat(), eng.height.toFloat(), paperPaint)
 
         // 2. Onion Skinning (Previous Frame Tinted Red, Next Frame Tinted Blue)
         eng.getOnionSkinPrevBitmap()?.let { prevBmp ->

@@ -44,6 +44,8 @@ object EsenhoNativeBridge {
     external fun nativeBrushSetParam(paramId: Int, value: Int)
     external fun nativeBrushSetType(type: Int)
     external fun nativeBrushSetShape(shape: Int)
+    external fun nativeSelectShape(shapeName: String?): Int
+    external fun nativeSelectTexture(textureName: String?): Int
     external fun nativeBrushReset()
 
     // Filters Suite

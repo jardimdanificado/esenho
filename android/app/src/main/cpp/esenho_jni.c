@@ -71,6 +71,11 @@ extern void w_layer_flip_h(int32_t layer_idx);
 extern void w_layer_flip_v(int32_t layer_idx);
 extern int32_t w_layer_transform(int32_t src_layer_idx, int32_t dst_layer_idx, int32_t dx, int32_t dy, int32_t scale_x_pct, int32_t scale_y_pct, int32_t rot_deg, int32_t skew_x, int32_t bilinear);
 
+extern int32_t w_shape_find_or_create(const char *name);
+extern int32_t w_texture_find_or_create(const char *name);
+extern void w_brush_select_shape_by_name(const char *name);
+extern void w_brush_select_texture_by_name(const char *name);
+
 // Active Procedural Brush State
 static const native_brush_t *g_current_brush = NULL;
 static float g_brush_size = 14.0f;
@@ -585,6 +590,34 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushReset(
     JNIEnv *env, jobject thiz) {
     w_brush_reset();
     g_current_brush = NULL;
+}
+
+JNIEXPORT jint JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectShape(
+    JNIEnv *env, jobject thiz, jstring shape_name) {
+    if (!shape_name) {
+        w_brush_select_shape_by_name("circle");
+        return 0;
+    }
+    const char *name = (*env)->GetStringUTFChars(env, shape_name, NULL);
+    int32_t slot = w_shape_find_or_create(name);
+    w_brush_select_shape_by_name(name);
+    (*env)->ReleaseStringUTFChars(env, shape_name, name);
+    return slot;
+}
+
+JNIEXPORT jint JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectTexture(
+    JNIEnv *env, jobject thiz, jstring tex_name) {
+    if (!tex_name) {
+        w_brush_select_texture_by_name("none");
+        return -1;
+    }
+    const char *name = (*env)->GetStringUTFChars(env, tex_name, NULL);
+    int32_t slot = w_texture_find_or_create(name);
+    w_brush_select_texture_by_name(name);
+    (*env)->ReleaseStringUTFChars(env, tex_name, name);
+    return slot;
 }
 
 JNIEXPORT jboolean JNICALL

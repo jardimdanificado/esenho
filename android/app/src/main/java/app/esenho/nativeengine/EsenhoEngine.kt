@@ -423,6 +423,12 @@ class EsenhoEngine(
         // Draw background canvas layer white
         EsenhoNativeBridge.nativeDrawRect(0, 0, width, height, toNativeColor(Color.WHITE))
 
+        // Create standard drawing layer directly above Background so Background is preserved during undo / erase
+        val drawLayerId = EsenhoNativeBridge.nativeLayerAdd()
+        if (drawLayerId >= 0) {
+            EsenhoNativeBridge.nativeLayerSelect(drawLayerId)
+        }
+
         syncLayers()
 
         // Init initial animation frame
@@ -456,6 +462,22 @@ class EsenhoEngine(
         brushOpacity = preset.opacity / 100f
         brushHardness = preset.hardness
         brushSmooth = preset.smoothing
+
+        // Select exact tip shape and grain texture from builtin library
+        if (preset.shape.isNotBlank()) {
+            val shapeSlot = EsenhoNativeBridge.nativeSelectShape(preset.shape)
+            preset.shapeId = shapeSlot
+        }
+        if (preset.texture.isNotBlank() && preset.texture != "none") {
+            val texSlot = EsenhoNativeBridge.nativeSelectTexture(preset.texture)
+            if (texSlot >= 0) {
+                EsenhoNativeBridge.nativeBrushSetParam(18, texSlot)
+                if (preset.texMode == 0) preset.texMode = 1
+            }
+        } else {
+            EsenhoNativeBridge.nativeSelectTexture("none")
+            EsenhoNativeBridge.nativeBrushSetParam(18, -1)
+        }
 
         // Configure all C Quadro Engine physical params
         EsenhoNativeBridge.nativeBrushSetParam(1, preset.size)
@@ -621,7 +643,7 @@ class EsenhoEngine(
             val alphaLock = EsenhoNativeBridge.nativeLayerGetAlphaLock(layerIdx) == 1
             val clipping = EsenhoNativeBridge.nativeLayerGetClipping(layerIdx) == 1
 
-            val name = if (layerIdx <= 2) "Plano de Fundo" else "Camada ${layerIdx - 2}"
+            val name = if (layerIdx <= 3) "Plano de Fundo" else "Camada ${layerIdx - 3}"
             layers.add(LayerModel(layerIdx, name, opacity, visible, blendMode, alphaLock, clipping))
         }
     }
@@ -850,22 +872,22 @@ class EsenhoEngine(
 
         when (currentTool) {
             ToolMode.BRUSH, ToolMode.ERASER -> {
-                EsenhoNativeBridge.nativeStrokeExt(1, lastX, lastY, x, y, nativeCol, isEraser, pInt, tiltX, tiltY)
+                EsenhoNativeBridge.nativeStrokeExt(1, x, y, lastX, lastY, nativeCol, isEraser, pInt, tiltX, tiltY)
                 lastX = x
                 lastY = y
             }
             ToolMode.SMUDGE -> {
-                EsenhoNativeBridge.nativeStrokeExt(1, lastX, lastY, x, y, nativeCol, 0, pInt, tiltX, tiltY)
+                EsenhoNativeBridge.nativeStrokeExt(1, x, y, lastX, lastY, nativeCol, 0, pInt, tiltX, tiltY)
                 lastX = x
                 lastY = y
             }
             ToolMode.BLEND -> {
-                EsenhoNativeBridge.nativeStrokeExt(1, lastX, lastY, x, y, nativeCol, 0, pInt, tiltX, tiltY)
+                EsenhoNativeBridge.nativeStrokeExt(1, x, y, lastX, lastY, nativeCol, 0, pInt, tiltX, tiltY)
                 lastX = x
                 lastY = y
             }
             ToolMode.LASSO_FILL -> {
-                EsenhoNativeBridge.nativeStrokeExt(1, lastX, lastY, x, y, nativeCol, 0, 1000, 0, 0)
+                EsenhoNativeBridge.nativeStrokeExt(1, x, y, lastX, lastY, nativeCol, 0, 1000, 0, 0)
                 lastX = x
                 lastY = y
             }
@@ -889,16 +911,16 @@ class EsenhoEngine(
 
         when (currentTool) {
             ToolMode.BRUSH, ToolMode.ERASER -> {
-                EsenhoNativeBridge.nativeStrokeExt(2, lastX, lastY, x, y, nativeCol, isEraser, pInt, tiltX, tiltY)
+                EsenhoNativeBridge.nativeStrokeExt(2, x, y, lastX, lastY, nativeCol, isEraser, pInt, tiltX, tiltY)
             }
             ToolMode.SMUDGE -> {
-                EsenhoNativeBridge.nativeStrokeExt(2, lastX, lastY, x, y, nativeCol, 0, pInt, tiltX, tiltY)
+                EsenhoNativeBridge.nativeStrokeExt(2, x, y, lastX, lastY, nativeCol, 0, pInt, tiltX, tiltY)
             }
             ToolMode.BLEND -> {
-                EsenhoNativeBridge.nativeStrokeExt(2, lastX, lastY, x, y, nativeCol, 0, pInt, tiltX, tiltY)
+                EsenhoNativeBridge.nativeStrokeExt(2, x, y, lastX, lastY, nativeCol, 0, pInt, tiltX, tiltY)
             }
             ToolMode.LASSO_FILL -> {
-                EsenhoNativeBridge.nativeStrokeExt(2, lastX, lastY, x, y, nativeCol, 0, 1000, 0, 0)
+                EsenhoNativeBridge.nativeStrokeExt(2, x, y, lastX, lastY, nativeCol, 0, 1000, 0, 0)
             }
             ToolMode.LINE -> {
                 EsenhoNativeBridge.nativeDrawLine(strokeStartX.toInt(), strokeStartY.toInt(), x.toInt(), y.toInt(), nativeCol)

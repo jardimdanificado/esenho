@@ -192,6 +192,21 @@ if (fs.existsSync(presetsPath)) {
         if (shLower === 'square' || shape === 1) shape_id = 1;
         else if (shLower === 'chisel' || shLower === 'flat' || shLower === 'dagger' || shLower === 'rake' || shape === 2) shape_id = 2;
 
+        let water = v.water != null ? v.water : (v.wet && v.wet.water != null ? v.wet.water : 0);
+        let bleed = v.bleed != null ? v.bleed : (v.wet && v.wet.bleed != null ? v.wet.bleed : 0);
+        let granulation = v.granulation != null ? v.granulation : (v.wet && v.wet.granulation != null ? v.wet.granulation : 0);
+        let fringe = v.fringe != null ? v.fringe : (v.wet && v.wet.fringe != null ? v.wet.fringe : 0);
+        let pigment_mode = (v.pigment_mode || (v.wet && v.wet.pigment_mode)) ? 1 : 0;
+        let impasto = v.impasto != null ? v.impasto : (v.wet && v.wet.impasto != null ? v.wet.impasto : 0);
+        let drying_rate = v.drying_rate != null ? v.drying_rate : (v.wet && v.wet.drying_rate != null ? v.wet.drying_rate : 0);
+        let grain = v.grain != null ? v.grain : (v.texture && typeof v.texture === 'object' && v.texture.grain != null ? v.texture.grain : 0);
+        let texture_scale = v.texture_scale != null ? v.texture_scale : (v.texture && typeof v.texture === 'object' && v.texture.scale != null ? v.texture.scale : 100);
+        let texture_contrast = v.texture_contrast != null ? v.texture_contrast : (v.texture && typeof v.texture === 'object' && v.texture.contrast != null ? v.texture.contrast : 100);
+        let tex_angle = v.texture_angle != null ? v.texture_angle : (v.tex_angle != null ? v.tex_angle : (v.texture && typeof v.texture === 'object' && v.texture.angle != null ? v.texture.angle : 0));
+        let tex_mode = v.tex_mode != null ? v.tex_mode : (v.texture && typeof v.texture === 'object' && v.texture.mode != null ? v.texture.mode : 0);
+        let subpixel = (v.subpixel != null) ? (v.subpixel ? 1 : 0) : 1;
+        let dab_blend = v.dab_blend != null ? v.dab_blend : 0;
+
         presetEntries.push({
           id: k,
           name: v.name,
@@ -209,13 +224,13 @@ if (fs.existsSync(presetsPath)) {
           smoothing: smoothing,
           midpoint: v.midpoint != null ? v.midpoint : 50,
           scatter: v.scatter || 0,
-          grain: v.grain || 0,
-          tex_mode: v.tex_mode || 0,
+          grain: grain,
+          tex_mode: tex_mode,
           texture: typeof v.texture === 'string' ? v.texture : (v.texture?.ref || ''),
-          texture_scale: v.texture_scale || 100,
-          texture_contrast: v.texture_contrast || 100,
+          texture_scale: texture_scale,
+          texture_contrast: texture_contrast,
           tex_scale_with_size: v.tex_scale_with_size ? 1 : 0,
-          tex_angle: v.texture_angle || v.tex_angle || 0,
+          tex_angle: tex_angle,
           auto_rotate: v.auto_rotate ? 1 : 0,
           velocity: velocity,
           taper_in: taper_in,
@@ -225,8 +240,8 @@ if (fs.existsSync(presetsPath)) {
           angle_jitter: angle_jitter,
           opacity_jitter: opacity_jitter,
           color_jitter: color_jitter,
-          dab_blend: v.dab_blend || 0,
-          subpixel: v.subpixel ? 1 : 0,
+          dab_blend: dab_blend,
+          subpixel: subpixel,
           smudge: smudge,
           wetness: wetness,
           depletion: depletion,
@@ -235,13 +250,13 @@ if (fs.existsSync(presetsPath)) {
           pressure_flow: pressure_flow,
           tilt_angle: tilt_angle,
           buildup: buildup,
-          water: v.water || 0,
-          bleed: v.bleed || 0,
-          granulation: v.granulation || 0,
-          fringe: v.fringe || 0,
-          pigment_mode: v.pigment_mode ? 1 : 0,
-          impasto: v.impasto || 0,
-          drying_rate: v.drying_rate || 0,
+          water: water,
+          bleed: bleed,
+          granulation: granulation,
+          fringe: fringe,
+          pigment_mode: pigment_mode,
+          impasto: impasto,
+          drying_rate: drying_rate,
           mode: v.mode || 0,
           eraser: v.eraser ? 1 : 0,
           color: v.color || ''
