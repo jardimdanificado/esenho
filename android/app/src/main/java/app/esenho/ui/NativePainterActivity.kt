@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.AtomicFile
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.core.view.WindowCompat
@@ -47,6 +48,9 @@ import app.esenho.R
 import app.esenho.nativeengine.*
 import app.esenho.ui.components.*
 import java.io.OutputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 class NativePainterActivity : ComponentActivity() {
 
@@ -57,16 +61,19 @@ class NativePainterActivity : ComponentActivity() {
         setContent {
             EsenhoNativeTheme {
                 EsenhoMainScreen(
-                    onExportImage = { bitmap, format -> exportBitmapToGallery(bitmap, format) }
+                    onExportImage = { bitmap, format -> exportBitmapToGallery(bitmap, format) },
+                    onExportGif = { frames, fps -> exportGifToGallery(frames, fps) }
                 )
             }
         }
     }
 
     private fun exportBitmapToGallery(bitmap: Bitmap, format: Bitmap.CompressFormat = Bitmap.CompressFormat.PNG) {
-        val isJpeg = (format == Bitmap.CompressFormat.JPEG)
-        val ext = if (isJpeg) "jpg" else "png"
-        val mime = if (isJpeg) "image/jpeg" else "image/png"
+        val isJpeg = format == Bitmap.CompressFormat.JPEG
+        val isWebp = format == Bitmap.CompressFormat.WEBP ||
+            (Build.VERSION.SDK_INT >= 30 && format == Bitmap.CompressFormat.WEBP_LOSSY)
+        val ext = when { isJpeg -> "jpg"; isWebp -> "webp"; else -> "png" }
+        val mime = when { isJpeg -> "image/jpeg"; isWebp -> "image/webp"; else -> "image/png" }
         val filename = "esenho_${System.currentTimeMillis()}.$ext"
         val fos: OutputStream?
 
@@ -92,17 +99,42 @@ class NativePainterActivity : ComponentActivity() {
             Toast.makeText(this, "Falha ao exportar imagem", Toast.LENGTH_SHORT).show()
         }
     }
+
+    private fun exportGifToGallery(frames: List<Bitmap>, fps: Int) {
+        val filename = "esenho_${System.currentTimeMillis()}.gif"
+        val output = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/gif")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Esenho")
+            }
+            contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                ?.let(contentResolver::openOutputStream)
+        } else {
+            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+            java.io.FileOutputStream(java.io.File(dir, filename))
+        }
+        runCatching {
+            val stream = output ?: error("Não foi possível criar o arquivo")
+            stream.use { GifWriter.write(frames, fps, it) }
+        }.onSuccess { Toast.makeText(this, "GIF exportado para a Galeria", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(this, "Falha ao exportar GIF", Toast.LENGTH_SHORT).show() }
+    }
 }
 
 @Composable
 fun EsenhoNativeTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = Color(0xFF64B5F6),
-            primaryContainer = Color(0xFF1E3A5F),
+            primary = Color(0xFF72C77A),
+            onPrimary = Color(0xFF102914),
+            primaryContainer = Color(0xFF26452B),
+            secondary = Color(0xFFFFC857),
+            onSecondary = Color(0xFF332500),
+            tertiary = Color(0xFFE15A5A),
             surface = Color(0xFF202326),
-            surfaceVariant = Color(0xFF2C3035),
-            background = Color(0xFF121416),
+            surfaceVariant = Color(0xFF303438),
+            background = Color(0xFF151719),
             onSurface = Color(0xFFE6E8EA)
         ),
         content = content
@@ -111,7 +143,10 @@ fun EsenhoNativeTheme(content: @Composable () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
+fun EsenhoMainScreen(
+    onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit,
+    onExportGif: (List<Bitmap>, Int) -> Unit
+) {
     val context = LocalContext.current
     var canvasViewRef by remember { mutableStateOf<EsenhoCanvasView?>(null) }
     val engine = remember { EsenhoEngine(context, 1080, 1920) }
@@ -125,6 +160,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
     var showFilterModal by remember { mutableStateOf(false) }
     var showAnimationTimeline by remember { mutableStateOf(false) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
+    var showProjectManager by remember { mutableStateOf(false) }
 
     // Floating Tool Dropdowns
     var showSelectMenu by remember { mutableStateOf(false) }
@@ -158,6 +194,46 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
         isTransformActive = engine.transformState != null
         activeBrushName = engine.activeBrushDisplayName
         canvasViewRef?.invalidate()
+    }
+
+    val saveProjectLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/x-esenho")
+    ) { uri ->
+        if (uri != null) runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { EsenhoProjectIO.save(engine, it) }
+                ?: error("Não foi possível criar o arquivo")
+        }.onSuccess { Toast.makeText(context, "Projeto salvo", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context, "Falha ao salvar projeto: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+    val openProjectLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) runCatching {
+            context.contentResolver.openInputStream(uri)?.use { EsenhoProjectIO.load(engine, it) }
+                ?: error("Não foi possível abrir o arquivo")
+        }.onSuccess { refreshState(); Toast.makeText(context, "Projeto aberto", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context, "Falha ao abrir projeto: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+
+    // Keep an editable layered recovery copy in private app storage.
+    LaunchedEffect(engine) {
+        while (true) {
+            delay(5 * 60 * 1000L)
+            val snapshot = runCatching { EsenhoProjectIO.capture(engine) }.getOrNull() ?: continue
+            withContext(Dispatchers.IO) {
+                val atomic = AtomicFile(context.filesDir.resolve("autosave.esenho"))
+                var stream: java.io.FileOutputStream? = null
+                try {
+                    stream = atomic.startWrite()
+                    EsenhoProjectIO.write(snapshot, stream)
+                    atomic.finishWrite(stream)
+                } catch (failure: Throwable) {
+                    stream?.let { atomic.failWrite(it) }
+                } finally {
+                    EsenhoProjectIO.recycle(snapshot)
+                }
+            }
+        }
     }
 
     // Image Picker Launcher (Import image from Android Gallery to Layer)
@@ -320,6 +396,11 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                                 }
                             )
                             DropdownMenuItem(
+                                text = { Text("Gerenciar Projetos...") },
+                                leadingIcon = { Icon(Icons.Default.FolderOpen, null) },
+                                onClick = { showMenu = false; showProjectManager = true }
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Importar Imagem...") },
                                 leadingIcon = { Icon(Icons.Default.Image, null) },
                                 onClick = {
@@ -342,6 +423,24 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                                 onClick = {
                                     showMenu = false
                                     engine.getRenderBitmap()?.let { onExportImage(it, Bitmap.CompressFormat.JPEG) }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Exportar Imagem (WebP)") },
+                                leadingIcon = { Icon(Icons.Default.Share, null) },
+                                onClick = {
+                                    showMenu = false
+                                    val webpFormat = if (Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSY else Bitmap.CompressFormat.WEBP
+                                    engine.getRenderBitmap()?.let { onExportImage(it, webpFormat) }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Exportar Imagem (GIF)") },
+                                leadingIcon = { Icon(Icons.Default.Share, null) },
+                                onClick = {
+                                    showMenu = false
+                                    engine.captureCurrentFrame()
+                                    onExportGif(engine.animationFrames.map { it.bitmap }, engine.animationFps)
                                 }
                             )
                             HorizontalDivider()
@@ -687,7 +786,11 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                             )
                         }
                         TooltipIconButton(onClick = { showColorStudio = true }, description = "Color Studio", modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Default.Palette, contentDescription = "Color Studio", modifier = Modifier.size(18.dp), tint = Color(currentColor))
+                            Box(
+                                Modifier.size(27.dp).clip(RoundedCornerShape(7.dp))
+                                    .background(Color(currentColor))
+                                    .border(2.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), RoundedCornerShape(7.dp))
+                            )
                         }
                     }
                 }
@@ -706,6 +809,37 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
         }
 
         // Modals & Drawers
+        if (showProjectManager) {
+            AlertDialog(
+                onDismissRequest = { showProjectManager = false },
+                title = { Text("Projetos") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Salve e abra projetos editáveis com camadas e quadros de animação. Uma cópia de recuperação é criada automaticamente a cada 5 minutos.")
+                        Button(
+                            onClick = { showProjectManager = false; saveProjectLauncher.launch("esenho.esenho") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Icon(Icons.Default.Save, null); Spacer(Modifier.width(8.dp)); Text("Salvar projeto") }
+                        OutlinedButton(
+                            onClick = { showProjectManager = false; openProjectLauncher.launch(arrayOf("application/x-esenho", "application/octet-stream", "*/*")) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Abrir projeto") }
+                        OutlinedButton(
+                            enabled = context.filesDir.resolve("autosave.esenho").exists(),
+                            onClick = {
+                                showProjectManager = false
+                                runCatching {
+                                    context.filesDir.resolve("autosave.esenho").inputStream().use { EsenhoProjectIO.load(engine, it) }
+                                }.onSuccess { refreshState(); Toast.makeText(context, "Autosave restaurado", Toast.LENGTH_SHORT).show() }
+                                    .onFailure { Toast.makeText(context, "Falha ao restaurar autosave: ${it.message}", Toast.LENGTH_LONG).show() }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Icon(Icons.Default.History, null); Spacer(Modifier.width(8.dp)); Text("Restaurar autosave") }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { showProjectManager = false }) { Text("Fechar") } }
+            )
+        }
         if (showNewProjectDialog) {
             NewProjectDialog(
                 currentW = engine.width,

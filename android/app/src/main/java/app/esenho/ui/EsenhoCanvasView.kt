@@ -174,8 +174,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
     private val pixelGridPaint = Paint().apply {
         style = Paint.Style.STROKE
-        strokeWidth = 1f
-        color = 0x25FFFFFF
+        strokeWidth = 0f // device-pixel hairline, independent of canvas zoom
+        color = 0x40FFFFFF
+        isAntiAlias = false
     }
 
     init {
@@ -592,7 +593,8 @@ class EsenhoCanvasView @JvmOverloads constructor(
         }
 
         // 4. Pixel Art Grid Overlay
-        if (eng.pixelArtGrid) {
+        val gridScale = FloatArray(9).also(transformMatrix::getValues)[Matrix.MSCALE_X]
+        if (eng.pixelArtGrid && gridScale >= 4f) {
             val step = eng.pixelArtGridStep.toFloat()
             var gx = 0f
             while (gx <= eng.width) {

@@ -98,9 +98,16 @@ fun ThumbSliders(
 
             // Property name and current value stay inside the slider. Tap to change property; drag to adjust.
             val norm = ((currentRawVal - cfg.minVal) / (cfg.maxVal - cfg.minVal)).coerceIn(0f, 1f)
+            val barColor = when (index) {
+                0 -> Color(0xFF42464B) // dark gray
+                1 -> Color(0xFF4CAF50) // green
+                2 -> Color(0xFFFFC107) // yellow
+                else -> Color(0xFFE53935) // red
+            }
             VerticalThumbBar(
                 value = norm,
                 label = "${cfg.shortLabel} ${currentRawVal.toInt()}${cfg.unit}",
+                fillColor = barColor,
                 onClick = { editingSliderIndex = index },
                 onValueChange = { newNorm ->
                     val newVal = cfg.minVal + newNorm * (cfg.maxVal - cfg.minVal)
@@ -263,6 +270,7 @@ fun ThumbSliders(
 fun VerticalThumbBar(
     value: Float,
     label: String,
+    fillColor: Color = Color(0xFF4CAF50),
     onClick: () -> Unit,
     onValueChange: (Float) -> Unit,
     onActiveChange: (Boolean) -> Unit
@@ -305,7 +313,7 @@ fun VerticalThumbBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(value.coerceIn(0f, 1f))
-                .background(Color(0x8064B5F6))
+                .background(fillColor.copy(alpha = 0.82f))
         )
 
         // Center pill handle & label

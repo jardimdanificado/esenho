@@ -32,6 +32,7 @@ fun LayerDrawer(
 ) {
     var layersList by remember { mutableStateOf(engine.layers.toList().reversed()) }
     var activeLayerId by remember { mutableIntStateOf(engine.activeLayerIndex) }
+    var confirmAction by remember { mutableStateOf<String?>(null) }
     val activeLayer = layersList.find { it.id == activeLayerId }
 
     fun refresh() {
@@ -86,19 +87,13 @@ fun LayerDrawer(
                         Icon(Icons.Default.ContentCopy, contentDescription = "Duplicar", modifier = Modifier.size(18.dp))
                     }
                     IconButton(
-                        onClick = {
-                            engine.mergeDown(activeLayerId)
-                            refresh()
-                        },
+                        onClick = { confirmAction = "merge" },
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.CallMerge, contentDescription = "Mesclar para Baixo", modifier = Modifier.size(18.dp))
                     }
                     IconButton(
-                        onClick = {
-                            engine.deleteLayer(activeLayerId)
-                            refresh()
-                        },
+                        onClick = { confirmAction = "delete" },
                         enabled = layersList.size > 1,
                         modifier = Modifier.size(32.dp)
                     ) {
@@ -241,32 +236,6 @@ fun LayerDrawer(
                             )
                         }
 
-                        // Blend mode selector as a compact dropdown.
-                        var blendMenuExpanded by remember(activeLayer.id) { mutableStateOf(false) }
-                        Box {
-                            OutlinedButton(
-                                onClick = { blendMenuExpanded = true },
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                                modifier = Modifier.height(32.dp)
-                            ) {
-                                Text("Mesclagem: ${activeLayer.blendMode.displayName}", fontSize = 11.sp, maxLines = 1)
-                                Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
-                            }
-                            DropdownMenu(expanded = blendMenuExpanded, onDismissRequest = { blendMenuExpanded = false }) {
-                                LayerBlendMode.values().forEach { mode ->
-                                    DropdownMenuItem(
-                                        text = { Text(mode.displayName) },
-                                        trailingIcon = if (activeLayer.blendMode == mode) {{ Icon(Icons.Default.Check, null) }} else null,
-                                        onClick = {
-                                            blendMenuExpanded = false
-                                            engine.setLayerBlendMode(activeLayer.id, mode)
-                                            refresh()
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
                         // Layer Utility Actions (Icon-only buttons with tooltips)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -365,8 +334,7 @@ fun LayerDrawer(
                             ) {
                                 IconButton(
                                     onClick = {
-                                        engine.clearActiveLayer()
-                                        refresh()
+                                        confirmAction = "clear"
                                     },
                                     colors = IconButtonDefaults.iconButtonColors(
                                         containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
@@ -377,10 +345,66 @@ fun LayerDrawer(
                                     Icon(Icons.Default.DeleteSweep, contentDescription = "Limpar Camada", modifier = Modifier.size(16.dp))
                                 }
                             }
+
+                            // Blend selector sits immediately to the right of Clear.
+                            var blendMenuExpanded by remember(activeLayer.id) { mutableStateOf(false) }
+                            Box {
+                                OutlinedButton(
+                                    onClick = { blendMenuExpanded = true },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text(activeLayer.blendMode.displayName, fontSize = 11.sp, maxLines = 1)
+                                    Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
+                                }
+                                DropdownMenu(expanded = blendMenuExpanded, onDismissRequest = { blendMenuExpanded = false }) {
+                                    LayerBlendMode.values().forEach { mode ->
+                                        DropdownMenuItem(
+                                            text = { Text(mode.displayName) },
+                                            trailingIcon = if (activeLayer.blendMode == mode) {{ Icon(Icons.Default.Check, null) }} else null,
+                                            onClick = {
+                                                blendMenuExpanded = false
+                                                engine.setLayerBlendMode(activeLayer.id, mode)
+                                                refresh()
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    confirmAction?.let { action ->
+        val title = when (action) {
+            "clear" -> "Limpar camada?"
+            "delete" -> "Apagar camada?"
+            else -> "Mesclar camada para baixo?"
+        }
+        val message = when (action) {
+            "clear" -> "Todo o conteúdo da camada atual será removido."
+            "delete" -> "A camada atual será removida permanentemente."
+            else -> "O conteúdo será combinado com a camada abaixo."
+        }
+        AlertDialog(
+            onDismissRequest = { confirmAction = null },
+            title = { Text(title) },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = {
+                    when (action) {
+                        "clear" -> engine.clearActiveLayer()
+                        "delete" -> engine.deleteLayer(activeLayerId)
+                        else -> engine.mergeDown(activeLayerId)
+                    }
+                    confirmAction = null
+                    refresh()
+                }) { Text("Continuar", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmAction = null }) { Text("Cancelar") } }
+        )
     }
 }

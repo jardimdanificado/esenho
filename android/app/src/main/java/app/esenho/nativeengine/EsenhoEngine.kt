@@ -483,7 +483,8 @@ class EsenhoEngine(
     var selectionPath: android.graphics.Path? = null
 
     var pixelArtGrid: Boolean = false
-    var pixelArtGridStep: Int = 16
+    // The pixel art overlay follows the actual document pixel boundaries.
+    var pixelArtGridStep: Int = 1
 
     val lassoPoints = mutableListOf<Pair<Int, Int>>()
     var strokeStartX = 0f
