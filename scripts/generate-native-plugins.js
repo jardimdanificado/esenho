@@ -405,15 +405,6 @@ const metadata = {
 
 const metaJson = JSON.stringify(metadata, null, 2);
 
-const assetsDir = path.join(rootDir, 'android/app/src/main/assets');
-if (!fs.existsSync(assetsDir)) {
-  fs.mkdirSync(assetsDir, { recursive: true });
-}
-fs.writeFileSync(
-  path.join(assetsDir, 'esenho_native_metadata.json'),
-  metaJson
-);
-
 const rawDir = path.join(rootDir, 'android/app/src/main/res/raw');
 if (!fs.existsSync(rawDir)) {
   fs.mkdirSync(rawDir, { recursive: true });

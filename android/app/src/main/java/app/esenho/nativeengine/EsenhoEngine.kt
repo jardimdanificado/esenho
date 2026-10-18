@@ -511,16 +511,9 @@ class EsenhoEngine(
 
     private fun loadCatalogs() {
         try {
-            val jsonStr = try {
-                val resId = context.resources.getIdentifier("esenho_native_metadata", "raw", context.packageName)
-                if (resId != 0) {
-                    context.resources.openRawResource(resId).bufferedReader().use { it.readText() }
-                } else {
-                    context.assets.open("esenho_native_metadata.json").bufferedReader().use { it.readText() }
-                }
-            } catch (e: Exception) {
-                context.assets.open("esenho_native_metadata.json").bufferedReader().use { it.readText() }
-            }
+            val resId = context.resources.getIdentifier("esenho_native_metadata", "raw", context.packageName)
+            check(resId != 0) { "Catálogo nativo não gerado" }
+            val jsonStr = context.resources.openRawResource(resId).bufferedReader().use { it.readText() }
             val root = JSONObject(jsonStr)
 
             // 1. Curated Presets (from src/presets_data.js)

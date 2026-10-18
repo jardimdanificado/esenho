@@ -1,22 +1,34 @@
 package app.esenho.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.RectangleShape
 import app.esenho.nativeengine.EsenhoEngine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -33,17 +45,16 @@ fun AnimationTimelineBar(
     var fps by remember { mutableIntStateOf(engine.animationFps) }
     var onionSkin by remember { mutableStateOf(engine.onionSkinEnabled) }
     var frameCount by remember { mutableIntStateOf(engine.animationFrames.size) }
+    var fpsMenuExpanded by remember { mutableStateOf(false) }
 
-    // Playback loop
     LaunchedEffect(isPlaying, fps) {
         if (isPlaying) {
             while (isActive && isPlaying) {
-                val delayMs = (1000L / fps.coerceIn(1, 30))
-                delay(delayMs)
+                delay(1000L / fps.coerceIn(1, 30))
                 if (engine.animationFrames.isNotEmpty()) {
-                    val nextIdx = (engine.currentFrameIndex + 1) % engine.animationFrames.size
-                    engine.restoreFrame(nextIdx)
-                    currentIdx = nextIdx
+                    val next = (engine.currentFrameIndex + 1) % engine.animationFrames.size
+                    engine.restoreFrame(next)
+                    currentIdx = next
                     onFrameChanged()
                 }
             }
@@ -51,116 +62,125 @@ fun AnimationTimelineBar(
     }
 
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp,
-        shadowElevation = 8.dp
+        modifier = modifier.fillMaxWidth(),
+        shape = RectangleShape,
+        color = Color(0xFF25282B),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
-        Column(modifier = Modifier.padding(10.dp)) {
-            // Control Row: Play, FPS, Onion, Add, Duplicate, Delete, Close
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(112.dp)
+                .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 6.dp)
+        ) {
+            // Transport controls and frame management stay in one compact strip.
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth().height(38.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Play / Pause
-                    IconButton(onClick = {
+                IconButton(onClick = {
+                    isPlaying = false
+                    engine.isAnimationPlaying = false
+                    onClose()
+                }, modifier = Modifier.size(34.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Fechar timeline", tint = Color(0xFFB6BBC0), modifier = Modifier.size(19.dp))
+                }
+                Column(modifier = Modifier.padding(start = 2.dp)) {
+                    Text("ANIMAÇÃO", fontSize = 9.sp, letterSpacing = 1.sp, color = Color(0xFF92989E), fontWeight = FontWeight.Bold)
+                    Text("${(currentIdx + 1).coerceAtLeast(1)} / $frameCount", fontSize = 11.sp, color = Color(0xFFE1E4E7))
+                }
+                Spacer(Modifier.width(8.dp))
+                FilledIconButton(
+                    onClick = {
                         isPlaying = !isPlaying
                         engine.isAnimationPlaying = isPlaying
-                    }) {
-                        Icon(
-                            if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (isPlaying) "Pausar" else "Reproduzir",
-                            tint = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    // FPS Counter
-                    Text("${fps} FPS", fontSize = 12.sp, style = MaterialTheme.typography.labelSmall)
-
-                    // Onion Skin Toggle
-                    FilterChip(
-                        selected = onionSkin,
-                        onClick = {
-                            onionSkin = !onionSkin
-                            engine.onionSkinEnabled = onionSkin
-                            onFrameChanged()
-                        },
-                        label = { Text("🧅 Onion", fontSize = 11.sp) }
+                    },
+                    modifier = Modifier.size(32.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = if (isPlaying) Color(0xFF80C783) else Color(0xFF3A3F43),
+                        contentColor = if (isPlaying) Color(0xFF152016) else Color(0xFFE5E8EB)
                     )
+                ) {
+                    Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = if (isPlaying) "Pausar" else "Reproduzir", modifier = Modifier.size(19.dp))
                 }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Add Blank Frame (+)
-                    IconButton(onClick = {
-                        engine.addAnimationFrame()
+                Box {
+                    TextButton(onClick = { fpsMenuExpanded = true }, contentPadding = PaddingValues(horizontal = 7.dp)) {
+                        Text("${fps} fps", fontSize = 11.sp, color = Color(0xFFD0D4D8))
+                    }
+                    DropdownMenu(expanded = fpsMenuExpanded, onDismissRequest = { fpsMenuExpanded = false }) {
+                        listOf(6, 8, 12, 15, 24, 30).forEach { rate ->
+                            DropdownMenuItem(
+                                text = { Text("$rate fps") },
+                                onClick = {
+                                    fps = rate
+                                    engine.animationFps = rate
+                                    fpsMenuExpanded = false
+                                },
+                                trailingIcon = if (fps == rate) {{ Text("✓", color = Color(0xFF80C783)) }} else null
+                            )
+                        }
+                    }
+                }
+                IconButton(
+                    onClick = {
+                        onionSkin = !onionSkin
+                        engine.onionSkinEnabled = onionSkin
+                        onFrameChanged()
+                    },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(Icons.Default.Layers, contentDescription = if (onionSkin) "Desativar onion skin" else "Ativar onion skin", tint = if (onionSkin) Color(0xFFFFC857) else Color(0xFF92989E), modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = {
+                    engine.addAnimationFrame()
+                    currentIdx = engine.currentFrameIndex
+                    frameCount = engine.animationFrames.size
+                    onFrameChanged()
+                }, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Add, contentDescription = "Adicionar quadro", tint = Color(0xFFD0D4D8), modifier = Modifier.size(19.dp))
+                }
+                IconButton(onClick = {
+                    engine.duplicateAnimationFrame()
+                    currentIdx = engine.currentFrameIndex
+                    frameCount = engine.animationFrames.size
+                    onFrameChanged()
+                }, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Duplicar quadro", tint = Color(0xFFD0D4D8), modifier = Modifier.size(17.dp))
+                }
+                IconButton(
+                    onClick = {
+                        engine.deleteAnimationFrame()
                         currentIdx = engine.currentFrameIndex
                         frameCount = engine.animationFrames.size
                         onFrameChanged()
-                    }) {
-                        Icon(Icons.Default.Add, contentDescription = "Adicionar Quadro")
-                    }
-
-                    // Duplicate Frame
-                    IconButton(onClick = {
-                        engine.duplicateAnimationFrame()
-                        currentIdx = engine.currentFrameIndex
-                        frameCount = engine.animationFrames.size
-                        onFrameChanged()
-                    }) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Duplicar Quadro")
-                    }
-
-                    // Delete Frame
-                    IconButton(
-                        onClick = {
-                            engine.deleteAnimationFrame()
-                            currentIdx = engine.currentFrameIndex
-                            frameCount = engine.animationFrames.size
-                            onFrameChanged()
-                        },
-                        enabled = frameCount > 1
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = "Deletar Quadro")
-                    }
-
-                    // Close Timeline
-                    IconButton(onClick = {
-                        isPlaying = false
-                        engine.isAnimationPlaying = false
-                        onClose()
-                    }) {
-                        Icon(Icons.Default.Close, contentDescription = "Fechar Linha do Tempo")
-                    }
+                    },
+                    enabled = frameCount > 1,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = "Excluir quadro", tint = if (frameCount > 1) Color(0xFFE09A9A) else Color(0xFF64696E), modifier = Modifier.size(17.dp))
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Frames Scroll Row
+            Spacer(Modifier.height(4.dp))
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp),
+                modifier = Modifier.fillMaxWidth().height(58.dp)
             ) {
-                itemsIndexed(engine.animationFrames) { index, cel ->
-                    val isSelected = index == currentIdx
-
+                itemsIndexed(engine.animationFrames.toList()) { index, cel ->
+                    val selected = index == currentIdx
                     Box(
                         modifier = Modifier
-                            .width(52.dp)
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(
-                                if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                            )
+                            .width(76.dp)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(Color(0xFF191B1D))
                             .border(
-                                width = if (isSelected) 2.dp else 1.dp,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray,
-                                shape = RoundedCornerShape(8.dp)
+                                width = if (selected) 2.dp else 1.dp,
+                                color = if (selected) Color(0xFF80C783) else Color(0xFF41464A),
+                                shape = RoundedCornerShape(5.dp)
                             )
                             .clickable {
                                 isPlaying = false
@@ -171,10 +191,21 @@ fun AnimationTimelineBar(
                             },
                         contentAlignment = Alignment.Center
                     ) {
+                        Image(
+                            bitmap = cel.bitmap.asImageBitmap(),
+                            contentDescription = "Quadro ${index + 1}",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize().padding(3.dp)
+                        )
                         Text(
-                            text = "${index + 1}",
-                            fontSize = 12.sp,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            text = (index + 1).toString().padStart(2, '0'),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (selected) Color(0xFFFFD166) else Color(0xFFCDD1D5),
+                            modifier = Modifier.align(Alignment.BottomStart)
+                                .clip(RoundedCornerShape(topEnd = 4.dp))
+                                .background(Color(0xCC202326))
+                                .padding(horizontal = 4.dp, vertical = 1.dp)
                         )
                     }
                 }

@@ -126,12 +126,12 @@ class NativePainterActivity : ComponentActivity() {
 fun EsenhoNativeTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = Color(0xFF72C77A),
-            onPrimary = Color(0xFF102914),
-            primaryContainer = Color(0xFF26452B),
-            secondary = Color(0xFFFFC857),
-            onSecondary = Color(0xFF332500),
-            tertiary = Color(0xFFE15A5A),
+            primary = Color(0xFFB8BEC3),
+            onPrimary = Color(0xFF191B1D),
+            primaryContainer = Color(0xFF3A4045),
+            secondary = Color(0xFF80C783),
+            onSecondary = Color(0xFF152016),
+            tertiary = Color(0xFFFFC857),
             surface = Color(0xFF202326),
             surfaceVariant = Color(0xFF303438),
             background = Color(0xFF151719),

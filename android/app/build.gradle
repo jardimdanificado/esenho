@@ -94,29 +94,14 @@ android {
     }
 
     androidResources {
-        noCompress += ['wasm', 'json', 'esen', 'svg', 'wav', 'webmanifest']
+        noCompress += ['json', 'esen']
     }
-}
-
-tasks.register('syncWebAssets', Copy) {
-    def repoRoot = rootProject.projectDir.parentFile
-    from(repoRoot) {
-        include 'index.html'
-        include 'painter.html'
-        include 'studio.html'
-        include 'manifest.webmanifest'
-        include 'icon.svg'
-        include 'icon-studio.svg'
-        include 'data.json'
-        include 'sw.js'
-        include 'vendor/**'
-        include 'plugins/**'
-        include 'src/**/*.js'
-        include 'src/**/*.mjs'
-        include 'src/**/*.css'
-        include 'src/**/*.json'
+    sourceSets {
+        main {
+            // The native Compose app reads its catalogs from res/raw only.
+            assets.srcDirs = []
+        }
     }
-    into layout.projectDirectory.dir("src/main/assets")
 }
 
 tasks.register('generateNativePlugins', Exec) {
@@ -125,14 +110,9 @@ tasks.register('generateNativePlugins', Exec) {
     commandLine 'node', 'scripts/generate-native-plugins.js'
 }
 
-preBuild.dependsOn(tasks.named('syncWebAssets'))
 preBuild.dependsOn(tasks.named('generateNativePlugins'))
-tasks.named('generateNativePlugins').configure {
-    mustRunAfter(tasks.named('syncWebAssets'))
-}
 
 dependencies {
-    implementation 'androidx.webkit:webkit:1.11.0'
     implementation 'androidx.core:core-ktx:1.13.1'
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.activity:activity-compose:1.9.0'
