@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.runtime.saveable.rememberSaveable
 import app.esenho.R
 import app.esenho.nativeengine.*
 import app.esenho.ui.components.*
@@ -125,7 +126,6 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
     var showNewProjectDialog by remember { mutableStateOf(false) }
 
     // Floating Tool Dropdowns
-    var showShapesMenu by remember { mutableStateOf(false) }
     var showSelectMenu by remember { mutableStateOf(false) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
 
@@ -141,6 +141,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
     var symmetryMode by remember { mutableStateOf(engine.symmetryMode) }
     var pixelArtGrid by remember { mutableStateOf(engine.pixelArtGrid) }
     var isTransformActive by remember { mutableStateOf(engine.transformState != null) }
+    var arcSliders by rememberSaveable { mutableStateOf(false) }
 
     fun refreshState() {
         canUndo = engine.canUndo
@@ -167,6 +168,10 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                 val bitmap = BitmapFactory.decodeStream(inputStream)
                 if (bitmap != null) {
                     engine.importImageToLayer(bitmap)
+                    engine.clearSelection()
+                    val transforming = engine.beginTransform()
+                    isTransformActive = transforming
+                    if (transforming) currentTool = ToolMode.TRANSFORM
                     refreshState()
                     Toast.makeText(context, "Imagem importada para nova camada!", Toast.LENGTH_SHORT).show()
                 }
@@ -185,7 +190,6 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("esenho", style = MaterialTheme.typography.titleMedium)
                         // Active Brush Chip Button (Quick Catalog & Tuning)
                         Surface(
                             shape = RoundedCornerShape(12.dp),
@@ -302,49 +306,8 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                         }
                     }
 
-                    // Active Color Circle Swatch & Quick Palette Color Chips (F17)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                        modifier = Modifier.padding(horizontal = 2.dp)
-                    ) {
-                        TooltipBox(
-                            positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                            tooltip = { PlainTooltip { Text("Seletor de Cores", fontSize = 11.sp) } },
-                            state = rememberTooltipState()
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(currentColor))
-                                    .border(2.dp, Color.White, CircleShape)
-                                    .clickable { showColorStudio = true }
-                            )
-                        }
-
-                        // Compact horizontal strip of active palette colors (capped at 6 chips)
-                        val activePalette = engine.getActivePalette()
-                        val quickChips = activePalette?.colors?.take(6) ?: emptyList()
-                        for (chipColor in quickChips) {
-                            val isSelected = chipColor == currentColor
-                            Box(
-                                modifier = Modifier
-                                    .size(if (isSelected) 18.dp else 14.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(chipColor))
-                                    .border(
-                                        width = if (isSelected) 2.dp else 1.dp,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f),
-                                        shape = CircleShape
-                                    )
-                                    .clickable {
-                                        currentColor = chipColor
-                                        engine.currentColor = chipColor
-                                        refreshState()
-                                    }
-                            )
-                        }
+                    TooltipIconButton(onClick = { showColorStudio = true }, description = "Cores", modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Palette, contentDescription = "Cores", modifier = Modifier.size(18.dp), tint = Color(currentColor))
                     }
 
                     Spacer(modifier = Modifier.width(4.dp))
@@ -555,6 +518,8 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                 onSizeChangeActive = { active ->
                     canvasViewRef?.previewBrushSize = if (active) engine.brushSize else 0f
                 },
+                arcMode = arcSliders,
+                onArcModeChange = { arcSliders = it },
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .padding(start = 6.dp)
@@ -641,11 +606,11 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
             } else {
                 Surface(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = if (showAnimationTimeline) 120.dp else 16.dp)
-                        .shadow(16.dp, RoundedCornerShape(28.dp)),
+                         .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(bottom = if (showAnimationTimeline) 120.dp else 0.dp),
                     color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(28.dp),
+                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
                     tonalElevation = 6.dp
                 ) {
                 Row(
@@ -653,244 +618,106 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(3.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Pincel
-                    ToolNavButton(
-                        icon = Icons.Default.Brush,
-                        isSelected = currentTool == ToolMode.BRUSH,
-                        description = "Pincel",
-                        onClick = {
-                            currentTool = ToolMode.BRUSH
-                            engine.currentTool = ToolMode.BRUSH
-                        }
-                    )
-
-                    // Biblioteca de Pincéis
+                    // Presets ficam antes do seletor de modo.
                     ToolNavButton(
                         icon = Icons.Default.AutoAwesomeMosaic,
                         isSelected = showBrushDrawer,
-                        description = "Biblioteca de Pincéis",
-                        onClick = {
-                            showBrushDrawer = true
-                        }
+                        description = "Presets de pincel",
+                        onClick = { showBrushDrawer = true }
                     )
 
-                    // Borracha
-                    ToolNavButton(
-                        painter = painterResource(R.drawable.ic_eraser),
-                        isSelected = currentTool == ToolMode.ERASER,
-                        description = "Borracha",
-                        onClick = {
-                            currentTool = ToolMode.ERASER
-                            engine.currentTool = ToolMode.ERASER
-                        }
-                    )
-
-                    // Borrar (Smudge)
-                    ToolNavButton(
-                        icon = Icons.Default.WaterDrop,
-                        isSelected = currentTool == ToolMode.SMUDGE,
-                        description = "Borrar (Smudge)",
-                        onClick = {
-                            currentTool = ToolMode.SMUDGE
-                            engine.currentTool = ToolMode.SMUDGE
-                        }
-                    )
-
-                    // Mesclar (Blend)
-                    ToolNavButton(
-                        icon = Icons.Default.BlurCircular,
-                        isSelected = currentTool == ToolMode.BLEND,
-                        description = "Mesclar (Blend)",
-                        onClick = {
-                            currentTool = ToolMode.BLEND
-                            engine.currentTool = ToolMode.BLEND
-                        }
-                    )
-
-                    // Balde de Tinta
-                    ToolNavButton(
-                        icon = Icons.Default.FormatColorFill,
-                        isSelected = currentTool == ToolMode.FILL,
-                        description = "Balde de Tinta",
-                        onClick = {
-                            currentTool = ToolMode.FILL
-                            engine.currentTool = ToolMode.FILL
-                        }
-                    )
-
-                    // Laço Preenchido
-                    ToolNavButton(
-                        icon = Icons.Default.Gesture,
-                        isSelected = currentTool == ToolMode.LASSO_FILL,
-                        description = "Laço Preenchido",
-                        onClick = {
-                            currentTool = ToolMode.LASSO_FILL
-                            engine.currentTool = ToolMode.LASSO_FILL
-                        }
-                    )
-
-                    // Seleção (Dropdown: Retângulo / Laço)
+                    val modeIcon = when (currentTool) {
+                        ToolMode.ERASER -> null
+                        ToolMode.SMUDGE -> Icons.Default.WaterDrop
+                        ToolMode.BLEND -> Icons.Default.BlurCircular
+                        ToolMode.FILL -> Icons.Default.FormatColorFill
+                        ToolMode.LASSO_FILL -> Icons.Default.Gesture
+                        ToolMode.SELECT_RECT, ToolMode.SELECT_LASSO -> Icons.Default.CropFree
+                        ToolMode.TRANSFORM -> Icons.Default.OpenWith
+                        ToolMode.LINE, ToolMode.RECTANGLE, ToolMode.CIRCLE -> Icons.Default.Category
+                        ToolMode.EYEDROPPER -> Icons.Default.Colorize
+                        ToolMode.PAN -> Icons.Default.PanTool
+                        else -> Icons.Default.Brush
+                    }
                     Box {
                         ToolNavButton(
-                            icon = Icons.Default.CropFree,
-                            isSelected = currentTool == ToolMode.SELECT_RECT || currentTool == ToolMode.SELECT_LASSO,
-                            description = "Seleção",
+                            icon = modeIcon,
+                            painter = if (currentTool == ToolMode.ERASER) painterResource(R.drawable.ic_eraser) else null,
+                            isSelected = true,
+                            description = "Modo: ${currentTool.displayName}",
                             onClick = { showSelectMenu = true }
                         )
-                        DropdownMenu(
-                            expanded = showSelectMenu,
-                            onDismissRequest = { showSelectMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Seleção Retangular (Marquee)") },
-                                leadingIcon = { Icon(Icons.Default.CropSquare, null) },
-                                onClick = {
-                                    showSelectMenu = false
-                                    currentTool = ToolMode.SELECT_RECT
-                                    engine.currentTool = ToolMode.SELECT_RECT
-                                }
+                        DropdownMenu(expanded = showSelectMenu, onDismissRequest = { showSelectMenu = false }) {
+                            val modes = listOf(
+                                Triple(ToolMode.BRUSH, "Pincel", Icons.Default.Brush),
+                                Triple(ToolMode.ERASER, "Borracha", Icons.Default.Delete),
+                                Triple(ToolMode.SMUDGE, "Borrar (Smudge)", Icons.Default.WaterDrop),
+                                Triple(ToolMode.BLEND, "Mesclar", Icons.Default.BlurCircular),
+                                Triple(ToolMode.FILL, "Balde de tinta", Icons.Default.FormatColorFill),
+                                Triple(ToolMode.LASSO_FILL, "Laço preenchido", Icons.Default.Gesture),
+                                Triple(ToolMode.SELECT_RECT, "Seleção retangular", Icons.Default.CropSquare),
+                                Triple(ToolMode.SELECT_LASSO, "Seleção com laço", Icons.Default.Gesture),
+                                Triple(ToolMode.TRANSFORM, "Transformar", Icons.Default.OpenWith),
+                                Triple(ToolMode.LINE, "Linha", Icons.Default.HorizontalRule),
+                                Triple(ToolMode.RECTANGLE, "Retângulo", Icons.Default.CropSquare),
+                                Triple(ToolMode.CIRCLE, "Círculo", Icons.Default.RadioButtonUnchecked),
+                                Triple(ToolMode.EYEDROPPER, "Conta-gotas", Icons.Default.Colorize),
+                                Triple(ToolMode.PAN, "Mover tela", Icons.Default.PanTool)
                             )
-                            DropdownMenuItem(
-                                text = { Text("Seleção com Laço (Lasso)") },
-                                leadingIcon = { Icon(Icons.Default.Gesture, null) },
-                                onClick = {
-                                    showSelectMenu = false
-                                    currentTool = ToolMode.SELECT_LASSO
-                                    engine.currentTool = ToolMode.SELECT_LASSO
-                                }
-                            )
-                            if (engine.selectionActive) {
-                                HorizontalDivider()
+                            modes.forEach { (mode, label, icon) ->
                                 DropdownMenuItem(
-                                    text = { Text("Deselecionar") },
-                                    leadingIcon = { Icon(Icons.Default.Close, null) },
+                                    text = { Text(label) },
+                                    leadingIcon = { if (mode == ToolMode.ERASER) Icon(painterResource(R.drawable.ic_eraser), null) else Icon(icon, null) },
+                                    trailingIcon = if (currentTool == mode) {{ Icon(Icons.Default.Check, null) }} else null,
                                     onClick = {
                                         showSelectMenu = false
-                                        engine.clearSelection()
+                                        if (mode == ToolMode.TRANSFORM) {
+                                            if (engine.beginTransform(selectionOnly = engine.selectionActive)) {
+                                                isTransformActive = true
+                                                currentTool = ToolMode.TRANSFORM
+                                            }
+                                        } else {
+                                            if (isTransformActive) engine.cancelTransform()
+                                            isTransformActive = false
+                                            currentTool = mode
+                                            engine.currentTool = mode
+                                        }
                                         refreshState()
                                     }
                                 )
                             }
-                        }
-                    }
-
-                    // Transformar (M4 / R1)
-                    ToolNavButton(
-                        icon = Icons.Default.OpenWith,
-                        isSelected = isTransformActive || currentTool == ToolMode.TRANSFORM,
-                        description = "Transformar (Mover / Redimensionar / Girar)",
-                        onClick = {
-                            val ok = engine.beginTransform(selectionOnly = engine.selectionActive)
-                            if (ok) {
-                                isTransformActive = true
-                                currentTool = ToolMode.TRANSFORM
-                                refreshState()
-                            }
-                        }
-                    )
-
-                    // Formas (Dropdown: Linha, Retângulo, Círculo)
-                    Box {
-                        ToolNavButton(
-                            icon = Icons.Default.Category,
-                            isSelected = currentTool == ToolMode.LINE || currentTool == ToolMode.RECTANGLE || currentTool == ToolMode.CIRCLE,
-                            description = "Formas",
-                            onClick = { showShapesMenu = true }
-                        )
-                        DropdownMenu(
-                            expanded = showShapesMenu,
-                            onDismissRequest = { showShapesMenu = false }
-                        ) {
+                            HorizontalDivider()
                             DropdownMenuItem(
-                                text = { Text("Linha Reta") },
-                                leadingIcon = { Icon(Icons.Default.HorizontalRule, null) },
-                                onClick = {
-                                    showShapesMenu = false
-                                    currentTool = ToolMode.LINE
-                                    engine.currentTool = ToolMode.LINE
-                                }
+                                text = { Text(if (pixelArtGrid) "Ocultar grade" else "Grade Pixel Art") },
+                                leadingIcon = { Icon(Icons.Default.GridOn, null) },
+                                onClick = { showSelectMenu = false; engine.pixelArtGrid = !engine.pixelArtGrid; refreshState() }
                             )
                             DropdownMenuItem(
-                                text = { Text("Retângulo") },
-                                leadingIcon = { Icon(Icons.Default.CropSquare, null) },
-                                onClick = {
-                                    showShapesMenu = false
-                                    currentTool = ToolMode.RECTANGLE
-                                    engine.currentTool = ToolMode.RECTANGLE
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Círculo") },
-                                leadingIcon = { Icon(Icons.Default.RadioButtonUnchecked, null) },
-                                onClick = {
-                                    showShapesMenu = false
-                                    currentTool = ToolMode.CIRCLE
-                                    engine.currentTool = ToolMode.CIRCLE
-                                }
+                                text = { Text("Simetria: ${symmetryMode.displayName}") },
+                                leadingIcon = { Icon(Icons.Default.Stream, null) },
+                                onClick = { showSelectMenu = false; showSymmetryMenu = true }
                             )
                         }
                     }
-
-                    // Simetria (Dropdown: Off, X, Y, Quad, Radial)
-                    Box {
-                        ToolNavButton(
-                            icon = Icons.Default.Stream,
-                            isSelected = symmetryMode != SymmetryMode.OFF,
-                            description = "Simetria",
-                            onClick = { showSymmetryMenu = true }
-                        )
-                        DropdownMenu(
-                            expanded = showSymmetryMenu,
-                            onDismissRequest = { showSymmetryMenu = false }
-                        ) {
-                            SymmetryMode.values().forEach { mode ->
-                                DropdownMenuItem(
-                                    text = { Text(mode.displayName) },
-                                    trailingIcon = if (symmetryMode == mode) {
-                                        { Icon(Icons.Default.Check, null) }
-                                    } else null,
-                                    onClick = {
-                                        showSymmetryMenu = false
-                                        engine.symmetryMode = mode
-                                        refreshState()
-                                    }
-                                )
-                            }
+                    DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
+                        SymmetryMode.values().forEach { mode ->
+                            DropdownMenuItem(text = { Text(mode.displayName) }, onClick = {
+                                showSymmetryMenu = false; engine.symmetryMode = mode; refreshState()
+                            })
                         }
                     }
 
-                    // Grade Pixel Art Toggle
-                    ToolNavButton(
-                        icon = Icons.Default.GridOn,
-                        isSelected = pixelArtGrid,
-                        description = "Grade Pixel Art",
-                        onClick = {
-                            engine.pixelArtGrid = !engine.pixelArtGrid
-                            refreshState()
-                        }
-                    )
+                    // Paleta rápida no dock inferior.
+                    val quickColors = engine.getActivePalette()?.colors?.take(5) ?: emptyList()
+                    quickColors.forEach { chipColor ->
+                        Box(Modifier.size(20.dp).clip(CircleShape).background(Color(chipColor))
+                            .border(1.dp, if (chipColor == currentColor) Color.White else Color.Gray, CircleShape)
+                            .clickable { currentColor = chipColor; engine.currentColor = chipColor; refreshState() })
+                    }
+                    TooltipIconButton(onClick = { showColorStudio = true }, description = "Abrir paletas", modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Palette, contentDescription = "Abrir paletas", modifier = Modifier.size(18.dp))
+                    }
 
-                    // Conta-gotas
-                    ToolNavButton(
-                        icon = Icons.Default.Colorize,
-                        isSelected = currentTool == ToolMode.EYEDROPPER,
-                        description = "Conta-gotas",
-                        onClick = {
-                            currentTool = ToolMode.EYEDROPPER
-                            engine.currentTool = ToolMode.EYEDROPPER
-                        }
-                    )
-
-                    // Mover Tela (Pan)
-                    ToolNavButton(
-                        icon = Icons.Default.PanTool,
-                        isSelected = currentTool == ToolMode.PAN,
-                        description = "Mover Tela",
-                        onClick = {
-                            currentTool = ToolMode.PAN
-                            engine.currentTool = ToolMode.PAN
-                        }
-                    )
                 }
             }
         }

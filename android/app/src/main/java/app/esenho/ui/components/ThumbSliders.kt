@@ -3,6 +3,11 @@ package app.esenho.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -70,6 +75,8 @@ fun ThumbSliders(
     configuredParamIds: List<Int>,
     onConfiguredParamsChange: (List<Int>) -> Unit,
     onSizeChangeActive: (Boolean) -> Unit,
+    arcMode: Boolean = false,
+    onArcModeChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var editingSliderIndex by remember { mutableStateOf<Int?>(null) }
@@ -82,6 +89,13 @@ fun ThumbSliders(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+            modifier = Modifier.clickable { onArcModeChange(!arcMode) }
+        ) {
+            Text(if (arcMode) "ARC" else "LIN", modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        }
         configuredParamIds.forEachIndexed { index, paramId ->
             val cfg = AVAILABLE_SLIDER_PARAMS.find { it.paramId == paramId }
                 ?: AVAILABLE_SLIDER_PARAMS[0]
@@ -121,9 +135,10 @@ fun ThumbSliders(
 
             // Vertical Thumb Slider Bar
             val norm = ((currentRawVal - cfg.minVal) / (cfg.maxVal - cfg.minVal)).coerceIn(0f, 1f)
-            VerticalThumbBar(
+            val sliderLabel = "${currentRawVal.toInt()}${cfg.unit}"
+            if (arcMode) ArcThumbBar(
                 value = norm,
-                label = "${currentRawVal.toInt()}${cfg.unit}",
+                label = sliderLabel,
                 onValueChange = { newNorm ->
                     val newVal = cfg.minVal + newNorm * (cfg.maxVal - cfg.minVal)
                     if (cfg.paramId == 1) {
@@ -136,10 +151,19 @@ fun ThumbSliders(
                     refreshTrigger++
                 },
                 onActiveChange = { active ->
-                    if (cfg.paramId == 1) {
-                        onSizeChangeActive(active)
-                    }
+                    if (cfg.paramId == 1) onSizeChangeActive(active)
                 }
+            ) else VerticalThumbBar(
+                value = norm,
+                label = sliderLabel,
+                onValueChange = { newNorm ->
+                    val newVal = cfg.minVal + newNorm * (cfg.maxVal - cfg.minVal)
+                    if (cfg.paramId == 1) engine.brushSize = newVal
+                    else if (cfg.paramId == 2) engine.brushOpacity = newVal / 100f
+                    else engine.setPresetParam(cfg.paramId, newVal.toInt())
+                    refreshTrigger++
+                },
+                onActiveChange = { active -> if (cfg.paramId == 1) onSizeChangeActive(active) }
             )
         }
 
@@ -339,5 +363,43 @@ fun VerticalThumbBar(
                 .align(Alignment.Center)
                 .padding(2.dp)
         )
+    }
+}
+
+
+@Composable
+private fun ArcThumbBar(
+    value: Float,
+    label: String,
+    onValueChange: (Float) -> Unit,
+    onActiveChange: (Boolean) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(width = 44.dp, height = 58.dp)
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { pos ->
+                        onActiveChange(true)
+                        onValueChange((1f - pos.x / size.width).coerceIn(0f, 1f))
+                    },
+                    onDragEnd = { onActiveChange(false) },
+                    onDragCancel = { onActiveChange(false) },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        onValueChange((1f - change.position.x / size.width).coerceIn(0f, 1f))
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val stroke = 5.dp.toPx()
+            val topLeft = Offset(size.width * 0.15f, size.height * 0.12f)
+            val arcSize = androidx.compose.ui.geometry.Size(size.width * 0.70f, size.height * 0.70f)
+            drawArc(Color(0x55333333), 180f, 180f, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+            drawArc(Color(0xFF64B5F6), 180f, 180f * value.coerceIn(0f, 1f), false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+        }
+        Text(label, fontSize = 8.sp, color = Color.White, fontWeight = FontWeight.Medium, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }

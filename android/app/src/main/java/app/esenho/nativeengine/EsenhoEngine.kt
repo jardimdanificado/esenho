@@ -1800,6 +1800,7 @@ class EsenhoEngine(
                     isSelectionOnly = true,
                     originalLayerBackup = fullLayerBackup
                 )
+                clearSelection()
                 currentTool = ToolMode.TRANSFORM
                 getRenderBitmap()
                 return true
@@ -1848,6 +1849,7 @@ class EsenhoEngine(
             isSelectionOnly = false,
             originalLayerBackup = fullLayerBackup
         )
+        clearSelection()
         currentTool = ToolMode.TRANSFORM
         getRenderBitmap()
         return true
