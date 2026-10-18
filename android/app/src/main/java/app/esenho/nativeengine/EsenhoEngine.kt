@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import org.json.JSONObject
 import java.util.ArrayDeque
-import kotlin.math.hypot
+import kotlin.math.*
 
 enum class ToolMode(val id: Int, val displayName: String) {
     BRUSH(0, "Pincel"),
