@@ -157,16 +157,30 @@ class NativePainterActivity : ComponentActivity() {
 fun EsenhoNativeTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = Color(0xFF80C783),
-            onPrimary = Color(0xFF152016),
-            primaryContainer = Color(0xFF29402D),
-            secondary = Color(0xFFFFC857),
-            onSecondary = Color(0xFF152016),
-            tertiary = Color(0xFFFFC857),
+            // Keep large surfaces neutral; reserve color for interaction and
+            // selection accents so the editor does not read as green overall.
+            primary = Color(0xFFFFC857),
+            onPrimary = Color(0xFF241E12),
+            primaryContainer = Color(0xFF4A402B),
+            secondary = Color(0xFFB7BCC1),
+            onSecondary = Color(0xFF202326),
+            secondaryContainer = Color(0xFF34383C),
+            onSecondaryContainer = Color(0xFFE1E4E7),
+            tertiary = Color(0xFFE58A7B),
+            tertiaryContainer = Color(0xFF49302E),
+            onTertiaryContainer = Color(0xFFFFDAD4),
+            error = Color(0xFFFFB4AB),
+            onError = Color(0xFF690005),
+            errorContainer = Color(0xFF93000A),
+            onErrorContainer = Color(0xFFFFDAD6),
             surface = Color(0xFF202326),
             surfaceVariant = Color(0xFF303438),
             background = Color(0xFF151719),
-            onSurface = Color(0xFFE6E8EA)
+            onSurface = Color(0xFFE6E8EA),
+            outline = Color(0xFF777D82),
+            outlineVariant = Color(0xFF41464A),
+            scrim = Color(0x99000000),
+            surfaceTint = Color.Transparent
         ),
         content = content
     )
@@ -194,17 +208,26 @@ fun EsenhoMainScreen(
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var showProjectManager by remember { mutableStateOf(false) }
     var showClearLayerConfirm by remember { mutableStateOf(false) }
+    var showCanvasResizeDialog by remember { mutableStateOf(false) }
+    var canvasResizeWidth by remember { mutableStateOf(engine.width.toString()) }
+    var canvasResizeHeight by remember { mutableStateOf(engine.height.toString()) }
+    var canvasResizeError by remember { mutableStateOf<String?>(null) }
 
     // Floating Tool Dropdowns
     var showSelectMenu by remember { mutableStateOf(false) }
     var showSelectionOpMenu by remember { mutableStateOf(false) }
     var showSelectionFeatherDialog by remember { mutableStateOf(false) }
     var selectionFeatherRadius by remember { mutableFloatStateOf(4f) }
+    var showCreateBrushTipDialog by remember { mutableStateOf(false) }
+    var customBrushTipName by remember { mutableStateOf("") }
+    var showCreateGrainDialog by remember { mutableStateOf(false) }
+    var customGrainName by remember { mutableStateOf("") }
     var showWandSettings by remember { mutableStateOf(false) }
     var showTransformModeMenu by remember { mutableStateOf(false) }
     var showTransformActions by remember { mutableStateOf(false) }
     var activeTransformMode by remember { mutableStateOf(engine.transformModePreference) }
     var activeTransformInterpolation by remember { mutableStateOf(engine.transformInterpolation) }
+    var transformLockAspect by remember { mutableStateOf(engine.transformLockAspect) }
     var wandTolerance by remember { mutableFloatStateOf(engine.wandTolerance.toFloat()) }
     var wandContiguous by remember { mutableStateOf(engine.wandContiguous) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
@@ -458,6 +481,17 @@ fun EsenhoMainScreen(
                                 }
                             )
                             DropdownMenuItem(
+                                text = { Text("Redimensionar Tela...") },
+                                leadingIcon = { Icon(Icons.Default.AspectRatio, null) },
+                                onClick = {
+                                    showMenu = false
+                                    canvasResizeWidth = engine.width.toString()
+                                    canvasResizeHeight = engine.height.toString()
+                                    canvasResizeError = null
+                                    showCanvasResizeDialog = true
+                                }
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Selecionar Tudo") },
                                 leadingIcon = { Icon(Icons.Default.SelectAll, null) },
                                 onClick = {
@@ -651,6 +685,32 @@ fun EsenhoMainScreen(
                             modifier = Modifier.size(32.dp)
                         ) { Icon(Icons.Default.ContentCut, contentDescription = "Recortar seleção", modifier = Modifier.size(17.dp)) }
                         TooltipIconButton(
+                            onClick = { engine.fillSelection(currentColor); refreshState() },
+                            description = "Preencher seleção com a cor atual",
+                            modifier = Modifier.size(32.dp)
+                        ) { Icon(Icons.Default.FormatColorFill, contentDescription = "Preencher seleção", modifier = Modifier.size(17.dp)) }
+                        TooltipIconButton(
+                            onClick = { if (engine.cropCanvasToSelection()) refreshState() },
+                            description = "Cortar tela para os limites da seleção",
+                            modifier = Modifier.size(32.dp)
+                        ) { Icon(Icons.Default.Crop, contentDescription = "Cortar tela para seleção", modifier = Modifier.size(17.dp)) }
+                        TooltipIconButton(
+                            onClick = {
+                                customBrushTipName = "Ponta ${engine.presetCatalog.count { it.isCustom } + 1}"
+                                showCreateBrushTipDialog = true
+                            },
+                            description = "Criar ponta de pincel da seleção",
+                            modifier = Modifier.size(32.dp)
+                        ) { Icon(Icons.Default.Brush, contentDescription = "Criar ponta de pincel", modifier = Modifier.size(17.dp)) }
+                        TooltipIconButton(
+                            onClick = {
+                                customGrainName = "Textura ${engine.presetCatalog.count { it.isCustom } + 1}"
+                                showCreateGrainDialog = true
+                            },
+                            description = "Criar textura de grão da seleção",
+                            modifier = Modifier.size(32.dp)
+                        ) { Icon(Icons.Default.GridOn, contentDescription = "Criar textura de grão", modifier = Modifier.size(17.dp)) }
+                        TooltipIconButton(
                             onClick = { engine.pasteSelectionClipboard(); refreshState() },
                             description = "Colar seleção",
                             enabled = canPasteSelection,
@@ -789,6 +849,23 @@ fun EsenhoMainScreen(
                             }
                         }
 
+                        TooltipIconButton(
+                            onClick = {
+                                transformLockAspect = !transformLockAspect
+                                engine.transformLockAspect = transformLockAspect
+                                canvasViewRef?.invalidate()
+                            },
+                            description = if (transformLockAspect) "Proporção bloqueada" else "Bloquear proporção",
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                if (transformLockAspect) Icons.Default.Lock else Icons.Default.LockOpen,
+                                contentDescription = if (transformLockAspect) "Proporção bloqueada" else "Proporção livre",
+                                tint = if (transformLockAspect) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+
                         TextButton(
                             onClick = {
                                 activeTransformInterpolation = if (activeTransformInterpolation == TransformState.Interpolation.NEAREST)
@@ -828,6 +905,24 @@ fun EsenhoMainScreen(
                                 expanded = showTransformActions,
                                 onDismissRequest = { showTransformActions = false }
                             ) {
+                                DropdownMenuItem(
+                                    text = { Text("Girar 90° anti-horário") },
+                                    leadingIcon = { Icon(Icons.Default.RotateLeft, null) },
+                                    onClick = {
+                                        showTransformActions = false
+                                        engine.rotateTransformBy(-90f)
+                                        canvasViewRef?.invalidate()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Girar 180°") },
+                                    leadingIcon = { Icon(Icons.Default.Rotate90DegreesCw, null) },
+                                    onClick = {
+                                        showTransformActions = false
+                                        engine.rotateTransformBy(180f)
+                                        canvasViewRef?.invalidate()
+                                    }
+                                )
                                 DropdownMenuItem(
                                     text = { Text("Centralizar no canvas") },
                                     leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) },
@@ -1062,6 +1157,76 @@ fun EsenhoMainScreen(
                 confirmButton = { TextButton(onClick = { showWandSettings = false }) { Text("Pronto") } }
             )
         }
+        if (showCreateBrushTipDialog) {
+            AlertDialog(
+                onDismissRequest = { showCreateBrushTipDialog = false },
+                title = { Text("Criar ponta de pincel") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("A área selecionada será salva como um preset personalizado.")
+                        OutlinedTextField(
+                            value = customBrushTipName,
+                            onValueChange = { customBrushTipName = it.take(40) },
+                            label = { Text("Nome da ponta") },
+                            singleLine = true
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = customBrushTipName.isNotBlank(),
+                        onClick = {
+                            val created = engine.createBrushTipFromSelection(customBrushTipName)
+                            showCreateBrushTipDialog = false
+                            if (created) {
+                                currentTool = ToolMode.BRUSH
+                                engine.currentTool = ToolMode.BRUSH
+                                Toast.makeText(context, "Ponta criada e salva nos presets", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Não foi possível criar a ponta (limite de 2048 px por lado)", Toast.LENGTH_LONG).show()
+                            }
+                            refreshState()
+                        }
+                    ) { Text("Criar") }
+                },
+                dismissButton = { TextButton(onClick = { showCreateBrushTipDialog = false }) { Text("Cancelar") } }
+            )
+        }
+        if (showCreateGrainDialog) {
+            AlertDialog(
+                onDismissRequest = { showCreateGrainDialog = false },
+                title = { Text("Criar textura de grão") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("A seleção será salva como textura do preset personalizado.")
+                        OutlinedTextField(
+                            value = customGrainName,
+                            onValueChange = { customGrainName = it.take(40) },
+                            label = { Text("Nome da textura") },
+                            singleLine = true
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = customGrainName.isNotBlank(),
+                        onClick = {
+                            val created = engine.createGrainTextureFromSelection(customGrainName)
+                            showCreateGrainDialog = false
+                            if (created) {
+                                currentTool = ToolMode.BRUSH
+                                engine.currentTool = ToolMode.BRUSH
+                                Toast.makeText(context, "Textura criada e salva nos presets", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Não foi possível criar a textura (limite de 2048 px por lado)", Toast.LENGTH_LONG).show()
+                            }
+                            refreshState()
+                        }
+                    ) { Text("Criar") }
+                },
+                dismissButton = { TextButton(onClick = { showCreateGrainDialog = false }) { Text("Cancelar") } }
+            )
+        }
         if (showSelectionFeatherDialog) {
             AlertDialog(
                 onDismissRequest = { showSelectionFeatherDialog = false },
@@ -1085,6 +1250,53 @@ fun EsenhoMainScreen(
                     }) { Text("Aplicar") }
                 },
                 dismissButton = { TextButton(onClick = { showSelectionFeatherDialog = false }) { Text("Cancelar") } }
+            )
+        }
+        if (showCanvasResizeDialog) {
+            AlertDialog(
+                onDismissRequest = { showCanvasResizeDialog = false },
+                title = { Text("Redimensionar tela") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Todos os cels de animação serão redimensionados com interpolação suave.")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = canvasResizeWidth,
+                                onValueChange = { canvasResizeWidth = it.filter(Char::isDigit).take(5); canvasResizeError = null },
+                                label = { Text("Largura") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = canvasResizeHeight,
+                                onValueChange = { canvasResizeHeight = it.filter(Char::isDigit).take(5); canvasResizeError = null },
+                                label = { Text("Altura") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        canvasResizeError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        Text("Máximo: 8192 px por lado e 32 megapixels.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val newWidth = canvasResizeWidth.toIntOrNull()
+                        val newHeight = canvasResizeHeight.toIntOrNull()
+                        if (newWidth == null || newHeight == null || newWidth !in 1..8192 || newHeight !in 1..8192 || newWidth.toLong() * newHeight > 32_000_000L) {
+                            canvasResizeError = "Informe dimensões válidas dentro do limite."
+                        } else if (engine.resizeCanvas(newWidth, newHeight)) {
+                            showCanvasResizeDialog = false
+                            canvasViewRef?.resetView()
+                            refreshState()
+                        } else if (newWidth == engine.width && newHeight == engine.height) {
+                            showCanvasResizeDialog = false
+                        } else {
+                            canvasResizeError = "Falha ao redimensionar. Feche a transformação ou tente dimensões menores."
+                        }
+                    }) { Text("Aplicar") }
+                },
+                dismissButton = { TextButton(onClick = { showCanvasResizeDialog = false }) { Text("Cancelar") } }
             )
         }
         if (showProjectManager) {

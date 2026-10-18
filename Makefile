@@ -60,7 +60,10 @@ test-native: bin/test_brush_dynamics bin/test_native_svg
 test-brush-dyn: bin/test_brush_dynamics
 	./bin/test_brush_dynamics
 
-apk: $(CORE_WASM) $(PLUGINS) plugins/manifest.json $(BRUSH_PLUGINS) plugins/brushes/manifest.json
+# The native Android app compiles its C core and brush/filter plugins through
+# CMake. It only needs the generated native registry and metadata below; the
+# browser WASM artifacts are not inputs to the APK.
+apk:
 	node scripts/generate-native-plugins.js
 	@TOOLS_DIR="$$HOME/.local/share/esenho-android-tools"; \
 	if [ -d "$$TOOLS_DIR/jdk17" ]; then export JAVA_HOME="$$TOOLS_DIR/jdk17"; fi; \
@@ -71,8 +74,8 @@ apk: $(CORE_WASM) $(PLUGINS) plugins/manifest.json $(BRUSH_PLUGINS) plugins/brus
 		export ANDROID_KEY_ALIAS="esenho"; \
 		export ANDROID_KEY_PASSWORD="esenho123"; \
 	fi; \
-	export PATH="$$JAVA_HOME/bin:$$TOOLS_DIR/gradle/bin:$$PATH"; \
-	gradle -p android assembleRelease --no-daemon && \
+	export PATH="$$JAVA_HOME/bin:$$PATH"; \
+	./android/gradlew -p android assembleRelease --no-daemon && \
 	VERSION=$$(node -p "require('./package.json').version") && \
 	cp android/app/build/outputs/apk/release/app-release.apk "esenho-v$${VERSION}.apk" && \
 	echo "Built signed APK: esenho-v$${VERSION}.apk"

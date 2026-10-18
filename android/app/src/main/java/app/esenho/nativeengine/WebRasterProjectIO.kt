@@ -67,6 +67,7 @@ internal object WebRasterProjectIO {
             }
             engine.transformInterpolation = if (settings.optString("transformInterpolation", "nearest").equals("bilinear", true))
                 TransformState.Interpolation.BILINEAR else TransformState.Interpolation.NEAREST
+            engine.transformLockAspect = jsonBool(settings.opt("transformLockAspect"), false)
             engine.wandTolerance = settings.optInt("wandTolerance", engine.wandTolerance).coerceIn(0, 255)
             engine.wandContiguous = jsonBool(settings.opt("wandAdjacent"), true)
             engine.selectionOp = when (settings.optString("selectionMode", "replace").lowercase()) {
@@ -121,7 +122,7 @@ internal object WebRasterProjectIO {
             repeat(frameJson.length()) { i ->
                 val frame = frameJson.optJSONObject(i) ?: return@repeat
                 frames += AnimationCel(
-                    frame.optString("name", "Frame ${i + 1}"), decodeBitmap(frame, w, h),
+                    frame.optString("name", "Frame ${i + 1}"), decodeBitmap(frame, w, h, preserveSourceSize = true),
                     frame.optInt("duration", 1).coerceAtLeast(1), jsonBool(frame.opt("visible"), true),
                     frame.optInt("opacity", 255).coerceIn(0, 255)
                 )
@@ -153,7 +154,7 @@ internal object WebRasterProjectIO {
         if (engine.rasterGroupOrder.isEmpty()) engine.rasterLayerGroups.values.filter { it.parentId == null }.forEach { engine.rasterGroupOrder.add(it.id) }
     }
 
-    private fun decodeBitmap(item: JSONObject, targetWidth: Int, targetHeight: Int): Bitmap {
+    private fun decodeBitmap(item: JSONObject, targetWidth: Int, targetHeight: Int, preserveSourceSize: Boolean = false): Bitmap {
         val width = item.optInt("width", targetWidth).coerceIn(1, 8192)
         val height = item.optInt("height", targetHeight).coerceIn(1, 8192)
         val count = Math.multiplyExact(width, height)
@@ -180,14 +181,18 @@ internal object WebRasterProjectIO {
             "qoi" -> decodeQoi(Base64.decode(item.optString("pixels", ""), Base64.DEFAULT), pixels, width, height)
             else -> error("Codificação de imagem não suportada: ${item.optString("encoding")}")
         }
-        val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
-        val copyWidth = minOf(width, targetWidth)
-        val copyHeight = minOf(height, targetHeight)
+        val bitmapWidth = if (preserveSourceSize) width else targetWidth
+        val bitmapHeight = if (preserveSourceSize) height else targetHeight
+        val bitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888)
+        val copyWidth = minOf(width, bitmapWidth)
+        val copyHeight = minOf(height, bitmapHeight)
         if (copyWidth > 0 && copyHeight > 0) {
-            val cropped = if (copyWidth == width) pixels else IntArray(copyWidth * height).also { dst ->
-                for (y in 0 until height) System.arraycopy(pixels, y * width, dst, y * copyWidth, copyWidth)
+            if (copyWidth == width) bitmap.setPixels(pixels, 0, width, 0, 0, copyWidth, copyHeight)
+            else {
+                val cropped = IntArray(copyWidth * height)
+                for (y in 0 until height) System.arraycopy(pixels, y * width, cropped, y * copyWidth, copyWidth)
+                bitmap.setPixels(cropped, 0, copyWidth, 0, 0, copyWidth, copyHeight)
             }
-            bitmap.setPixels(cropped, 0, copyWidth, 0, 0, copyWidth, copyHeight)
         }
         return bitmap
     }

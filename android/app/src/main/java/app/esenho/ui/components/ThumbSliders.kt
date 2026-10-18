@@ -101,7 +101,8 @@ fun ThumbSliders(
             val norm = ((currentRawVal - cfg.minVal) / (cfg.maxVal - cfg.minVal)).coerceIn(0f, 1f)
             val barColor = when (index) {
                 0 -> Color(0xFF42464B) // dark gray
-                1 -> Color(0xFF4CAF50) // green
+                // Keep the second slot neutral so the editor chrome stays gray-led.
+                1 -> Color(0xFF50565B)
                 2 -> Color(0xFFFFC107) // yellow
                 else -> Color(0xFFE53935) // red
             }
@@ -271,7 +272,7 @@ fun ThumbSliders(
 fun VerticalThumbBar(
     value: Float,
     label: String,
-    fillColor: Color = Color(0xFF4CAF50),
+    fillColor: Color = Color(0xFF62676C),
     onClick: () -> Unit,
     onValueChange: (Float) -> Unit,
     onActiveChange: (Boolean) -> Unit

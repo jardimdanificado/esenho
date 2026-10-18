@@ -26,9 +26,11 @@ object EsenhoNativeBridge {
     )
 
     // Native C Memory Undo / Redo
-    external fun nativePushUndo()
-    external fun nativeUndo(): Boolean
-    external fun nativeRedo(): Boolean
+    external fun nativePushUndo(): Long
+    external fun nativePeekUndoToken(): Long
+    external fun nativePeekRedoToken(): Long
+    external fun nativeUndo(): Long
+    external fun nativeRedo(): Long
     external fun nativeCanUndo(): Boolean
     external fun nativeCanRedo(): Boolean
     external fun nativeCancelStroke()
@@ -46,18 +48,21 @@ object EsenhoNativeBridge {
     external fun nativeBrushSetShape(shape: Int)
     external fun nativeSelectShape(shapeName: String?): Int
     external fun nativeSelectTexture(textureName: String?): Int
+    external fun nativeCreateBrushAsset(bitmap: Bitmap): Int
     external fun nativeBrushReset()
 
     // Filters Suite
     external fun nativeGetFilterCount(): Int
     external fun nativeGetFilterInfo(idx: Int): String
     external fun nativeApplyFilter(filterId: String, p1: Int, p2: Int): Boolean
+    external fun nativeLayerAdjustHsv(layerIdx: Int, hue: Int, saturationPercent: Int, valuePercent: Int)
 
     // Eyedropper
     external fun nativePickColor(x: Int, y: Int, sampleComposite: Int): Int
 
     // Layer Operations (Full Stack)
     external fun nativeLayerAdd(): Int
+    external fun nativeLayerRestoreSlot(idx: Int, width: Int, height: Int, visible: Int, orderPosition: Int): Int
     external fun nativeLayerDuplicate(idx: Int): Int
     external fun nativeLayerSelect(idx: Int)
     external fun nativeLayerGetActive(): Int
@@ -76,6 +81,9 @@ object EsenhoNativeBridge {
     external fun nativeLayerMoveUp(idx: Int): Int
     external fun nativeLayerMoveDown(idx: Int): Int
     external fun nativeLayerMergeDown(idx: Int): Int
+    external fun nativeLayerResize(idx: Int, width: Int, height: Int, resample: Int): Int
+    external fun nativeLayerGetWidth(idx: Int): Int
+    external fun nativeLayerGetHeight(idx: Int): Int
     external fun nativeLayerGetCount(): Int
     external fun nativeLayerGetOrder(pos: Int): Int
 
@@ -115,4 +123,8 @@ object EsenhoNativeBridge {
     external fun nativeCanvasFlipH()
     external fun nativeCanvasFlipV()
     external fun nativeLayerDrawBitmap(layerIdx: Int, bitmap: Bitmap, dstX: Int, dstY: Int, dstW: Int, dstH: Int)
+
+    // Wet-media paint physics
+    external fun nativeDryAllWater()
+    external fun nativeStepWaterDiffusion(steps: Int)
 }

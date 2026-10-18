@@ -31,6 +31,10 @@ fun FilterModal(
     var selectedFilter by remember { mutableStateOf<FilterModel?>(null) }
     var param1 by remember { mutableFloatStateOf(10f) }
     var param2 by remember { mutableFloatStateOf(1f) }
+    var showHsvAdjustment by remember { mutableStateOf(false) }
+    var hue by remember { mutableFloatStateOf(0f) }
+    var saturation by remember { mutableFloatStateOf(0f) }
+    var value by remember { mutableFloatStateOf(0f) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -47,10 +51,56 @@ fun FilterModal(
                 text = "Galeria de Filtros (${engine.filterCatalog.size})",
                 style = MaterialTheme.typography.titleMedium
             )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = !showHsvAdjustment,
+                    onClick = { showHsvAdjustment = false },
+                    label = { Text("Filtros") }
+                )
+                FilterChip(
+                    selected = showHsvAdjustment,
+                    onClick = { showHsvAdjustment = true },
+                    label = { Text("Cor HSV") }
+                )
+            }
             Spacer(modifier = Modifier.height(10.dp))
 
+            if (showHsvAdjustment) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text("Ajustar cor da camada ativa", style = MaterialTheme.typography.titleSmall)
+                        Text("Matiz: ${hue.toInt()}°", style = MaterialTheme.typography.labelSmall)
+                        Slider(value = hue, onValueChange = { hue = it }, valueRange = -180f..180f)
+                        Text("Saturação: ${saturation.toInt()}%", style = MaterialTheme.typography.labelSmall)
+                        Slider(value = saturation, onValueChange = { saturation = it }, valueRange = -100f..100f)
+                        Text("Valor: ${value.toInt()}%", style = MaterialTheme.typography.labelSmall)
+                        Slider(value = value, onValueChange = { value = it }, valueRange = -100f..100f)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = { hue = 0f; saturation = 0f; value = 0f }) {
+                                Text("Redefinir")
+                            }
+                            Button(onClick = {
+                                engine.adjustActiveLayerHsv(hue.toInt(), saturation.toInt(), value.toInt())
+                                onFilterApplied()
+                                onDismiss()
+                            }) {
+                                Text("Aplicar")
+                            }
+                        }
+                    }
+                }
+            }
+
             // Parameter Adjustment Box if filter selected
-            if (selectedFilter != null) {
+            if (!showHsvAdjustment && selectedFilter != null) {
                 val f = selectedFilter!!
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -107,16 +157,17 @@ fun FilterModal(
             }
 
             // Grid of 29 Filters
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(320.dp)
-            ) {
-                items(engine.filterCatalog) { filter ->
-                    val isSelected = selectedFilter?.id == filter.id
+            if (!showHsvAdjustment) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(320.dp)
+                ) {
+                    items(engine.filterCatalog) { filter ->
+                        val isSelected = selectedFilter?.id == filter.id
 
                     Surface(
                         modifier = Modifier
@@ -155,6 +206,7 @@ fun FilterModal(
                                 color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                             )
                         }
+                    }
                     }
                 }
             }

@@ -61,7 +61,8 @@ object EsenhoProjectIO {
         val wandTolerance: Int,
         val wandContiguous: Boolean,
         val transformMode: TransformState.Mode,
-        val transformInterpolation: TransformState.Interpolation
+        val transformInterpolation: TransformState.Interpolation,
+        val transformLockAspect: Boolean
     )
 
     fun capture(engine: EsenhoEngine): Snapshot {
@@ -77,10 +78,7 @@ object EsenhoProjectIO {
                 check(EsenhoNativeBridge.nativeLayerGetBitmap(layer.id, bitmap)) { "Não foi possível ler a camada ${layer.name}" }
                 if (layer.id == transformedLayerId) {
                     val canvas = android.graphics.Canvas(bitmap)
-                    activeTransform?.drawTransformedBitmap(
-                        canvas,
-                        android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.ANTI_ALIAS_FLAG)
-                    )
+                    activeTransform?.drawTransformedBitmapExact(canvas)
                     transformedLayerBitmaps[layer.id] = bitmap
                 }
                 layers += LayerSnapshot(layer.name, bitmap, layer.opacity, layer.visible, layer.blendMode.id, layer.alphaLock, layer.clipping)
@@ -137,7 +135,8 @@ object EsenhoProjectIO {
                 engine.wandTolerance,
                 engine.wandContiguous,
                 activeTransform?.mode ?: engine.transformModePreference,
-                engine.transformInterpolation
+                engine.transformInterpolation,
+                engine.transformLockAspect
             )
         } catch (failure: Throwable) {
             layers.forEach { it.bitmap.recycle() }
@@ -201,6 +200,7 @@ object EsenhoProjectIO {
             .put("wandContiguous", snapshot.wandContiguous)
             .put("transformMode", snapshot.transformMode.name)
             .put("transformInterpolation", snapshot.transformInterpolation.name)
+            .put("transformLockAspect", snapshot.transformLockAspect)
         zip.putNextEntry(ZipEntry("project.json"))
         zip.write(metadata.toString().toByteArray(Charsets.UTF_8))
         zip.closeEntry()
@@ -254,6 +254,7 @@ object EsenhoProjectIO {
         engine.transformModePreference = runCatching {
             TransformState.Mode.valueOf(json.optString("transformMode", "SCALE"))
         }.getOrDefault(TransformState.Mode.SCALE)
+        engine.transformLockAspect = json.optBoolean("transformLockAspect", false)
         while (engine.layers.size > savedLayers.length() && engine.layers.size > 1) {
             EsenhoNativeBridge.nativeLayerDelete(engine.layers.last().id)
             engine.syncLayers()

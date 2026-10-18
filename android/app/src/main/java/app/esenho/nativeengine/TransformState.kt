@@ -3,6 +3,43 @@ package app.esenho.nativeengine
 import android.graphics.*
 import kotlin.math.*
 
+private fun interpolateChannel(p00: Int, p10: Int, p01: Int, p11: Int, shift: Int, w00: Float, w10: Float, w01: Float, w11: Float): Int = (
+    ((p00 ushr shift) and 255) * w00 +
+        ((p10 ushr shift) and 255) * w10 +
+        ((p01 ushr shift) and 255) * w01 +
+        ((p11 ushr shift) and 255) * w11
+    ).roundToInt().coerceIn(0, 255)
+
+private fun interpolatePremultipliedArgb(
+    p00: Int,
+    p10: Int,
+    p01: Int,
+    p11: Int,
+    w00: Float,
+    w10: Float,
+    w01: Float,
+    w11: Float
+): Int {
+    val alpha = interpolateChannel(p00, p10, p01, p11, 24, w00, w10, w01, w11)
+    if (alpha == 0) return Color.TRANSPARENT
+
+    fun premultipliedChannel(shift: Int): Int {
+        val c00 = ((p00 ushr shift) and 255) * ((p00 ushr 24) and 255) / 255f
+        val c10 = ((p10 ushr shift) and 255) * ((p10 ushr 24) and 255) / 255f
+        val c01 = ((p01 ushr shift) and 255) * ((p01 ushr 24) and 255) / 255f
+        val c11 = ((p11 ushr shift) and 255) * ((p11 ushr 24) and 255) / 255f
+        val value = c00 * w00 + c10 * w10 + c01 * w01 + c11 * w11
+        return (value * 255f / alpha).roundToInt().coerceIn(0, 255)
+    }
+
+    return Color.argb(
+        alpha,
+        premultipliedChannel(16),
+        premultipliedChannel(8),
+        premultipliedChannel(0)
+    )
+}
+
 class TransformState(
     val sourceBitmap: Bitmap,
     val initialBounds: RectF,
@@ -173,7 +210,14 @@ class TransformState(
         updatePoints()
     }
 
-    fun moveHandle(handle: Handle, dx: Float, dy: Float, origin: FloatArray = dstPts.copyOf(), lockAspect: Boolean = false) {
+    fun moveHandle(
+        handle: Handle,
+        dx: Float,
+        dy: Float,
+        origin: FloatArray = dstPts.copyOf(),
+        lockAspect: Boolean = false,
+        forceFreeCorner: Boolean = false
+    ) {
         if (origin.size < 8) return
         val next = origin.copyOf()
         fun movePoint(index: Int, x: Float, y: Float) {
@@ -190,9 +234,10 @@ class TransformState(
             else -> -1
         }
         if (corner >= 0) {
-            // Perspective and Free Distort both need independent corner
-            // control; their edge handles remain distinct below.
-            val free = mode == Mode.DISTORT || mode == Mode.PERSPECTIVE
+            // Perspective and free Distort both expose independent corners.
+            // Scale and Skew keep the opposite corner anchored; Ctrl/Meta can
+            // temporarily free a corner in those modes.
+            val free = mode == Mode.DISTORT || mode == Mode.PERSPECTIVE || forceFreeCorner
             if (free) {
                 movePoint(corner, origin[corner * 2] + dx, origin[corner * 2 + 1] + dy)
             } else {
@@ -208,14 +253,21 @@ class TransformState(
                 val vLen = hypot(vX, vY).coerceAtLeast(1e-4f)
                 val ux = uX / uLen; val uy = uY / uLen
                 val vx = vX / vLen; val vy = vY / vLen
+                val basisDeterminant = ux * vy - uy * vx
+                if (abs(basisDeterminant) < 1e-4f) return
+                fun basisCoordinates(x: Float, y: Float): Pair<Float, Float> =
+                    Pair(
+                        (x * vy - y * vx) / basisDeterminant,
+                        (ux * y - uy * x) / basisDeterminant
+                    )
                 val oldX = origin[corner * 2] - opposite.x
                 val oldY = origin[corner * 2 + 1] - opposite.y
                 val newX = oldX + dx
                 val newY = oldY + dy
-                val oldU = oldX * ux + oldY * uy
-                val oldV = oldX * vx + oldY * vy
-                var scaleU = if (abs(oldU) > 1e-3f) (newX * ux + newY * uy) / oldU else 1f
-                var scaleV = if (abs(oldV) > 1e-3f) (newX * vx + newY * vy) / oldV else 1f
+                val (oldU, oldV) = basisCoordinates(oldX, oldY)
+                val (newU, newV) = basisCoordinates(newX, newY)
+                var scaleU = if (abs(oldU) > 1e-3f) newU / oldU else 1f
+                var scaleV = if (abs(oldV) > 1e-3f) newV / oldV else 1f
                 if (lockAspect) {
                     val mag = (abs(scaleU) + abs(scaleV)) * 0.5f
                     scaleU = if (scaleU < 0f) -mag else mag
@@ -224,8 +276,9 @@ class TransformState(
                 for (index in 0..3) {
                     val relativeX = origin[index * 2] - opposite.x
                     val relativeY = origin[index * 2 + 1] - opposite.y
-                    val projectedU = (relativeX * ux + relativeY * uy) * scaleU
-                    val projectedV = (relativeX * vx + relativeY * vy) * scaleV
+                    val (coordinateU, coordinateV) = basisCoordinates(relativeX, relativeY)
+                    val projectedU = coordinateU * scaleU
+                    val projectedV = coordinateV * scaleV
                     movePoint(index, opposite.x + projectedU * ux + projectedV * vx, opposite.y + projectedU * uy + projectedV * vy)
                 }
             }
@@ -276,6 +329,275 @@ class TransformState(
         if (map.setPolyToPoly(floatArrayOf(0f, 0f, w, 0f, w, h, 0f, h), 0, dstPts, 0, 4)) {
             canvas.drawBitmap(sourceBitmap, map, paint)
         }
+    }
+
+    /**
+     * Rasterizes projective modes with inverse-homography pixel-center
+     * sampling. Canvas matrix filtering differs between Android versions,
+     * especially for nearest-neighbor transforms and transparent edges.
+     */
+    fun drawTransformedBitmapExact(canvas: Canvas) {
+        if (mode == Mode.DISTORT) {
+            drawDistortedBitmapExact(canvas)
+            return
+        }
+        val targetWidth = canvas.width
+        val targetHeight = canvas.height
+        if (targetWidth <= 0 || targetHeight <= 0) return
+
+        val sourceWidth = sourceBitmap.width
+        val sourceHeight = sourceBitmap.height
+        val mapping = Matrix()
+        val sourceCorners = floatArrayOf(
+            0f, 0f, sourceWidth.toFloat(), 0f,
+            sourceWidth.toFloat(), sourceHeight.toFloat(), 0f, sourceHeight.toFloat()
+        )
+        if (!mapping.setPolyToPoly(sourceCorners, 0, dstPts, 0, 4)) return
+        val inverse = Matrix()
+        if (!mapping.invert(inverse)) return
+
+        val matrixValues = FloatArray(9)
+        inverse.getValues(matrixValues)
+        val sxScale = matrixValues[Matrix.MSCALE_X]
+        val sxSkew = matrixValues[Matrix.MSKEW_X]
+        val sxTranslate = matrixValues[Matrix.MTRANS_X]
+        val sySkew = matrixValues[Matrix.MSKEW_Y]
+        val syScale = matrixValues[Matrix.MSCALE_Y]
+        val syTranslate = matrixValues[Matrix.MTRANS_Y]
+        val perspectiveX = matrixValues[Matrix.MPERSP_0]
+        val perspectiveY = matrixValues[Matrix.MPERSP_1]
+        val perspectiveW = matrixValues[Matrix.MPERSP_2]
+
+        var minX = Float.POSITIVE_INFINITY
+        var minY = Float.POSITIVE_INFINITY
+        var maxX = Float.NEGATIVE_INFINITY
+        var maxY = Float.NEGATIVE_INFINITY
+        for (i in 0..3) {
+            val x = dstPts[i * 2]
+            val y = dstPts[i * 2 + 1]
+            minX = min(minX, x)
+            minY = min(minY, y)
+            maxX = max(maxX, x)
+            maxY = max(maxY, y)
+        }
+        val left = floor(minX).toInt().coerceAtLeast(0)
+        val top = floor(minY).toInt().coerceAtLeast(0)
+        val right = ceil(maxX).toInt().coerceAtMost(targetWidth - 1)
+        val bottom = ceil(maxY).toInt().coerceAtMost(targetHeight - 1)
+        if (left > right || top > bottom) return
+
+        val sourcePixels = IntArray(sourceWidth * sourceHeight)
+        sourceBitmap.getPixels(sourcePixels, 0, sourceWidth, 0, 0, sourceWidth, sourceHeight)
+        val regionWidth = right - left + 1
+        val regionHeight = bottom - top + 1
+        val warpedPixels = IntArray(regionWidth * regionHeight)
+        for (y in top..bottom) {
+            val destinationCenterY = y + 0.5f
+            val rowOffset = (y - top) * regionWidth
+            for (x in left..right) {
+                val destinationCenterX = x + 0.5f
+                val denominator = perspectiveX * destinationCenterX +
+                    perspectiveY * destinationCenterY + perspectiveW
+                if (abs(denominator) < 1e-8f) continue
+                val sourceX = (sxScale * destinationCenterX + sxSkew * destinationCenterY + sxTranslate) / denominator - 0.5f
+                val sourceY = (sySkew * destinationCenterX + syScale * destinationCenterY + syTranslate) / denominator - 0.5f
+
+                if (interpolation == Interpolation.NEAREST) {
+                    val ix = floor(sourceX + 0.5f).toInt()
+                    val iy = floor(sourceY + 0.5f).toInt()
+                    if (ix in 0 until sourceWidth && iy in 0 until sourceHeight) {
+                        val color = sourcePixels[iy * sourceWidth + ix]
+                        if (Color.alpha(color) != 0) warpedPixels[rowOffset + x - left] = color
+                    }
+                } else if (sourceX >= -0.5f && sourceX < sourceWidth - 0.5f &&
+                    sourceY >= -0.5f && sourceY < sourceHeight - 0.5f
+                ) {
+                    val x0 = floor(sourceX).toInt().coerceIn(0, sourceWidth - 1)
+                    val y0 = floor(sourceY).toInt().coerceIn(0, sourceHeight - 1)
+                    val x1 = (x0 + 1).coerceAtMost(sourceWidth - 1)
+                    val y1 = (y0 + 1).coerceAtMost(sourceHeight - 1)
+                    val fx = (sourceX - x0).coerceIn(0f, 1f)
+                    val fy = (sourceY - y0).coerceIn(0f, 1f)
+                    val w00 = (1f - fx) * (1f - fy)
+                    val w10 = fx * (1f - fy)
+                    val w01 = (1f - fx) * fy
+                    val w11 = fx * fy
+                    val p00 = sourcePixels[y0 * sourceWidth + x0]
+                    val p10 = sourcePixels[y0 * sourceWidth + x1]
+                    val p01 = sourcePixels[y1 * sourceWidth + x0]
+                    val p11 = sourcePixels[y1 * sourceWidth + x1]
+                    warpedPixels[rowOffset + x - left] = interpolatePremultipliedArgb(
+                        p00, p10, p01, p11, w00, w10, w01, w11
+                    )
+                }
+            }
+        }
+
+        val warped = Bitmap.createBitmap(regionWidth, regionHeight, Bitmap.Config.ARGB_8888)
+        try {
+            warped.setPixels(warpedPixels, 0, regionWidth, 0, 0, regionWidth, regionHeight)
+            canvas.drawBitmap(warped, left.toFloat(), top.toFloat(), null)
+        } finally {
+            warped.recycle()
+        }
+    }
+
+    /** Rasterizes free Distort as two affine triangles, matching its preview. */
+    private fun drawDistortedBitmapExact(canvas: Canvas) {
+        val targetWidth = canvas.width
+        val targetHeight = canvas.height
+        val sourceWidth = sourceBitmap.width
+        val sourceHeight = sourceBitmap.height
+        if (targetWidth <= 0 || targetHeight <= 0 || sourceWidth <= 0 || sourceHeight <= 0) return
+
+        val sourcePixels = IntArray(sourceWidth * sourceHeight)
+        sourceBitmap.getPixels(sourcePixels, 0, sourceWidth, 0, 0, sourceWidth, sourceHeight)
+        val srcFirst = floatArrayOf(0f, 0f, sourceWidth.toFloat(), 0f, 0f, sourceHeight.toFloat())
+        val dstFirst = floatArrayOf(dstPts[0], dstPts[1], dstPts[2], dstPts[3], dstPts[6], dstPts[7])
+        val srcSecond = floatArrayOf(
+            sourceWidth.toFloat(), sourceHeight.toFloat(), 0f, sourceHeight.toFloat(),
+            sourceWidth.toFloat(), 0f
+        )
+        val dstSecond = floatArrayOf(dstPts[4], dstPts[5], dstPts[6], dstPts[7], dstPts[2], dstPts[3])
+
+        fun drawTriangle(src: FloatArray, dst: FloatArray, ownsSharedEdge: Boolean) {
+            val mapping = Matrix()
+            if (!mapping.setPolyToPoly(src, 0, dst, 0, 3)) return
+            val inverse = Matrix()
+            if (!mapping.invert(inverse)) return
+            val values = FloatArray(9)
+            inverse.getValues(values)
+
+            var minX = Float.POSITIVE_INFINITY
+            var minY = Float.POSITIVE_INFINITY
+            var maxX = Float.NEGATIVE_INFINITY
+            var maxY = Float.NEGATIVE_INFINITY
+            for (i in 0..2) {
+                minX = min(minX, dst[i * 2])
+                minY = min(minY, dst[i * 2 + 1])
+                maxX = max(maxX, dst[i * 2])
+                maxY = max(maxY, dst[i * 2 + 1])
+            }
+            val left = floor(minX).toInt().coerceAtLeast(0)
+            val top = floor(minY).toInt().coerceAtLeast(0)
+            val right = ceil(maxX).toInt().coerceAtMost(targetWidth - 1)
+            val bottom = ceil(maxY).toInt().coerceAtMost(targetHeight - 1)
+            if (left > right || top > bottom) return
+
+            fun edge(ax: Float, ay: Float, bx: Float, by: Float, px: Float, py: Float) =
+                (px - ax) * (by - ay) - (py - ay) * (bx - ax)
+
+            fun insideTriangle(px: Float, py: Float): Boolean {
+                val d0 = edge(dst[0], dst[1], dst[2], dst[3], px, py)
+                val d1 = edge(dst[2], dst[3], dst[4], dst[5], px, py)
+                val d2 = edge(dst[4], dst[5], dst[0], dst[1], px, py)
+                val hasNegative = d0 < -1e-4f || d1 < -1e-4f || d2 < -1e-4f
+                val hasPositive = d0 > 1e-4f || d1 > 1e-4f || d2 > 1e-4f
+                return !(hasNegative && hasPositive)
+            }
+
+            fun liesOnSharedDiagonal(px: Float, py: Float): Boolean {
+                val topRightX = dstPts[2]
+                val topRightY = dstPts[3]
+                val bottomLeftX = dstPts[6]
+                val bottomLeftY = dstPts[7]
+                val cross = edge(topRightX, topRightY, bottomLeftX, bottomLeftY, px, py)
+                val edgeLength = hypot(bottomLeftX - topRightX, bottomLeftY - topRightY).coerceAtLeast(1f)
+                return abs(cross) <= edgeLength * 1e-4f
+            }
+
+            val regionWidth = right - left + 1
+            val regionHeight = bottom - top + 1
+            val warpedPixels = IntArray(regionWidth * regionHeight)
+            for (y in top..bottom) {
+                val py = y + 0.5f
+                val rowOffset = (y - top) * regionWidth
+                for (x in left..right) {
+                    val px = x + 0.5f
+                    if (!insideTriangle(px, py) || (!ownsSharedEdge && liesOnSharedDiagonal(px, py))) continue
+                    val denominator = values[Matrix.MPERSP_0] * px +
+                        values[Matrix.MPERSP_1] * py + values[Matrix.MPERSP_2]
+                    if (abs(denominator) < 1e-8f) continue
+                    val sourceX = (values[Matrix.MSCALE_X] * px + values[Matrix.MSKEW_X] * py + values[Matrix.MTRANS_X]) / denominator - 0.5f
+                    val sourceY = (values[Matrix.MSKEW_Y] * px + values[Matrix.MSCALE_Y] * py + values[Matrix.MTRANS_Y]) / denominator - 0.5f
+                    val color = sampleSourcePixel(sourcePixels, sourceWidth, sourceHeight, sourceX, sourceY)
+                    if (Color.alpha(color) != 0) warpedPixels[rowOffset + x - left] = color
+                }
+            }
+
+            val warped = Bitmap.createBitmap(regionWidth, regionHeight, Bitmap.Config.ARGB_8888)
+            try {
+                warped.setPixels(warpedPixels, 0, regionWidth, 0, 0, regionWidth, regionHeight)
+                canvas.drawBitmap(warped, left.toFloat(), top.toFloat(), null)
+            } finally {
+                warped.recycle()
+            }
+        }
+
+        drawTriangle(srcFirst, dstFirst, ownsSharedEdge = true)
+        drawTriangle(srcSecond, dstSecond, ownsSharedEdge = false)
+    }
+
+    private fun sampleSourcePixel(pixels: IntArray, width: Int, height: Int, sourceX: Float, sourceY: Float): Int {
+        if (interpolation == Interpolation.NEAREST) {
+            val x = floor(sourceX + 0.5f).toInt()
+            val y = floor(sourceY + 0.5f).toInt()
+            return if (x in 0 until width && y in 0 until height) pixels[y * width + x] else Color.TRANSPARENT
+        }
+        if (sourceX < -0.5f || sourceX >= width - 0.5f || sourceY < -0.5f || sourceY >= height - 0.5f) {
+            return Color.TRANSPARENT
+        }
+        val x0 = floor(sourceX).toInt().coerceIn(0, width - 1)
+        val y0 = floor(sourceY).toInt().coerceIn(0, height - 1)
+        val x1 = (x0 + 1).coerceAtMost(width - 1)
+        val y1 = (y0 + 1).coerceAtMost(height - 1)
+        val fx = (sourceX - x0).coerceIn(0f, 1f)
+        val fy = (sourceY - y0).coerceIn(0f, 1f)
+        val w00 = (1f - fx) * (1f - fy)
+        val w10 = fx * (1f - fy)
+        val w01 = (1f - fx) * fy
+        val w11 = fx * fy
+        val p00 = pixels[y0 * width + x0]
+        val p10 = pixels[y0 * width + x1]
+        val p01 = pixels[y1 * width + x0]
+        val p11 = pixels[y1 * width + x1]
+        return interpolatePremultipliedArgb(p00, p10, p01, p11, w00, w10, w01, w11)
+    }
+
+    /**
+     * Free Distort uses two affine triangles in both preview and commit.
+     * Perspective uses a projective homography in both paths.
+     */
+    private fun drawPreviewBitmap(canvas: Canvas, paint: Paint = bitmapPaint) {
+        paint.isFilterBitmap = interpolation == Interpolation.BILINEAR
+        if (mode != Mode.DISTORT) {
+            drawTransformedBitmap(canvas, paint)
+            return
+        }
+        val w = sourceBitmap.width.toFloat()
+        val h = sourceBitmap.height.toFloat()
+        val srcFirst = floatArrayOf(0f, 0f, w, 0f, 0f, h)
+        val dstFirst = floatArrayOf(dstPts[0], dstPts[1], dstPts[2], dstPts[3], dstPts[6], dstPts[7])
+        val srcSecond = floatArrayOf(w, h, 0f, h, w, 0f)
+        val dstSecond = floatArrayOf(dstPts[4], dstPts[5], dstPts[6], dstPts[7], dstPts[2], dstPts[3])
+
+        fun drawTriangle(src: FloatArray, dst: FloatArray) {
+            val transform = Matrix()
+            if (!transform.setPolyToPoly(src, 0, dst, 0, 3)) return
+            val clip = Path().apply {
+                moveTo(dst[0], dst[1])
+                lineTo(dst[2], dst[3])
+                lineTo(dst[4], dst[5])
+                close()
+            }
+            canvas.save()
+            canvas.clipPath(clip)
+            canvas.drawBitmap(sourceBitmap, transform, paint)
+            canvas.restore()
+        }
+
+        drawTriangle(srcFirst, dstFirst)
+        drawTriangle(srcSecond, dstSecond)
     }
 
     fun getCenter(): PointF {
@@ -371,7 +693,7 @@ class TransformState(
      */
     fun draw(canvas: Canvas, canvasScale: Float = 1f) {
         // Render the preview using perspective mapping or piecewise affine distortion.
-        drawTransformedBitmap(canvas)
+        drawPreviewBitmap(canvas)
 
         // 2. Render Bounding Box Quad
         val handleRadius = 7f / canvasScale.coerceAtLeast(0.1f)

@@ -1,6 +1,8 @@
 package app.esenho.nativeengine
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
@@ -149,6 +151,40 @@ class EsenhoStorageManager(private val context: Context) {
             return emptyList()
         }
         return result
+    }
+
+    private fun customBrushAssetFile(assetId: String): File {
+        val safeId = assetId.filter { it.isLetterOrDigit() || it == '_' || it == '-' }
+        return File(File(context.filesDir, "custom_brush_assets"), "$safeId.png")
+    }
+
+    fun saveCustomBrushAsset(assetId: String, bitmap: Bitmap): Boolean {
+        val target = customBrushAssetFile(assetId)
+        val temporary = File(target.parentFile, "${target.name}.tmp")
+        return try {
+            target.parentFile?.mkdirs()
+            FileOutputStream(temporary).use { stream ->
+                if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) return false
+                stream.flush()
+                stream.fd.sync()
+            }
+            if (temporary.renameTo(target)) true else {
+                temporary.copyTo(target, overwrite = true)
+                temporary.delete()
+                true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save custom brush asset", e)
+            temporary.delete()
+            false
+        }
+    }
+
+    fun loadCustomBrushAsset(assetId: String): Bitmap? =
+        runCatching { BitmapFactory.decodeFile(customBrushAssetFile(assetId).absolutePath) }.getOrNull()
+
+    fun deleteCustomBrushAsset(assetId: String) {
+        runCatching { customBrushAssetFile(assetId).delete() }
     }
 
     // ── Color Palettes Persistence ──

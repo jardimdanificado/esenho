@@ -72,6 +72,15 @@ static void *canvas_alloc(uint32_t size) {
     }
     return (void*)cur;
 }
+
+static void *canvas_resize_buffer(void *ptr, uint32_t old_size, uint32_t size) {
+    uint8_t *next = (uint8_t*)canvas_alloc(size);
+    if (!next) return 0;
+    uint8_t *old = (uint8_t*)ptr;
+    uint32_t copy_size = old_size < size ? old_size : size;
+    for (uint32_t i = 0; old && i < copy_size; i++) next[i] = old[i];
+    return next;
+}
 #else
 #include <stdlib.h>
 #include <string.h>
@@ -79,6 +88,11 @@ static void *canvas_alloc(uint32_t size) {
     void *ptr = malloc(size);
     if (ptr) memset(ptr, 0, size);
     return ptr;
+}
+
+static void *canvas_resize_buffer(void *ptr, uint32_t old_size, uint32_t size) {
+    (void)old_size;
+    return realloc(ptr, size);
 }
 #endif
 
@@ -100,10 +114,37 @@ static int32_t clip_has_mask = 0;
 static uint8_t *clip_mask_ptr = 0;
 static uint32_t clip_mask_cap = 0;
 
+// Reuse raster-selection work buffers. The native canvas allocator is malloc
+// based, while the WebAssembly allocator is a bump allocator, so allocating
+// these on every gesture would steadily consume memory in both builds.
+static uint8_t *wand_mask_buffer = 0;
+static uint32_t wand_mask_capacity = 0;
+static uint8_t *wand_visited_buffer = 0;
+static uint32_t wand_visited_capacity = 0;
+static int32_t *wand_queue_buffer = 0;
+static uint32_t wand_queue_capacity = 0;
+static uint8_t *selection_work_a = 0;
+static uint32_t selection_work_a_capacity = 0;
+static uint8_t *selection_work_b = 0;
+static uint32_t selection_work_b_capacity = 0;
+
+static int ensure_wand_buffer(void **buffer, uint32_t *capacity, uint32_t required) {
+    if (required <= *capacity) return 1;
+    void *next = canvas_resize_buffer(*buffer, *capacity, required);
+    if (!next) return 0;
+    *buffer = next;
+    *capacity = required;
+    return 1;
+}
+
 W_EXPORT uint8_t *w_get_clip_mask_buffer(uint32_t size) {
     if (size > clip_mask_cap) {
-        clip_mask_ptr = (uint8_t*)canvas_alloc(size + 1024);
-        clip_mask_cap = size + 1024;
+        if (size > UINT32_MAX - 1024u) return NULL;
+        uint32_t next_capacity = size + 1024u;
+        uint8_t *next = (uint8_t*)canvas_resize_buffer(clip_mask_ptr, clip_mask_cap, next_capacity);
+        if (!next) return NULL;
+        clip_mask_ptr = next;
+        clip_mask_cap = next_capacity;
     }
     return clip_mask_ptr;
 }
@@ -194,6 +235,20 @@ static void layer_order_insert_after(int32_t target, int32_t idx) {
         layer_order[target_pos + 1] = idx;
         layer_order_count++;
     }
+}
+
+static void layer_order_insert_at(int32_t position, int32_t idx) {
+    for (int i = 0; i < layer_order_count; i++) {
+        if (layer_order[i] == idx) return;
+    }
+    if (layer_order_count >= MAX_ORDER_LAYERS) return;
+    if (position < 0) position = 0;
+    if (position > layer_order_count) position = layer_order_count;
+    for (int i = layer_order_count; i > position; i--) {
+        layer_order[i] = layer_order[i - 1];
+    }
+    layer_order[position] = idx;
+    layer_order_count++;
 }
 
 static void layer_order_remove(int32_t idx) {
@@ -1826,6 +1881,52 @@ W_EXPORT int32_t w_layer_add(void) {
     return idx;
 }
 
+/* Recreate an exact freed layer slot while undoing a structural layer edit. */
+W_EXPORT int32_t w_layer_restore_slot(int32_t idx, int32_t width, int32_t height, int32_t visible, int32_t order_position) {
+    init_surface_if_needed();
+    if (idx < 0 || width <= 0 || height <= 0) return -1;
+    ensure_layer_capacity(idx + 1);
+    if (layers[idx].in_use) return -1;
+
+    uint64_t pixel_count = (uint64_t)width * (uint64_t)height;
+    if (pixel_count == 0 || pixel_count > UINT32_MAX / sizeof(uint32_t)) return -1;
+    uint32_t *pixels = layers[idx].pixels;
+    uint32_t required_bytes = (uint32_t)(pixel_count * sizeof(uint32_t));
+    if (!pixels) {
+        pixels = (uint32_t*)canvas_alloc(required_bytes);
+    } else if (layers[idx].width != width || layers[idx].height != height) {
+        uint64_t old_pixel_count = (uint64_t)layers[idx].width * (uint64_t)layers[idx].height;
+        if (old_pixel_count > UINT32_MAX / sizeof(uint32_t)) return -1;
+        uint32_t *resized = (uint32_t*)canvas_resize_buffer(
+            pixels,
+            (uint32_t)(old_pixel_count * sizeof(uint32_t)),
+            required_bytes
+        );
+        if (!resized) return -1;
+        pixels = resized;
+    }
+    if (!pixels) return -1;
+    clear_layer_pixels(pixels, (uint32_t)pixel_count);
+
+    layers[idx].pixels = pixels;
+    layers[idx].width = width;
+    layers[idx].height = height;
+    layers[idx].x = 0;
+    layers[idx].y = 0;
+    layers[idx].visible = visible ? 1 : 0;
+    layers[idx].opacity = 255;
+    layers[idx].in_use = 1;
+    layers[idx].alpha_lock = 0;
+    layers[idx].clipping = 0;
+    layers[idx].blend_mode = 0;
+    if (idx >= layer_count) layer_count = idx + 1;
+    /* Hidden raster layers still belong in the compositing order. */
+    layer_order_insert_at(order_position, idx);
+    active_layer = idx;
+    force_composite();
+    return idx;
+}
+
 W_EXPORT void w_layer_select(int32_t idx) {
     init_surface_if_needed();
     if (idx >= 0 && idx < layer_count && layers[idx].in_use) {
@@ -2027,6 +2128,10 @@ W_EXPORT int32_t w_layer_resize(int32_t layer_idx, int32_t new_w, int32_t new_h,
         g_texture.width = new_w;
         g_texture.height = new_h;
     }
+
+#if !defined(__wasm__) && !defined(__wasm32__)
+    free(old_pix);
+#endif
 
     force_composite();
     return 0;
@@ -3545,9 +3650,10 @@ W_EXPORT int32_t w_vector_get_stroke_point(int32_t layer_idx, int32_t stroke_idx
  * Native Selection Engine Implementation
  * ========================================================================= */
 
-static void ensure_doc_mask_buffer(void) {
-    uint32_t needed = doc_width * doc_height;
-    w_get_clip_mask_buffer(needed);
+static int ensure_doc_mask_buffer(void) {
+    uint64_t needed = (uint64_t)doc_width * doc_height;
+    if (needed == 0 || needed > UINT32_MAX) return 0;
+    return w_get_clip_mask_buffer((uint32_t)needed) != 0;
 }
 
 W_EXPORT void w_select_clear(void) {
@@ -3581,11 +3687,14 @@ W_EXPORT void w_select_rect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t 
         return;
     }
 
-    ensure_doc_mask_buffer();
-    if (!clip_mask_ptr) return;
+    if (!ensure_doc_mask_buffer()) return;
 
-    uint8_t *temp = (uint8_t*)canvas_alloc(doc_width * doc_height);
-    for (uint32_t i = 0; i < doc_width * doc_height; i++) temp[i] = 0;
+    uint64_t doc_pixel_count = (uint64_t)doc_width * doc_height;
+    if (doc_pixel_count == 0 || doc_pixel_count > UINT32_MAX ||
+        !ensure_wand_buffer((void**)&selection_work_a, &selection_work_a_capacity, (uint32_t)doc_pixel_count)) return;
+    uint32_t doc_pixels = (uint32_t)doc_pixel_count;
+    uint8_t *temp = selection_work_a;
+    for (uint32_t i = 0; i < doc_pixels; i++) temp[i] = 0;
 
     if (clip_active) {
         for (int cy = 0; cy < clip_h; cy++) {
@@ -3645,14 +3754,15 @@ W_EXPORT void w_select_rect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t 
         return;
     }
 
+    int result_w = max_x - min_x + 1;
+    int result_h = max_y - min_y + 1;
+    if (!w_get_clip_mask_buffer((uint32_t)result_w * (uint32_t)result_h)) return;
     clip_active = 1;
     clip_has_mask = 1;
     clip_x = min_x;
     clip_y = min_y;
-    clip_w = max_x - min_x + 1;
-    clip_h = max_y - min_y + 1;
-
-    w_get_clip_mask_buffer(clip_w * clip_h);
+    clip_w = result_w;
+    clip_h = result_h;
     for (int cy = 0; cy < clip_h; cy++) {
         for (int cx = 0; cx < clip_w; cx++) {
             clip_mask_ptr[cy * clip_w + cx] = temp[(clip_y + cy) * doc_width + (clip_x + cx)];
@@ -3673,18 +3783,32 @@ W_EXPORT int32_t w_select_wand(int32_t layer_idx, int32_t seed_x, int32_t seed_y
     int lw = l->width, lh = l->height;
     if (seed_x < 0 || seed_x >= lw || seed_y < 0 || seed_y >= lh) return 0;
 
+    uint64_t layer_pixel_count = (uint64_t)lw * (uint64_t)lh;
+    uint64_t doc_pixel_count = (uint64_t)doc_width * (uint64_t)doc_height;
+    if (layer_pixel_count == 0 || doc_pixel_count == 0 ||
+        layer_pixel_count > UINT32_MAX / sizeof(int32_t) || layer_pixel_count > INT32_MAX ||
+        doc_pixel_count > UINT32_MAX) return 0;
+    uint32_t layer_pixels = (uint32_t)layer_pixel_count;
+    uint32_t doc_pixels = (uint32_t)doc_pixel_count;
+    if (!ensure_wand_buffer((void**)&wand_mask_buffer, &wand_mask_capacity, layer_pixels) ||
+        !ensure_wand_buffer((void**)&selection_work_a, &selection_work_a_capacity, doc_pixels) ||
+        (contiguous && (!ensure_wand_buffer((void**)&wand_visited_buffer, &wand_visited_capacity, layer_pixels) ||
+                        !ensure_wand_buffer((void**)&wand_queue_buffer, &wand_queue_capacity, layer_pixels * sizeof(int32_t))))) {
+        return 0;
+    }
+
     uint32_t *pix = l->pixels;
     uint32_t seed_color = pix[seed_y * lw + seed_x];
 
-    uint8_t *wand_mask = (uint8_t*)canvas_alloc(lw * lh);
-    for (int i = 0; i < lw * lh; i++) wand_mask[i] = 0;
+    uint8_t *wand_mask = wand_mask_buffer;
+    for (uint32_t i = 0; i < layer_pixels; i++) wand_mask[i] = 0;
 
     if (contiguous) {
         int head = 0, tail = 0;
-        int max_q = lw * lh;
-        int *q = (int*)canvas_alloc(max_q * sizeof(int));
-        uint8_t *visited = (uint8_t*)canvas_alloc(lw * lh);
-        for (int i = 0; i < lw * lh; i++) visited[i] = 0;
+        int max_q = (int)layer_pixels;
+        int *q = (int*)wand_queue_buffer;
+        uint8_t *visited = wand_visited_buffer;
+        for (uint32_t i = 0; i < layer_pixels; i++) visited[i] = 0;
 
         q[tail++] = seed_y * lw + seed_x;
         visited[seed_y * lw + seed_x] = 1;
@@ -3712,8 +3836,11 @@ W_EXPORT int32_t w_select_wand(int32_t layer_idx, int32_t seed_x, int32_t seed_y
         }
     }
 
-    uint8_t *temp = (uint8_t*)canvas_alloc(doc_width * doc_height);
-    for (uint32_t i = 0; i < doc_width * doc_height; i++) temp[i] = 0;
+    uint32_t wand_match_count = 0;
+    for (uint32_t i = 0; i < layer_pixels; i++) wand_match_count += wand_mask[i] != 0;
+
+    uint8_t *temp = selection_work_a;
+    for (uint32_t i = 0; i < doc_pixels; i++) temp[i] = 0;
 
     if (op_mode != W_SEL_REPLACE && clip_active) {
         for (int cy = 0; cy < clip_h; cy++) {
@@ -3746,6 +3873,23 @@ W_EXPORT int32_t w_select_wand(int32_t layer_idx, int32_t seed_x, int32_t seed_y
         }
     }
 
+    // Intersection is bounded by the wand result, including pixels outside
+    // an offset or smaller source layer. The previous selection must not
+    // survive beyond the layer's raster bounds.
+    if (op_mode == W_SEL_INTERSECT) {
+        int layer_left = l->x;
+        int layer_top = l->y;
+        int layer_right = l->x + lw;
+        int layer_bottom = l->y + lh;
+        for (int y = 0; y < (int)doc_height; y++) {
+            for (int x = 0; x < (int)doc_width; x++) {
+                if (x < layer_left || x >= layer_right || y < layer_top || y >= layer_bottom) {
+                    temp[y * doc_width + x] = 0;
+                }
+            }
+        }
+    }
+
     int min_x = doc_width, min_y = doc_height, max_x = -1, max_y = -1;
     int count = 0;
     for (int cy = 0; cy < (int)doc_height; cy++) {
@@ -3761,18 +3905,22 @@ W_EXPORT int32_t w_select_wand(int32_t layer_idx, int32_t seed_x, int32_t seed_y
     }
 
     if (count == 0 || max_x < min_x || max_y < min_y) {
+        // An empty wand result is a no-op for union/subtract. A non-empty
+        // subtract that removes the whole selection still clears it.
+        if (wand_match_count == 0 && (op_mode == W_SEL_ADD || op_mode == W_SEL_SUB)) return 0;
         w_select_clear();
         return 0;
     }
 
+    int result_w = max_x - min_x + 1;
+    int result_h = max_y - min_y + 1;
+    if (!w_get_clip_mask_buffer((uint32_t)result_w * (uint32_t)result_h)) return 0;
     clip_active = 1;
     clip_has_mask = 1;
     clip_x = min_x;
     clip_y = min_y;
-    clip_w = max_x - min_x + 1;
-    clip_h = max_y - min_y + 1;
-
-    w_get_clip_mask_buffer(clip_w * clip_h);
+    clip_w = result_w;
+    clip_h = result_h;
     for (int cy = 0; cy < clip_h; cy++) {
         for (int cx = 0; cx < clip_w; cx++) {
             clip_mask_ptr[cy * clip_w + cx] = temp[(clip_y + cy) * doc_width + (clip_x + cx)];
@@ -3801,8 +3949,13 @@ W_EXPORT void w_select_lasso(const int32_t *points_xy, int32_t point_count, int3
     int y1 = (p_max_y >= (int)doc_height) ? (int)doc_height - 1 : p_max_y;
     if (x1 < x0 || y1 < y0) return;
 
-    uint8_t *lasso_mask = (uint8_t*)canvas_alloc(doc_width * doc_height);
-    for (uint32_t i = 0; i < doc_width * doc_height; i++) lasso_mask[i] = 0;
+    uint64_t doc_pixel_count = (uint64_t)doc_width * doc_height;
+    if (doc_pixel_count == 0 || doc_pixel_count > UINT32_MAX ||
+        !ensure_wand_buffer((void**)&selection_work_a, &selection_work_a_capacity, (uint32_t)doc_pixel_count) ||
+        !ensure_wand_buffer((void**)&selection_work_b, &selection_work_b_capacity, (uint32_t)doc_pixel_count)) return;
+    uint32_t doc_pixels = (uint32_t)doc_pixel_count;
+    uint8_t *lasso_mask = selection_work_a;
+    for (uint32_t i = 0; i < doc_pixels; i++) lasso_mask[i] = 0;
 
     for (int y = y0; y <= y1; y++) {
         for (int x = x0; x <= x1; x++) {
@@ -3817,8 +3970,8 @@ W_EXPORT void w_select_lasso(const int32_t *points_xy, int32_t point_count, int3
         }
     }
 
-    uint8_t *temp = (uint8_t*)canvas_alloc(doc_width * doc_height);
-    for (uint32_t i = 0; i < doc_width * doc_height; i++) temp[i] = 0;
+    uint8_t *temp = selection_work_b;
+    for (uint32_t i = 0; i < doc_pixels; i++) temp[i] = 0;
 
     if (op_mode != W_SEL_REPLACE && clip_active) {
         for (int cy = 0; cy < clip_h; cy++) {
@@ -3857,14 +4010,15 @@ W_EXPORT void w_select_lasso(const int32_t *points_xy, int32_t point_count, int3
         return;
     }
 
+    int result_w = max_x - min_x + 1;
+    int result_h = max_y - min_y + 1;
+    if (!w_get_clip_mask_buffer((uint32_t)result_w * (uint32_t)result_h)) return;
     clip_active = 1;
     clip_has_mask = 1;
     clip_x = min_x;
     clip_y = min_y;
-    clip_w = max_x - min_x + 1;
-    clip_h = max_y - min_y + 1;
-
-    w_get_clip_mask_buffer(clip_w * clip_h);
+    clip_w = result_w;
+    clip_h = result_h;
     for (int cy = 0; cy < clip_h; cy++) {
         for (int cx = 0; cx < clip_w; cx++) {
             clip_mask_ptr[cy * clip_w + cx] = temp[(clip_y + cy) * doc_width + (clip_x + cx)];
@@ -3890,10 +4044,13 @@ W_EXPORT void w_select_ellipse(int32_t cx, int32_t cy, int32_t rx, int32_t ry, i
         return;
     }
 
-    uint32_t doc_size = doc_width * doc_height;
-    uint8_t *ellipse_mask = (uint8_t*)canvas_alloc(doc_size);
-    uint8_t *temp = (uint8_t*)canvas_alloc(doc_size);
-    if (!ellipse_mask || !temp) return;
+    uint64_t doc_pixel_count = (uint64_t)doc_width * doc_height;
+    if (doc_pixel_count == 0 || doc_pixel_count > UINT32_MAX) return;
+    uint32_t doc_size = (uint32_t)doc_pixel_count;
+    if (!ensure_wand_buffer((void**)&selection_work_a, &selection_work_a_capacity, doc_size) ||
+        !ensure_wand_buffer((void**)&selection_work_b, &selection_work_b_capacity, doc_size)) return;
+    uint8_t *ellipse_mask = selection_work_a;
+    uint8_t *temp = selection_work_b;
     memset(ellipse_mask, 0, doc_size);
     memset(temp, 0, doc_size);
 
@@ -3939,14 +4096,15 @@ W_EXPORT void w_select_ellipse(int32_t cx, int32_t cy, int32_t rx, int32_t ry, i
         return;
     }
 
+    int result_w = max_x - min_x + 1;
+    int result_h = max_y - min_y + 1;
+    if (!w_get_clip_mask_buffer((uint32_t)result_w * (uint32_t)result_h)) return;
     clip_active = 1;
     clip_has_mask = 1;
     clip_x = min_x;
     clip_y = min_y;
-    clip_w = max_x - min_x + 1;
-    clip_h = max_y - min_y + 1;
-    w_get_clip_mask_buffer((uint32_t)clip_w * (uint32_t)clip_h);
-    if (!clip_mask_ptr) return;
+    clip_w = result_w;
+    clip_h = result_h;
     for (int py = 0; py < clip_h; py++) for (int px = 0; px < clip_w; px++) {
         clip_mask_ptr[py * clip_w + px] = temp[(uint32_t)(clip_y + py) * doc_width + (uint32_t)(clip_x + px)];
     }
@@ -3955,9 +4113,11 @@ W_EXPORT void w_select_ellipse(int32_t cx, int32_t cy, int32_t rx, int32_t ry, i
 W_EXPORT void w_select_apply_mask(const uint8_t *mask, int32_t x, int32_t y, int32_t w, int32_t h, int32_t op_mode) {
     init_surface_if_needed();
     if (!mask || w <= 0 || h <= 0 || doc_width == 0 || doc_height == 0) return;
-    uint32_t doc_size = doc_width * doc_height;
-    uint8_t *result = (uint8_t*)canvas_alloc(doc_size);
-    if (!result) return;
+    uint64_t doc_pixel_count = (uint64_t)doc_width * doc_height;
+    if (doc_pixel_count == 0 || doc_pixel_count > UINT32_MAX) return;
+    uint32_t doc_size = (uint32_t)doc_pixel_count;
+    if (!ensure_wand_buffer((void**)&selection_work_b, &selection_work_b_capacity, doc_size)) return;
+    uint8_t *result = selection_work_b;
     memset(result, 0, doc_size);
 
     if (op_mode != W_SEL_REPLACE && clip_active && clip_mask_ptr) {
@@ -3991,13 +4151,14 @@ W_EXPORT void w_select_apply_mask(const uint8_t *mask, int32_t x, int32_t y, int
         if (py > max_y) max_y = py;
     }
     if (max_x < min_x || max_y < min_y) { w_select_clear(); return; }
+    int result_w = max_x - min_x + 1;
+    int result_h = max_y - min_y + 1;
+    if (!w_get_clip_mask_buffer((uint32_t)result_w * (uint32_t)result_h)) return;
     clip_active = 1;
     clip_has_mask = 1;
     clip_x = min_x; clip_y = min_y;
-    clip_w = max_x - min_x + 1;
-    clip_h = max_y - min_y + 1;
-    w_get_clip_mask_buffer((uint32_t)clip_w * (uint32_t)clip_h);
-    if (!clip_mask_ptr) { w_select_clear(); return; }
+    clip_w = result_w;
+    clip_h = result_h;
     for (int py = 0; py < clip_h; py++) for (int px = 0; px < clip_w; px++) {
         clip_mask_ptr[py * clip_w + px] = result[(uint32_t)(clip_y + py) * doc_width + (uint32_t)(clip_x + px)];
     }
@@ -4007,9 +4168,11 @@ W_EXPORT void w_select_brush(const int32_t *points_xy, int32_t point_count, int3
     init_surface_if_needed();
     if (!points_xy || point_count <= 0 || doc_width == 0 || doc_height == 0) return;
 
-    uint32_t doc_size = doc_width * doc_height;
-    uint8_t *stroke_mask = (uint8_t*)canvas_alloc(doc_size);
-    if (!stroke_mask) return;
+    uint64_t doc_pixel_count = (uint64_t)doc_width * doc_height;
+    if (doc_pixel_count == 0 || doc_pixel_count > UINT32_MAX) return;
+    uint32_t doc_size = (uint32_t)doc_pixel_count;
+    if (!ensure_wand_buffer((void**)&selection_work_a, &selection_work_a_capacity, doc_size)) return;
+    uint8_t *stroke_mask = selection_work_a;
     memset(stroke_mask, 0, doc_size);
 
     int r = radius < 1 ? 1 : radius;
@@ -4051,11 +4214,14 @@ W_EXPORT void w_select_brush(const int32_t *points_xy, int32_t point_count, int3
 
 W_EXPORT void w_select_invert(void) {
     init_surface_if_needed();
-    ensure_doc_mask_buffer();
-    if (!clip_mask_ptr) return;
+    if (!ensure_doc_mask_buffer()) return;
 
-    uint8_t *temp = (uint8_t*)canvas_alloc(doc_width * doc_height);
-    for (uint32_t i = 0; i < doc_width * doc_height; i++) temp[i] = 1;
+    uint64_t doc_pixel_count = (uint64_t)doc_width * doc_height;
+    if (doc_pixel_count == 0 || doc_pixel_count > UINT32_MAX ||
+        !ensure_wand_buffer((void**)&selection_work_a, &selection_work_a_capacity, (uint32_t)doc_pixel_count)) return;
+    uint32_t doc_pixels = (uint32_t)doc_pixel_count;
+    uint8_t *temp = selection_work_a;
+    for (uint32_t i = 0; i < doc_pixels; i++) temp[i] = 1;
 
     if (clip_active) {
         for (int cy = 0; cy < clip_h; cy++) {
@@ -4089,14 +4255,15 @@ W_EXPORT void w_select_invert(void) {
         return;
     }
 
+    int result_w = max_x - min_x + 1;
+    int result_h = max_y - min_y + 1;
+    if (!w_get_clip_mask_buffer((uint32_t)result_w * (uint32_t)result_h)) return;
     clip_active = 1;
     clip_has_mask = 1;
     clip_x = min_x;
     clip_y = min_y;
-    clip_w = max_x - min_x + 1;
-    clip_h = max_y - min_y + 1;
-
-    w_get_clip_mask_buffer(clip_w * clip_h);
+    clip_w = result_w;
+    clip_h = result_h;
     for (int cy = 0; cy < clip_h; cy++) {
         for (int cx = 0; cx < clip_w; cx++) {
             clip_mask_ptr[cy * clip_w + cx] = temp[(clip_y + cy) * doc_width + (clip_x + cx)];
@@ -4108,7 +4275,10 @@ W_EXPORT void w_select_feather(int32_t radius) {
     if (!clip_active || !clip_has_mask || radius <= 0 || !clip_mask_ptr) return;
     int r = radius > 16 ? 16 : radius;
     int w = clip_w, h = clip_h;
-    uint8_t *src = (uint8_t*)canvas_alloc(w * h);
+    uint64_t selection_pixel_count = (uint64_t)w * h;
+    if (selection_pixel_count == 0 || selection_pixel_count > UINT32_MAX ||
+        !ensure_wand_buffer((void**)&selection_work_a, &selection_work_a_capacity, (uint32_t)selection_pixel_count)) return;
+    uint8_t *src = selection_work_a;
     for (int i = 0; i < w * h; i++) src[i] = clip_mask_ptr[i];
 
     for (int y = 0; y < h; y++) {

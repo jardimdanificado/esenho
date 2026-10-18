@@ -1052,6 +1052,35 @@ fun PresetTuner(
 
                     PresetTunerTab.PHYSICS -> {
                         item {
+                            Text(
+                                "Água acumulada no papel pode ser seca ou difundida no cel atual.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { engine.dryPaintWater(); onBrushUpdated() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.WbSunny, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(5.dp))
+                                    Text("Secar água", fontSize = 12.sp)
+                                }
+                                OutlinedButton(
+                                    onClick = { engine.diffusePaintWater(); onBrushUpdated() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.WaterDrop, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(5.dp))
+                                    Text("Difundir", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                        item {
                             TunerSliderCard(
                                 label = "Carga de Água (Water Load)",
                                 value = preset.water.toFloat(),

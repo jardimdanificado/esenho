@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -79,6 +78,9 @@ fun AnimationTimelineBar(
     var onionPrevTint by remember { mutableIntStateOf(engine.onionPrevTint) }
     var onionNextTint by remember { mutableIntStateOf(engine.onionNextTint) }
     var layerRevision by remember { mutableIntStateOf(0) }
+    // Each layer row is a separate horizontal scroller, but all of them share
+    // one time axis just like the web timeline.
+    val timelineHorizontalScroll = rememberScrollState()
     val timelineLayers = remember(layerRevision) { engine.layers.filter { it.id >= 3 }.toList() }
     // Every cel occupies exactly duration ticks at one shared scale. The 6 dp
     // inter-cel gap is subtracted from its width so the gap completes the tick.
@@ -206,8 +208,8 @@ fun AnimationTimelineBar(
                     },
                     modifier = Modifier.size(32.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = if (isPlaying) Color(0xFF80C783) else Color(0xFF3A3F43),
-                        contentColor = if (isPlaying) Color(0xFF152016) else Color(0xFFE5E8EB)
+                        containerColor = if (isPlaying) Color(0xFFFFC857) else Color(0xFF3A3F43),
+                        contentColor = if (isPlaying) Color(0xFF241E12) else Color(0xFFE5E8EB)
                     )
                 ) {
                     Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = if (isPlaying) "Pausar" else "Reproduzir", modifier = Modifier.size(19.dp))
@@ -237,7 +239,7 @@ fun AnimationTimelineBar(
                     contentPadding = PaddingValues(horizontal = 3.dp), modifier = Modifier.height(30.dp)
                 ) { Text("⏭", fontSize = 13.sp, color = Color(0xFFD0D4D8)) }
                 IconButton(onClick = { loop = !loop; engine.animationLoop = loop }, modifier = Modifier.size(30.dp)) {
-                    Icon(Icons.Default.Repeat, contentDescription = if (loop) "Desativar repetição" else "Ativar repetição", tint = if (loop) Color(0xFF80C783) else Color(0xFF92989E), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Repeat, contentDescription = if (loop) "Desativar repetição" else "Ativar repetição", tint = if (loop) Color(0xFFFFC857) else Color(0xFF92989E), modifier = Modifier.size(18.dp))
                 }
                 Box {
                     TextButton(onClick = { fpsMenuExpanded = true }, contentPadding = PaddingValues(horizontal = 7.dp)) {
@@ -252,7 +254,7 @@ fun AnimationTimelineBar(
                                     engine.animationFps = rate
                                     fpsMenuExpanded = false
                                 },
-                                trailingIcon = if (fps == rate) {{ Text("✓", color = Color(0xFF80C783)) }} else null
+                                trailingIcon = if (fps == rate) {{ Text("✓", color = Color(0xFFFFC857)) }} else null
                             )
                         }
                     }
@@ -468,25 +470,27 @@ fun AnimationTimelineBar(
                     val layer = entry.layer
                     val track = engine.animationTracks[layer.id] ?: return@itemsIndexed
                     var reorderDragRemainder by remember(layer.id) { mutableFloatStateOf(0f) }
+                    var reorderUndoToken by remember(layer.id) { mutableStateOf(0L) }
                     Row(
-                        modifier = Modifier.fillMaxWidth().height(58.dp).padding(start = (entry.depth * 10).dp),
+                        modifier = Modifier.fillMaxWidth().height(58.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(
-                            modifier = Modifier.width(82.dp).fillMaxHeight()
+                            modifier = Modifier.width(82.dp).fillMaxHeight().padding(start = (entry.depth * 10).dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(if (layer.id == engine.activeLayerIndex) Color(0xFF29402D) else Color(0xFF303438))
+                                .background(if (layer.id == engine.activeLayerIndex) Color(0xFF3A3528) else Color(0xFF303438))
                                 .pointerInput(layer.id, layerRowHeightPixels) {
                                     detectDragGesturesAfterLongPress(
-                                        onDragStart = { reorderDragRemainder = 0f },
-                                        onDragEnd = { reorderDragRemainder = 0f },
-                                        onDragCancel = { reorderDragRemainder = 0f },
+                                        onDragStart = { reorderDragRemainder = 0f; reorderUndoToken = 0L },
+                                        onDragEnd = { reorderDragRemainder = 0f; reorderUndoToken = 0L },
+                                        onDragCancel = { reorderDragRemainder = 0f; reorderUndoToken = 0L },
                                         onDrag = { change, dragAmount ->
                                             change.consume()
                                             reorderDragRemainder += dragAmount.y
                                             val rows = (reorderDragRemainder / layerRowHeightPixels).toInt()
                                             if (rows != 0) {
-                                                engine.moveLayerByOrderDelta(layer.id, rows)
+                                                if (reorderUndoToken == 0L) reorderUndoToken = engine.beginLayerOrderChange()
+                                                engine.moveLayerByOrderDelta(layer.id, rows, captureUndo = false, orderHistoryToken = reorderUndoToken)
                                                 reorderDragRemainder -= rows * layerRowHeightPixels
                                                 layerRevision++
                                                 onFrameChanged()
@@ -522,7 +526,7 @@ fun AnimationTimelineBar(
                                 }
                                 Text(
                                     layer.name, fontSize = 9.sp, maxLines = 1,
-                                    color = if (layer.id == engine.activeLayerIndex) Color(0xFF9BE29F) else Color(0xFFCDD1D5),
+                                    color = if (layer.id == engine.activeLayerIndex) Color(0xFFFFD166) else Color(0xFFCDD1D5),
                                     modifier = Modifier.weight(1f)
                                 )
                                 Box {
@@ -560,14 +564,14 @@ fun AnimationTimelineBar(
                                 }
                             }
                         }
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            contentPadding = PaddingValues(start = 6.dp, end = 2.dp),
-                            modifier = Modifier.fillMaxHeight().weight(1f)
+                        Row(
+                            modifier = Modifier.fillMaxHeight().weight(1f).horizontalScroll(timelineHorizontalScroll)
                         ) {
-                            itemsIndexed(track.frames.toList()) { index, cel ->
+                            Spacer(Modifier.width(6.dp).fillMaxHeight())
+                            track.frames.forEachIndexed { index, cel ->
                                 val selected = index == track.activeCelIndex
                                 var durationDragRemainder by remember(layer.id, index) { mutableFloatStateOf(0f) }
+                                var durationUndoStarted by remember(layer.id, index) { mutableStateOf(false) }
                                 fun activateCel() {
                                     isPlaying = false
                                     engine.isAnimationPlaying = false
@@ -583,7 +587,7 @@ fun AnimationTimelineBar(
                                 modifier = Modifier.width((cel.duration.coerceAtLeast(1) * 48f - 6f).dp).fillMaxHeight()
                                         .clip(RoundedCornerShape(5.dp))
                                         .background(Color(0xFF191B1D))
-                                        .border(if (selected) 2.dp else 1.dp, if (selected) Color(0xFF80C783) else Color(0xFF41464A), RoundedCornerShape(5.dp))
+                                        .border(if (selected) 2.dp else 1.dp, if (selected) Color(0xFFFFC857) else Color(0xFF41464A), RoundedCornerShape(5.dp))
                                         .combinedClickable(
                                             onClick = { activateCel() },
                                             onLongClick = { celMenuTarget = layer.id to index }
@@ -664,13 +668,20 @@ fun AnimationTimelineBar(
                                             }
                                         )
                                     }
-                                    Image(bitmap = cel.bitmap.asImageBitmap(), contentDescription = "${layer.name}, quadro ${index + 1}", contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(3.dp))
+                                    Image(
+                                        bitmap = cel.bitmap.asImageBitmap(),
+                                        contentDescription = "${layer.name}, quadro ${index + 1}",
+                                        contentScale = ContentScale.Fit,
+                                        alpha = cel.opacity.coerceIn(0, 255) / 255f,
+                                        modifier = Modifier.fillMaxSize().padding(3.dp)
+                                    )
                                     Box(
                                         modifier = Modifier.align(Alignment.CenterEnd).width(12.dp).fillMaxHeight()
                                             .pointerInput(layer.id, index) {
                                                 detectDragGestures(
                                                     onDragStart = {
                                                         durationDragRemainder = 0f
+                                                        durationUndoStarted = false
                                                         isPlaying = false
                                                         engine.isAnimationPlaying = false
                                                         engine.selectLayer(layer.id)
@@ -684,6 +695,9 @@ fun AnimationTimelineBar(
                                                         durationDragRemainder += dragAmount.x
                                                         val steps = (durationDragRemainder / durationPixelsPerFrame).toInt()
                                                         if (steps != 0) {
+                                                            if (!durationUndoStarted) {
+                                                                durationUndoStarted = engine.beginCelDurationEdit()
+                                                            }
                                                             val duration = engine.animationTracks[layer.id]?.frames?.getOrNull(index)?.duration ?: 1
                                                             engine.setCurrentFrameDuration((duration + steps).coerceAtLeast(1))
                                                             durationDragRemainder -= steps * durationPixelsPerFrame
@@ -693,8 +707,16 @@ fun AnimationTimelineBar(
                                                             onFrameChanged()
                                                         }
                                                     },
-                                                    onDragEnd = { durationDragRemainder = 0f },
-                                                    onDragCancel = { durationDragRemainder = 0f }
+                                                    onDragEnd = {
+                                                        durationDragRemainder = 0f
+                                                        if (durationUndoStarted) engine.finishCelDurationEdit()
+                                                        durationUndoStarted = false
+                                                    },
+                                                    onDragCancel = {
+                                                        durationDragRemainder = 0f
+                                                        if (durationUndoStarted) engine.finishCelDurationEdit()
+                                                        durationUndoStarted = false
+                                                    }
                                                 )
                                             },
                                         contentAlignment = Alignment.Center
@@ -739,9 +761,13 @@ fun AnimationTimelineBar(
                                         }
                                     }
                                     Text((index + 1).toString().padStart(2, '0'), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = if (selected) Color(0xFFFFD166) else Color(0xFFCDD1D5), modifier = Modifier.align(Alignment.BottomStart).clip(RoundedCornerShape(topEnd = 4.dp)).background(Color(0xCC202326)).padding(horizontal = 4.dp, vertical = 1.dp))
-                                    Text("${cel.duration}f", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = if (selected) Color(0xFF152016) else Color(0xFFE1E4E7), modifier = Modifier.align(Alignment.BottomEnd).clip(RoundedCornerShape(topStart = 4.dp)).background(if (selected) Color(0xFF80C783) else Color(0xCC303438)).padding(horizontal = 4.dp, vertical = 1.dp))
+                                    Text("${cel.duration}f", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = if (selected) Color(0xFF241E12) else Color(0xFFE1E4E7), modifier = Modifier.align(Alignment.BottomEnd).clip(RoundedCornerShape(topStart = 4.dp)).background(if (selected) Color(0xFFFFC857) else Color(0xCC303438)).padding(horizontal = 4.dp, vertical = 1.dp))
                                 }
+                                Spacer(Modifier.width(6.dp).fillMaxHeight())
                             }
+                            val layerDurationTicks = track.frames.sumOf { it.duration.coerceAtLeast(1) }
+                            val remainingTicks = (engine.totalAnimationTicks() - layerDurationTicks).coerceAtLeast(0)
+                            Spacer(Modifier.width((remainingTicks * 48f + 2f).dp).fillMaxHeight())
                         }
                     }
                         }

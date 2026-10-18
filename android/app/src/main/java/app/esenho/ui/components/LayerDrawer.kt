@@ -1,5 +1,6 @@
 package app.esenho.ui.components
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -33,7 +35,21 @@ fun LayerDrawer(
     var layersList by remember { mutableStateOf(engine.layers.toList().reversed()) }
     var activeLayerId by remember { mutableIntStateOf(engine.activeLayerIndex) }
     var confirmAction by remember { mutableStateOf<String?>(null) }
+    var showBrushAssetMenu by remember { mutableStateOf(false) }
+    var showBrushAssetDialog by remember { mutableStateOf(false) }
+    var brushAssetKind by remember { mutableStateOf("tip") }
+    var brushAssetName by remember { mutableStateOf("") }
+    val context = LocalContext.current
     val activeLayer = layersList.find { it.id == activeLayerId }
+    val activeCelBitmap = engine.animationTracks[activeLayerId]?.frames?.getOrNull(engine.animationTracks[activeLayerId]?.activeCelIndex ?: -1)?.bitmap
+    var showResizeDialog by remember(activeLayerId) { mutableStateOf(false) }
+    var resizeWidth by remember(activeLayerId, engine.currentFrameIndex, activeCelBitmap?.width) {
+        mutableStateOf((activeCelBitmap?.width ?: engine.width).toString())
+    }
+    var resizeHeight by remember(activeLayerId, engine.currentFrameIndex, activeCelBitmap?.height) {
+        mutableStateOf((activeCelBitmap?.height ?: engine.height).toString())
+    }
+    var resizeResample by remember { mutableStateOf(true) }
 
     fun refresh() {
         layersList = engine.layers.toList().reversed()
@@ -371,11 +387,134 @@ fun LayerDrawer(
                                     }
                                 }
                             }
+                            TooltipBox(
+                                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                                tooltip = { PlainTooltip { Text("Redimensionar cel", fontSize = 11.sp) } },
+                                state = rememberTooltipState()
+                            ) {
+                                IconButton(
+                                    onClick = { showResizeDialog = true },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Default.AspectRatio, contentDescription = "Redimensionar cel", modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            Box {
+                                IconButton(onClick = { showBrushAssetMenu = true }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.AutoAwesome, contentDescription = "Criar recurso de pincel da camada", modifier = Modifier.size(16.dp))
+                                }
+                                DropdownMenu(expanded = showBrushAssetMenu, onDismissRequest = { showBrushAssetMenu = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text("Criar ponta desta camada") },
+                                        leadingIcon = { Icon(Icons.Default.Brush, null) },
+                                        onClick = {
+                                            showBrushAssetMenu = false
+                                            brushAssetKind = "tip"
+                                            brushAssetName = "${activeLayer.name.take(24)} Ponta"
+                                            showBrushAssetDialog = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Criar grão desta camada") },
+                                        leadingIcon = { Icon(Icons.Default.GridOn, null) },
+                                        onClick = {
+                                            showBrushAssetMenu = false
+                                            brushAssetKind = "grain"
+                                            brushAssetName = "${activeLayer.name.take(24)} Grão"
+                                            showBrushAssetDialog = true
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    if (showBrushAssetDialog) {
+        val isGrain = brushAssetKind == "grain"
+        AlertDialog(
+            onDismissRequest = { showBrushAssetDialog = false },
+            title = { Text(if (isGrain) "Criar grão da camada" else "Criar ponta da camada") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("O conteúdo raster da camada ativa será salvo em um preset personalizado.")
+                    OutlinedTextField(
+                        value = brushAssetName,
+                        onValueChange = { brushAssetName = it.take(40) },
+                        label = { Text("Nome") },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = brushAssetName.isNotBlank(),
+                    onClick = {
+                        val created = if (isGrain) engine.createGrainTextureFromActiveLayer(brushAssetName)
+                            else engine.createBrushTipFromActiveLayer(brushAssetName)
+                        showBrushAssetDialog = false
+                        if (created) {
+                            refresh()
+                            Toast.makeText(context, if (isGrain) "Grão salvo nos presets" else "Ponta salva nos presets", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Não foi possível criar o recurso (limite de 2048 px por lado)", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                ) { Text("Criar") }
+            },
+            dismissButton = { TextButton(onClick = { showBrushAssetDialog = false }) { Text("Cancelar") } }
+        )
+    }
+
+    if (showResizeDialog) {
+        AlertDialog(
+            onDismissRequest = { showResizeDialog = false },
+            title = { Text("Redimensionar cel raster") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("O redimensionamento afeta apenas o cel selecionado.", style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = resizeWidth,
+                            onValueChange = { resizeWidth = it.filter(Char::isDigit).take(5) },
+                            label = { Text("Largura") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = resizeHeight,
+                            onValueChange = { resizeHeight = it.filter(Char::isDigit).take(5) },
+                            label = { Text("Altura") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = resizeResample, onClick = { resizeResample = true }, label = { Text("Escalar") })
+                        FilterChip(selected = !resizeResample, onClick = { resizeResample = false }, label = { Text("Cortar / expandir") })
+                    }
+                    Text(
+                        if (resizeResample) "Reamostra o conteúdo para as novas dimensões."
+                        else "Mantém os pixels e corta ou acrescenta espaço transparente.",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val width = resizeWidth.toIntOrNull()
+                    val height = resizeHeight.toIntOrNull()
+                    if (width != null && height != null && engine.resizeActiveCel(width, height, resizeResample)) {
+                        showResizeDialog = false
+                        refresh()
+                    }
+                }) { Text("Aplicar") }
+            },
+            dismissButton = { TextButton(onClick = { showResizeDialog = false }) { Text("Cancelar") } }
+        )
     }
 
     confirmAction?.let { action ->

@@ -27,10 +27,13 @@ extern int32_t get_height(void);
 extern uint32_t* w_layer_get_pixels(int32_t layer_idx);
 extern int32_t w_layer_get_width(int32_t layer_idx);
 extern int32_t w_layer_get_height(int32_t layer_idx);
+extern int32_t w_texture_create(int32_t width, int32_t height);
+extern uint32_t* w_texture_get_pixels(int32_t tex_id);
 extern uint8_t w_layer_get_visible(int32_t layer_idx);
 extern uint8_t w_layer_get_opacity(int32_t layer_idx);
 
 extern int32_t w_layer_add(void);
+extern int32_t w_layer_restore_slot(int32_t idx, int32_t width, int32_t height, int32_t visible, int32_t order_position);
 extern void w_layer_select(int32_t idx);
 extern int32_t w_layer_get_active(void);
 extern void w_layer_clear(int32_t idx);
@@ -43,6 +46,7 @@ extern int32_t w_layer_duplicate(int32_t layer_idx);
 extern int32_t w_layer_move_up(int32_t layer_idx);
 extern int32_t w_layer_move_down(int32_t layer_idx);
 extern int32_t w_layer_merge_down(int32_t layer_idx);
+extern void w_layer_adjust_hsv(int32_t layer_idx, int32_t d_hue, int32_t d_sat, int32_t d_val);
 
 extern void w_layer_set_alpha_lock(int32_t idx, int32_t locked);
 extern int32_t w_layer_get_alpha_lock(int32_t idx);
@@ -79,6 +83,8 @@ extern int32_t w_select_get_mask(uint8_t *out_mask, uint32_t max_bytes);
 extern void w_layer_flip_h(int32_t layer_idx);
 extern void w_layer_flip_v(int32_t layer_idx);
 extern int32_t w_layer_transform(int32_t src_layer_idx, int32_t dst_layer_idx, int32_t dx, int32_t dy, int32_t scale_x_pct, int32_t scale_y_pct, int32_t rot_deg, int32_t skew_x, int32_t bilinear);
+extern void w_dry_all_water(void);
+extern void w_step_water_diffusion(int32_t steps);
 
 extern int32_t w_shape_find_or_create(const char *name);
 extern int32_t w_texture_find_or_create(const char *name);
@@ -97,6 +103,7 @@ typedef struct {
     int layer_idx;
     int width;
     int height;
+    uint64_t token;
     uint32_t *pixels;
 } layer_snapshot_t;
 
@@ -105,6 +112,7 @@ static int s_undo_count = 0;
 
 static layer_snapshot_t s_redo_stack[MAX_UNDO_DEPTH];
 static int s_redo_count = 0;
+static uint64_t s_next_snapshot_token = 1;
 
 static void free_snapshot(layer_snapshot_t *snap) {
     if (snap->pixels) {
@@ -120,8 +128,8 @@ static void clear_snapshot_stack(layer_snapshot_t *stack, int *count) {
     *count = 0;
 }
 
-static int push_layer_snapshot(layer_snapshot_t *stack, int *count, int max_depth) {
-    int active = w_layer_get_active();
+static uint64_t push_layer_snapshot(layer_snapshot_t *stack, int *count, int max_depth, uint64_t token, int layer_idx) {
+    int active = (layer_idx >= 0) ? layer_idx : w_layer_get_active();
     uint32_t *src_pix = w_layer_get_pixels(active);
     int w = w_layer_get_width(active);
     int h = w_layer_get_height(active);
@@ -143,72 +151,103 @@ static int push_layer_snapshot(layer_snapshot_t *stack, int *count, int max_dept
     stack[*count].layer_idx = active;
     stack[*count].width = w;
     stack[*count].height = h;
+    stack[*count].token = token ? token : s_next_snapshot_token++;
     stack[*count].pixels = buf;
     (*count)++;
-    return 1;
+    return stack[*count - 1].token;
 }
 
-JNIEXPORT void JNICALL
+JNIEXPORT jlong JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativePushUndo(
     JNIEnv *env, jobject thiz) {
     clear_snapshot_stack(s_redo_stack, &s_redo_count);
-    push_layer_snapshot(s_undo_stack, &s_undo_count, MAX_UNDO_DEPTH);
+    return (jlong)push_layer_snapshot(s_undo_stack, &s_undo_count, MAX_UNDO_DEPTH, 0, -1);
 }
 
-JNIEXPORT jboolean JNICALL
+JNIEXPORT jlong JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativePeekUndoToken(
+    JNIEnv *env, jobject thiz) {
+    (void)env; (void)thiz;
+    return s_undo_count > 0 ? (jlong)s_undo_stack[s_undo_count - 1].token : 0;
+}
+
+JNIEXPORT jlong JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativePeekRedoToken(
+    JNIEnv *env, jobject thiz) {
+    (void)env; (void)thiz;
+    return s_redo_count > 0 ? (jlong)s_redo_stack[s_redo_count - 1].token : 0;
+}
+
+JNIEXPORT jlong JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeUndo(
     JNIEnv *env, jobject thiz) {
-    if (s_undo_count <= 0) return JNI_FALSE;
+    if (s_undo_count <= 0) return 0;
 
     // 1. Save current state to redo
-    push_layer_snapshot(s_redo_stack, &s_redo_count, MAX_UNDO_DEPTH);
+    uint64_t token = s_undo_stack[s_undo_count - 1].token;
+    int layer_idx = s_undo_stack[s_undo_count - 1].layer_idx;
+    push_layer_snapshot(s_redo_stack, &s_redo_count, MAX_UNDO_DEPTH, token, layer_idx);
 
     // 2. Pop from undo
     s_undo_count--;
     layer_snapshot_t *snap = &s_undo_stack[s_undo_count];
 
-    uint32_t *dst_pix = w_layer_get_pixels(snap->layer_idx);
     int w = w_layer_get_width(snap->layer_idx);
     int h = w_layer_get_height(snap->layer_idx);
+    if ((w != snap->width || h != snap->height) && w_layer_resize(snap->layer_idx, snap->width, snap->height, 0) != 0) {
+        free_snapshot(snap);
+        return 0;
+    }
+    uint32_t *dst_pix = w_layer_get_pixels(snap->layer_idx);
+    w = w_layer_get_width(snap->layer_idx);
+    h = w_layer_get_height(snap->layer_idx);
 
     if (dst_pix && w == snap->width && h == snap->height) {
         memcpy(dst_pix, snap->pixels, (size_t)w * (size_t)h * sizeof(uint32_t));
         free_snapshot(snap);
         force_composite();
         w_invalidate_layers();
-        return JNI_TRUE;
+        return (jlong)token;
     }
 
     free_snapshot(snap);
-    return JNI_FALSE;
+    return 0;
 }
 
-JNIEXPORT jboolean JNICALL
+JNIEXPORT jlong JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeRedo(
     JNIEnv *env, jobject thiz) {
-    if (s_redo_count <= 0) return JNI_FALSE;
+    if (s_redo_count <= 0) return 0;
 
     // 1. Save current state to undo
-    push_layer_snapshot(s_undo_stack, &s_undo_count, MAX_UNDO_DEPTH);
+    uint64_t token = s_redo_stack[s_redo_count - 1].token;
+    int layer_idx = s_redo_stack[s_redo_count - 1].layer_idx;
+    push_layer_snapshot(s_undo_stack, &s_undo_count, MAX_UNDO_DEPTH, token, layer_idx);
 
     // 2. Pop from redo
     s_redo_count--;
     layer_snapshot_t *snap = &s_redo_stack[s_redo_count];
 
-    uint32_t *dst_pix = w_layer_get_pixels(snap->layer_idx);
     int w = w_layer_get_width(snap->layer_idx);
     int h = w_layer_get_height(snap->layer_idx);
+    if ((w != snap->width || h != snap->height) && w_layer_resize(snap->layer_idx, snap->width, snap->height, 0) != 0) {
+        free_snapshot(snap);
+        return 0;
+    }
+    uint32_t *dst_pix = w_layer_get_pixels(snap->layer_idx);
+    w = w_layer_get_width(snap->layer_idx);
+    h = w_layer_get_height(snap->layer_idx);
 
     if (dst_pix && w == snap->width && h == snap->height) {
         memcpy(dst_pix, snap->pixels, (size_t)w * (size_t)h * sizeof(uint32_t));
         free_snapshot(snap);
         force_composite();
         w_invalidate_layers();
-        return JNI_TRUE;
+        return (jlong)token;
     }
 
     free_snapshot(snap);
-    return JNI_FALSE;
+    return 0;
 }
 
 JNIEXPORT jboolean JNICALL
@@ -228,9 +267,16 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeCancelStroke(
     JNIEnv *env, jobject thiz) {
     if (s_undo_count > 0) {
         layer_snapshot_t *snap = &s_undo_stack[s_undo_count - 1];
-        uint32_t *dst_pix = w_layer_get_pixels(snap->layer_idx);
         int w = w_layer_get_width(snap->layer_idx);
         int h = w_layer_get_height(snap->layer_idx);
+        if ((w != snap->width || h != snap->height) && w_layer_resize(snap->layer_idx, snap->width, snap->height, 0) != 0) {
+            s_undo_count--;
+            free_snapshot(snap);
+            return;
+        }
+        uint32_t *dst_pix = w_layer_get_pixels(snap->layer_idx);
+        w = w_layer_get_width(snap->layer_idx);
+        h = w_layer_get_height(snap->layer_idx);
         if (dst_pix && w == snap->width && h == snap->height) {
             memcpy(dst_pix, snap->pixels, (size_t)w * (size_t)h * sizeof(uint32_t));
             force_composite();
@@ -432,6 +478,12 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeApplyFilter(
     return JNI_TRUE;
 }
 
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerAdjustHsv(
+    JNIEnv *env, jobject thiz, jint layer_idx, jint d_hue, jint d_sat, jint d_val) {
+    w_layer_adjust_hsv(layer_idx, d_hue, d_sat, d_val);
+}
+
 // ── Color Picker & Eyedropper ──
 
 JNIEXPORT jint JNICALL
@@ -452,6 +504,13 @@ JNIEXPORT jint JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerAdd(
     JNIEnv *env, jobject thiz) {
     return w_layer_add();
+}
+
+JNIEXPORT jint JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerRestoreSlot(
+    JNIEnv *env, jobject thiz, jint idx, jint width, jint height, jint visible, jint order_position) {
+    (void)env; (void)thiz;
+    return w_layer_restore_slot(idx, width, height, visible, order_position);
 }
 
 JNIEXPORT jint JNICALL
@@ -563,6 +622,24 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerMergeDown(
 }
 
 JNIEXPORT jint JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerResize(
+    JNIEnv *env, jobject thiz, jint idx, jint width, jint height, jint resample) {
+    return w_layer_resize(idx, width, height, resample);
+}
+
+JNIEXPORT jint JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerGetWidth(
+    JNIEnv *env, jobject thiz, jint idx) {
+    return w_layer_get_width(idx);
+}
+
+JNIEXPORT jint JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerGetHeight(
+    JNIEnv *env, jobject thiz, jint idx) {
+    return w_layer_get_height(idx);
+}
+
+JNIEXPORT jint JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerGetCount(
     JNIEnv *env, jobject thiz) {
     return w_layer_get_order_count();
@@ -626,6 +703,30 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectTexture(
     int32_t slot = w_texture_find_or_create(name);
     w_brush_select_texture_by_name(name);
     (*env)->ReleaseStringUTFChars(env, tex_name, name);
+    return slot;
+}
+
+JNIEXPORT jint JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeCreateBrushAsset(
+    JNIEnv *env, jobject thiz, jobject bitmap) {
+    AndroidBitmapInfo info;
+    void *source = NULL;
+    if (!bitmap || AndroidBitmap_getInfo(env, bitmap, &info) < 0 ||
+        info.format != ANDROID_BITMAP_FORMAT_RGBA_8888 || info.width == 0 || info.height == 0 ||
+        (uint64_t)info.width * (uint64_t)info.height > 4194304ULL) return -1;
+    if (AndroidBitmap_lockPixels(env, bitmap, &source) < 0 || !source) return -1;
+
+    int32_t slot = w_texture_create((int32_t)info.width, (int32_t)info.height);
+    uint32_t *destination = slot >= 0 ? w_texture_get_pixels(slot) : NULL;
+    if (destination) {
+        for (uint32_t y = 0; y < info.height; y++) {
+            const void *row = (const uint8_t *)source + (size_t)y * info.stride;
+            memcpy(destination + (size_t)y * info.width, row, (size_t)info.width * sizeof(uint32_t));
+        }
+    } else {
+        slot = -1;
+    }
+    AndroidBitmap_unlockPixels(env, bitmap);
     return slot;
 }
 
@@ -943,6 +1044,7 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerDrawBitmap(
     void *src_pixels = NULL;
 
     if (AndroidBitmap_getInfo(env, bitmap, &info) < 0) return;
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return;
     if (AndroidBitmap_lockPixels(env, bitmap, &src_pixels) < 0) return;
 
     int active = (layer_idx >= 0) ? layer_idx : w_layer_get_active();
@@ -977,9 +1079,14 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerDrawBitmap(
                     uint32_t dr = dp & 0xFF, dg = (dp >> 8) & 0xFF, db = (dp >> 16) & 0xFF;
                     uint32_t out_a = sa + (da * (255 - sa)) / 255;
                     if (out_a > 0) {
-                        uint32_t out_r = (sr * sa + dr * (255 - sa)) / 255;
-                        uint32_t out_g = (sg * sa + dg * (255 - sa)) / 255;
-                        uint32_t out_b = (sb * sa + db * (255 - sa)) / 255;
+                        // Android ARGB_8888 bitmaps expose premultiplied color
+                        // channels through AndroidBitmap_lockPixels. The raster
+                        // engine also stores premultiplied channels, so source
+                        // color must not be multiplied by alpha a second time.
+                        uint32_t inv_sa = 255 - sa;
+                        uint32_t out_r = sr + (dr * inv_sa + 127) / 255;
+                        uint32_t out_g = sg + (dg * inv_sa + 127) / 255;
+                        uint32_t out_b = sb + (db * inv_sa + 127) / 255;
                         dst_row[px] = (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
                     }
                 }
@@ -988,4 +1095,19 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerDrawBitmap(
         force_composite();
     }
     AndroidBitmap_unlockPixels(env, bitmap);
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDryAllWater(
+    JNIEnv *env, jobject thiz) {
+    (void)env; (void)thiz;
+    w_dry_all_water();
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStepWaterDiffusion(
+    JNIEnv *env, jobject thiz, jint steps) {
+    (void)env; (void)thiz;
+    w_step_water_diffusion(steps);
+    force_composite();
 }
