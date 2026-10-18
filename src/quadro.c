@@ -38,6 +38,11 @@ static int      active_layer = 3;
 static uint32_t *out_pixels = 0; /**< Flattened composite buffer */
 static uint32_t out_pixels_cap = 0;
 
+#ifndef __wasm__
+wframebuffer_t g_layer = {0};
+wframebuffer_t g_texture = {0};
+#endif
+
 void force_composite(void);
 static void init_surface_if_needed(void);
 int32_t get_width(void);

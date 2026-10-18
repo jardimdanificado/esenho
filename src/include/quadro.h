@@ -134,6 +134,7 @@ typedef struct {
     int32_t height;
 } wframebuffer_t;
 
+#ifdef __wasm__
 static wframebuffer_t g_layer = {0};
 static wframebuffer_t g_texture = {0};
 
@@ -145,7 +146,6 @@ static inline wframebuffer_t *w_get_texture(void) {
     return &g_texture;
 }
 
-#ifdef __wasm__
 W_EXPORT void w_set_layer(uint32_t *pixels, int32_t width, int32_t height) {
     g_layer.pixels = pixels;
     g_layer.width = width;
@@ -158,6 +158,17 @@ W_EXPORT void w_set_texture(uint32_t *pixels, int32_t width, int32_t height) {
     g_texture.height = height;
 }
 #else
+extern wframebuffer_t g_layer;
+extern wframebuffer_t g_texture;
+
+static inline wframebuffer_t *w_get_layer(void) {
+    return &g_layer;
+}
+
+static inline wframebuffer_t *w_get_texture(void) {
+    return &g_texture;
+}
+
 static inline void w_set_layer(uint32_t *pixels, int32_t width, int32_t height) {
     g_layer.pixels = pixels;
     g_layer.width = width;

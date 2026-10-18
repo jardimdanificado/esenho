@@ -170,16 +170,18 @@ fun BrushDrawer(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
                         text = "Biblioteca de Pincéis ($totalCount)",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
                     )
                     Text(
-                        text = "${engine.presetCatalog.size} presets calibrados + ${engine.brushCatalog.size} pincéis procedurais/WASM",
+                        text = "${engine.presetCatalog.size} presets calibrados + ${engine.brushCatalog.size} pincéis WASM",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
 
@@ -187,7 +189,7 @@ fun BrushDrawer(
                 if (canTune) {
                     FilledTonalButton(
                         onClick = { showTuner = !showTuner },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         Icon(
                             imageVector = if (showTuner) Icons.AutoMirrored.Filled.List else Icons.Default.Tune,
@@ -195,7 +197,7 @@ fun BrushDrawer(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (showTuner) "Ver Lista" else "Ajustes", fontSize = 12.sp)
+                        Text(if (showTuner) "Ver Lista" else "Ajustes", fontSize = 12.sp, maxLines = 1)
                     }
                 }
             }
@@ -706,7 +708,6 @@ fun PresetTuner(
 
     val updateParam: (Int, Int) -> Unit = { id, value ->
         engine.setPresetParam(id, value)
-        tunerVersion++
         onBrushUpdated()
     }
 
@@ -781,8 +782,7 @@ fun PresetTuner(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        key(tunerVersion) {
-            LazyColumn(
+        LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(340.dp),
@@ -1229,7 +1229,6 @@ fun PresetTuner(
             }
         }
     }
-}
 
 @Composable
 fun TunerSliderCard(
@@ -1237,8 +1236,11 @@ fun TunerSliderCard(
     value: Float,
     range: ClosedFloatingPointRange<Float>,
     unit: String = "",
-    onValueChange: (Float) -> Unit
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: (() -> Unit)? = null
 ) {
+    var localValue by remember(value) { mutableFloatStateOf(value) }
+
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
         shape = RoundedCornerShape(12.dp)
@@ -1249,11 +1251,15 @@ fun TunerSliderCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(label, fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                Text("${value.toInt()} $unit".trim(), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("${localValue.toInt()} $unit".trim(), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
             Slider(
-                value = value.coerceIn(range.start, range.endInclusive),
-                onValueChange = onValueChange,
+                value = localValue.coerceIn(range.start, range.endInclusive),
+                onValueChange = {
+                    localValue = it
+                    onValueChange(it)
+                },
+                onValueChangeFinished = onValueChangeFinished,
                 valueRange = range
             )
         }

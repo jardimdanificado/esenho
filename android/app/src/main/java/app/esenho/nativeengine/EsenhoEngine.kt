@@ -656,6 +656,9 @@ class EsenhoEngine(
     fun applyFilter(filter: FilterModel, p1: Int = 0, p2: Int = 0): Boolean {
         pushUndoSnapshot()
         val ok = EsenhoNativeBridge.nativeApplyFilter(filter.id, p1, p2)
+        if (ok) {
+            getRenderBitmap()
+        }
         return ok
     }
 
@@ -706,10 +709,13 @@ class EsenhoEngine(
         syncLayers()
     }
 
-    fun setLayerOpacity(idx: Int, opacity: Int) {
-        pushUndoSnapshot()
+    fun setLayerOpacity(idx: Int, opacity: Int, commitUndo: Boolean = false) {
+        if (commitUndo) {
+            pushUndoSnapshot()
+        }
         EsenhoNativeBridge.nativeLayerSetOpacity(idx, opacity.coerceIn(0, 255))
         syncLayers()
+        getRenderBitmap()
     }
 
     fun setLayerVisible(idx: Int, visible: Boolean) {
@@ -887,6 +893,8 @@ class EsenhoEngine(
                 isStrokeActive = false
             }
             ToolMode.LASSO_FILL -> {
+                lassoPoints.clear()
+                lassoPoints.add(Pair(x.toInt(), y.toInt()))
                 EsenhoNativeBridge.nativeBrushSetType(4) // W_MODE_LASSO_FILL
                 EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, nativeCol, 0, 1000, 0, 0)
             }
@@ -978,6 +986,7 @@ class EsenhoEngine(
                 lastY = targetY
             }
             ToolMode.LASSO_FILL -> {
+                lassoPoints.add(Pair(x.toInt(), y.toInt()))
                 EsenhoNativeBridge.nativeStrokeExt(1, x, y, lastX, lastY, nativeCol, 0, 1000, 0, 0)
                 lastX = x
                 lastY = y
@@ -1023,7 +1032,10 @@ class EsenhoEngine(
                 EsenhoNativeBridge.nativeStrokeExt(2, finalX, finalY, lastSubX, lastSubY, nativeCol, isEraser, pInt, tiltX, tiltY)
             }
             ToolMode.LASSO_FILL -> {
+                lassoPoints.add(Pair(x.toInt(), y.toInt()))
                 EsenhoNativeBridge.nativeStrokeExt(2, x, y, lastX, lastY, nativeCol, 0, 1000, 0, 0)
+                lassoPoints.clear()
+                getRenderBitmap()
             }
             ToolMode.LINE -> {
                 EsenhoNativeBridge.nativeDrawLine(strokeStartX.toInt(), strokeStartY.toInt(), x.toInt(), y.toInt(), nativeCol)

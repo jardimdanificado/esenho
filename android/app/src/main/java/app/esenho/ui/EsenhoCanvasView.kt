@@ -138,6 +138,30 @@ class EsenhoCanvasView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
+    private val selectionBorderShadowPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 4.5f
+        color = 0xBB000000.toInt()
+        isAntiAlias = true
+    }
+
+    private val selectionFillPaint = Paint().apply {
+        style = Paint.Style.FILL
+        color = 0x332196F3
+        isAntiAlias = true
+    }
+
+    private val lassoFillPreviewPaint = Paint().apply {
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+
+    private val lassoStrokePreviewPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+        isAntiAlias = true
+    }
+
     private val pixelGridPaint = Paint().apply {
         style = Paint.Style.STROKE
         strokeWidth = 1f
@@ -514,6 +538,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
         // 6. Active Selection Boundary
         if (eng.selectionActive && eng.selectionBounds != null) {
             val b = eng.selectionBounds!!
+            canvas.drawRect(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(), selectionBorderShadowPaint)
             canvas.drawRect(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(), selectionMarqueePaint)
         }
 
@@ -545,6 +570,8 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     val ry = min(sy, cy)
                     val rw = max(sx, cx)
                     val rh = max(sy, cy)
+                    canvas.drawRect(rx, ry, rw, rh, selectionFillPaint)
+                    canvas.drawRect(rx, ry, rw, rh, selectionBorderShadowPaint)
                     canvas.drawRect(rx, ry, rw, rh, selectionMarqueePaint)
                 }
                 ToolMode.SELECT_LASSO -> {
@@ -554,7 +581,29 @@ class EsenhoCanvasView @JvmOverloads constructor(
                         for (i in 1 until eng.lassoPoints.size) {
                             path.lineTo(eng.lassoPoints[i].first.toFloat(), eng.lassoPoints[i].second.toFloat())
                         }
+                        val closedPath = Path(path)
+                        closedPath.close()
+                        canvas.drawPath(closedPath, selectionFillPaint)
+                        canvas.drawPath(path, selectionBorderShadowPaint)
                         canvas.drawPath(path, selectionMarqueePaint)
+                    }
+                }
+                ToolMode.LASSO_FILL -> {
+                    if (eng.lassoPoints.size >= 2) {
+                        val path = Path()
+                        path.moveTo(eng.lassoPoints[0].first.toFloat(), eng.lassoPoints[0].second.toFloat())
+                        for (i in 1 until eng.lassoPoints.size) {
+                            path.lineTo(eng.lassoPoints[i].first.toFloat(), eng.lassoPoints[i].second.toFloat())
+                        }
+                        val closedPath = Path(path)
+                        closedPath.close()
+
+                        val c = eng.currentColor
+                        lassoFillPreviewPaint.color = Color.argb(100, Color.red(c), Color.green(c), Color.blue(c))
+                        canvas.drawPath(closedPath, lassoFillPreviewPaint)
+
+                        lassoStrokePreviewPaint.color = c
+                        canvas.drawPath(path, lassoStrokePreviewPaint)
                     }
                 }
                 else -> {}

@@ -4,11 +4,25 @@ node_modules
 dist
 output.png
 src-tauri
+
+# Android & Gradle
 android/.gradle/
+.gradle/
 android/build/
 android/app/build/
 android/app/src/main/assets/
 android/local.properties
 android/app/.cxx/
 .cxx/
+android/.externalNativeBuild/
+android/captures/
+
+# Android Studio / IntelliJ
+android/.idea/
+.idea/
+*.iml
+*.hprof
+
+# Packages
 *.apk
+*.aab

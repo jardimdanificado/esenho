@@ -84,6 +84,7 @@ fun VerticalThumbBar(
                     onDragEnd = { onActiveChange(false) },
                     onDragCancel = { onActiveChange(false) },
                     onVerticalDrag = { change, _ ->
+                        change.consume()
                         val norm = 1f - (change.position.y / size.height).coerceIn(0f, 1f)
                         onValueChange(norm)
                     }
