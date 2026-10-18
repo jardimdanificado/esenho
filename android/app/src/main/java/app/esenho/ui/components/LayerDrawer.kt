@@ -47,6 +47,7 @@ fun LayerDrawer(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .heightIn(max = 440.dp)
                 .padding(horizontal = 14.dp)
                 .padding(bottom = 16.dp)
@@ -240,21 +241,29 @@ fun LayerDrawer(
                             )
                         }
 
-                        // Blend Modes (Compact strip)
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                        ) {
-                            items(LayerBlendMode.values()) { mode ->
-                                FilterChip(
-                                    selected = activeLayer.blendMode == mode,
-                                    onClick = {
-                                        engine.setLayerBlendMode(activeLayer.id, mode)
-                                        refresh()
-                                    },
-                                    label = { Text(mode.displayName, fontSize = 10.sp) },
-                                    modifier = Modifier.height(26.dp)
-                                )
+                        // Blend mode selector as a compact dropdown.
+                        var blendMenuExpanded by remember(activeLayer.id) { mutableStateOf(false) }
+                        Box {
+                            OutlinedButton(
+                                onClick = { blendMenuExpanded = true },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("Mesclagem: ${activeLayer.blendMode.displayName}", fontSize = 11.sp, maxLines = 1)
+                                Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
+                            }
+                            DropdownMenu(expanded = blendMenuExpanded, onDismissRequest = { blendMenuExpanded = false }) {
+                                LayerBlendMode.values().forEach { mode ->
+                                    DropdownMenuItem(
+                                        text = { Text(mode.displayName) },
+                                        trailingIcon = if (activeLayer.blendMode == mode) {{ Icon(Icons.Default.Check, null) }} else null,
+                                        onClick = {
+                                            blendMenuExpanded = false
+                                            engine.setLayerBlendMode(activeLayer.id, mode)
+                                            refresh()
+                                        }
+                                    )
+                                }
                             }
                         }
 

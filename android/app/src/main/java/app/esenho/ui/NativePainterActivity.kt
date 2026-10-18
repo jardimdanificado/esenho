@@ -10,6 +10,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.view.WindowCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,7 +43,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.runtime.saveable.rememberSaveable
 import app.esenho.R
 import app.esenho.nativeengine.*
 import app.esenho.ui.components.*
@@ -52,6 +52,7 @@ class NativePainterActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
 
         setContent {
             EsenhoNativeTheme {
@@ -141,7 +142,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
     var symmetryMode by remember { mutableStateOf(engine.symmetryMode) }
     var pixelArtGrid by remember { mutableStateOf(engine.pixelArtGrid) }
     var isTransformActive by remember { mutableStateOf(engine.transformState != null) }
-    var arcSliders by rememberSaveable { mutableStateOf(false) }
+    var activeBrushName by remember { mutableStateOf(engine.activeBrushDisplayName) }
 
     fun refreshState() {
         canUndo = engine.canUndo
@@ -155,6 +156,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
         symmetryMode = engine.symmetryMode
         pixelArtGrid = engine.pixelArtGrid
         isTransformActive = engine.transformState != null
+        activeBrushName = engine.activeBrushDisplayName
         canvasViewRef?.invalidate()
     }
 
@@ -184,55 +186,9 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Active Brush Chip Button (Quick Catalog & Tuning)
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
-                            modifier = Modifier
-                                .weight(1f, fill = false)
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { showBrushDrawer = true }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Brush,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = engine.activeBrushDisplayName,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.width(2.dp))
-                                Icon(
-                                    Icons.Default.ArrowDropDown,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                actions = {
+                title = {},
+                navigationIcon = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                     // Undo
                     TooltipIconButton(
                         onClick = {
@@ -267,6 +223,12 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                         Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Refazer", modifier = Modifier.size(18.dp))
                     }
 
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                actions = {
                     // Animation Toggle
                     TooltipIconButton(
                         onClick = { showAnimationTimeline = !showAnimationTimeline },
@@ -304,10 +266,6 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                         ) {
                             Icon(Icons.Default.Layers, contentDescription = "Camadas", modifier = Modifier.size(18.dp))
                         }
-                    }
-
-                    TooltipIconButton(onClick = { showColorStudio = true }, description = "Cores", modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Palette, contentDescription = "Cores", modifier = Modifier.size(18.dp), tint = Color(currentColor))
                     }
 
                     Spacer(modifier = Modifier.width(4.dp))
@@ -405,6 +363,23 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                                     refreshState()
                                 }
                             )
+                        }
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier.padding(start = 2.dp, end = 6.dp)
+                    ) {
+                        (engine.getActivePalette()?.colors?.take(4) ?: emptyList()).forEach { chipColor ->
+                            Box(
+                                Modifier.size(16.dp).clip(CircleShape).background(Color(chipColor))
+                                    .border(1.dp, if (chipColor == currentColor) Color.White else Color.Gray, CircleShape)
+                                    .clickable { currentColor = chipColor; engine.currentColor = chipColor; refreshState() }
+                            )
+                        }
+                        TooltipIconButton(onClick = { showColorStudio = true }, description = "Color Studio", modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Palette, contentDescription = "Color Studio", modifier = Modifier.size(18.dp), tint = Color(currentColor))
                         }
                     }
                 }
@@ -518,8 +493,6 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                 onSizeChangeActive = { active ->
                     canvasViewRef?.previewBrushSize = if (active) engine.brushSize else 0f
                 },
-                arcMode = arcSliders,
-                onArcModeChange = { arcSliders = it },
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .padding(start = 6.dp)
@@ -607,10 +580,9 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                 Surface(
                     modifier = Modifier
                          .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(bottom = if (showAnimationTimeline) 120.dp else 0.dp),
+                        .fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                    shape = androidx.compose.ui.graphics.RectangleShape,
                     tonalElevation = 6.dp
                 ) {
                 Row(
@@ -618,13 +590,23 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(3.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Presets ficam antes do seletor de modo.
-                    ToolNavButton(
-                        icon = Icons.Default.AutoAwesomeMosaic,
-                        isSelected = showBrushDrawer,
-                        description = "Presets de pincel",
-                        onClick = { showBrushDrawer = true }
-                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+                        modifier = Modifier
+                            .widthIn(max = 142.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showBrushDrawer = true }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Brush, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(activeBrushName, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                    }
 
                     val modeIcon = when (currentTool) {
                         ToolMode.ERASER -> null
@@ -707,16 +689,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                         }
                     }
 
-                    // Paleta rápida no dock inferior.
-                    val quickColors = engine.getActivePalette()?.colors?.take(5) ?: emptyList()
-                    quickColors.forEach { chipColor ->
-                        Box(Modifier.size(20.dp).clip(CircleShape).background(Color(chipColor))
-                            .border(1.dp, if (chipColor == currentColor) Color.White else Color.Gray, CircleShape)
-                            .clickable { currentColor = chipColor; engine.currentColor = chipColor; refreshState() })
-                    }
-                    TooltipIconButton(onClick = { showColorStudio = true }, description = "Abrir paletas", modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Palette, contentDescription = "Abrir paletas", modifier = Modifier.size(18.dp))
-                    }
+
 
                 }
             }
@@ -728,7 +701,7 @@ fun EsenhoMainScreen(onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit) {
                     engine = engine,
                     onFrameChanged = { canvasViewRef?.invalidate() },
                     onClose = { showAnimationTimeline = false },
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 56.dp)
                 )
             }
         }

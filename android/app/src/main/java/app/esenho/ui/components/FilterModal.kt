@@ -39,6 +39,7 @@ fun FilterModal(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 24.dp)
         ) {

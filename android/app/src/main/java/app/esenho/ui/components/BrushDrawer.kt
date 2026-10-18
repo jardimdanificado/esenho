@@ -111,13 +111,13 @@ fun BrushDrawer(
     var selectedCategory by remember { mutableStateOf("Todos") }
     var showTuner by remember { mutableStateOf(false) }
     var catalogVersion by remember { mutableIntStateOf(0) }
+    var searchExpanded by remember { mutableStateOf(false) }
+    var categoryMenuExpanded by remember { mutableStateOf(false) }
 
     // When tab changes, reset category filter
     LaunchedEffect(activeTab) {
         selectedCategory = "Todos"
     }
-
-    val totalCount = engine.presetCatalog.size + engine.brushCatalog.size
 
     val filteredPresets = remember(selectedCategory, searchQuery, engine.presetCatalog.size, catalogVersion) {
         engine.presetCatalog.filter { p ->
@@ -174,310 +174,154 @@ fun BrushDrawer(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 440.dp)
+                .navigationBarsPadding()
+                .heightIn(max = 620.dp)
                 .padding(horizontal = 14.dp)
                 .padding(bottom = 16.dp)
         ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    Text(
-                        text = "Pincéis & Presets ($totalCount)",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                    Text(
-                        text = "${engine.presetCatalog.size} presets • ${engine.brushCatalog.size} procedurais",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        fontSize = 11.sp
-                    )
-                }
-
-                val canTune = (engine.selectedBrush != null && engine.selectedBrush!!.params.isNotEmpty()) || engine.selectedPreset != null
-                if (canTune) {
-                    FilledTonalButton(
-                        onClick = { showTuner = !showTuner },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(30.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (showTuner) Icons.AutoMirrored.Filled.List else Icons.Default.Tune,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (showTuner) "Lista" else "Ajustes", fontSize = 11.sp, maxLines = 1)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
             if (showTuner && engine.selectedPreset != null) {
                 PresetTuner(
                     engine = engine,
                     preset = engine.selectedPreset!!,
-                    onBrushUpdated = {
-                        catalogVersion++
-                        onBrushUpdated()
-                    }
+                    onBrushUpdated = { catalogVersion++; onBrushUpdated() }
                 )
             } else if (showTuner && engine.selectedBrush != null) {
                 val b = engine.selectedBrush!!
-                // ── Procedural WASM Brush Parameter Tuner View ──
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = getWasmIcon(mapWasmCategory(b.category)),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = b.title,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "${b.category} • ${b.params.size} parâmetros ajustáveis",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(b.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                    IconButton(onClick = { showTuner = false }, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Voltar aos presets")
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(360.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Global Streamline Smoothing
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("Estabilização / Suavização", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                                    Text("${engine.brushSmooth}%", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                }
-                                Slider(
-                                    value = engine.brushSmooth.toFloat(),
-                                    onValueChange = { engine.brushSmooth = it.toInt() },
-                                    valueRange = 0f..100f
-                                )
-                            }
-                        }
+                        TunerSliderCard(
+                            label = "Estabilização / Suavização",
+                            value = engine.brushSmooth.toFloat(),
+                            range = 0f..100f,
+                            unit = "%",
+                            onValueChange = { engine.brushSmooth = it.toInt(); onBrushUpdated() }
+                        )
                     }
-
-                    // Procedural Dynamic Parameters
-                    items(b.params) { p ->
-                        var pVal by remember(p, p.currentVal) { mutableFloatStateOf(p.currentVal.toFloat()) }
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(p.name, fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                                    Text("${pVal.toInt()} ${p.unit}".trim(), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                }
-                                Slider(
-                                    value = pVal,
-                                    onValueChange = {
-                                        pVal = it
-                                        val idx = b.params.indexOf(p)
-                                        engine.setBrushCustomParam(idx, it.toInt())
-                                    },
-                                    valueRange = p.min.toFloat()..p.max.toFloat()
-                                )
+                    items(b.params) { param ->
+                        var paramValue by remember(param, param.currentVal) { mutableFloatStateOf(param.currentVal.toFloat()) }
+                        TunerSliderCard(
+                            label = param.name,
+                            value = paramValue,
+                            range = param.min.toFloat()..param.max.toFloat(),
+                            unit = param.unit,
+                            onValueChange = {
+                                paramValue = it
+                                engine.setBrushCustomParam(b.params.indexOf(param), it.toInt())
+                                onBrushUpdated()
                             }
-                        }
+                        )
                     }
                 }
             } else {
-                // ── Tab Selector (Presets vs Procedurais WASM) ──
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     FilterChip(
                         selected = activeTab == BrushDrawerTab.PRESETS,
                         onClick = { activeTab = BrushDrawerTab.PRESETS },
-                        label = {
-                            Text("Presets (${engine.presetCatalog.size})", fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
-                        },
-                        leadingIcon = {
-                            Icon(Icons.Default.Palette, contentDescription = null, modifier = Modifier.size(14.dp))
-                        },
+                        label = { Text("Presets", fontWeight = FontWeight.SemiBold, fontSize = 11.sp) },
                         modifier = Modifier.weight(1f).height(32.dp)
                     )
-
                     FilterChip(
                         selected = activeTab == BrushDrawerTab.WASM_PROCEDURAL,
                         onClick = { activeTab = BrushDrawerTab.WASM_PROCEDURAL },
-                        label = {
-                            Text("Físicos & FX (${engine.brushCatalog.size})", fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
-                        },
-                        leadingIcon = {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(14.dp))
-                        },
+                        label = { Text("Procedurais", fontWeight = FontWeight.SemiBold, fontSize = 11.sp) },
                         modifier = Modifier.weight(1f).height(32.dp)
                     )
+                    if (engine.selectedPreset != null || engine.selectedBrush?.params?.isNotEmpty() == true) {
+                        IconButton(onClick = { showTuner = true }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Tune, contentDescription = "Ajustes")
+                        }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // ── Search Bar (F7 Compact) ──
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(36.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 10.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Box(modifier = Modifier.weight(1f)) {
-                            if (searchQuery.isEmpty()) {
-                                Text(
-                                    text = if (activeTab == BrushDrawerTab.PRESETS) "Buscar presets..." else "Buscar procedurais...",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    Box {
+                        OutlinedButton(
+                            onClick = { categoryMenuExpanded = true },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text(selectedCategory, fontSize = 11.sp, maxLines = 1)
+                            Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
+                        }
+                        DropdownMenu(expanded = categoryMenuExpanded, onDismissRequest = { categoryMenuExpanded = false }) {
+                            (if (activeTab == BrushDrawerTab.PRESETS) presetCategories else wasmCategories).forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category) },
+                                    leadingIcon = if (selectedCategory == category) {{ Icon(Icons.Default.Check, null) }} else null,
+                                    onClick = { selectedCategory = category; categoryMenuExpanded = false }
                                 )
                             }
-                            androidx.compose.foundation.text.BasicTextField(
-                                value = searchQuery,
-                                onValueChange = { searchQuery = it },
-                                singleLine = true,
-                                textStyle = androidx.compose.ui.text.TextStyle(
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(24.dp)) {
-                                Icon(Icons.Default.Clear, "Limpar", modifier = Modifier.size(14.dp))
-                            }
                         }
                     }
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // ── Category Filter Chips ──
-                val currentCategoryList = if (activeTab == BrushDrawerTab.PRESETS) presetCategories else wasmCategories
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(currentCategoryList) { cat ->
-                        FilterChip(
-                            selected = selectedCategory == cat,
-                            onClick = { selectedCategory = cat },
-                            label = { Text(cat, fontSize = 11.sp) },
-                            leadingIcon = {
-                                val icon = if (activeTab == BrushDrawerTab.PRESETS) getPresetIcon(cat) else getWasmIcon(cat)
-                                Icon(icon, contentDescription = null, modifier = Modifier.size(12.dp))
+                    if (searchExpanded) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Buscar", fontSize = 12.sp) },
+                            singleLine = true,
+                            trailingIcon = {
+                                IconButton(onClick = { searchQuery = ""; searchExpanded = false }) {
+                                    Icon(Icons.Default.Close, "Fechar busca", modifier = Modifier.size(16.dp))
+                                }
                             },
-                            modifier = Modifier.height(28.dp)
+                            modifier = Modifier.weight(1f).height(48.dp)
                         )
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                        IconButton(onClick = { searchExpanded = true }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Search, contentDescription = "Buscar")
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // ── Brush & Preset Items List ──
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 160.dp, max = 260.dp),
+                    modifier = Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(min = 180.dp, max = 470.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     if (activeTab == BrushDrawerTab.PRESETS) {
-                        // Curated Presets
                         items(filteredPresets, key = { it.id }) { preset ->
-                            val isSelected = engine.selectedPreset?.id == preset.id
+                            val selected = engine.selectedPreset?.id == preset.id
                             PresetItemCard(
                                 preset = preset,
-                                isSelected = isSelected,
+                                isSelected = selected,
                                 onClick = {
-                                    if (isSelected) {
-                                        showTuner = true
-                                    } else {
-                                        engine.selectPreset(preset)
-                                        onBrushUpdated()
-                                    }
+                                    engine.selectPreset(preset)
+                                    onBrushUpdated()
+                                    onDismiss()
                                 },
                                 onTuneClick = {
-                                    if (!isSelected) {
-                                        engine.selectPreset(preset)
-                                        onBrushUpdated()
-                                    }
+                                    if (!selected) { engine.selectPreset(preset); onBrushUpdated() }
                                     showTuner = true
                                 }
                             )
                         }
                     } else {
-                        // WASM / Procedural Brushes
                         items(filteredWasmBrushes, key = { it.id }) { brush ->
-                            val isSelected = engine.selectedBrush?.id == brush.id
+                            val selected = engine.selectedBrush?.id == brush.id
                             BrushItemCard(
                                 title = brush.title,
                                 categoryTag = brush.category,
                                 paramCount = brush.params.size,
                                 icon = getWasmIcon(mapWasmCategory(brush.category)),
-                                isSelected = isSelected,
+                                isSelected = selected,
                                 onClick = {
                                     engine.selectBrush(brush)
                                     onBrushUpdated()
-                                    if (brush.params.isNotEmpty()) {
-                                        showTuner = true
-                                    } else {
-                                        onDismiss()
-                                    }
+                                    if (brush.params.isNotEmpty()) showTuner = true else onDismiss()
                                 }
                             )
                         }
@@ -537,43 +381,12 @@ fun PresetItemCard(
                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (preset.isCustom) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                        ) {
-                            Text(
-                                text = "Personalizado",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    } else {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                        ) {
-                            Text(
-                                text = mapPresetCategory(preset.category),
-                                fontSize = 9.sp,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    Text(
-                        text = "tam: ${preset.size}px • ${preset.opacity}%",
-                        fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = "${preset.size}px • ${preset.opacity}%",
+                    fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
             }
 
             if (isSelected) {
@@ -749,6 +562,38 @@ val DAB_BLEND_NAMES = listOf(
 )
 
 @Composable
+private fun CompactOptionDropdown(
+    title: String,
+    selectedKey: String,
+    options: List<Pair<String, String>>,
+    onSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth().clickable { expanded = true }
+        ) {
+            Row(Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(title, modifier = Modifier.weight(1f), fontSize = 12.sp)
+                Text(options.firstOrNull { it.first == selectedKey }?.second ?: selectedKey, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Default.ArrowDropDown, null)
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (key, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    trailingIcon = if (key == selectedKey) {{ Icon(Icons.Default.Check, null) }} else null,
+                    onClick = { onSelected(key); expanded = false }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun PresetTuner(
     engine: EsenhoEngine,
     preset: BrushPresetModel,
@@ -795,11 +640,7 @@ fun PresetTuner(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = "${mapPresetCategory(preset.category)} • Configuração Fina",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+
                 }
             }
 
@@ -965,7 +806,7 @@ fun PresetTuner(
         LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(340.dp),
+                    .height(420.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 when (tunerTab) {
@@ -1034,36 +875,15 @@ fun PresetTuner(
                             )
                         }
                         item {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text("Formato da Ponta (${BUILTIN_SHAPES.size} formas)", fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        items(BUILTIN_SHAPES) { (shKey, shLabel) ->
-                                            val currentShape = preset.shape.ifBlank {
-                                                when (preset.shapeId) {
-                                                    1 -> "square"
-                                                    2 -> "chisel"
-                                                    else -> "circle"
-                                                }
-                                            }
-                                            val isSelected = currentShape.equals(shKey, ignoreCase = true)
-                                            FilterChip(
-                                                selected = isSelected,
-                                                onClick = {
-                                                    engine.setPresetShape(shKey)
-                                                    tunerVersion++
-                                                    onBrushUpdated()
-                                                },
-                                                label = { Text(shLabel, fontSize = 11.sp) }
-                                            )
-                                        }
-                                    }
-                                }
+                            val currentShape = preset.shape.ifBlank {
+                                when (preset.shapeId) { 1 -> "square"; 2 -> "chisel"; else -> "circle" }
                             }
+                            CompactOptionDropdown(
+                                title = "Formato da ponta",
+                                selectedKey = currentShape,
+                                options = BUILTIN_SHAPES,
+                                onSelected = { key -> engine.setPresetShape(key); tunerVersion++; onBrushUpdated() }
+                            )
                         }
                         item {
                             TunerSwitchCard(
@@ -1073,25 +893,14 @@ fun PresetTuner(
                             )
                         }
                         item {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text("Modo de Mesclagem dos Dabs", fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        items(DAB_BLEND_NAMES.indices.toList()) { idx ->
-                                            FilterChip(
-                                                selected = preset.dabBlend == idx,
-                                                onClick = { updateParam(31, idx) },
-                                                label = { Text(DAB_BLEND_NAMES[idx], fontSize = 11.sp) }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                            CompactOptionDropdown(
+                                title = "Mesclagem dos dabs",
+                                selectedKey = preset.dabBlend.toString(),
+                                options = DAB_BLEND_NAMES.mapIndexed { index, name -> index.toString() to name },
+                                onSelected = { key -> updateParam(31, key.toInt()) }
+                            )
                         }
+
                     }
 
                     PresetTunerTab.DYNAMICS -> {
@@ -1188,30 +997,13 @@ fun PresetTuner(
 
                     PresetTunerTab.TEXTURE -> {
                         item {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text("Padrão de Grão / Textura (${BUILTIN_TEXTURES.size} texturas)", fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        items(BUILTIN_TEXTURES) { (texKey, texLabel) ->
-                                            val currentTexture = if (preset.texMode == 0) "none" else preset.texture.ifBlank { "none" }
-                                            val isSelected = currentTexture.equals(texKey, ignoreCase = true)
-                                            FilterChip(
-                                                selected = isSelected,
-                                                onClick = {
-                                                    engine.setPresetTexture(texKey)
-                                                    tunerVersion++
-                                                    onBrushUpdated()
-                                                },
-                                                label = { Text(texLabel, fontSize = 11.sp) }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                            val selectedTexture = if (preset.texMode == 0) "none" else preset.texture.ifBlank { "none" }
+                            CompactOptionDropdown(
+                                title = "Textura",
+                                selectedKey = selectedTexture,
+                                options = BUILTIN_TEXTURES,
+                                onSelected = { key -> engine.setPresetTexture(key); tunerVersion++; onBrushUpdated() }
+                            )
                         }
                         item {
                             TunerSliderCard(
