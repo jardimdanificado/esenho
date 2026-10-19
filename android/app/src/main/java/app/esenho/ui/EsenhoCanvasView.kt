@@ -86,7 +86,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
     // Paints
     private val bgPaint = Paint().apply {
-        color = 0xFF0E1118.toInt()
+        color = 0xFF1D2021.toInt()
         style = Paint.Style.FILL
     }
 

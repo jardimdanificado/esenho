@@ -1,38 +1,48 @@
 package app.esenho.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import app.esenho.nativeengine.EsenhoEngine
 import app.esenho.nativeengine.DYNAMIC_SETTING_KEYS
+import app.esenho.nativeengine.EsenhoEngine
 import app.esenho.nativeengine.EsenhoStorageManager.SideSliderSetting
 
 data class SliderParamConfig(
@@ -41,65 +51,104 @@ data class SliderParamConfig(
     val shortLabel: String,
     val minVal: Float,
     val maxVal: Float,
-    val unit: String
+    val unit: String,
 )
 
-private val STANDARD_SLIDER_PARAMS = listOf(
-    SliderParamConfig(1, "Tamanho (Diâmetro)", "Tam", 1f, 300f, "px"),
-    SliderParamConfig(2, "Opacidade", "Opac", 1f, 100f, "%"),
-    SliderParamConfig(4, "Fluxo (Flow)", "Flux", 1f, 100f, "%"),
-    SliderParamConfig(3, "Dureza da Borda", "Durez", 0f, 100f, "%"),
-    SliderParamConfig(19, "Suavização (Estabilizador)", "Suav", 0f, 100f, "%"),
-    SliderParamConfig(5, "Espaçamento", "Esp", 1f, 100f, "%"),
-    SliderParamConfig(7, "Arredondamento", "Arred", 1f, 100f, "%"),
-    SliderParamConfig(6, "Ângulo de Rotação", "Âng", 0f, 360f, "°"),
-    SliderParamConfig(8, "Dispersão (Scatter)", "Disp", 0f, 100f, "%"),
-    SliderParamConfig(9, "Tolerância do Balde", "Tol", 0f, 255f, ""),
-    SliderParamConfig(20, "Ponto Médio Bézier", "Bézier", 0f, 100f, "%"),
-    SliderParamConfig(10, "Borrar (Smudge)", "Borr", 0f, 100f, "%"),
-    SliderParamConfig(11, "Umidade (Wetness)", "Umid", 0f, 100f, "%"),
-    SliderParamConfig(12, "Grão / Ruído", "Grão", 0f, 100f, "%"),
-    SliderParamConfig(17, "Escala da Textura", "TexEsc", 10f, 300f, "%"),
-    SliderParamConfig(21, "Contraste Textura", "TexCont", 0f, 200f, "%"),
-    SliderParamConfig(27, "Variação de Tamanho (Jitter)", "JitTam", 0f, 100f, "%"),
-    SliderParamConfig(28, "Variação de Ângulo (Jitter)", "JitÂng", 0f, 360f, "°"),
-    SliderParamConfig(29, "Variação de Opacidade (Jitter)", "JitOpac", 0f, 100f, "%"),
-    SliderParamConfig(30, "Variação de Cor (Jitter)", "JitCor", 0f, 100f, "%")
-)
+private val STANDARD_SLIDER_PARAMS =
+    listOf(
+        SliderParamConfig(1, "Tamanho (Diâmetro)", "Tam", 1f, 300f, "px"),
+        SliderParamConfig(2, "Opacidade", "Opac", 1f, 100f, "%"),
+        SliderParamConfig(4, "Fluxo (Flow)", "Flux", 1f, 100f, "%"),
+        SliderParamConfig(3, "Dureza da Borda", "Durez", 0f, 100f, "%"),
+        SliderParamConfig(19, "Suavização (Estabilizador)", "Suav", 0f, 100f, "%"),
+        SliderParamConfig(5, "Espaçamento", "Esp", 1f, 100f, "%"),
+        SliderParamConfig(7, "Arredondamento", "Arred", 1f, 100f, "%"),
+        SliderParamConfig(6, "Ângulo de Rotação", "Âng", 0f, 360f, "°"),
+        SliderParamConfig(8, "Dispersão (Scatter)", "Disp", 0f, 100f, "%"),
+        SliderParamConfig(9, "Tolerância do Balde", "Tol", 0f, 255f, ""),
+        SliderParamConfig(20, "Ponto Médio Bézier", "Bézier", 0f, 100f, "%"),
+        SliderParamConfig(10, "Borrar (Smudge)", "Borr", 0f, 100f, "%"),
+        SliderParamConfig(11, "Umidade (Wetness)", "Umid", 0f, 100f, "%"),
+        SliderParamConfig(12, "Grão / Ruído", "Grão", 0f, 100f, "%"),
+        SliderParamConfig(17, "Escala da Textura", "TexEsc", 10f, 300f, "%"),
+        SliderParamConfig(21, "Contraste Textura", "TexCont", 0f, 200f, "%"),
+        SliderParamConfig(27, "Variação de Tamanho (Jitter)", "JitTam", 0f, 100f, "%"),
+        SliderParamConfig(28, "Variação de Ângulo (Jitter)", "JitÂng", 0f, 360f, "°"),
+        SliderParamConfig(29, "Variação de Opacidade (Jitter)", "JitOpac", 0f, 100f, "%"),
+        SliderParamConfig(30, "Variação de Cor (Jitter)", "JitCor", 0f, 100f, "%"),
+    )
 
-private fun dynamicBaseRange(key: String): ClosedFloatingPointRange<Float> = when (key) {
-    "radius_log", "smudge_radius_log", "smudge_length_log" -> -5f..8f
-    "ellipse_angle" -> -360f..360f
-    "color_h" -> 0f..1f
-    "change_color_h" -> -1f..1f
-    "dabs_per_basic_radius", "dabs_per_actual_radius", "dabs_per_second", "smudge_length", "smudge_bucket", "posterize_num" -> -10f..20f
-    "speed_fine_slowness", "speed_coarse_slowness", "offset_by_speed_slowness", "lazy_tracking", "stroke_duration_log", "stroke_holdtime" -> -2f..2f
-    "color_s", "color_v", "hardness", "opaque", "opaque_multiply", "opaque_linearize", "radius_by_random", "smudge", "smudge_transparency", "stroke_threshold", "ellipse_ratio" -> -1f..2f
-    else -> -2f..2f
-}
+private fun dynamicBaseRange(key: String): ClosedFloatingPointRange<Float> =
+    when (key) {
+        "radius_log",
+        "smudge_radius_log",
+        "smudge_length_log" -> -5f..8f
+        "ellipse_angle" -> -360f..360f
+        "color_h" -> 0f..1f
+        "change_color_h" -> -1f..1f
+        "dabs_per_basic_radius",
+        "dabs_per_actual_radius",
+        "dabs_per_second",
+        "smudge_length",
+        "smudge_bucket",
+        "posterize_num" -> -10f..20f
+        "speed_fine_slowness",
+        "speed_coarse_slowness",
+        "offset_by_speed_slowness",
+        "lazy_tracking",
+        "stroke_duration_log",
+        "stroke_holdtime" -> -2f..2f
+        "color_s",
+        "color_v",
+        "hardness",
+        "opaque",
+        "opaque_multiply",
+        "opaque_linearize",
+        "radius_by_random",
+        "smudge",
+        "smudge_transparency",
+        "stroke_threshold",
+        "ellipse_ratio" -> -1f..2f
+        else -> -2f..2f
+    }
 
-private val DYNAMIC_SLIDER_PARAMS = DYNAMIC_SETTING_KEYS.mapIndexed { index, key ->
-    val range = dynamicBaseRange(key)
-    SliderParamConfig(-1000 - index, "Dinâmico: ${key.replace('_', ' ')}", "D${key.replace("_", "").take(4)}", range.start, range.endInclusive, "")
-}
+private val DYNAMIC_SLIDER_PARAMS =
+    DYNAMIC_SETTING_KEYS.mapIndexed { index, key ->
+        val range = dynamicBaseRange(key)
+        SliderParamConfig(
+            -1000 - index,
+            "Dinâmico: ${key.replace('_', ' ')}",
+            "D${key.replace("_", "").take(4)}",
+            range.start,
+            range.endInclusive,
+            "",
+        )
+    }
 private const val PRESSURE_MIN_PARAM = -2001
 private const val PRESSURE_MAX_PARAM = -2002
-private val PRESSURE_SLIDER_PARAMS = listOf(
-    SliderParamConfig(PRESSURE_MIN_PARAM, "Pressão mínima", "PMin", 0f, 99f, "%"),
-    SliderParamConfig(PRESSURE_MAX_PARAM, "Pressão máxima", "PMax", 1f, 100f, "%")
-)
-val AVAILABLE_SLIDER_PARAMS = STANDARD_SLIDER_PARAMS + DYNAMIC_SLIDER_PARAMS + PRESSURE_SLIDER_PARAMS
+private val PRESSURE_SLIDER_PARAMS =
+    listOf(
+        SliderParamConfig(PRESSURE_MIN_PARAM, "Pressão mínima", "PMin", 0f, 99f, "%"),
+        SliderParamConfig(PRESSURE_MAX_PARAM, "Pressão máxima", "PMax", 1f, 100f, "%"),
+    )
+val AVAILABLE_SLIDER_PARAMS =
+    STANDARD_SLIDER_PARAMS + DYNAMIC_SLIDER_PARAMS + PRESSURE_SLIDER_PARAMS
 
-private fun dynamicSettingIndex(paramId: Int): Int? = (-1000 - paramId).takeIf { paramId in -1047..-1000 }
+private fun dynamicSettingIndex(paramId: Int): Int? =
+    (-1000 - paramId).takeIf { paramId in -1047..-1000 }
 
-private fun readSliderParameter(engine: EsenhoEngine, paramId: Int): Float = when {
-    dynamicSettingIndex(paramId) != null -> engine.dynamicBaseValue(dynamicSettingIndex(paramId)!!)
-    paramId == PRESSURE_MIN_PARAM -> engine.selectedPreset?.dynamicConfig?.optInt("pressure_min", 0)?.toFloat() ?: 0f
-    paramId == PRESSURE_MAX_PARAM -> engine.selectedPreset?.dynamicConfig?.optInt("pressure_max", 100)?.toFloat() ?: 100f
-    paramId == 1 -> engine.brushSize
-    paramId == 2 -> engine.brushOpacity * 100f
-    else -> engine.getPresetParam(paramId).toFloat()
-}
+private fun readSliderParameter(engine: EsenhoEngine, paramId: Int): Float =
+    when {
+        dynamicSettingIndex(paramId) != null ->
+            engine.dynamicBaseValue(dynamicSettingIndex(paramId)!!)
+        paramId == PRESSURE_MIN_PARAM ->
+            engine.selectedPreset?.dynamicConfig?.optInt("pressure_min", 0)?.toFloat() ?: 0f
+        paramId == PRESSURE_MAX_PARAM ->
+            engine.selectedPreset?.dynamicConfig?.optInt("pressure_max", 100)?.toFloat() ?: 100f
+        paramId == 1 -> engine.brushSize
+        paramId == 2 -> engine.brushOpacity * 100f
+        else -> engine.getPresetParam(paramId).toFloat()
+    }
 
 private fun writeSliderParameter(engine: EsenhoEngine, paramId: Int, value: Float) {
     val dynamicIndex = dynamicSettingIndex(paramId)
@@ -108,8 +157,12 @@ private fun writeSliderParameter(engine: EsenhoEngine, paramId: Int, value: Floa
         paramId == PRESSURE_MIN_PARAM || paramId == PRESSURE_MAX_PARAM -> {
             val config = engine.selectedPreset?.dynamicConfig
             val curve = config?.optString("pressure_curve", "linear") ?: "linear"
-            val min = if (paramId == PRESSURE_MIN_PARAM) value.toInt() else config?.optInt("pressure_min", 0) ?: 0
-            val max = if (paramId == PRESSURE_MAX_PARAM) value.toInt() else config?.optInt("pressure_max", 100) ?: 100
+            val min =
+                if (paramId == PRESSURE_MIN_PARAM) value.toInt()
+                else config?.optInt("pressure_min", 0) ?: 0
+            val max =
+                if (paramId == PRESSURE_MAX_PARAM) value.toInt()
+                else config?.optInt("pressure_max", 100) ?: 100
             engine.setPressureResponse(curve, min, max)
         }
         paramId == 1 -> engine.brushSize = value
@@ -118,191 +171,359 @@ private fun writeSliderParameter(engine: EsenhoEngine, paramId: Int, value: Floa
     }
 }
 
-/**
- * Vertical translucent thumb sliders placed at the screen edge.
- * Fully configurable: users can tap the header badge of any slider to assign
- * ANY brush property (Size, Opacity, Flow, Hardness, Smoothing, Bézier midpoint, etc.)
- */
+internal fun resolvedQuickParameter(setting: SideSliderSetting): SliderParamConfig {
+    val template =
+        AVAILABLE_SLIDER_PARAMS.find { it.paramId == setting.paramId }
+            ?: AVAILABLE_SLIDER_PARAMS.first()
+    val min = setting.minVal?.takeIf { it.isFinite() } ?: template.minVal
+    val max =
+        setting.maxVal?.takeIf { it.isFinite() && it > min }
+            ?: template.maxVal.coerceAtLeast(min + 0.01f)
+    return template.copy(minVal = min, maxVal = max)
+}
+
+private fun finiteParameterNumber(text: String): Float? =
+    text.replace(',', '.').toFloatOrNull()?.takeIf { it.isFinite() }
+
+private fun parameterValueLabel(value: Float): String =
+    java.lang.String.format(java.util.Locale.US, "%.3f", value).trimEnd('0').trimEnd('.')
+
 @Composable
-fun ThumbSliders(
+fun QuickParameterSliders(
     engine: EsenhoEngine,
-    configuredSliders: List<SideSliderSetting>,
-    onConfiguredSlidersChange: (List<SideSliderSetting>) -> Unit,
-    onSizeChangeActive: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-    horizontal: Boolean = false
+    settings: List<SideSliderSetting>,
+    revision: Int,
+    onParameterChanged: (Int, Boolean) -> Unit,
+    onMoveParameter: (String, Int) -> Unit,
+    onReorderFinished: () -> Unit,
 ) {
-    var editingSliderIndex by remember { mutableStateOf<Int?>(null) }
-    var editingParamId by remember { mutableIntStateOf(1) }
-    var rangeMinText by remember { mutableStateOf("1") }
-    var rangeMaxText by remember { mutableStateOf("300") }
-    var currentValueText by remember { mutableStateOf("") }
-    var refreshTrigger by remember { mutableIntStateOf(0) }
-
-    val barHeight = ((LocalConfiguration.current.screenHeightDp * 0.55f /
-        configuredSliders.size.coerceIn(1, 6)) - 5f).coerceIn(40f, 88f).dp
-    ParameterLayout(horizontal, modifier) {
-        configuredSliders.take(6).forEachIndexed { index, setting ->
-            val template = AVAILABLE_SLIDER_PARAMS.find { it.paramId == setting.paramId } ?: AVAILABLE_SLIDER_PARAMS[0]
-            val minVal = setting.minVal ?: template.minVal
-            val cfg = template.copy(minVal = minVal, maxVal = (setting.maxVal ?: template.maxVal).coerceAtLeast(minVal + 0.01f))
-
-            val currentRawVal = remember(cfg.paramId, cfg.minVal, cfg.maxVal, engine.selectedPreset, engine.brushSize, engine.brushOpacity, refreshTrigger) {
-                readSliderParameter(engine, cfg.paramId).coerceIn(cfg.minVal, cfg.maxVal)
-            }
-
-            // Property name and current value stay inside the slider. Tap to change property; drag to adjust.
-            val norm = ((currentRawVal - cfg.minVal) / (cfg.maxVal - cfg.minVal)).coerceIn(0f, 1f)
-            val barColor = MaterialTheme.colorScheme.primary
-            VerticalThumbBar(
-                value = norm,
-                label = "${cfg.shortLabel} ${currentRawVal.toInt()}${cfg.unit}",
-                fillColor = barColor,
-                barHeight = if (horizontal) 144.dp else barHeight,
-                barWidth = if (horizontal) 72.dp else 36.dp,
-                onClick = {
-                    editingSliderIndex = index
-                    editingParamId = setting.paramId
-                    rangeMinText = cfg.minVal.toString().removeSuffix(".0")
-                    rangeMaxText = cfg.maxVal.toString().removeSuffix(".0")
-                    currentValueText = readSliderParameter(engine, cfg.paramId).toString().removeSuffix(".0")
-                },
-                onValueChange = { newNorm ->
-                    val newVal = cfg.minVal + newNorm * (cfg.maxVal - cfg.minVal)
-                    writeSliderParameter(engine, cfg.paramId, newVal)
-                    refreshTrigger++
-                },
-                onActiveChange = { active -> if (cfg.paramId == 1) onSizeChangeActive(active) }
-            )
-        }
-
-        // Add/Manage Slider action button
-        if (configuredSliders.size < 6) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-                modifier = Modifier
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .clickable {
-                        val next = AVAILABLE_SLIDER_PARAMS.firstOrNull { option -> configuredSliders.none { it.paramId == option.paramId } }
-                            ?: AVAILABLE_SLIDER_PARAMS[4] // Smoothing
-                        onConfiguredSlidersChange(configuredSliders.take(6) + SideSliderSetting(next.paramId))
-                    }
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Adicionar Slider Lateral",
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+    val listState = rememberLazyListState()
+    var movingId by remember { mutableStateOf<String?>(null) }
+    RevealMovingParameter(settings, movingId, listState)
+    Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp)) {
+        Text(
+            "Parâmetros rápidos",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 4.dp),
+        )
+        LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false), state = listState) {
+            items(settings, key = { it.id }) { setting ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ParameterDragHandle(
+                        setting.id,
+                        52f,
+                        { id, steps ->
+                            movingId = id
+                            onMoveParameter(id, steps)
+                        },
+                        {
+                            movingId = null
+                            onReorderFinished()
+                        },
                     )
+                    Box(Modifier.weight(1f)) {
+                        QuickParameterRow(engine, setting, revision, onParameterChanged)
+                    }
                 }
             }
         }
     }
+}
 
-    // Modal Dialog to Select Property for the Tapped Slider
-    editingSliderIndex?.let { editIdx ->
-        val selectedTemplate = AVAILABLE_SLIDER_PARAMS.find { it.paramId == editingParamId } ?: AVAILABLE_SLIDER_PARAMS[0]
+@Composable
+private fun QuickParameterRow(
+    engine: EsenhoEngine,
+    setting: SideSliderSetting,
+    revision: Int,
+    onParameterChanged: (Int, Boolean) -> Unit,
+) {
+    var localRevision by remember { mutableIntStateOf(0) }
+    val config = resolvedQuickParameter(setting)
+    val rawValue =
+        remember(
+            revision,
+            localRevision,
+            setting,
+            engine.selectedPreset,
+            engine.brushSize,
+            engine.brushOpacity,
+        ) {
+            readSliderParameter(engine, config.paramId)
+        }
+    Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                config.name,
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                "${parameterValueLabel(rawValue)}${config.unit}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Slider(
+            value = rawValue.coerceIn(config.minVal, config.maxVal),
+            valueRange = config.minVal..config.maxVal,
+            onValueChange = {
+                writeSliderParameter(engine, config.paramId, it)
+                localRevision++
+                onParameterChanged(config.paramId, true)
+            },
+            onValueChangeFinished = { onParameterChanged(config.paramId, false) },
+            modifier =
+                Modifier.fillMaxWidth().height(30.dp).semantics { contentDescription = config.name },
+        )
+    }
+}
 
-        Dialog(onDismissRequest = { editingSliderIndex = null }) {
+/** This dock configures the shared quick stack; it contains no duplicate sliders. */
+@Composable
+fun ParameterSettingsPanel(
+    engine: EsenhoEngine,
+    configuredSliders: List<SideSliderSetting>,
+    onConfiguredSlidersChange: (List<SideSliderSetting>) -> Unit,
+    onValuesChanged: () -> Unit,
+    onDismiss: () -> Unit,
+    revision: Int,
+    onMoveParameter: (String, Int) -> Unit,
+    onReorderFinished: () -> Unit,
+) {
+    val listState = rememberLazyListState()
+    var movingId by remember { mutableStateOf<String?>(null) }
+    RevealMovingParameter(configuredSliders, movingId, listState)
+    var editingSliderId by remember { mutableStateOf<String?>(null) }
+    var editingParamId by remember { mutableIntStateOf(1) }
+    var rangeMinText by remember { mutableStateOf("1") }
+    var rangeMaxText by remember { mutableStateOf("300") }
+    var currentValueText by remember { mutableStateOf("") }
+
+    fun edit(index: Int) {
+        val config = resolvedQuickParameter(configuredSliders[index])
+        editingSliderId = configuredSliders[index].id
+        editingParamId = config.paramId
+        rangeMinText = parameterValueLabel(config.minVal)
+        rangeMaxText = parameterValueLabel(config.maxVal)
+        currentValueText = parameterValueLabel(readSliderParameter(engine, config.paramId))
+    }
+    Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+        EditorPanelHeader("Configurar parâmetros rápidos", onDismiss)
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
+            items(configuredSliders, key = { it.id }) { setting ->
+                val index = configuredSliders.indexOfFirst { it.id == setting.id }
+                val config = resolvedQuickParameter(configuredSliders[index])
+                val value =
+                    remember(revision, configuredSliders[index]) {
+                        readSliderParameter(engine, config.paramId)
+                    }
+                Row(
+                    Modifier.fillMaxWidth()
+                        .heightIn(min = 44.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .clickable { edit(index) }
+                        .padding(horizontal = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ParameterDragHandle(
+                        setting.id,
+                        44f,
+                        { id, steps ->
+                            movingId = id
+                            onMoveParameter(id, steps)
+                        },
+                        {
+                            movingId = null
+                            onReorderFinished()
+                        },
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            config.name,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            "${parameterValueLabel(config.minVal)}–${parameterValueLabel(config.maxVal)}${config.unit}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        "${parameterValueLabel(value)}${config.unit}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    )
+                    Icon(
+                        Icons.Default.Tune,
+                        "Editar parâmetro, faixa e valor",
+                        Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+        TextButton(
+            onClick = {
+                val next =
+                    AVAILABLE_SLIDER_PARAMS.firstOrNull { option ->
+                        configuredSliders.none { it.paramId == option.paramId }
+                    } ?: AVAILABLE_SLIDER_PARAMS.first()
+                onConfiguredSlidersChange(configuredSliders + SideSliderSetting(next.paramId))
+            },
+            modifier = Modifier.height(32.dp),
+        ) {
+            Icon(Icons.Default.Add, null, Modifier.size(16.dp))
+            Text("Adicionar parâmetro (${configuredSliders.size})")
+        }
+    }
+
+    editingSliderId?.let { editId ->
+        val editIdx = configuredSliders.indexOfFirst { it.id == editId }
+        if (editIdx < 0) return@let
+        val selectedTemplate =
+            AVAILABLE_SLIDER_PARAMS.find { it.paramId == editingParamId }
+                ?: AVAILABLE_SLIDER_PARAMS[0]
+
+        Dialog(onDismissRequest = { editingSliderId = null }) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 6.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 480.dp)
-                    .padding(12.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp).padding(12.dp),
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column {
+                        Column(Modifier.weight(1f)) {
                             Text(
-                                text = "Configurar Slider Lateral #${editIdx + 1}",
+                                text = "Configurar parâmetro #${editIdx + 1}",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
                             )
                             Text(
                                 text = "Escolha a propriedade do pincel a controlar",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        IconButton(onClick = { editingSliderIndex = null }) {
+                        IconButton(onClick = { editingSliderId = null }) {
                             Icon(Icons.Default.Close, contentDescription = "Fechar")
                         }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Text("Faixa de ${selectedTemplate.name}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Faixa de ${selectedTemplate.name}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = rangeMinText,
-                            onValueChange = { rangeMinText = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' } },
-                            label = { Text("Mínimo") }, singleLine = true, modifier = Modifier.weight(1f)
+                            onValueChange = {
+                                rangeMinText =
+                                    it.filter { ch ->
+                                        ch.isDigit() || ch == '.' || ch == ',' || ch == '-'
+                                    }
+                            },
+                            label = { Text("Mínimo") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
                         )
                         OutlinedTextField(
                             value = rangeMaxText,
-                            onValueChange = { rangeMaxText = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' } },
-                            label = { Text("Máximo") }, singleLine = true, modifier = Modifier.weight(1f)
+                            onValueChange = {
+                                rangeMaxText =
+                                    it.filter { ch ->
+                                        ch.isDigit() || ch == '.' || ch == ',' || ch == '-'
+                                    }
+                            },
+                            label = { Text("Máximo") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
                         )
                     }
                     OutlinedTextField(
                         value = currentValueText,
-                        onValueChange = { currentValueText = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' } },
-                        label = { Text("Valor atual (${selectedTemplate.unit.ifBlank { "sem unidade" }})") },
+                        onValueChange = {
+                            currentValueText =
+                                it.filter { ch ->
+                                    ch.isDigit() || ch == '.' || ch == ',' || ch == '-'
+                                }
+                        },
+                        label = {
+                            Text("Valor atual (${selectedTemplate.unit.ifBlank { "sem unidade" }})")
+                        },
                         singleLine = true,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.fillMaxWidth()
+                        keyboardOptions =
+                            androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            ),
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                    Text("Unidade: ${selectedTemplate.unit.ifBlank { "sem unidade" }}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Unidade: ${selectedTemplate.unit.ifBlank { "sem unidade" }}",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
 
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f, fill = false),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         items(AVAILABLE_SLIDER_PARAMS) { opt ->
                             val isSelected = opt.paramId == editingParamId
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        editingParamId = opt.paramId
-                                        rangeMinText = opt.minVal.toString().removeSuffix(".0")
-                                        rangeMaxText = opt.maxVal.toString().removeSuffix(".0")
-                                        currentValueText = readSliderParameter(engine, opt.paramId).toString().removeSuffix(".0")
-                                    }
+                                color =
+                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(
+                                            alpha = 0.35f
+                                        ),
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            editingParamId = opt.paramId
+                                            rangeMinText = opt.minVal.toString().removeSuffix(".0")
+                                            rangeMaxText = opt.maxVal.toString().removeSuffix(".0")
+                                            currentValueText =
+                                                readSliderParameter(engine, opt.paramId)
+                                                    .toString()
+                                                    .removeSuffix(".0")
+                                        },
                             ) {
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    modifier =
+                                        Modifier.fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Column {
                                         Text(
                                             text = opt.name,
                                             style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            fontWeight =
+                                                if (isSelected) FontWeight.Bold
+                                                else FontWeight.Normal,
                                         )
                                         Text(
-                                            text = "Padrão: ${opt.minVal} a ${opt.maxVal}${opt.unit}",
+                                            text =
+                                                "Padrão: ${opt.minVal} a ${opt.maxVal}${opt.unit}",
                                             fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
                                     if (isSelected) {
@@ -310,7 +531,7 @@ fun ThumbSliders(
                                             Icons.Default.Check,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(20.dp),
                                         )
                                     }
                                 }
@@ -318,33 +539,63 @@ fun ThumbSliders(
                         }
                     }
 
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         TextButton(
                             enabled = configuredSliders.size > 1,
                             onClick = {
                                 val mutable = configuredSliders.toMutableList()
                                 if (editIdx < mutable.size) mutable.removeAt(editIdx)
                                 onConfiguredSlidersChange(mutable)
-                                editingSliderIndex = null
+                                editingSliderId = null
                             },
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                        ) { Text("Remover", fontSize = 12.sp) }
-                        val minValue = rangeMinText.replace(',', '.').toFloatOrNull()
-                        val maxValue = rangeMaxText.replace(',', '.').toFloatOrNull()
-                        val currentValue = currentValueText.replace(',', '.').toFloatOrNull()
+                            colors =
+                                ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                ),
+                        ) {
+                            Text("Remover", fontSize = 12.sp)
+                        }
+                        val minValue = finiteParameterNumber(rangeMinText)
+                        val maxValue = finiteParameterNumber(rangeMaxText)
+                        val currentValue = finiteParameterNumber(currentValueText)
                         Button(
-                            enabled = minValue != null && maxValue != null && currentValue != null && maxValue > minValue,
+                            enabled =
+                                minValue != null &&
+                                    maxValue != null &&
+                                    currentValue != null &&
+                                    maxValue > minValue,
                             onClick = {
-                                if (minValue != null && maxValue != null && currentValue != null && maxValue > minValue) {
+                                if (
+                                    minValue != null &&
+                                        maxValue != null &&
+                                        currentValue != null &&
+                                        maxValue > minValue
+                                ) {
                                     val mutable = configuredSliders.toMutableList()
-                                    if (editIdx < mutable.size) mutable[editIdx] = SideSliderSetting(editingParamId, minValue, maxValue)
+                                    if (editIdx < mutable.size)
+                                        mutable[editIdx] =
+                                            mutable[editIdx].copy(
+                                                paramId = editingParamId,
+                                                minVal = minValue,
+                                                maxVal = maxValue,
+                                            )
                                     onConfiguredSlidersChange(mutable)
-                                    writeSliderParameter(engine, editingParamId, currentValue.coerceIn(minValue, maxValue))
-                                    refreshTrigger++
-                                    editingSliderIndex = null
+                                    writeSliderParameter(
+                                        engine,
+                                        editingParamId,
+                                        currentValue.coerceIn(minValue, maxValue),
+                                    )
+                                    onValuesChanged()
+                                    editingSliderId = null
                                 }
-                            }
-                        ) { Text("Aplicar") }
+                            },
+                        ) {
+                            Text("Aplicar")
+                        }
                     }
                 }
             }
@@ -353,77 +604,170 @@ fun ThumbSliders(
 }
 
 @Composable
-fun VerticalThumbBar(
-    value: Float,
-    label: String,
-    fillColor: Color = Color(0xFF62676C),
-    onClick: () -> Unit,
-    onValueChange: (Float) -> Unit,
-    onActiveChange: (Boolean) -> Unit,
-    barHeight: Dp = 88.dp,
-    barWidth: Dp = 36.dp
+private fun ParameterDragHandle(
+    id: String,
+    rowHeight: Float,
+    onMove: (String, Int) -> Unit,
+    onFinish: () -> Unit,
 ) {
-    // pointerInput(Unit) intentionally keeps its gesture coroutine alive while
-    // the thumb is dragged. Keep the callbacks fresh when the selected
-    // property changes during recomposition, otherwise the next drag can keep
-    // writing to the previous property.
-    val latestOnClick by rememberUpdatedState(onClick)
-    val latestOnValueChange by rememberUpdatedState(onValueChange)
-    val latestOnActiveChange by rememberUpdatedState(onActiveChange)
-
-    Box(
-        modifier = Modifier
-            .width(barWidth)
-            .height(barHeight)
-            .clip(RoundedCornerShape(13.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f))
-            .clickable(onClick = { latestOnClick() })
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragStart = { offset ->
-                        latestOnActiveChange(true)
-                        val norm = 1f - (offset.y / size.height).coerceIn(0f, 1f)
-                        latestOnValueChange(norm)
+    val move by rememberUpdatedState(onMove)
+    val finish by rememberUpdatedState(onFinish)
+    val pixels = with(LocalDensity.current) { rowHeight.dp.toPx() }
+    var dragging by remember { mutableStateOf(false) }
+    Icon(
+        Icons.Default.DragHandle,
+        "Segure e arraste para reordenar",
+        Modifier.size(32.dp)
+            .semantics {
+                customActions =
+                    listOf(
+                        CustomAccessibilityAction("Mover para cima") {
+                            move(id, -1)
+                            finish()
+                            true
+                        },
+                        CustomAccessibilityAction("Mover para baixo") {
+                            move(id, 1)
+                            finish()
+                            true
+                        },
+                    )
+            }
+            .background(
+                if (dragging) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                RoundedCornerShape(4.dp),
+            )
+            .pointerInput(id, pixels) {
+                var distance = 0f
+                detectDragGesturesAfterLongPress(
+                    onDragStart = {
+                        distance = 0f
+                        dragging = true
                     },
-                    onDragEnd = { latestOnActiveChange(false) },
-                    onDragCancel = { latestOnActiveChange(false) },
-                    onVerticalDrag = { change, _ ->
-                        change.consume()
-                        val norm = 1f - (change.position.y / size.height).coerceIn(0f, 1f)
-                        latestOnValueChange(norm)
+                    onDragEnd = {
+                        dragging = false
+                        finish()
+                    },
+                    onDragCancel = {
+                        dragging = false
+                        finish()
+                    },
+                ) { change, amount ->
+                    change.consume()
+                    distance += amount.y
+                    val steps = (distance / pixels).toInt()
+                    if (steps != 0) {
+                        move(id, steps)
+                        distance -= steps * pixels
                     }
-                )
-            },
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        // Filled portion from bottom
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(value.coerceIn(0f, 1f))
-                .background(fillColor.copy(alpha = 0.28f))
-        )
+                }
+            }
+            .padding(7.dp),
+        tint =
+            if (dragging) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
 
-        // Center pill handle & label
+@Composable
+fun QuickParameterTrigger(
+    engine: EsenhoEngine,
+    setting: SideSliderSetting?,
+    revision: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onParameterChanged: (Int, Boolean) -> Unit,
+) {
+    val config = resolvedQuickParameter(setting ?: SideSliderSetting(1))
+    var localRevision by remember { mutableIntStateOf(0) }
+    val raw =
+        remember(revision, localRevision, setting, engine.brushSize, engine.brushOpacity) {
+            readSliderParameter(engine, config.paramId)
+        }
+    val changed by rememberUpdatedState(onParameterChanged)
+    fun update(value: Float, active: Boolean) {
+        writeSliderParameter(engine, config.paramId, value.coerceIn(config.minVal, config.maxVal))
+        localRevision++
+        changed(config.paramId, active)
+    }
+    val updateValue by
+        rememberUpdatedState<(Float, Boolean) -> Unit>({ v, active -> update(v, active) })
+    val fraction = ((raw - config.minVal) / (config.maxVal - config.minVal)).coerceIn(0f, 1f)
+    Box(
+        Modifier.fillMaxSize()
+            .clip(RoundedCornerShape(5.dp))
+            .background(
+                if (expanded) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceVariant
+            )
+            .pointerInput(setting?.id, config.minVal, config.maxVal) {
+                fun setAt(x: Float) {
+                    updateValue(
+                        config.minVal +
+                            (x / size.width.coerceAtLeast(1)).coerceIn(0f, 1f) *
+                                (config.maxVal - config.minVal),
+                        true,
+                    )
+                }
+                detectHorizontalDragGestures(
+                    onDragStart = { setAt(it.x) },
+                    onDragEnd = { changed(config.paramId, false) },
+                    onDragCancel = { changed(config.paramId, false) },
+                ) { change, _ ->
+                    change.consume()
+                    setAt(change.position.x)
+                }
+            }
+            .clickable(onClick = onToggle)
+            .semantics {
+                contentDescription =
+                    "${config.name}; arraste para ajustar, toque para abrir ou fechar parâmetros"
+                progressBarRangeInfo =
+                    ProgressBarRangeInfo(
+                        raw.coerceIn(config.minVal, config.maxVal),
+                        config.minVal..config.maxVal,
+                    )
+                setProgress {
+                    updateValue(it, false)
+                    true
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        val trackColor = MaterialTheme.colorScheme.outlineVariant
+        val activeColor = MaterialTheme.colorScheme.primary
+        Canvas(
+            Modifier.align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(12.dp)
+                .padding(horizontal = 6.dp)
+        ) {
+            val start = Offset(3.dp.toPx(), size.height / 2)
+            val end = Offset(size.width - 3.dp.toPx(), size.height / 2)
+            val thumb = Offset(start.x + (end.x - start.x) * fraction, start.y)
+            drawLine(trackColor, start, end, 2.dp.toPx())
+            drawLine(activeColor, start, thumb, 2.dp.toPx())
+            drawCircle(activeColor, 3.dp.toPx(), thumb)
+        }
         Text(
-            text = label,
-            fontSize = 10.sp,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .padding(2.dp)
+            "${config.shortLabel} ${parameterValueLabel(raw)}${config.unit}",
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 3.dp),
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
         )
     }
 }
 
 @Composable
-private fun ParameterLayout(horizontal: Boolean, modifier: Modifier, content: @Composable () -> Unit) {
-    if (horizontal) {
-        Row(modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) { content() }
-    } else {
-        Column(modifier.width(38.dp), verticalArrangement = Arrangement.spacedBy(5.dp), horizontalAlignment = Alignment.CenterHorizontally) { content() }
+private fun RevealMovingParameter(
+    settings: List<SideSliderSetting>,
+    movingId: String?,
+    state: LazyListState,
+) {
+    LaunchedEffect(settings, movingId) {
+        val index = settings.indexOfFirst { it.id == movingId }
+        if (index >= 0 && state.layoutInfo.visibleItemsInfo.none { it.index == index }) {
+            state.scrollToItem(index)
+        }
     }
 }

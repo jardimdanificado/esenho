@@ -8,18 +8,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,10 +27,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import app.esenho.nativeengine.ColorPaletteModel
 import app.esenho.nativeengine.EsenhoEngine
 import kotlin.math.*
@@ -45,396 +42,577 @@ fun ColorStudioModal(
     recentColors: List<Int>,
     onColorChanged: (Int) -> Unit,
     onDismiss: () -> Unit,
-    embedded: Boolean = false
+    embedded: Boolean = false,
 ) {
-    val hsv = remember {
-        val arr = FloatArray(3)
-        AndroidColor.colorToHSV(initialColor, arr)
-        arr
-    }
-
+    val hsv = remember { FloatArray(3).also { AndroidColor.colorToHSV(initialColor, it) } }
     var hue by remember { mutableFloatStateOf(hsv[0]) }
     var sat by remember { mutableFloatStateOf(hsv[1]) }
     var value by remember { mutableFloatStateOf(hsv[2]) }
-
-    val currentColor = remember(hue, sat, value) {
-        AndroidColor.HSVToColor(floatArrayOf(hue, sat, value))
+    val current = AndroidColor.HSVToColor(floatArrayOf(hue, sat, value))
+    fun emit(h: Float = hue, s: Float = sat, v: Float = value) {
+        hue = h
+        sat = s
+        value = v
+        onColorChanged(AndroidColor.HSVToColor(floatArrayOf(h, s, v)))
     }
-
-    LaunchedEffect(initialColor) {
-        // Keep hue/saturation when our own gesture reaches black or white.
-        if (initialColor != currentColor) {
-            val sampled = FloatArray(3)
-            AndroidColor.colorToHSV(initialColor, sampled)
-            hue = sampled[0]; sat = sampled[1]; value = sampled[2]
-        }
+    fun select(color: Int) {
+        val sample = FloatArray(3).also { AndroidColor.colorToHSV(color, it) }
+        emit(if (sample[1] == 0f) hue else sample[0], sample[1], sample[2])
     }
-
+    LaunchedEffect(initialColor) { if (initialColor != current) select(initialColor) }
+    var mode by remember { mutableIntStateOf(0) }
+    var modesOpen by remember { mutableStateOf(false) }
+    var hexOpen by remember { mutableStateOf(false) }
+    var hex by remember { mutableStateOf("") }
+    var recent by remember { mutableStateOf(false) }
+    var paletteVersion by remember { mutableIntStateOf(0) }
+    val palettes =
+        remember(paletteVersion) { engine?.palettes ?: ColorPaletteModel.getDefaultPalettes() }
+    var paletteId by remember {
+        mutableStateOf(engine?.activePaletteId ?: palettes.firstOrNull()?.id)
+    }
+    val palette = palettes.find { it.id == paletteId } ?: palettes.firstOrNull()
+    var paletteMenu by remember { mutableStateOf(false) }
+    var actions by remember { mutableStateOf(false) }
+    var removing by remember { mutableStateOf(false) }
+    var newPalette by remember { mutableStateOf(false) }
+    var paletteName by remember { mutableStateOf("") }
+    var paletteError by remember { mutableStateOf<String?>(null) }
+    var deletePalette by remember { mutableStateOf(false) }
+    val modes = listOf("HSV", "Roda", "RGB")
     WorkspaceDialogContainer(embedded, onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp,
-            modifier = if (embedded) Modifier.fillMaxSize() else Modifier.width(320.dp)
-        ) {
+        Surface(modifier = if (embedded) Modifier.fillMaxSize() else Modifier.width(320.dp)) {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()).padding(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                Modifier.verticalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                EditorPanelHeader("Cores", onDismiss)
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // 1. HSV Color Wheel Canvas
-                HsvColorWheel(
-                    hue = hue,
-                    sat = sat,
-                    value = value,
-                    onHueChange = {
-                        hue = it
-                        onColorChanged(AndroidColor.HSVToColor(floatArrayOf(hue, sat, value)))
-                    },
-                    onSatValChange = { s, v ->
-                        sat = s
-                        value = v
-                        onColorChanged(AndroidColor.HSVToColor(floatArrayOf(hue, sat, value)))
-                    },
-                    modifier = Modifier.sizeIn(maxWidth = 144.dp, maxHeight = 144.dp).fillMaxWidth().aspectRatio(1f)
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // 2. Color Swatch & Hex
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    Modifier.fillMaxWidth().height(28.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(currentColor))
-                            .border(2.dp, Color.White, CircleShape)
-                    )
-                    Text(
-                        text = String.format("#%06X", 0xFFFFFF and currentColor),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Button(
-                        onClick = onDismiss,
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
-                    ) {
-                        Text("Pronto")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // 3. Preset & Custom Color Palettes (F16)
-                var paletteVersion by remember { mutableIntStateOf(0) }
-                var showNewPaletteDialog by remember { mutableStateOf(false) }
-                var newPaletteName by remember { mutableStateOf("") }
-                var newPaletteError by remember { mutableStateOf<String?>(null) }
-                var showDeletePaletteDialog by remember { mutableStateOf(false) }
-                var paletteMenuExpanded by remember { mutableStateOf(false) }
-
-                val currentPalettes = remember(engine?.palettes?.size, paletteVersion) {
-                    engine?.palettes ?: ColorPaletteModel.getDefaultPalettes()
-                }
-
-                var activePaletteId by remember {
-                    mutableStateOf(engine?.activePaletteId ?: currentPalettes.firstOrNull()?.id ?: "classic")
-                }
-
-                val activePalette = currentPalettes.find { it.id == activePaletteId } ?: currentPalettes.firstOrNull()
-
-                // Header for Palettes
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Paletas de Cores",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    if (activePalette != null && !activePalette.isBuiltIn) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            // + Cor action button
-                            OutlinedButton(
-                                onClick = {
-                                    engine?.addColorToPalette(activePalette.id, currentColor)
-                                    paletteVersion++
-                                },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                modifier = Modifier.height(26.dp)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(12.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("+ Cor", fontSize = 10.sp)
-                            }
-
-                            // Delete palette button
-                            IconButton(
-                                onClick = { showDeletePaletteDialog = true },
-                                modifier = Modifier.size(26.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Excluir Paleta",
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                    Text("Cores", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
                     Box {
-                        OutlinedButton(
-                            onClick = { paletteMenuExpanded = true },
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                            modifier = Modifier.height(34.dp)
+                        TextButton(
+                            { modesOpen = true },
+                            Modifier.height(28.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp),
                         ) {
-                            Text(activePalette?.name ?: "Selecionar paleta", fontSize = 12.sp, maxLines = 1)
-                            Spacer(Modifier.width(6.dp))
-                            Icon(Icons.Default.ExpandMore, contentDescription = "Escolher paleta", modifier = Modifier.size(18.dp))
+                            Text(modes[mode], style = MaterialTheme.typography.labelSmall)
+                            Icon(Icons.Default.ExpandMore, null, Modifier.size(14.dp))
                         }
-                        DropdownMenu(
-                            expanded = paletteMenuExpanded,
-                            onDismissRequest = { paletteMenuExpanded = false }
-                        ) {
-                            currentPalettes.forEach { palette ->
+                        DropdownMenu(modesOpen, { modesOpen = false }) {
+                            modes.forEachIndexed { index, name ->
                                 DropdownMenuItem(
-                                    text = { Text(palette.name) },
+                                    text = { Text(name) },
                                     onClick = {
-                                        activePaletteId = palette.id
-                                        engine?.activePaletteId = palette.id
-                                        paletteMenuExpanded = false
+                                        mode = index
+                                        modesOpen = false
                                     },
-                                    trailingIcon = if (palette.id == activePaletteId) {
-                                        { Text("✓", color = MaterialTheme.colorScheme.primary) }
-                                    } else null
                                 )
-                            }
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("Nova paleta") },
-                                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
-                                onClick = {
-                                    paletteMenuExpanded = false
-                                    newPaletteName = ""
-                                    newPaletteError = null
-                                    showNewPaletteDialog = true
-                                }
-                            )
-                        }
-                    }
-                    Text(
-                        text = "${activePalette?.colors?.size ?: 0} cores",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Swatches row of the active palette
-                if (activePalette != null) {
-                    if (activePalette.colors.isEmpty()) {
-                        Text(
-                            text = "Paleta vazia. Toque em '+ Cor' para adicionar a cor selecionada.",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    } else {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            itemsIndexed(activePalette.colors) { idx, c ->
-                                Box(contentAlignment = Alignment.TopEnd) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(c))
-                                            .border(
-                                                width = if (c == currentColor) 2.dp else 1.dp,
-                                                color = if (c == currentColor) MaterialTheme.colorScheme.primary else Color.Gray,
-                                                shape = CircleShape
-                                            )
-                                            .clickable {
-                                                val arr = FloatArray(3)
-                                                AndroidColor.colorToHSV(c, arr)
-                                                hue = arr[0]
-                                                sat = arr[1]
-                                                value = arr[2]
-                                                onColorChanged(c)
-                                            }
-                                    )
-                                    // If custom palette, allow removing color swatch
-                                    if (!activePalette.isBuiltIn) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(12.dp)
-                                                .offset(x = 2.dp, y = (-2).dp)
-                                                .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.error)
-                                                .clickable {
-                                                    engine?.removeColorFromPalette(activePalette.id, idx)
-                                                    paletteVersion++
-                                                },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Close,
-                                                contentDescription = "Remover Cor",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(8.dp)
-                                            )
-                                        }
-                                    }
-                                }
                             }
                         }
                     }
-                }
-
-                // New Palette Dialog
-                if (showNewPaletteDialog) {
-                    AlertDialog(
-                        onDismissRequest = { showNewPaletteDialog = false },
-                        title = { Text("Nova Paleta de Cores", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
-                        text = {
-                            Column {
-                                Text(
-                                    "Digite um nome para a sua nova paleta customizada:",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-                                OutlinedTextField(
-                                    value = newPaletteName,
-                                    onValueChange = {
-                                        newPaletteName = it
-                                        newPaletteError = null
-                                    },
-                                    label = { Text("Nome da Paleta") },
-                                    isError = newPaletteError != null,
-                                    supportingText = if (newPaletteError != null) {
-                                        { Text(newPaletteError!!, color = MaterialTheme.colorScheme.error, fontSize = 11.sp) }
-                                    } else null,
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
+                    TextButton(
+                        {
+                            hex = "%06X".format(current and 0xFFFFFF)
+                            hexOpen = true
                         },
-                        confirmButton = {
-                            Button(
-                                onClick = {
-                                    val trimmed = newPaletteName.trim()
-                                    if (trimmed.isEmpty()) {
-                                        newPaletteError = "O nome da paleta não pode ser vazio"
-                                        return@Button
-                                    }
-                                    try {
-                                        val created = engine?.createCustomPalette(trimmed)
-                                        if (created != null) {
-                                            activePaletteId = created.id
-                                        }
-                                        paletteVersion++
-                                        showNewPaletteDialog = false
-                                    } catch (e: Exception) {
-                                        newPaletteError = e.message ?: "Erro ao criar paleta"
-                                    }
-                                }
-                            ) {
-                                Text("Criar")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showNewPaletteDialog = false }) {
-                                Text("Cancelar")
-                            }
-                        }
-                    )
-                }
-
-                // Delete Palette Dialog
-                if (showDeletePaletteDialog && activePalette != null && !activePalette.isBuiltIn) {
-                    AlertDialog(
-                        onDismissRequest = { showDeletePaletteDialog = false },
-                        title = { Text("Excluir Paleta?", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
-                        text = {
-                            Text(
-                                "Tem certeza que deseja excluir a paleta '${activePalette.name}'? Todas as suas cores salvas serão removidas.",
-                                fontSize = 13.sp
-                            )
-                        },
-                        confirmButton = {
-                            Button(
-                                onClick = {
-                                    engine?.deletePalette(activePalette.id)
-                                    activePaletteId = engine?.activePaletteId ?: "classic"
-                                    paletteVersion++
-                                    showDeletePaletteDialog = false
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                            ) {
-                                Text("Excluir")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showDeletePaletteDialog = false }) {
-                                Text("Cancelar")
-                            }
-                        }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // 4. Recent Colors
-                Text("Cores Recentes", style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.Start))
-                Spacer(modifier = Modifier.height(6.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(recentColors) { c ->
+                        Modifier.height(28.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                    ) {
                         Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(Color(c))
-                                .border(1.dp, Color.Gray, CircleShape)
-                                .clickable {
-                                    val arr = FloatArray(3)
-                                    AndroidColor.colorToHSV(c, arr)
-                                    hue = arr[0]
-                                    sat = arr[1]
-                                    value = arr[2]
-                                    onColorChanged(c)
-                                }
+                            Modifier.size(14.dp)
+                                .background(Color(current), RoundedCornerShape(3.dp))
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outline,
+                                    RoundedCornerShape(3.dp),
+                                )
+                        )
+                        Text(
+                            " #%06X".format(current and 0xFFFFFF),
+                            style = MaterialTheme.typography.labelSmall,
                         )
                     }
+                    IconButton(onDismiss, Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Close, "Fechar cores", Modifier.size(16.dp))
+                    }
                 }
+                when (mode) {
+                    0 ->
+                        Row(
+                            Modifier.fillMaxWidth().height(100.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            SaturationValuePlane(
+                                hue,
+                                sat,
+                                value,
+                                { s, v -> emit(s = s, v = v) },
+                                Modifier.weight(1f).fillMaxHeight(),
+                            )
+                            ColorTrack(
+                                hue / 360f,
+                                listOf(
+                                    Color.Red,
+                                    Color.Yellow,
+                                    Color.Green,
+                                    Color.Cyan,
+                                    Color.Blue,
+                                    Color.Magenta,
+                                    Color.Red,
+                                ),
+                                { emit(h = it * 359.999f) },
+                                "Matiz",
+                                Modifier.width(24.dp).fillMaxHeight(),
+                                vertical = true,
+                            )
+                        }
+                    1 ->
+                        Row(
+                            Modifier.fillMaxWidth().height(100.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            HsvColorWheel(
+                                hue,
+                                sat,
+                                value,
+                                { emit(h = it) },
+                                { s, v -> emit(s = s, v = v) },
+                                Modifier.size(100.dp),
+                            )
+                            Column(
+                                Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text("Saturação", style = MaterialTheme.typography.labelSmall)
+                                ColorTrack(
+                                    sat,
+                                    listOf(
+                                        Color.White,
+                                        Color(AndroidColor.HSVToColor(floatArrayOf(hue, 1f, 1f))),
+                                    ),
+                                    { emit(s = it) },
+                                    "Saturação",
+                                    Modifier.fillMaxWidth().height(24.dp),
+                                )
+                                Text("Valor", style = MaterialTheme.typography.labelSmall)
+                                ColorTrack(
+                                    value,
+                                    listOf(
+                                        Color.Black,
+                                        Color(AndroidColor.HSVToColor(floatArrayOf(hue, sat, 1f))),
+                                    ),
+                                    { emit(v = it) },
+                                    "Valor",
+                                    Modifier.fillMaxWidth().height(24.dp),
+                                )
+                            }
+                        }
+                    else ->
+                        Column(
+                            Modifier.fillMaxWidth().height(100.dp),
+                            verticalArrangement = Arrangement.SpaceEvenly,
+                        ) {
+                            val channels =
+                                listOf(
+                                    AndroidColor.red(current),
+                                    AndroidColor.green(current),
+                                    AndroidColor.blue(current),
+                                )
+                            listOf("R", "G", "B").forEachIndexed { channel, label ->
+                                fun rgb(amount: Int): Int {
+                                    val c = channels.toMutableList()
+                                    c[channel] = amount
+                                    return AndroidColor.rgb(c[0], c[1], c[2])
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Text(
+                                        label,
+                                        Modifier.width(12.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                    ColorTrack(
+                                        channels[channel] / 255f,
+                                        listOf(Color(rgb(0)), Color(rgb(255))),
+                                        { select(rgb((it * 255).roundToInt())) },
+                                        label,
+                                        Modifier.weight(1f).height(26.dp),
+                                    )
+                                    Text(
+                                        channels[channel].toString(),
+                                        Modifier.width(26.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                }
+                            }
+                        }
+                }
+                Row(
+                    Modifier.fillMaxWidth().height(26.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        if (recent) "Recentes" else "Paleta",
+                        Modifier.clip(RoundedCornerShape(4.dp))
+                            .clickable {
+                                recent = !recent
+                                removing = false
+                            }
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Box(Modifier.weight(1f)) {
+                        if (!recent) {
+                            Row(
+                                Modifier.fillMaxWidth()
+                                    .clickable { paletteMenu = true }
+                                    .padding(horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    palette?.name ?: "Selecionar",
+                                    Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                                Icon(
+                                    Icons.Default.ExpandMore,
+                                    "Escolher paleta",
+                                    Modifier.size(14.dp),
+                                )
+                            }
+                            DropdownMenu(paletteMenu, { paletteMenu = false }) {
+                                palettes.forEach { p ->
+                                    DropdownMenuItem(
+                                        text = { Text(p.name) },
+                                        onClick = {
+                                            paletteId = p.id
+                                            engine?.activePaletteId = p.id
+                                            paletteMenu = false
+                                            removing = false
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Box {
+                        IconButton({ actions = true }, Modifier.size(26.dp)) {
+                            Icon(Icons.Default.MoreVert, "Opções de cores", Modifier.size(16.dp))
+                        }
+                        DropdownMenu(actions, { actions = false }) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(if (recent) "Mostrar paleta" else "Mostrar recentes")
+                                },
+                                onClick = {
+                                    recent = !recent
+                                    removing = false
+                                    actions = false
+                                },
+                            )
+                            if (engine != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Nova paleta") },
+                                    onClick = {
+                                        paletteName = ""
+                                        paletteError = null
+                                        newPalette = true
+                                        actions = false
+                                    },
+                                )
+                                if (palette != null && !palette.isBuiltIn) {
+                                    DropdownMenuItem(
+                                        text = { Text("Adicionar cor atual") },
+                                        onClick = {
+                                            engine.addColorToPalette(palette.id, current)
+                                            paletteVersion++
+                                            recent = false
+                                            actions = false
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                if (removing) "Concluir remoção"
+                                                else "Remover cores…"
+                                            )
+                                        },
+                                        onClick = {
+                                            removing = !removing
+                                            recent = false
+                                            actions = false
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Excluir paleta…") },
+                                        onClick = {
+                                            deletePalette = true
+                                            actions = false
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                val colors = if (recent) recentColors else palette?.colors.orEmpty()
+                if (colors.isEmpty())
+                    Text(
+                        if (recent) "Nenhuma cor recente"
+                        else "Paleta vazia · adicione cores pelo menu",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.height(28.dp),
+                    )
+                else
+                    LazyRow(
+                        Modifier.fillMaxWidth().height(28.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        itemsIndexed(colors) { index, color ->
+                            Box(
+                                Modifier.size(28.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color(color))
+                                    .border(
+                                        if (color == current) 2.dp else 1.dp,
+                                        if (color == current) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.outline,
+                                        RoundedCornerShape(4.dp),
+                                    )
+                                    .clickable {
+                                        if (
+                                            removing &&
+                                                !recent &&
+                                                palette != null &&
+                                                !palette.isBuiltIn
+                                        ) {
+                                            engine?.removeColorFromPalette(palette.id, index)
+                                            paletteVersion++
+                                        } else select(color)
+                                    }
+                                    .semantics {
+                                        contentDescription =
+                                            if (removing)
+                                                "Remover cor %06X".format(color and 0xFFFFFF)
+                                            else "Selecionar cor %06X".format(color and 0xFFFFFF)
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (removing)
+                                    Icon(
+                                        Icons.Default.Close,
+                                        "Remover",
+                                        Modifier.size(18.dp),
+                                        tint = Color.White,
+                                    )
+                            }
+                        }
+                    }
             }
         }
+    }
+    if (hexOpen) {
+        val parsed =
+            hex.removePrefix("#")
+                .takeIf { it.length == 6 }
+                ?.toIntOrNull(16)
+                ?.let { it or 0xFF000000.toInt() }
+        AlertDialog(
+            onDismissRequest = { hexOpen = false },
+            title = { Text("Cor hexadecimal") },
+            text = {
+                OutlinedTextField(
+                    hex,
+                    { hex = it.filter { c -> c in "0123456789abcdefABCDEF#" }.take(7) },
+                    singleLine = true,
+                    label = { Text("#RRGGBB") },
+                    isError = parsed == null,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    {
+                        parsed?.let {
+                            select(it)
+                            hexOpen = false
+                        }
+                    },
+                    enabled = parsed != null,
+                ) {
+                    Text("Aplicar")
+                }
+            },
+            dismissButton = { TextButton({ hexOpen = false }) { Text("Cancelar") } },
+        )
+    }
+    if (newPalette)
+        AlertDialog(
+            onDismissRequest = { newPalette = false },
+            title = { Text("Nova paleta") },
+            text = {
+                OutlinedTextField(
+                    paletteName,
+                    {
+                        paletteName = it
+                        paletteError = null
+                    },
+                    label = { Text("Nome") },
+                    singleLine = true,
+                    isError = paletteError != null,
+                    supportingText = { paletteError?.let { Text(it) } },
+                )
+            },
+            confirmButton = {
+                TextButton({
+                    try {
+                        if (paletteName.isBlank()) paletteError = "Informe um nome"
+                        else {
+                            engine?.createCustomPalette(paletteName.trim())?.let {
+                                paletteId = it.id
+                            }
+                            paletteVersion++
+                            recent = false
+                            newPalette = false
+                        }
+                    } catch (e: Exception) {
+                        paletteError = e.message ?: "Erro ao criar paleta"
+                    }
+                }) {
+                    Text("Criar")
+                }
+            },
+            dismissButton = { TextButton({ newPalette = false }) { Text("Cancelar") } },
+        )
+    if (deletePalette && palette != null && !palette.isBuiltIn)
+        AlertDialog(
+            onDismissRequest = { deletePalette = false },
+            title = { Text("Excluir paleta?") },
+            text = { Text("Excluir “${palette.name}” e suas cores salvas?") },
+            confirmButton = {
+                TextButton({
+                    engine?.deletePalette(palette.id)
+                    paletteId = engine?.activePaletteId
+                    paletteVersion++
+                    deletePalette = false
+                    removing = false
+                }) {
+                    Text("Excluir")
+                }
+            },
+            dismissButton = { TextButton({ deletePalette = false }) { Text("Cancelar") } },
+        )
+}
+
+@Composable
+private fun ColorTrack(
+    value: Float,
+    colors: List<Color>,
+    onChange: (Float) -> Unit,
+    label: String,
+    modifier: Modifier,
+    vertical: Boolean = false,
+) {
+    val change by rememberUpdatedState(onChange)
+    Canvas(
+        modifier
+            .clip(RoundedCornerShape(4.dp))
+            .semantics { contentDescription = label }
+            .pointerInput(vertical) {
+                detectTapGestures {
+                    change(
+                        (if (vertical) it.y / size.height else it.x / size.width).coerceIn(0f, 1f)
+                    )
+                }
+            }
+            .pointerInput(vertical) {
+                detectDragGestures(
+                    onDragStart = {
+                        change(
+                            (if (vertical) it.y / size.height else it.x / size.width).coerceIn(
+                                0f,
+                                1f,
+                            )
+                        )
+                    }
+                ) { p, _ ->
+                    p.consume()
+                    change(
+                        (if (vertical) p.position.y / size.height else p.position.x / size.width)
+                            .coerceIn(0f, 1f)
+                    )
+                }
+            }
+    ) {
+        drawRect(if (vertical) Brush.verticalGradient(colors) else Brush.horizontalGradient(colors))
+        val pos = value.coerceIn(0f, 1f)
+        if (vertical) {
+            val y = (pos * size.height).coerceIn(2.dp.toPx(), size.height - 2.dp.toPx())
+            drawLine(Color.Black, Offset(0f, y), Offset(size.width, y), 4.dp.toPx())
+            drawLine(Color.White, Offset(0f, y), Offset(size.width, y), 2.dp.toPx())
+        } else {
+            val x = (pos * size.width).coerceIn(2.dp.toPx(), size.width - 2.dp.toPx())
+            drawLine(Color.Black, Offset(x, 0f), Offset(x, size.height), 4.dp.toPx())
+            drawLine(Color.White, Offset(x, 0f), Offset(x, size.height), 2.dp.toPx())
+        }
+    }
+}
+
+@Composable
+private fun SaturationValuePlane(
+    hue: Float,
+    sat: Float,
+    value: Float,
+    onChange: (Float, Float) -> Unit,
+    modifier: Modifier,
+) {
+    val change by rememberUpdatedState(onChange)
+    Canvas(
+        modifier
+            .clip(RoundedCornerShape(4.dp))
+            .semantics { contentDescription = "Saturação e valor" }
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    change(
+                        (it.x / size.width).coerceIn(0f, 1f),
+                        (1f - it.y / size.height).coerceIn(0f, 1f),
+                    )
+                }
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = {
+                        change(
+                            (it.x / size.width).coerceIn(0f, 1f),
+                            (1f - it.y / size.height).coerceIn(0f, 1f),
+                        )
+                    }
+                ) { p, _ ->
+                    p.consume()
+                    change(
+                        (p.position.x / size.width).coerceIn(0f, 1f),
+                        (1f - p.position.y / size.height).coerceIn(0f, 1f),
+                    )
+                }
+            }
+    ) {
+        drawRect(
+            Brush.horizontalGradient(
+                listOf(Color.White, Color(AndroidColor.HSVToColor(floatArrayOf(hue, 1f, 1f))))
+            )
+        )
+        drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
+        val point = Offset(sat * size.width, (1f - value) * size.height)
+        drawCircle(Color.Black, 5.dp.toPx(), point, style = Stroke(3.dp.toPx()))
+        drawCircle(Color.White, 5.dp.toPx(), point, style = Stroke(1.5.dp.toPx()))
     }
 }
 
@@ -445,58 +623,63 @@ fun HsvColorWheel(
     value: Float,
     onHueChange: (Float) -> Unit,
     onSatValChange: (Float, Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
+    val hueChange by rememberUpdatedState(onHueChange)
+    val svChange by rememberUpdatedState(onSatValChange)
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    fun processPoint(offset: Offset) {
-                        val center = Offset(size.width / 2f, size.height / 2f)
-                        val dx = offset.x - center.x
-                        val dy = offset.y - center.y
-                        val dist = hypot(dx, dy)
-                        val outerR = size.width / 2f
-                        val innerR = outerR * 0.72f
+            modifier =
+                Modifier.fillMaxSize()
+                    .pointerInput(Unit) {
+                        fun processPoint(offset: Offset) {
+                            val center = Offset(size.width / 2f, size.height / 2f)
+                            val dx = offset.x - center.x
+                            val dy = offset.y - center.y
+                            val dist = hypot(dx, dy)
+                            val outerR = size.width / 2f
+                            val innerR = outerR * 0.72f
 
-                        if (dist >= innerR && dist <= outerR) {
-                            // Touch on Outer Hue Ring
-                            var angle = Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat()
-                            if (angle < 0) angle += 360f
-                            onHueChange(angle)
-                        } else if (dist < innerR) {
-                            // Touch on Inner Saturation/Value Box
-                            val boxSize = innerR * 1.25f
-                            val sx = ((dx / boxSize) + 0.5f).coerceIn(0f, 1f)
-                            val sy = (1f - ((dy / boxSize) + 0.5f)).coerceIn(0f, 1f)
-                            onSatValChange(sx, sy)
+                            if (dist >= innerR && dist <= outerR) {
+                                // Touch on Outer Hue Ring
+                                var angle =
+                                    Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                                if (angle < 0) angle += 360f
+                                hueChange(angle)
+                            } else if (dist < innerR) {
+                                // Touch on Inner Saturation/Value Box
+                                val boxSize = innerR * 1.30f
+                                val sx = ((dx / boxSize) + 0.5f).coerceIn(0f, 1f)
+                                val sy = (1f - ((dy / boxSize) + 0.5f)).coerceIn(0f, 1f)
+                                svChange(sx, sy)
+                            }
+                        }
+
+                        detectTapGestures { offset -> processPoint(offset) }
+                    }
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, _ ->
+                            change.consume()
+                            val center = Offset(size.width / 2f, size.height / 2f)
+                            val dx = change.position.x - center.x
+                            val dy = change.position.y - center.y
+                            val dist = hypot(dx, dy)
+                            val outerR = size.width / 2f
+                            val innerR = outerR * 0.72f
+
+                            if (dist >= innerR) {
+                                var angle =
+                                    Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                                if (angle < 0) angle += 360f
+                                hueChange(angle)
+                            } else {
+                                val boxSize = innerR * 1.30f
+                                val sx = ((dx / boxSize) + 0.5f).coerceIn(0f, 1f)
+                                val sy = (1f - ((dy / boxSize) + 0.5f)).coerceIn(0f, 1f)
+                                svChange(sx, sy)
+                            }
                         }
                     }
-
-                    detectTapGestures { offset -> processPoint(offset) }
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures { change, _ ->
-                        val center = Offset(size.width / 2f, size.height / 2f)
-                        val dx = change.position.x - center.x
-                        val dy = change.position.y - center.y
-                        val dist = hypot(dx, dy)
-                        val outerR = size.width / 2f
-                        val innerR = outerR * 0.72f
-
-                        if (dist >= innerR) {
-                            var angle = Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat()
-                            if (angle < 0) angle += 360f
-                            onHueChange(angle)
-                        } else {
-                            val boxSize = innerR * 1.25f
-                            val sx = ((dx / boxSize) + 0.5f).coerceIn(0f, 1f)
-                            val sy = (1f - ((dy / boxSize) + 0.5f)).coerceIn(0f, 1f)
-                            onSatValChange(sx, sy)
-                        }
-                    }
-                }
         ) {
             val center = Offset(size.width / 2f, size.height / 2f)
             val outerR = size.width / 2f
@@ -504,13 +687,20 @@ fun HsvColorWheel(
             val strokeW = outerR - innerR
 
             // 1. Draw Hue Ring with gradient sweep
-            val sweepColors = listOf(
-                Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red
-            )
+            val sweepColors =
+                listOf(
+                    Color.Red,
+                    Color.Yellow,
+                    Color.Green,
+                    Color.Cyan,
+                    Color.Blue,
+                    Color.Magenta,
+                    Color.Red,
+                )
             drawCircle(
                 brush = Brush.sweepGradient(sweepColors, center),
                 radius = (outerR + innerR) / 2f,
-                style = Stroke(width = strokeW)
+                style = Stroke(width = strokeW),
             )
 
             // 2. Draw Hue Indicator Marker on the Ring
@@ -527,19 +717,23 @@ fun HsvColorWheel(
             drawRect(
                 brush = Brush.horizontalGradient(listOf(Color.White, pureHueColor)),
                 topLeft = Offset(center.x - boxR, center.y - boxR),
-                size = androidx.compose.ui.geometry.Size(boxR * 2, boxR * 2)
+                size = androidx.compose.ui.geometry.Size(boxR * 2, boxR * 2),
             )
             drawRect(
                 brush = Brush.verticalGradient(listOf(Color.Transparent, Color.Black)),
                 topLeft = Offset(center.x - boxR, center.y - boxR),
-                size = androidx.compose.ui.geometry.Size(boxR * 2, boxR * 2)
+                size = androidx.compose.ui.geometry.Size(boxR * 2, boxR * 2),
             )
 
             // 4. Draw Sat/Val Marker
             val svX = (center.x - boxR) + sat * (boxR * 2)
             val svY = (center.y + boxR) - value * (boxR * 2)
             drawCircle(Color.White, radius = 6f, center = Offset(svX, svY), style = Stroke(2f))
-            drawCircle(Color(AndroidColor.HSVToColor(floatArrayOf(hue, sat, value))), radius = 5f, center = Offset(svX, svY))
+            drawCircle(
+                Color(AndroidColor.HSVToColor(floatArrayOf(hue, sat, value))),
+                radius = 5f,
+                center = Offset(svX, svY),
+            )
         }
     }
 }

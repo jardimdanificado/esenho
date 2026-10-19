@@ -342,13 +342,13 @@ fun LayerDrawer(
                 var blendMenu by remember { mutableStateOf(false) }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Row(
-                    Modifier.fillMaxWidth().height(32.dp).padding(horizontal = 10.dp),
+                    Modifier.fillMaxWidth().height(36.dp).padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         "${(localOpacity * 100 / 255).toInt()}%",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.width(42.dp),
+                        modifier = Modifier.width(32.dp),
                     )
                     Slider(
                         value = localOpacity.coerceIn(0f, 255f),
@@ -368,12 +368,7 @@ fun LayerDrawer(
                         },
                         modifier = Modifier.weight(1f),
                     )
-                }
-                Row(
-                    Modifier.fillMaxWidth().height(32.dp).padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.weight(1f)) {
+                    Box(Modifier.weight(0.8f)) {
                         TextButton(
                             onClick = { blendMenu = true },
                             contentPadding = PaddingValues(horizontal = 6.dp),
@@ -381,6 +376,8 @@ fun LayerDrawer(
                         ) {
                             Text(
                                 activeLayer.blendMode.displayName,
+                                modifier = Modifier.weight(1f, fill = false),
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.labelSmall,
                                 maxLines = 1,
                             )

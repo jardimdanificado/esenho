@@ -32,8 +32,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -218,30 +220,31 @@ fun EsenhoNativeTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme =
             darkColorScheme(
-                // Keep large surfaces neutral; reserve color for interaction and
-                // selection accents so the editor does not read as green overall.
-                primary = Color(0xFFB6ABFF),
-                onPrimary = Color(0xFF211B40),
-                onPrimaryContainer = Color(0xFFE8E0FF),
-                primaryContainer = Color(0xFF332B50),
-                secondary = Color(0xFFB7BCC1),
-                onSecondary = Color(0xFF191C25),
-                secondaryContainer = Color(0xFF34383C),
-                onSecondaryContainer = Color(0xFFE1E4E7),
-                tertiary = Color(0xFFE58A7B),
-                tertiaryContainer = Color(0xFF49302E),
-                onTertiaryContainer = Color(0xFFFFDAD4),
-                error = Color(0xFFFFB4AB),
-                onError = Color(0xFF690005),
-                errorContainer = Color(0xFF93000A),
-                onErrorContainer = Color(0xFFFFDAD6),
-                surface = Color(0xFF191C25),
-                surfaceVariant = Color(0xFF272C39),
-                background = Color(0xFF0E1118),
-                onSurface = Color(0xFFE8ECF5),
-                onSurfaceVariant = Color(0xFFA8B0C2),
-                outline = Color(0xFF777D82),
-                outlineVariant = Color(0xFF353B4B),
+                // Gruvbox Dark: warm surfaces, cream text and yellow interaction accents.
+                primary = Color(0xFFFABD2F),
+                onPrimary = Color(0xFF282828),
+                onPrimaryContainer = Color(0xFFFBF1C7),
+                primaryContainer = Color(0xFF504945),
+                secondary = Color(0xFFB8BB26),
+                onSecondary = Color(0xFF282828),
+                secondaryContainer = Color(0xFF3C3836),
+                onSecondaryContainer = Color(0xFFEBDBB2),
+                tertiary = Color(0xFF83A598),
+                onTertiary = Color(0xFF282828),
+                tertiaryContainer = Color(0xFF3C3836),
+                onTertiaryContainer = Color(0xFFEBDBB2),
+                error = Color(0xFFFB4934),
+                onError = Color(0xFF282828),
+                errorContainer = Color(0xFF9D0006),
+                onErrorContainer = Color(0xFFFBF1C7),
+                surface = Color(0xFF282828),
+                surfaceVariant = Color(0xFF3C3836),
+                background = Color(0xFF1D2021),
+                onBackground = Color(0xFFEBDBB2),
+                onSurface = Color(0xFFEBDBB2),
+                onSurfaceVariant = Color(0xFFA89984),
+                outline = Color(0xFF928374),
+                outlineVariant = Color(0xFF504945),
                 scrim = Color(0x99000000),
                 surfaceTint = Color.Transparent,
             ),
@@ -296,6 +299,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var favoriteBrushIds by remember { mutableStateOf(storageManager.loadFavoriteBrushes()) }
 
     var focusMode by remember { mutableStateOf(false) }
+    var quickSlidersOpen by remember { mutableStateOf(false) }
     var activePanel by remember { mutableStateOf<WorkspacePanel?>(null) }
     var showWorkspaceActions by remember { mutableStateOf(false) }
     var documentTab by remember { mutableIntStateOf(0) }
@@ -1045,30 +1049,29 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         }
                 }
             WorkspacePanel.CONTROLS ->
-                Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)
-                ) {
-                    EditorPanelHeader("Seus parâmetros", { activePanel = null })
-                    Text(
-                        "Toque no valor para escolher o parâmetro e o intervalo. Arraste para ajustar.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    ThumbSliders(
-                        engine = engine,
-                        configuredSliders = sideSliderSettings,
-                        horizontal = true,
-                        onConfiguredSlidersChange = {
-                            sideSliderSettings = it
-                            storageManager.saveSideSliders(it)
-                        },
-                        onSizeChangeActive = { active ->
-                            canvasViewRef?.previewBrushSize = if (active) engine.brushSize else 0f
-                            if (!active) refreshState()
-                        },
-                    )
-                }
+                ParameterSettingsPanel(
+                    engine = engine,
+                    configuredSliders = sideSliderSettings,
+                    onMoveParameter = { id, steps ->
+                        val from = sideSliderSettings.indexOfFirst { it.id == id }
+                        if (from >= 0) {
+                            val to = (from + steps).coerceIn(0, sideSliderSettings.lastIndex)
+                            if (to != from)
+                                sideSliderSettings =
+                                    sideSliderSettings.toMutableList().apply {
+                                        add(to, removeAt(from))
+                                    }
+                        }
+                    },
+                    onReorderFinished = { storageManager.saveSideSliders(sideSliderSettings) },
+                    revision = engineRevision,
+                    onConfiguredSlidersChange = { settings ->
+                        sideSliderSettings = settings
+                        storageManager.saveSideSliders(settings)
+                    },
+                    onValuesChanged = { refreshState() },
+                    onDismiss = { activePanel = null },
+                )
             null -> Unit
         }
     }
@@ -1102,15 +1105,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     },
                     onDocument = { showWorkspaceActions = true },
                     onFocus = { focusMode = true },
-                    toolPicker = {
-                        WorkspaceToolPicker(
-                            currentTool,
-                            showSelectMenu,
-                            onOpen = { showSelectMenu = true },
-                            onDismiss = { showSelectMenu = false },
-                            onTool = { chooseTool(it) },
-                        )
-                    },
                 )
         },
         bottomBar = {
@@ -1121,27 +1115,46 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         if (isTransformActive) activePanel = WorkspacePanel.TRANSFORM
                         else if (selectionActive || currentTool.name.startsWith("SELECT_"))
                             activePanel = WorkspacePanel.SELECTION
-                        else {
-                            toolMenuCategory = null
-                            showSelectMenu = true
-                        }
+                        else showSelectMenu = true
                     },
                     brushName = activeBrushName,
                     color = currentColor,
-                    size = brushSize,
-                    opacity = brushOpacity,
-                    onSize = {
-                        engine.brushSize = it
-                        brushSize = it
-                        canvasViewRef?.previewBrushSize = it
+                    engine = engine,
+                    configuredSliders = sideSliderSettings,
+                    onMoveParameter = { id, steps ->
+                        val from = sideSliderSettings.indexOfFirst { it.id == id }
+                        if (from >= 0) {
+                            val to = (from + steps).coerceIn(0, sideSliderSettings.lastIndex)
+                            if (to != from)
+                                sideSliderSettings =
+                                    sideSliderSettings.toMutableList().apply {
+                                        add(to, removeAt(from))
+                                    }
+                        }
                     },
-                    onOpacity = {
-                        engine.brushOpacity = it
-                        brushOpacity = it
+                    onReorderFinished = { storageManager.saveSideSliders(sideSliderSettings) },
+                    revision = engineRevision,
+                    quickSlidersOpen = quickSlidersOpen,
+                    onToggleQuickSliders = {
+                        quickSlidersOpen = !quickSlidersOpen
+                        if (!quickSlidersOpen) canvasViewRef?.previewBrushSize = 0f
                     },
-                    onChangeFinished = {
-                        canvasViewRef?.previewBrushSize = 0f
-                        refreshState()
+                    onParameterChanged = { paramId, active ->
+                        brushSize = engine.brushSize
+                        brushOpacity = engine.brushOpacity
+                        if (active) engineRevision++
+                        if (paramId == 1)
+                            canvasViewRef?.previewBrushSize = if (active) engine.brushSize else 0f
+                        if (!active) refreshState()
+                    },
+                    toolPicker = {
+                        WorkspaceToolPicker(
+                            currentTool,
+                            showSelectMenu,
+                            onOpen = { showSelectMenu = !showSelectMenu },
+                            onDismiss = { showSelectMenu = false },
+                            onTool = { chooseTool(it) },
+                        )
                     },
                     onBrush = {
                         activePanel =
@@ -1176,10 +1189,23 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             val useSideInspector =
                 activePanel != WorkspacePanel.ANIMATION &&
                     (maxWidth >= 700.dp || (maxWidth >= 600.dp && maxWidth > maxHeight * 1.4f))
-            val inspectorWidth = (maxWidth * 0.32f).coerceIn(260.dp, 300.dp)
-            var panelExpanded by remember(activePanel) { mutableStateOf(false) }
+            val dockDensity = LocalDensity.current
+            var bottomDockHeight by remember { mutableStateOf<Dp?>(null) }
+            var sideDockWidth by remember { mutableStateOf<Dp?>(null) }
+            val maxDockHeight =
+                (maxHeight - 96.dp.coerceAtMost(maxHeight * 0.35f)).coerceAtLeast(0.dp)
+            val minDockHeight = 128.dp.coerceAtMost(maxDockHeight)
+            val defaultDockHeight =
+                (maxHeight * 0.32f).coerceAtMost(240.dp).coerceIn(minDockHeight, maxDockHeight)
             val mobilePanelHeight =
-                if (panelExpanded) maxHeight * 0.62f else (maxHeight * 0.32f).coerceAtMost(240.dp)
+                (bottomDockHeight ?: defaultDockHeight).coerceIn(minDockHeight, maxDockHeight)
+            val expandedDockHeight = (maxHeight * 0.62f).coerceIn(minDockHeight, maxDockHeight)
+            val minDockWidth = 220.dp
+            val maxDockWidth = (maxWidth - 240.dp).coerceAtLeast(minDockWidth)
+            val defaultDockWidth =
+                (maxWidth * 0.32f).coerceIn(260.dp, 300.dp).coerceIn(minDockWidth, maxDockWidth)
+            val inspectorWidth =
+                (sideDockWidth ?: defaultDockWidth).coerceIn(minDockWidth, maxDockWidth)
             Row(Modifier.fillMaxSize()) {
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     Box(
@@ -1221,7 +1247,21 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 activePanel!!,
                                 Modifier.fillMaxWidth().height(mobilePanelHeight),
                                 panelContent,
-                                onResize = { panelExpanded = !panelExpanded },
+                                onResize = { deltaPixels ->
+                                    val delta = with(dockDensity) { deltaPixels.toDp() }
+                                    bottomDockHeight =
+                                        ((bottomDockHeight ?: defaultDockHeight).coerceIn(
+                                                minDockHeight,
+                                                maxDockHeight,
+                                            ) - delta)
+                                            .coerceIn(minDockHeight, maxDockHeight)
+                                },
+                                onToggleResize = {
+                                    bottomDockHeight =
+                                        if (mobilePanelHeight > defaultDockHeight + 1.dp)
+                                            defaultDockHeight
+                                        else expandedDockHeight
+                                },
                             )
                         }
                     }
@@ -1229,8 +1269,23 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 if (!focusMode && useSideInspector && activePanel != null) {
                     WorkspaceInspector(
                         activePanel!!,
-                        Modifier.width(inspectorWidth).fillMaxHeight().padding(start = 8.dp),
+                        Modifier.width(inspectorWidth).fillMaxHeight(),
                         panelContent,
+                        sideDock = true,
+                        onResize = { deltaPixels ->
+                            val delta = with(dockDensity) { deltaPixels.toDp() }
+                            sideDockWidth =
+                                ((sideDockWidth ?: defaultDockWidth).coerceIn(
+                                        minDockWidth,
+                                        maxDockWidth,
+                                    ) - delta)
+                                    .coerceIn(minDockWidth, maxDockWidth)
+                        },
+                        onToggleResize = {
+                            sideDockWidth =
+                                if (inspectorWidth > defaultDockWidth + 1.dp) defaultDockWidth
+                                else maxDockWidth
+                        },
                     )
                 }
             }

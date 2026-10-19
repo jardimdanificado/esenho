@@ -253,7 +253,7 @@ fun AnimationTimelineBar(
                         Modifier.width(32.dp)
                             .height(4.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE6E8EA).copy(alpha = 0.4f))
+                            .background(Color(0xFFEBDBB2).copy(alpha = 0.4f))
                     )
                 }
 
@@ -562,7 +562,7 @@ fun AnimationTimelineBar(
                                         .height(28.dp)
                                         .padding(start = (entry.depth * 10).dp)
                                         .clip(RectangleShape)
-                                        .background(Color(0xFF34383C)),
+                                        .background(Color(0xFF3C3836)),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 TextButton(
@@ -575,7 +575,7 @@ fun AnimationTimelineBar(
                                 ) {
                                     Text(
                                         if (group.collapsed) "▸" else "▾",
-                                        color = Color(0xFFB6ABFF),
+                                        color = Color(0xFFFABD2F),
                                     )
                                 }
                                 IconButton(
@@ -592,8 +592,8 @@ fun AnimationTimelineBar(
                                         contentDescription =
                                             if (group.visible) "Ocultar grupo" else "Mostrar grupo",
                                         tint =
-                                            if (group.visible) Color(0xFFBFC5C9)
-                                            else Color(0xFF747B80),
+                                            if (group.visible) Color(0xFFD5C4A1)
+                                            else Color(0xFF928374),
                                         modifier = Modifier.size(15.dp),
                                     )
                                 }
@@ -601,13 +601,13 @@ fun AnimationTimelineBar(
                                     group.name,
                                     fontSize = 10.sp,
                                     maxLines = 1,
-                                    color = Color(0xFFD6CEFF),
+                                    color = Color(0xFFEBDBB2),
                                     modifier = Modifier.weight(1f),
                                 )
                                 Text(
                                     "${engine.rasterGroupLayerIds(group.id).size} cam.",
                                     fontSize = 8.sp,
-                                    color = Color(0xFF92989E),
+                                    color = Color(0xFFA89984),
                                 )
                                 Box {
                                     IconButton(
@@ -617,7 +617,7 @@ fun AnimationTimelineBar(
                                         Icon(
                                             Icons.Default.MoreVert,
                                             contentDescription = "Opções do grupo",
-                                            tint = Color(0xFFB6BBC0),
+                                            tint = Color(0xFFA89984),
                                             modifier = Modifier.size(15.dp),
                                         )
                                     }
@@ -686,8 +686,8 @@ fun AnimationTimelineBar(
                                             .clip(RectangleShape)
                                             .background(
                                                 if (layer.id == engine.activeLayerIndex)
-                                                    Color(0xFF332B50)
-                                                else Color(0xFF191C25)
+                                                    Color(0xFF504945)
+                                                else Color(0xFF282828)
                                             )
                                             .pointerInput(layer.id, layerRowHeightPixels) {
                                                 detectDragGesturesAfterLongPress(
@@ -761,8 +761,8 @@ fun AnimationTimelineBar(
                                                     if (layer.visible) "Ocultar camada"
                                                     else "Mostrar camada",
                                                 tint =
-                                                    if (layer.visible) Color(0xFFBFC5C9)
-                                                    else Color(0xFF747B80),
+                                                    if (layer.visible) Color(0xFFD5C4A1)
+                                                    else Color(0xFF928374),
                                                 modifier = Modifier.size(15.dp),
                                             )
                                         }
@@ -772,8 +772,8 @@ fun AnimationTimelineBar(
                                             maxLines = 1,
                                             color =
                                                 if (layer.id == engine.activeLayerIndex)
-                                                    Color(0xFFD6CEFF)
-                                                else Color(0xFFCDD1D5),
+                                                    Color(0xFFEBDBB2)
+                                                else Color(0xFFEBDBB2),
                                             modifier = Modifier.weight(1f),
                                         )
                                         Box {
@@ -784,7 +784,7 @@ fun AnimationTimelineBar(
                                                 Icon(
                                                     Icons.Default.MoreVert,
                                                     contentDescription = "Opções da camada",
-                                                    tint = Color(0xFFB6BBC0),
+                                                    tint = Color(0xFFA89984),
                                                     modifier = Modifier.size(13.dp),
                                                 )
                                             }
@@ -869,7 +869,7 @@ fun AnimationTimelineBar(
                                                 drawContent()
                                                 val x = currentTick * durationPixelsPerFrame
                                                 drawLine(
-                                                    Color(0xFFB6ABFF),
+                                                    Color(0xFFFABD2F),
                                                     Offset(x, 0f),
                                                     Offset(x, size.height),
                                                     1.dp.toPx(),
@@ -906,11 +906,11 @@ fun AnimationTimelineBar(
                                                     )
                                                     .fillMaxHeight()
                                                     .clip(RectangleShape)
-                                                    .background(Color(0xFF191B1D))
+                                                    .background(Color(0xFF1D2021))
                                                     .border(
                                                         if (selected) 2.dp else 1.dp,
-                                                        if (selected) Color(0xFFB6ABFF)
-                                                        else Color(0xFF41464A),
+                                                        if (selected) Color(0xFFFABD2F)
+                                                        else Color(0xFF504945),
                                                         RectangleShape,
                                                     )
                                                     .combinedClickable(
@@ -1142,7 +1142,7 @@ fun AnimationTimelineBar(
                                                         Modifier.width(2.dp)
                                                             .fillMaxHeight(0.5f)
                                                             .background(
-                                                                Color(0xFFB6ABFF),
+                                                                Color(0xFFFABD2F),
                                                                 RectangleShape,
                                                             )
                                                     )
@@ -1156,8 +1156,8 @@ fun AnimationTimelineBar(
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.SemiBold,
                                                     color =
-                                                        if (selected) Color(0xFFD6CEFF)
-                                                        else Color(0xFFCDD1D5),
+                                                        if (selected) Color(0xFFEBDBB2)
+                                                        else Color(0xFFEBDBB2),
                                                     maxLines = 1,
                                                 )
                                                 if (cel.duration > 1)
@@ -1165,8 +1165,8 @@ fun AnimationTimelineBar(
                                                         "${cel.duration}f",
                                                         fontSize = 10.sp,
                                                         color =
-                                                            if (selected) Color(0xFFB6ABFF)
-                                                            else Color(0xFF92989E),
+                                                            if (selected) Color(0xFFFABD2F)
+                                                            else Color(0xFFA89984),
                                                         maxLines = 1,
                                                     )
                                             }
