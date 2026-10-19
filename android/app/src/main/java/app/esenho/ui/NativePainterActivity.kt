@@ -216,6 +216,7 @@ fun EsenhoMainScreen(
 
     // Floating Tool Dropdowns
     var showSelectMenu by remember { mutableStateOf(false) }
+    var toolMenuCategory by remember { mutableStateOf<String?>(null) }
     var showSelectionOpMenu by remember { mutableStateOf(false) }
     var showSelectionFeatherDialog by remember { mutableStateOf(false) }
     var selectionFeatherRadius by remember { mutableFloatStateOf(4f) }
@@ -265,6 +266,29 @@ fun EsenhoMainScreen(
         activeTransformInterpolation = engine.transformState?.interpolation ?: engine.transformInterpolation
         activeBrushName = engine.activeBrushDisplayName
         canvasViewRef?.invalidate()
+    }
+
+    fun chooseTool(mode: ToolMode) {
+        showSelectMenu = false
+        toolMenuCategory = null
+        if (mode == ToolMode.SELECT_WAND) {
+            if (isTransformActive) engine.cancelTransform()
+            isTransformActive = false
+            currentTool = mode
+            engine.currentTool = mode
+            showWandSettings = true
+        } else if (mode == ToolMode.TRANSFORM) {
+            if (engine.beginTransform(selectionOnly = engine.selectionActive)) {
+                isTransformActive = true
+                currentTool = mode
+            }
+        } else {
+            if (isTransformActive) engine.cancelTransform()
+            isTransformActive = false
+            currentTool = mode
+            engine.currentTool = mode
+        }
+        refreshState()
     }
 
     val saveProjectLauncher = rememberLauncherForActivityResult(
@@ -1023,57 +1047,86 @@ fun EsenhoMainScreen(
                             painter = if (currentTool == ToolMode.ERASER) painterResource(R.drawable.ic_eraser) else null,
                             isSelected = true,
                             description = "Modo: ${currentTool.displayName}",
-                            onClick = { showSelectMenu = true }
+                            onClick = { toolMenuCategory = null; showSelectMenu = true }
                         )
-                        DropdownMenu(expanded = showSelectMenu, onDismissRequest = { showSelectMenu = false }) {
-                            val modes = listOf(
-                                Triple(ToolMode.BRUSH, "Pincel", Icons.Default.Brush),
-                                Triple(ToolMode.ERASER, "Borracha", Icons.Default.Delete),
-                                Triple(ToolMode.SMUDGE, "Borrar (Smudge)", Icons.Default.WaterDrop),
-                                Triple(ToolMode.BLEND, "Mesclar", Icons.Default.BlurCircular),
-                                Triple(ToolMode.FILL, "Balde de tinta", Icons.Default.FormatColorFill),
-                                Triple(ToolMode.LASSO_FILL, "Laço preenchido", Icons.Default.Gesture),
-                                Triple(ToolMode.SELECT_RECT, "Seleção retangular", Icons.Default.CropSquare),
-                                Triple(ToolMode.SELECT_ELLIPSE, "Seleção elíptica", Icons.Default.Circle),
-                                Triple(ToolMode.SELECT_LASSO, "Seleção com laço", Icons.Default.Gesture),
-                                Triple(ToolMode.SELECT_BRUSH_MASK, "Pincel de seleção", Icons.Default.Brush),
-                                Triple(ToolMode.SELECT_WAND, "Varinha mágica", Icons.Default.AutoFixHigh),
-                                Triple(ToolMode.TRANSFORM, "Transformar", Icons.Default.OpenWith),
-                                Triple(ToolMode.LINE, "Linha", Icons.Default.HorizontalRule),
-                                Triple(ToolMode.RECTANGLE, "Retângulo", Icons.Default.CropSquare),
-                                Triple(ToolMode.ELLIPSE, "Elipse / círculo", Icons.Default.RadioButtonUnchecked),
-                                Triple(ToolMode.ERASE_RECTANGLE, "Apagar retângulo", Icons.Default.CropSquare),
-                                Triple(ToolMode.ERASE_ELLIPSE, "Apagar elipse", Icons.Default.Circle),
-                                Triple(ToolMode.EYEDROPPER, "Conta-gotas", Icons.Default.Colorize),
-                                Triple(ToolMode.PAN, "Mover tela", Icons.Default.PanTool)
-                            )
-                            modes.forEach { (mode, label, icon) ->
+                        DropdownMenu(
+                            expanded = showSelectMenu,
+                            onDismissRequest = { showSelectMenu = false; toolMenuCategory = null }
+                        ) {
+                            if (toolMenuCategory == null) {
                                 DropdownMenuItem(
-                                    text = { Text(label) },
-                                    leadingIcon = { if (mode == ToolMode.ERASER) Icon(painterResource(R.drawable.ic_eraser), null) else Icon(icon, null) },
-                                    trailingIcon = if (currentTool == mode) {{ Icon(Icons.Default.Check, null) }} else null,
-                                    onClick = {
-                                        showSelectMenu = false
-                                        if (mode == ToolMode.SELECT_WAND) {
-                                            if (isTransformActive) engine.cancelTransform()
-                                            isTransformActive = false
-                                            currentTool = mode
-                                            engine.currentTool = mode
-                                            showWandSettings = true
-                                        } else if (mode == ToolMode.TRANSFORM) {
-                                            if (engine.beginTransform(selectionOnly = engine.selectionActive)) {
-                                                isTransformActive = true
-                                                currentTool = ToolMode.TRANSFORM
-                                            }
-                                        } else {
-                                            if (isTransformActive) engine.cancelTransform()
-                                            isTransformActive = false
-                                            currentTool = mode
-                                            engine.currentTool = mode
-                                        }
-                                        refreshState()
-                                    }
+                                    text = { Text("Pintura") },
+                                    leadingIcon = { Icon(Icons.Default.Brush, null) },
+                                    trailingIcon = { Icon(Icons.Default.ExpandMore, null) },
+                                    onClick = { toolMenuCategory = "paint" }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("Seleção") },
+                                    leadingIcon = { Icon(Icons.Default.CropFree, null) },
+                                    trailingIcon = { Icon(Icons.Default.ExpandMore, null) },
+                                    onClick = { toolMenuCategory = "selection" }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Transformar") },
+                                    leadingIcon = { Icon(Icons.Default.OpenWith, null) },
+                                    trailingIcon = if (currentTool == ToolMode.TRANSFORM) {{ Icon(Icons.Default.Check, null) }} else null,
+                                    onClick = { chooseTool(ToolMode.TRANSFORM) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Formas") },
+                                    leadingIcon = { Icon(Icons.Default.Category, null) },
+                                    trailingIcon = { Icon(Icons.Default.ExpandMore, null) },
+                                    onClick = { toolMenuCategory = "shapes" }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Mais ferramentas") },
+                                    leadingIcon = { Icon(Icons.Default.MoreHoriz, null) },
+                                    trailingIcon = { Icon(Icons.Default.ExpandMore, null) },
+                                    onClick = { toolMenuCategory = "more" }
+                                )
+                            } else {
+                                DropdownMenuItem(
+                                    text = { Text("Voltar às ferramentas") },
+                                    leadingIcon = { Icon(Icons.Default.ArrowBack, null) },
+                                    onClick = { toolMenuCategory = null }
+                                )
+                                HorizontalDivider()
+                                val modes = when (toolMenuCategory) {
+                                    "paint" -> listOf(
+                                        Triple(ToolMode.BRUSH, "Pincel", Icons.Default.Brush),
+                                        Triple(ToolMode.ERASER, "Borracha", Icons.Default.Delete),
+                                        Triple(ToolMode.FILL, "Balde de tinta", Icons.Default.FormatColorFill),
+                                        Triple(ToolMode.SMUDGE, "Borrar", Icons.Default.WaterDrop),
+                                        Triple(ToolMode.BLEND, "Mesclar", Icons.Default.BlurCircular)
+                                    )
+                                    "selection" -> listOf(
+                                        Triple(ToolMode.SELECT_RECT, "Retângulo", Icons.Default.CropSquare),
+                                        Triple(ToolMode.SELECT_ELLIPSE, "Elipse", Icons.Default.Circle),
+                                        Triple(ToolMode.SELECT_LASSO, "Laço", Icons.Default.Gesture),
+                                        Triple(ToolMode.SELECT_BRUSH_MASK, "Pincel de seleção", Icons.Default.Brush),
+                                        Triple(ToolMode.SELECT_WAND, "Varinha mágica", Icons.Default.AutoFixHigh),
+                                        Triple(ToolMode.LASSO_FILL, "Laço preenchido", Icons.Default.Gesture)
+                                    )
+                                    "shapes" -> listOf(
+                                        Triple(ToolMode.LINE, "Linha", Icons.Default.HorizontalRule),
+                                        Triple(ToolMode.RECTANGLE, "Retângulo", Icons.Default.CropSquare),
+                                        Triple(ToolMode.ELLIPSE, "Elipse / círculo", Icons.Default.RadioButtonUnchecked),
+                                        Triple(ToolMode.ERASE_RECTANGLE, "Apagar retângulo", Icons.Default.CropSquare),
+                                        Triple(ToolMode.ERASE_ELLIPSE, "Apagar elipse", Icons.Default.Circle)
+                                    )
+                                    else -> listOf(
+                                        Triple(ToolMode.EYEDROPPER, "Conta-gotas", Icons.Default.Colorize),
+                                        Triple(ToolMode.PAN, "Mover tela", Icons.Default.PanTool)
+                                    )
+                                }
+                                modes.forEach { (mode, label, icon) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        leadingIcon = { if (mode == ToolMode.ERASER) Icon(painterResource(R.drawable.ic_eraser), null) else Icon(icon, null) },
+                                        trailingIcon = if (currentTool == mode) {{ Icon(Icons.Default.Check, null) }} else null,
+                                        onClick = { chooseTool(mode) }
+                                    )
+                                }
                             }
                         }
                     }
