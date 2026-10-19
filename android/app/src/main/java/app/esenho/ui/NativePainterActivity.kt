@@ -798,12 +798,23 @@ fun EsenhoMainScreen(
                     .padding(start = 6.dp)
             )
 
+            // Timeline and dock share one column to remove guessed overlay offsets.
+            Column(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+            // 5. Animation Timeline Bar (Raster Animator)
+            if (showAnimationTimeline) {
+                AnimationTimelineBar(
+                    engine = engine,
+                    onFrameChanged = { canvasViewRef?.invalidate() },
+                    onClose = { showAnimationTimeline = false },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             // 4. Floating Action & Toolbars (Transform HUD or Main Tools)
             if (isTransformActive) {
                 Surface(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = if (showAnimationTimeline) 204.dp else 24.dp)
+                        .align(Alignment.CenterHorizontally)
                         .shadow(16.dp, RoundedCornerShape(24.dp)),
                     color = MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(24.dp),
@@ -981,9 +992,7 @@ fun EsenhoMainScreen(
                 }
             } else {
                 Surface(
-                    modifier = Modifier
-                         .align(Alignment.BottomCenter)
-                        .fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surface,
                     shape = androidx.compose.ui.graphics.RectangleShape,
                     tonalElevation = 6.dp
@@ -1103,14 +1112,6 @@ fun EsenhoMainScreen(
             }
         }
 
-            // 5. Animation Timeline Bar (Raster Animator)
-            if (showAnimationTimeline) {
-                AnimationTimelineBar(
-                    engine = engine,
-                    onFrameChanged = { canvasViewRef?.invalidate() },
-                    onClose = { showAnimationTimeline = false },
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 56.dp)
-                )
             }
         }
 
