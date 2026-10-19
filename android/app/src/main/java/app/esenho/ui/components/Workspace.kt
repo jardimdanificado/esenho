@@ -229,6 +229,10 @@ fun WorkspaceProperties(
     toolName: String,
     onToolOptions: () -> Unit,
     brushName: String,
+    quickShelfVisible: Boolean,
+    quickShelfRecent: Boolean,
+    onToggleQuickShelf: () -> Unit,
+    onQuickShelfRecentChange: (Boolean) -> Unit,
     color: Int,
     engine: EsenhoEngine,
     configuredSliders: List<SideSliderSetting>,
@@ -341,6 +345,46 @@ fun WorkspaceProperties(
                                 onParameters()
                             },
                             leadingIcon = { Icon(Icons.Default.Tune, null) },
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    if (quickShelfVisible) "Ocultar barra de cores e pincéis"
+                                    else "Mostrar barra de cores e pincéis"
+                                )
+                            },
+                            onClick = {
+                                onToggleQuickShelf()
+                                more = false
+                            },
+                            trailingIcon = {
+                                Icon(
+                                    if (quickShelfVisible) Icons.Default.Visibility
+                                    else Icons.Default.VisibilityOff,
+                                    null,
+                                )
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Paleta e pincéis favoritos") },
+                            onClick = {
+                                onQuickShelfRecentChange(false)
+                                more = false
+                            },
+                            trailingIcon =
+                                if (!quickShelfRecent) ({ Icon(Icons.Default.Check, null) })
+                                else null,
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Cores e pincéis recentes") },
+                            onClick = {
+                                onQuickShelfRecentChange(true)
+                                more = false
+                            },
+                            trailingIcon =
+                                if (quickShelfRecent) ({ Icon(Icons.Default.Check, null) })
+                                else null,
                         )
                     }
                 }

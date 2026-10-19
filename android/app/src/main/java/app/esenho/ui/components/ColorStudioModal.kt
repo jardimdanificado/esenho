@@ -43,6 +43,7 @@ fun ColorStudioModal(
     onColorChanged: (Int) -> Unit,
     onDismiss: () -> Unit,
     embedded: Boolean = false,
+    onPaletteChanged: () -> Unit = {},
 ) {
     val hsv = remember { FloatArray(3).also { AndroidColor.colorToHSV(initialColor, it) } }
     var hue by remember { mutableFloatStateOf(hsv[0]) }
@@ -296,6 +297,7 @@ fun ColorStudioModal(
                                         onClick = {
                                             paletteId = p.id
                                             engine?.activePaletteId = p.id
+                                            onPaletteChanged()
                                             paletteMenu = false
                                             removing = false
                                         },
@@ -335,6 +337,7 @@ fun ColorStudioModal(
                                         onClick = {
                                             engine.addColorToPalette(palette.id, current)
                                             paletteVersion++
+                                            onPaletteChanged()
                                             recent = false
                                             actions = false
                                         },
@@ -397,6 +400,7 @@ fun ColorStudioModal(
                                         ) {
                                             engine?.removeColorFromPalette(palette.id, index)
                                             paletteVersion++
+                                            onPaletteChanged()
                                         } else select(color)
                                     }
                                     .semantics {
@@ -480,6 +484,7 @@ fun ColorStudioModal(
                                 paletteId = it.id
                             }
                             paletteVersion++
+                            onPaletteChanged()
                             recent = false
                             newPalette = false
                         }
@@ -502,6 +507,7 @@ fun ColorStudioModal(
                     engine?.deletePalette(palette.id)
                     paletteId = engine?.activePaletteId
                     paletteVersion++
+                    onPaletteChanged()
                     deletePalette = false
                     removing = false
                 }) {

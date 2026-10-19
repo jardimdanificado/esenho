@@ -440,6 +440,20 @@ class EsenhoEngine(
     private val rasterUiPreferences = context.getSharedPreferences("esenho_raster_preferences", Context.MODE_PRIVATE)
 
     // Catalogs
+    val recentBrushIds = mutableListOf<String>().apply {
+        try {
+            val saved = JSONArray(rasterUiPreferences.getString("recent_brush_ids", "[]") ?: "[]")
+            for (i in 0 until saved.length()) saved.optString(i).takeIf { it.isNotBlank() }?.let { if (it !in this) add(it) }
+        } catch (_: Exception) { }
+    }
+
+    private fun rememberRecentBrush(id: String) {
+        recentBrushIds.remove(id)
+        recentBrushIds.add(0, id)
+        while (recentBrushIds.size > 24) recentBrushIds.removeLast()
+        rasterUiPreferences.edit().putString("recent_brush_ids", JSONArray(recentBrushIds).toString()).apply()
+    }
+
     val presetCatalog = mutableListOf<BrushPresetModel>()
     val brushCatalog = mutableListOf<BrushModel>()
     val filterCatalog = mutableListOf<FilterModel>()
@@ -1300,6 +1314,7 @@ class EsenhoEngine(
     // ── Brush Preset & Procedural Selection & Tuning ──
 
     fun selectPreset(sourcePreset: BrushPresetModel) {
+        rememberRecentBrush("preset:${sourcePreset.id}")
         val saved = storageManager.loadFavoriteToolState("preset:${sourcePreset.id}")
             ?.takeIf { it.optString("kind") == "preset" }
             ?.optJSONObject("preset")
@@ -1673,6 +1688,7 @@ class EsenhoEngine(
     }
 
     fun selectBrush(brush: BrushModel?) {
+        brush?.let { rememberRecentBrush("brush:${it.id}") }
         val savedBrushState = brush?.let { storageManager.loadFavoriteToolState("brush:${it.id}") }
             ?.takeIf { it.optString("kind") == "brush" }
         savedBrushState?.let {

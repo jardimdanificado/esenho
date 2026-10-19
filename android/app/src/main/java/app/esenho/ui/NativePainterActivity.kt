@@ -297,6 +297,15 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     val storageManager = remember { EsenhoStorageManager(context) }
     var sideSliderSettings by remember { mutableStateOf(storageManager.loadSideSliders()) }
     var favoriteBrushIds by remember { mutableStateOf(storageManager.loadFavoriteBrushes()) }
+    val workspacePreferences = remember {
+        context.getSharedPreferences("esenho_workspace", android.content.Context.MODE_PRIVATE)
+    }
+    var quickShelfVisible by remember {
+        mutableStateOf(workspacePreferences.getBoolean("quick_shelf_visible", true))
+    }
+    var quickShelfRecent by remember {
+        mutableStateOf(workspacePreferences.getBoolean("quick_shelf_recent", false))
+    }
 
     var focusMode by remember { mutableStateOf(false) }
     var quickSlidersOpen by remember { mutableStateOf(false) }
@@ -527,6 +536,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     initialColor = currentColor,
                     recentColors = engine.recentColors,
                     embedded = true,
+                    onPaletteChanged = { refreshState() },
                     onColorChanged = { c ->
                         currentColor = c
                         engine.currentColor = c
@@ -1109,80 +1119,110 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         },
         bottomBar = {
             if (!focusMode)
-                WorkspaceProperties(
-                    toolName = currentTool.displayName,
-                    onToolOptions = {
-                        if (isTransformActive) activePanel = WorkspacePanel.TRANSFORM
-                        else if (selectionActive || currentTool.name.startsWith("SELECT_"))
-                            activePanel = WorkspacePanel.SELECTION
-                        else showSelectMenu = true
-                    },
-                    brushName = activeBrushName,
-                    color = currentColor,
-                    engine = engine,
-                    configuredSliders = sideSliderSettings,
-                    onMoveParameter = { id, steps ->
-                        val from = sideSliderSettings.indexOfFirst { it.id == id }
-                        if (from >= 0) {
-                            val to = (from + steps).coerceIn(0, sideSliderSettings.lastIndex)
-                            if (to != from)
-                                sideSliderSettings =
-                                    sideSliderSettings.toMutableList().apply {
-                                        add(to, removeAt(from))
-                                    }
-                        }
-                    },
-                    onReorderFinished = { storageManager.saveSideSliders(sideSliderSettings) },
-                    revision = engineRevision,
-                    quickSlidersOpen = quickSlidersOpen,
-                    onToggleQuickSliders = {
-                        quickSlidersOpen = !quickSlidersOpen
-                        if (!quickSlidersOpen) canvasViewRef?.previewBrushSize = 0f
-                    },
-                    onParameterChanged = { paramId, active ->
-                        brushSize = engine.brushSize
-                        brushOpacity = engine.brushOpacity
-                        if (active) engineRevision++
-                        if (paramId == 1)
-                            canvasViewRef?.previewBrushSize = if (active) engine.brushSize else 0f
-                        if (!active) refreshState()
-                    },
-                    toolPicker = {
-                        WorkspaceToolPicker(
-                            currentTool,
-                            showSelectMenu,
-                            onOpen = { showSelectMenu = !showSelectMenu },
-                            onDismiss = { showSelectMenu = false },
-                            onTool = { chooseTool(it) },
+                Column {
+                    WorkspaceProperties(
+                        toolName = currentTool.displayName,
+                        onToolOptions = {
+                            if (isTransformActive) activePanel = WorkspacePanel.TRANSFORM
+                            else if (selectionActive || currentTool.name.startsWith("SELECT_"))
+                                activePanel = WorkspacePanel.SELECTION
+                            else showSelectMenu = true
+                        },
+                        quickShelfVisible = quickShelfVisible,
+                        quickShelfRecent = quickShelfRecent,
+                        onToggleQuickShelf = {
+                            quickShelfVisible = !quickShelfVisible
+                            workspacePreferences
+                                .edit()
+                                .putBoolean("quick_shelf_visible", quickShelfVisible)
+                                .apply()
+                        },
+                        onQuickShelfRecentChange = { recent ->
+                            quickShelfRecent = recent
+                            workspacePreferences
+                                .edit()
+                                .putBoolean("quick_shelf_recent", recent)
+                                .apply()
+                        },
+                        brushName = activeBrushName,
+                        color = currentColor,
+                        engine = engine,
+                        configuredSliders = sideSliderSettings,
+                        onMoveParameter = { id, steps ->
+                            val from = sideSliderSettings.indexOfFirst { it.id == id }
+                            if (from >= 0) {
+                                val to = (from + steps).coerceIn(0, sideSliderSettings.lastIndex)
+                                if (to != from)
+                                    sideSliderSettings =
+                                        sideSliderSettings.toMutableList().apply {
+                                            add(to, removeAt(from))
+                                        }
+                            }
+                        },
+                        onReorderFinished = { storageManager.saveSideSliders(sideSliderSettings) },
+                        revision = engineRevision,
+                        quickSlidersOpen = quickSlidersOpen,
+                        onToggleQuickSliders = {
+                            quickSlidersOpen = !quickSlidersOpen
+                            if (!quickSlidersOpen) canvasViewRef?.previewBrushSize = 0f
+                        },
+                        onParameterChanged = { paramId, active ->
+                            brushSize = engine.brushSize
+                            brushOpacity = engine.brushOpacity
+                            if (active) engineRevision++
+                            if (paramId == 1)
+                                canvasViewRef?.previewBrushSize =
+                                    if (active) engine.brushSize else 0f
+                            if (!active) refreshState()
+                        },
+                        toolPicker = {
+                            WorkspaceToolPicker(
+                                currentTool,
+                                showSelectMenu,
+                                onOpen = { showSelectMenu = !showSelectMenu },
+                                onDismiss = { showSelectMenu = false },
+                                onTool = { chooseTool(it) },
+                            )
+                        },
+                        onBrush = {
+                            activePanel =
+                                if (activePanel == WorkspacePanel.BRUSHES) null
+                                else WorkspacePanel.BRUSHES
+                        },
+                        onColor = {
+                            activePanel =
+                                if (activePanel == WorkspacePanel.COLOR) null
+                                else WorkspacePanel.COLOR
+                        },
+                        onParameters = { activePanel = WorkspacePanel.CONTROLS },
+                        activePanel = activePanel,
+                        onLayers = {
+                            activePanel =
+                                if (activePanel == WorkspacePanel.LAYERS) null
+                                else WorkspacePanel.LAYERS
+                        },
+                        onAnimation = {
+                            activePanel =
+                                if (activePanel == WorkspacePanel.ANIMATION) null
+                                else WorkspacePanel.ANIMATION
+                        },
+                        onEffects = {
+                            activePanel =
+                                if (activePanel == WorkspacePanel.EFFECTS) null
+                                else WorkspacePanel.EFFECTS
+                        },
+                    )
+                    if (quickShelfVisible)
+                        WorkspaceQuickShelf(
+                            engine = engine,
+                            favoriteBrushIds = favoriteBrushIds,
+                            recent = quickShelfRecent,
+                            revision = engineRevision,
+                            onChanged = { refreshState() },
+                            onOpenBrushes = { activePanel = WorkspacePanel.BRUSHES },
+                            onOpenColors = { activePanel = WorkspacePanel.COLOR },
                         )
-                    },
-                    onBrush = {
-                        activePanel =
-                            if (activePanel == WorkspacePanel.BRUSHES) null
-                            else WorkspacePanel.BRUSHES
-                    },
-                    onColor = {
-                        activePanel =
-                            if (activePanel == WorkspacePanel.COLOR) null else WorkspacePanel.COLOR
-                    },
-                    onParameters = { activePanel = WorkspacePanel.CONTROLS },
-                    activePanel = activePanel,
-                    onLayers = {
-                        activePanel =
-                            if (activePanel == WorkspacePanel.LAYERS) null
-                            else WorkspacePanel.LAYERS
-                    },
-                    onAnimation = {
-                        activePanel =
-                            if (activePanel == WorkspacePanel.ANIMATION) null
-                            else WorkspacePanel.ANIMATION
-                    },
-                    onEffects = {
-                        activePanel =
-                            if (activePanel == WorkspacePanel.EFFECTS) null
-                            else WorkspacePanel.EFFECTS
-                    },
-                )
+                }
         },
     ) { paddingValues ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(paddingValues)) {

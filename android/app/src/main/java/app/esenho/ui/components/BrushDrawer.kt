@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -264,18 +263,21 @@ fun BrushDrawer(
                     .padding(horizontal = 8.dp)
                     .padding(bottom = 4.dp)
         ) {
-            EditorPanelHeader(
-                if (showTuner) "Ajustes do pincel" else "Pincéis",
-                onDismiss,
-                onBack =
-                    if (showTuner) {
-                        { showTuner = false }
-                    } else null,
-            )
+            if (!(showTuner && engine.selectedPreset != null))
+                EditorPanelHeader(
+                    if (showTuner) "Ajustes do pincel" else "Pincéis",
+                    onDismiss,
+                    onBack =
+                        if (showTuner) {
+                            { showTuner = false }
+                        } else null,
+                )
             if (showTuner && engine.selectedPreset != null) {
                 PresetTuner(
                     engine = engine,
                     preset = engine.selectedPreset!!,
+                    onBack = { showTuner = false },
+                    onClose = onDismiss,
                     onBrushUpdated = {
                         catalogVersion++
                         onBrushUpdated()
@@ -816,7 +818,13 @@ private fun CompactOptionDropdown(
 }
 
 @Composable
-fun PresetTuner(engine: EsenhoEngine, preset: BrushPresetModel, onBrushUpdated: () -> Unit) {
+fun PresetTuner(
+    engine: EsenhoEngine,
+    preset: BrushPresetModel,
+    onBrushUpdated: () -> Unit,
+    onBack: () -> Unit,
+    onClose: () -> Unit,
+) {
     var tunerTab by remember { mutableStateOf(PresetTunerTab.TIP) }
     var tunerVersion by remember { mutableIntStateOf(0) }
     var showSavePresetDialog by remember { mutableStateOf(false) }
@@ -830,95 +838,56 @@ fun PresetTuner(engine: EsenhoEngine, preset: BrushPresetModel, onBrushUpdated: 
     }
 
     Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-        // Preset Header with Reset and Save buttons
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier =
-                        Modifier.size(36.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center,
+        Row(Modifier.fillMaxWidth().height(32.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onBack, Modifier.size(28.dp)) {
+                Icon(Icons.Default.ArrowBack, "Voltar aos pincéis", Modifier.size(16.dp))
+            }
+            Text(
+                preset.name,
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // Delete button for custom presets
+            if (preset.isCustom) {
+                IconButton(
+                    onClick = { showDeleteConfirmDialog = true },
+                    modifier = Modifier.size(28.dp),
                 ) {
                     Icon(
-                        imageVector = getPresetIcon(mapPresetCategory(preset.category)),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = preset.name,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        Icons.Default.Delete,
+                        contentDescription = "Excluir Preset",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            TextButton(
+                onClick = {
+                    engine.resetPresetToDefaults()
+                    tunerVersion++
+                    onBrushUpdated()
+                },
+                contentPadding = PaddingValues(horizontal = 4.dp),
+                modifier = Modifier.height(30.dp).defaultMinSize(minWidth = 1.dp),
             ) {
-                // Delete button for custom presets
-                if (preset.isCustom) {
-                    IconButton(
-                        onClick = { showDeleteConfirmDialog = true },
-                        modifier = Modifier.size(28.dp),
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Excluir Preset",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                }
-
-                // Reset to Default button
-                OutlinedButton(
-                    onClick = {
-                        engine.resetPresetToDefaults()
-                        tunerVersion++
-                        onBrushUpdated()
-                    },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                    modifier = Modifier.height(30.dp),
-                ) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(13.dp),
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text("Padrão", fontSize = 11.sp)
-                }
-
-                // Save Preset button (F15)
-                Button(
-                    onClick = {
-                        presetNameInput = "${preset.name} (Cópia)"
-                        saveErrorMessage = null
-                        showSavePresetDialog = true
-                    },
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                    modifier = Modifier.height(30.dp),
-                ) {
-                    Icon(
-                        Icons.Default.Save,
-                        contentDescription = null,
-                        modifier = Modifier.size(13.dp),
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Salvar Preset", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                }
+                Text("Padrão", fontSize = 11.sp)
+            }
+            TextButton(
+                onClick = {
+                    presetNameInput = "${preset.name} (Cópia)"
+                    saveErrorMessage = null
+                    showSavePresetDialog = true
+                },
+                contentPadding = PaddingValues(horizontal = 4.dp),
+                modifier = Modifier.height(30.dp).defaultMinSize(minWidth = 1.dp),
+            ) {
+                Text("Salvar", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+            IconButton(onClose, Modifier.size(28.dp)) {
+                Icon(Icons.Default.Close, "Fechar ajustes", Modifier.size(16.dp))
             }
         }
 

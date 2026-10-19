@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -1048,16 +1049,14 @@ fun AnimationTimelineBar(
                                             Box(
                                                 modifier =
                                                     Modifier.align(Alignment.CenterEnd)
-                                                        .width(12.dp)
+                                                        .width(18.dp)
                                                         .fillMaxHeight()
                                                         .pointerInput(
                                                             layer.id,
-                                                            index,
+                                                            cel.id,
                                                             durationPixelsPerFrame,
-                                                            selected,
                                                         ) {
-                                                            if (!selected) return@pointerInput
-                                                            detectDragGesturesAfterLongPress(
+                                                            detectHorizontalDragGestures(
                                                                 onDragStart = {
                                                                     durationDragRemainder = 0f
                                                                     durationUndoStarted = false
@@ -1074,11 +1073,14 @@ fun AnimationTimelineBar(
                                                                         engine.animationFrames
                                                                             .getOrNull(currentIdx)
                                                                             ?.duration ?: 1
+                                                                    onFrameChanged()
                                                                 },
-                                                                onDrag = { change, dragAmount ->
+                                                                onHorizontalDrag = {
+                                                                    change,
+                                                                    dragAmount ->
                                                                     change.consume()
                                                                     durationDragRemainder +=
-                                                                        dragAmount.x
+                                                                        dragAmount
                                                                     val steps =
                                                                         (durationDragRemainder /
                                                                                 durationPixelsPerFrame)
@@ -1125,6 +1127,7 @@ fun AnimationTimelineBar(
                                                                         engine
                                                                             .finishCelDurationEdit()
                                                                     durationUndoStarted = false
+                                                                    onFrameChanged()
                                                                 },
                                                                 onDragCancel = {
                                                                     durationDragRemainder = 0f
@@ -1132,20 +1135,20 @@ fun AnimationTimelineBar(
                                                                         engine
                                                                             .finishCelDurationEdit()
                                                                     durationUndoStarted = false
+                                                                    onFrameChanged()
                                                                 },
                                                             )
                                                         },
                                                 contentAlignment = Alignment.Center,
                                             ) {
-                                                if (selected)
-                                                    Box(
-                                                        Modifier.width(2.dp)
-                                                            .fillMaxHeight(0.5f)
-                                                            .background(
-                                                                Color(0xFFFABD2F),
-                                                                RectangleShape,
-                                                            )
-                                                    )
+                                                Box(
+                                                    Modifier.width(2.dp)
+                                                        .fillMaxHeight(0.5f)
+                                                        .background(
+                                                            Color(0xFFFABD2F),
+                                                            RectangleShape,
+                                                        )
+                                                )
                                             }
                                             Column(
                                                 horizontalAlignment = Alignment.CenterHorizontally,

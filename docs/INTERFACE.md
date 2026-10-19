@@ -1,12 +1,18 @@
 # Interface Android compacta
 
-O espaço permanente da interface é de **80 dp**: cabeçalho de 40 dp e barra de acesso de 40 dp. Não há faixa lateral permanente. As barras do sistema Android são adicionais.
+O cabeçalho e a barra de acesso somam **80 dp**: 40 dp cada. A segunda barra opcional acrescenta **36 dp**, totalizando 116 dp quando visível. Não há faixa lateral permanente. As barras do sistema Android são adicionais.
 
 - **Ferramentas:** toque no primeiro ícone da barra inferior. A ferramenta atual aparece nesse botão; o seletor reúne pintura, seleção, formas e navegação.
 - **Documento:** toque nas dimensões da tela. Projeto reúne nova tela, abrir/salvar, importação e exportação; Tela reúne dimensões, enquadramento, espelhamento e auxiliares; Seleção reúne operações gerais da área selecionada.
 - **Acesso rápido:** a barra inferior mostra ferramentas, um controle deslizante do primeiro parâmetro rápido, pincéis, cor, camadas e animação. Tocar nesse controle abre todos os parâmetros rápidos configurados, em sliders horizontais empilhados. Não há um segundo botão exclusivo para opacidade. O menu de três pontos reúne opções da ferramenta, efeitos e configuração dos parâmetros rápidos.
 
 Tocar novamente no atalho de um painel fecha esse painel. Seleção e transformação usam o mesmo espaço de trabalho. Ações que exigem uma seleção ficam desativadas sem uma área selecionada.
+
+## Barra de cores e pincéis
+
+A segunda barra fica abaixo dos controles principais e divide o espaço igualmente: amostras de cores à esquerda, pincéis à direita. Cada metade tem rolagem horizontal independente. Os ícones das metades abrem o Color Studio e o catálogo de pincéis.
+
+No menu de três pontos da barra principal, escolha **Paleta e pincéis favoritos** ou **Cores e pincéis recentes**. A paleta acompanha a seleção do Color Studio. Os pincéis recentes são registrados ao selecionar presets ou pincéis procedurais, inclusive pelo catálogo, e preservados entre sessões. O mesmo menu permite ocultar e mostrar a segunda barra; modo e visibilidade ficam salvos. O modo de foco também oculta as duas barras.
 
 ## Parâmetros rápidos
 
@@ -32,6 +38,10 @@ Apenas a lista rola. Opacidade, modo de mesclagem, bloqueio de alfa e máscara d
 
 O olho muda a visibilidade. Segure a alça de uma linha e arraste para reordenar. O menu de cada camada oferece renomear, duplicar, mover para cima/baixo, mesclar, espelhar, criar recursos de pincel e operações de exclusão. A ordenação por arrasto registra um único histórico de alteração por gesto.
 
+### Ajustes do pincel
+
+O nome do preset, voltar, Padrão, Salvar e fechar compartilham um cabeçalho de 32 dp. Presets personalizados também exibem a ação de excluir nessa linha.
+
 ### Cores
 
 O Color Studio reúne cabeçalho com cor hexadecimal editável, seletor de 100 dp e uma faixa de amostras. O menu de modo alterna entre plano HSV, roda e canais RGB. Toque em Paleta/Recentes para alternar as amostras; o menu de opções permite criar e excluir paletas, adicionar a cor atual e entrar no modo de remoção de cores. As alterações de cor são aplicadas imediatamente.
@@ -42,7 +52,7 @@ Reprodução e edição têm faixas separadas. A primeira contém contador, quad
 
 A régua e as células compartilham a mesma escala e rolagem. Toque na régua para mudar o instante; deslize horizontalmente para navegar. As linhas têm 40 dp e cada unidade de tempo começa com 40 dp de largura, ajustável entre 24 e 80 dp. O cursor acompanha reprodução e troca de quadro.
 
-Toque em uma célula para ativá-la. Segure para acessar o menu da célula. Para alterar a duração por arrasto, selecione a célula e segure sua borda direita; também é possível informar a duração numericamente. Repetição, onion skin e exclusão ficam no menu de opções. A exclusão pela barra pede confirmação.
+Toque em uma célula para ativá-la. Segure para acessar o menu da célula. Para alterar a duração, arraste horizontalmente a alça de 18 dp na borda direita da célula. Não é necessário selecionar antes nem segurar: o arrasto ativa a célula e agrupa as mudanças em uma única alteração no histórico; também é possível informar a duração numericamente. Repetição, onion skin e exclusão ficam no menu de opções. A exclusão pela barra pede confirmação.
 
 Camadas e timeline recebem a revisão do editor para acompanhar alterações feitas por Desfazer/Refazer.
 
