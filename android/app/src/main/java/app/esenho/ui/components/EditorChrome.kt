@@ -14,11 +14,11 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun EditorPanelHeader(title: String, onClose: () -> Unit, onBack: (() -> Unit)? = null) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 40.dp),
+        Modifier.fillMaxWidth().heightIn(min = 32.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
-            IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+            IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     "Voltar à lista",
@@ -33,7 +33,7 @@ fun EditorPanelHeader(title: String, onClose: () -> Unit, onBack: (() -> Unit)? 
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        IconButton(onClick = onClose, modifier = Modifier.size(40.dp)) {
+        IconButton(onClick = onClose, modifier = Modifier.size(32.dp)) {
             Icon(
                 Icons.Default.Close,
                 contentDescription = "Fechar $title",

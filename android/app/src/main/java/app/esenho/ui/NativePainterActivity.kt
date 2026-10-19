@@ -32,7 +32,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -350,7 +349,9 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var isTransformActive by remember { mutableStateOf(engine.transformState != null) }
     var activeBrushName by remember { mutableStateOf(engine.activeBrushDisplayName) }
 
+    var engineRevision by remember { mutableIntStateOf(0) }
     fun refreshState() {
+        engineRevision++
         canUndo = engine.canUndo
         canRedo = engine.canRedo
         currentTool = engine.currentTool
@@ -532,15 +533,16 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             WorkspacePanel.LAYERS ->
                 LayerDrawer(
                     engine = engine,
+                    revision = engineRevision,
                     embedded = true,
                     onLayersUpdated = { refreshState() },
                     onDismiss = { activePanel = null },
                 )
             WorkspacePanel.ANIMATION ->
                 Column(Modifier.fillMaxSize()) {
-                    EditorPanelHeader("Animação", { activePanel = null })
                     AnimationTimelineBar(
                         engine = engine,
+                        revision = engineRevision,
                         embedded = true,
                         onFrameChanged = { canvasViewRef?.invalidate() },
                         onClose = { activePanel = null },
@@ -1100,302 +1102,126 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     },
                     onDocument = { showWorkspaceActions = true },
                     onFocus = { focusMode = true },
+                    toolPicker = {
+                        WorkspaceToolPicker(
+                            currentTool,
+                            showSelectMenu,
+                            onOpen = { showSelectMenu = true },
+                            onDismiss = { showSelectMenu = false },
+                            onTool = { chooseTool(it) },
+                        )
+                    },
                 )
         },
         bottomBar = {
             if (!focusMode)
-                WorkspaceNavigation(activePanel) { panel ->
-                    activePanel = if (activePanel == panel) null else panel
-                }
+                WorkspaceProperties(
+                    toolName = currentTool.displayName,
+                    onToolOptions = {
+                        if (isTransformActive) activePanel = WorkspacePanel.TRANSFORM
+                        else if (selectionActive || currentTool.name.startsWith("SELECT_"))
+                            activePanel = WorkspacePanel.SELECTION
+                        else {
+                            toolMenuCategory = null
+                            showSelectMenu = true
+                        }
+                    },
+                    brushName = activeBrushName,
+                    color = currentColor,
+                    size = brushSize,
+                    opacity = brushOpacity,
+                    onSize = {
+                        engine.brushSize = it
+                        brushSize = it
+                        canvasViewRef?.previewBrushSize = it
+                    },
+                    onOpacity = {
+                        engine.brushOpacity = it
+                        brushOpacity = it
+                    },
+                    onChangeFinished = {
+                        canvasViewRef?.previewBrushSize = 0f
+                        refreshState()
+                    },
+                    onBrush = {
+                        activePanel =
+                            if (activePanel == WorkspacePanel.BRUSHES) null
+                            else WorkspacePanel.BRUSHES
+                    },
+                    onColor = {
+                        activePanel =
+                            if (activePanel == WorkspacePanel.COLOR) null else WorkspacePanel.COLOR
+                    },
+                    onParameters = { activePanel = WorkspacePanel.CONTROLS },
+                    activePanel = activePanel,
+                    onLayers = {
+                        activePanel =
+                            if (activePanel == WorkspacePanel.LAYERS) null
+                            else WorkspacePanel.LAYERS
+                    },
+                    onAnimation = {
+                        activePanel =
+                            if (activePanel == WorkspacePanel.ANIMATION) null
+                            else WorkspacePanel.ANIMATION
+                    },
+                    onEffects = {
+                        activePanel =
+                            if (activePanel == WorkspacePanel.EFFECTS) null
+                            else WorkspacePanel.EFFECTS
+                    },
+                )
         },
     ) { paddingValues ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(paddingValues)) {
             val useSideInspector =
-                maxWidth >= 700.dp || (maxWidth >= 600.dp && maxWidth > maxHeight * 1.4f)
-            val inspectorWidth = (maxWidth * 0.38f).coerceIn(300.dp, 360.dp)
-            val mobilePanelHeight = (maxHeight * 0.46f).coerceAtMost(400.dp)
+                activePanel != WorkspacePanel.ANIMATION &&
+                    (maxWidth >= 700.dp || (maxWidth >= 600.dp && maxWidth > maxHeight * 1.4f))
+            val inspectorWidth = (maxWidth * 0.32f).coerceIn(260.dp, 300.dp)
+            var panelExpanded by remember(activePanel) { mutableStateOf(false) }
+            val mobilePanelHeight =
+                if (panelExpanded) maxHeight * 0.62f else (maxHeight * 0.32f).coerceAtMost(240.dp)
             Row(Modifier.fillMaxSize()) {
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    Row(Modifier.weight(1f).fillMaxWidth()) {
-                        if (!focusMode)
-                            WorkspaceToolRail(currentTool, { chooseTool(it) }) {
-                                Box {
-                                    ToolNavButton(
-                                        icon = Icons.Default.Apps,
-                                        isSelected = showSelectMenu,
-                                        description = "Todas as ferramentas e formas",
-                                        onClick = {
-                                            toolMenuCategory = null
-                                            showSelectMenu = true
-                                        },
-                                    )
-                                    DropdownMenu(
-                                        expanded = showSelectMenu,
-                                        onDismissRequest = {
-                                            showSelectMenu = false
-                                            toolMenuCategory = null
-                                        },
-                                    ) {
-                                        if (toolMenuCategory == null) {
-                                            DropdownMenuItem(
-                                                text = { Text("Pintura") },
-                                                leadingIcon = { Icon(Icons.Default.Brush, null) },
-                                                trailingIcon = {
-                                                    Icon(Icons.Default.ExpandMore, null)
-                                                },
-                                                onClick = { toolMenuCategory = "paint" },
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text("Seleção") },
-                                                leadingIcon = {
-                                                    Icon(Icons.Default.CropFree, null)
-                                                },
-                                                trailingIcon = {
-                                                    Icon(Icons.Default.ExpandMore, null)
-                                                },
-                                                onClick = { toolMenuCategory = "selection" },
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text("Transformar") },
-                                                leadingIcon = {
-                                                    Icon(Icons.Default.OpenWith, null)
-                                                },
-                                                trailingIcon =
-                                                    if (currentTool == ToolMode.TRANSFORM) {
-                                                        { Icon(Icons.Default.Check, null) }
-                                                    } else null,
-                                                onClick = { chooseTool(ToolMode.TRANSFORM) },
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text("Formas") },
-                                                leadingIcon = {
-                                                    Icon(Icons.Default.Category, null)
-                                                },
-                                                trailingIcon = {
-                                                    Icon(Icons.Default.ExpandMore, null)
-                                                },
-                                                onClick = { toolMenuCategory = "shapes" },
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text("Mais ferramentas") },
-                                                leadingIcon = {
-                                                    Icon(Icons.Default.MoreHoriz, null)
-                                                },
-                                                trailingIcon = {
-                                                    Icon(Icons.Default.ExpandMore, null)
-                                                },
-                                                onClick = { toolMenuCategory = "more" },
-                                            )
-                                        } else {
-                                            DropdownMenuItem(
-                                                text = { Text("Voltar às ferramentas") },
-                                                leadingIcon = {
-                                                    Icon(Icons.Default.ArrowBack, null)
-                                                },
-                                                onClick = { toolMenuCategory = null },
-                                            )
-                                            HorizontalDivider()
-                                            val modes =
-                                                when (toolMenuCategory) {
-                                                    "paint" ->
-                                                        listOf(
-                                                            Triple(
-                                                                ToolMode.BRUSH,
-                                                                "Pincel",
-                                                                Icons.Default.Brush,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.ERASER,
-                                                                "Borracha",
-                                                                Icons.Default.Delete,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.FILL,
-                                                                "Balde de tinta",
-                                                                Icons.Default.FormatColorFill,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.SMUDGE,
-                                                                "Borrar",
-                                                                Icons.Default.WaterDrop,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.BLEND,
-                                                                "Mesclar",
-                                                                Icons.Default.BlurCircular,
-                                                            ),
-                                                        )
-                                                    "selection" ->
-                                                        listOf(
-                                                            Triple(
-                                                                ToolMode.SELECT_RECT,
-                                                                "Retângulo",
-                                                                Icons.Default.CropSquare,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.SELECT_ELLIPSE,
-                                                                "Elipse",
-                                                                Icons.Default.Circle,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.SELECT_LASSO,
-                                                                "Laço",
-                                                                Icons.Default.Gesture,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.SELECT_BRUSH_MASK,
-                                                                "Pincel de seleção",
-                                                                Icons.Default.Brush,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.SELECT_WAND,
-                                                                "Varinha mágica",
-                                                                Icons.Default.AutoFixHigh,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.LASSO_FILL,
-                                                                "Laço preenchido",
-                                                                Icons.Default.Gesture,
-                                                            ),
-                                                        )
-                                                    "shapes" ->
-                                                        listOf(
-                                                            Triple(
-                                                                ToolMode.LINE,
-                                                                "Linha",
-                                                                Icons.Default.HorizontalRule,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.RECTANGLE,
-                                                                "Retângulo",
-                                                                Icons.Default.CropSquare,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.ELLIPSE,
-                                                                "Elipse / círculo",
-                                                                Icons.Default.RadioButtonUnchecked,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.ERASE_RECTANGLE,
-                                                                "Apagar retângulo",
-                                                                Icons.Default.CropSquare,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.ERASE_ELLIPSE,
-                                                                "Apagar elipse",
-                                                                Icons.Default.Circle,
-                                                            ),
-                                                        )
-                                                    else ->
-                                                        listOf(
-                                                            Triple(
-                                                                ToolMode.EYEDROPPER,
-                                                                "Conta-gotas",
-                                                                Icons.Default.Colorize,
-                                                            ),
-                                                            Triple(
-                                                                ToolMode.PAN,
-                                                                "Mover tela",
-                                                                Icons.Default.PanTool,
-                                                            ),
-                                                        )
-                                                }
-                                            modes.forEach { (mode, label, icon) ->
-                                                DropdownMenuItem(
-                                                    text = { Text(label) },
-                                                    leadingIcon = {
-                                                        if (mode == ToolMode.ERASER)
-                                                            Icon(
-                                                                painterResource(
-                                                                    R.drawable.ic_eraser
-                                                                ),
-                                                                null,
-                                                            )
-                                                        else Icon(icon, null)
-                                                    },
-                                                    trailingIcon =
-                                                        if (currentTool == mode) {
-                                                            { Icon(Icons.Default.Check, null) }
-                                                        } else null,
-                                                    onClick = { chooseTool(mode) },
-                                                )
-                                            }
-                                        }
+                    Box(
+                        Modifier.weight(1f)
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.background)
+                    ) {
+                        AndroidView(
+                            factory = { ctx ->
+                                EsenhoCanvasView(ctx).apply {
+                                    this.engine = engine
+                                    this.onStateChanged = { refreshState() }
+                                    this.onColorPicked = { c ->
+                                        currentColor = c
+                                        engine.currentColor = c
                                     }
+                                    canvasViewRef = this
                                 }
-                            }
-                        Box(
-                            Modifier.weight(1f)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(MaterialTheme.colorScheme.background)
-                        ) {
-                            AndroidView(
-                                factory = { ctx ->
-                                    EsenhoCanvasView(ctx).apply {
-                                        this.engine = engine
-                                        this.onStateChanged = { refreshState() }
-                                        this.onColorPicked = { c ->
-                                            currentColor = c
-                                            engine.currentColor = c
-                                        }
-                                        canvasViewRef = this
-                                    }
-                                },
-                                modifier = Modifier.fillMaxSize(),
-                            )
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                        )
 
-                            if (focusMode) {
-                                Surface(
-                                    Modifier.align(Alignment.TopEnd).padding(12.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                ) {
-                                    IconButton(onClick = { focusMode = false }) {
-                                        Icon(Icons.Default.FullscreenExit, "Sair do modo de foco")
-                                    }
+                        if (focusMode) {
+                            Surface(
+                                Modifier.align(Alignment.TopEnd).padding(12.dp),
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                IconButton(onClick = { focusMode = false }) {
+                                    Icon(Icons.Default.FullscreenExit, "Sair do modo de foco")
                                 }
                             }
                         }
                     }
                     if (!focusMode) {
 
-                        WorkspaceProperties(
-                            toolName = currentTool.displayName,
-                            onToolOptions = {
-                                if (isTransformActive) activePanel = WorkspacePanel.TRANSFORM
-                                else if (selectionActive || currentTool.name.startsWith("SELECT_"))
-                                    activePanel = WorkspacePanel.SELECTION
-                                else {
-                                    toolMenuCategory = null
-                                    showSelectMenu = true
-                                }
-                            },
-                            brushName = activeBrushName,
-                            color = currentColor,
-                            size = brushSize,
-                            opacity = brushOpacity,
-                            onSize = {
-                                engine.brushSize = it
-                                brushSize = it
-                                canvasViewRef?.previewBrushSize = it
-                            },
-                            onOpacity = {
-                                engine.brushOpacity = it
-                                brushOpacity = it
-                            },
-                            onChangeFinished = {
-                                canvasViewRef?.previewBrushSize = 0f
-                                refreshState()
-                            },
-                            onBrush = { activePanel = WorkspacePanel.BRUSHES },
-                            onColor = { activePanel = WorkspacePanel.COLOR },
-                            onParameters = { activePanel = WorkspacePanel.CONTROLS },
-                        )
                         if (!useSideInspector && activePanel != null) {
                             WorkspaceInspector(
                                 activePanel!!,
                                 Modifier.fillMaxWidth().height(mobilePanelHeight),
                                 panelContent,
+                                onResize = { panelExpanded = !panelExpanded },
                             )
                         }
                     }

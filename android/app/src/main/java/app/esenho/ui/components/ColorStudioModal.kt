@@ -78,11 +78,11 @@ fun ColorStudioModal(
             modifier = if (embedded) Modifier.fillMaxSize() else Modifier.width(320.dp)
         ) {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState()).padding(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 EditorPanelHeader("Cores", onDismiss)
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 // 1. HSV Color Wheel Canvas
                 HsvColorWheel(
@@ -98,10 +98,10 @@ fun ColorStudioModal(
                         value = v
                         onColorChanged(AndroidColor.HSVToColor(floatArrayOf(hue, sat, value)))
                     },
-                    modifier = Modifier.sizeIn(maxWidth = 220.dp, maxHeight = 220.dp).fillMaxWidth().aspectRatio(1f)
+                    modifier = Modifier.sizeIn(maxWidth = 144.dp, maxHeight = 144.dp).fillMaxWidth().aspectRatio(1f)
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 // 2. Color Swatch & Hex
                 Row(
@@ -128,7 +128,7 @@ fun ColorStudioModal(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 // 3. Preset & Custom Color Palettes (F16)
                 var paletteVersion by remember { mutableIntStateOf(0) }
