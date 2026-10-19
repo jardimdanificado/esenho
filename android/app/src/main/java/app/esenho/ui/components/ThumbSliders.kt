@@ -98,12 +98,11 @@ fun ThumbSliders(
 
     Column(
         modifier = modifier
-            .padding(start = 6.dp)
-            .width(46.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .width(38.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        configuredSliders.forEachIndexed { index, setting ->
+        configuredSliders.take(3).forEachIndexed { index, setting ->
             val template = AVAILABLE_SLIDER_PARAMS.find { it.paramId == setting.paramId } ?: AVAILABLE_SLIDER_PARAMS[0]
             val minVal = setting.minVal ?: template.minVal
             val cfg = template.copy(minVal = minVal, maxVal = (setting.maxVal ?: template.maxVal).coerceAtLeast(minVal + 0.01f))
@@ -115,9 +114,8 @@ fun ThumbSliders(
             // Property name and current value stay inside the slider. Tap to change property; drag to adjust.
             val norm = ((currentRawVal - cfg.minVal) / (cfg.maxVal - cfg.minVal)).coerceIn(0f, 1f)
             val barColor = when (index) {
-                0 -> Color(0xFF42464B) // dark gray
-                1 -> Color(0xFF4CAF50) // green
-                2 -> Color(0xFFFFC107) // yellow
+                0 -> Color(0xFF4CAF50) // green
+                1 -> Color(0xFFFFC107) // yellow
                 else -> Color(0xFFE53935) // red
             }
             VerticalThumbBar(
@@ -143,24 +141,24 @@ fun ThumbSliders(
         }
 
         // Add/Manage Slider action button
-        if (configuredSliders.size < 4) {
+        if (configuredSliders.size < 3) {
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
                 modifier = Modifier
-                    .size(26.dp)
+                    .size(22.dp)
                     .clip(CircleShape)
                     .clickable {
                         val next = AVAILABLE_SLIDER_PARAMS.firstOrNull { option -> configuredSliders.none { it.paramId == option.paramId } }
                             ?: AVAILABLE_SLIDER_PARAMS[4] // Smoothing
-                        onConfiguredSlidersChange(configuredSliders + SideSliderSetting(next.paramId))
+                        onConfiguredSlidersChange(configuredSliders.take(3) + SideSliderSetting(next.paramId))
                     }
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         Icons.Default.Add,
                         contentDescription = "Adicionar Slider Lateral",
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(14.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -337,10 +335,10 @@ fun VerticalThumbBar(
 
     Box(
         modifier = Modifier
-            .width(42.dp)
-            .height(115.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color(0x35000000))
+            .width(36.dp)
+            .height(88.dp)
+            .clip(RoundedCornerShape(13.dp))
+            .background(Color(0x24000000))
             .clickable(onClick = { latestOnClick() })
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
@@ -371,7 +369,7 @@ fun VerticalThumbBar(
         // Center pill handle & label
         Text(
             text = label,
-            fontSize = 8.sp,
+            fontSize = 7.sp,
             color = Color.White,
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,

@@ -26,6 +26,7 @@ class EsenhoStorageManager(private val context: Context) {
         const val PALETTES_FILENAME = "esenho_palettes.json"
         const val RECENT_COLORS_FILENAME = "esenho_recent_colors.json"
         const val SESSION_FILENAME = "esenho_session_state.json"
+        const val FAVORITES_FILENAME = "esenho_favorite_brushes.json"
     }
 
     data class SessionState(
@@ -45,6 +46,9 @@ class EsenhoStorageManager(private val context: Context) {
 
     val sessionFile: File
         get() = File(context.filesDir, SESSION_FILENAME)
+
+    private val favoritesFile: File
+        get() = File(context.filesDir, FAVORITES_FILENAME)
 
     /**
      * Atomically writes content to the target file via temporary file and atomic rename.
@@ -321,7 +325,7 @@ class EsenhoStorageManager(private val context: Context) {
     fun saveSideSliders(settings: List<SideSliderSetting>): Boolean {
         return try {
             val arr = JSONArray()
-            settings.forEach { setting ->
+            settings.take(3).forEach { setting ->
                 arr.put(JSONObject().put("paramId", setting.paramId).apply {
                     setting.minVal?.let { put("min", it) }
                     setting.maxVal?.let { put("max", it) }
@@ -349,10 +353,33 @@ class EsenhoStorageManager(private val context: Context) {
                     ))
                 }
             }
-            if (result.isEmpty()) listOf(SideSliderSetting(1), SideSliderSetting(2)) else result
+            if (result.isEmpty()) listOf(SideSliderSetting(1), SideSliderSetting(2)) else result.take(3)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load side sliders", e)
             listOf(SideSliderSetting(1), SideSliderSetting(2))
+        }
+    }
+
+    fun saveFavoriteBrushes(ids: Collection<String>): Boolean = try {
+        atomicWrite(favoritesFile, JSONArray(ids.distinct()).toString())
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to save favorite brushes", e)
+        false
+    }
+
+    fun loadFavoriteBrushes(): Set<String> {
+        val content = safeRead(favoritesFile) ?: return emptySet()
+        return try {
+            val arr = JSONArray(content)
+            buildSet {
+                for (i in 0 until arr.length()) {
+                    val id = arr.optString(i)
+                    if (id.startsWith("preset:") || id.startsWith("brush:")) add(id)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load favorite brushes", e)
+            emptySet()
         }
     }
 }

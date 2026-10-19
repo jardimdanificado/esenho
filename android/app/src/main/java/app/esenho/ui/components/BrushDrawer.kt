@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -27,7 +28,7 @@ import app.esenho.nativeengine.BrushModel
 import app.esenho.nativeengine.BrushPresetModel
 import app.esenho.nativeengine.EsenhoEngine
 
-private fun mapWasmCategory(cat: String): String {
+fun mapWasmCategory(cat: String): String {
     return when (cat.trim().lowercase()) {
         "paint", "watercolor", "inking", "sketch", "airbrush", "pixel art", "textiles" ->
             "Pintura & Traço"
@@ -83,7 +84,7 @@ fun getPresetIcon(group: String): ImageVector {
     }
 }
 
-private fun getWasmIcon(group: String): ImageVector {
+fun getWasmIcon(group: String): ImageVector {
     return when (group) {
         "Pintura & Traço" -> Icons.Default.Palette
         "Física & Fluídos" -> Icons.Default.Waves
@@ -103,6 +104,8 @@ enum class BrushDrawerTab {
 @Composable
 fun BrushDrawer(
     engine: EsenhoEngine,
+    favoriteBrushIds: Set<String>,
+    onToggleFavorite: (String) -> Unit,
     onBrushUpdated: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -298,6 +301,8 @@ fun BrushDrawer(
                             PresetItemCard(
                                 preset = preset,
                                 isSelected = selected,
+                                isFavorite = "preset:${preset.id}" in favoriteBrushIds,
+                                onFavoriteClick = { onToggleFavorite("preset:${preset.id}") },
                                 onClick = {
                                     engine.selectPreset(preset)
                                     onBrushUpdated()
@@ -318,6 +323,8 @@ fun BrushDrawer(
                                 paramCount = brush.params.size,
                                 icon = getWasmIcon(mapWasmCategory(brush.category)),
                                 isSelected = selected,
+                                isFavorite = "brush:${brush.id}" in favoriteBrushIds,
+                                onFavoriteClick = { onToggleFavorite("brush:${brush.id}") },
                                 onClick = {
                                     engine.selectBrush(brush)
                                     onBrushUpdated()
@@ -336,6 +343,8 @@ fun BrushDrawer(
 fun PresetItemCard(
     preset: BrushPresetModel,
     isSelected: Boolean,
+    isFavorite: Boolean,
+    onFavoriteClick: () -> Unit,
     onClick: () -> Unit,
     onTuneClick: () -> Unit
 ) {
@@ -389,6 +398,15 @@ fun PresetItemCard(
                 )
             }
 
+            IconButton(onClick = onFavoriteClick, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    imageVector = if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                    contentDescription = if (isFavorite) "Remover dos favoritos" else "Adicionar aos favoritos",
+                    tint = if (isFavorite) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
             if (isSelected) {
                 IconButton(
                     onClick = onTuneClick,
@@ -413,6 +431,8 @@ fun BrushItemCard(
     paramCount: Int,
     icon: ImageVector,
     isSelected: Boolean,
+    isFavorite: Boolean,
+    onFavoriteClick: () -> Unit,
     onClick: () -> Unit
 ) {
     Surface(
@@ -481,6 +501,15 @@ fun BrushItemCard(
                         )
                     }
                 }
+            }
+
+            IconButton(onClick = onFavoriteClick, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    imageVector = if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                    contentDescription = if (isFavorite) "Remover dos favoritos" else "Adicionar aos favoritos",
+                    tint = if (isFavorite) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
             }
 
             if (isSelected) {

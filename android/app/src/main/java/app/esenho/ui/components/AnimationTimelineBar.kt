@@ -119,7 +119,7 @@ fun AnimationTimelineBar(
     var groupNameInput by remember { mutableStateOf("") }
     var groupMenuId by remember { mutableStateOf<String?>(null) }
     var celMenuTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    val collapsedHeight = 132f
+    val collapsedHeight = 168f
     val maxTimelineHeight = (LocalConfiguration.current.screenHeightDp * 0.62f)
         .coerceAtMost(560f)
         .coerceAtLeast(collapsedHeight)
@@ -171,7 +171,7 @@ fun AnimationTimelineBar(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(12.dp)
+                    .height(48.dp)
                     .pointerInput(maxTimelineHeight) {
                         detectVerticalDragGestures { change, dragAmount ->
                             change.consume()
@@ -186,10 +186,10 @@ fun AnimationTimelineBar(
             ) {
                 Box(
                     Modifier
-                        .width(34.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color(0xFF858B90))
+                        .width(60.dp)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Color(0xFF9AA0A6))
                 )
             }
 

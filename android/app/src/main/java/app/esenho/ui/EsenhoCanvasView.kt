@@ -3,7 +3,6 @@ package app.esenho.ui
 import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
-import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import app.esenho.nativeengine.EsenhoEngine
@@ -78,8 +77,6 @@ class EsenhoCanvasView @JvmOverloads constructor(
             field = value
             invalidate()
         }
-
-    private val gestureDetector: GestureDetector
 
     // Paints
     private val bgPaint = Paint().apply {
@@ -197,24 +194,6 @@ class EsenhoCanvasView @JvmOverloads constructor(
         isAntiAlias = false
     }
 
-    init {
-        gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onLongPress(e: MotionEvent) {
-                if (e.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER) return
-                if (!isTransforming) {
-                    isEyedropperActive = true
-                    loupeScreenX = e.x
-                    loupeScreenY = e.y
-                    val (cx, cy) = mapToCanvas(e.x, e.y)
-                    val c = engine?.pickColorAt(cx, cy) ?: Color.BLACK
-                    loupePickedColor = c
-                    onColorPicked?.invoke(c)
-                    invalidate()
-                }
-            }
-        })
-    }
-
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         if (w > 0 && h > 0) {
@@ -256,8 +235,6 @@ class EsenhoCanvasView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        gestureDetector.onTouchEvent(event)
-
         val pointerCount = event.pointerCount
 
         when (event.actionMasked) {

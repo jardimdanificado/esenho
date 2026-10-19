@@ -198,6 +198,7 @@ fun EsenhoMainScreen(
     val engine = remember { EsenhoEngine(context, 1080, 1920) }
     val storageManager = remember { EsenhoStorageManager(context) }
     var sideSliderSettings by remember { mutableStateOf(storageManager.loadSideSliders()) }
+    var favoriteBrushIds by remember { mutableStateOf(storageManager.loadFavoriteBrushes()) }
 
     // UI Dialog & Drawer States
     var showBrushDrawer by remember { mutableStateOf(false) }
@@ -794,8 +795,8 @@ fun EsenhoMainScreen(
                     canvasViewRef?.previewBrushSize = if (active) engine.brushSize else 0f
                 },
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = 6.dp)
+                    .align(Alignment.TopStart)
+                    .padding(start = 4.dp, top = 6.dp)
             )
 
             // Timeline and dock share one column to remove guessed overlay offsets.
@@ -1087,7 +1088,62 @@ fun EsenhoMainScreen(
                         onClick = { showBrushDrawer = true }
                     )
 
-                    Spacer(Modifier.weight(1f))
+                    if (favoriteBrushIds.isEmpty()) {
+                        Row(
+                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                                .clickable { showBrushDrawer = true }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.StarBorder, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                            Text("Favoritos", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            favoriteBrushIds.forEach { favoriteId ->
+                                val preset = if (favoriteId.startsWith("preset:")) {
+                                    engine.presetCatalog.firstOrNull { it.id == favoriteId.removePrefix("preset:") }
+                                } else null
+                                val brush = if (favoriteId.startsWith("brush:")) {
+                                    engine.brushCatalog.firstOrNull { it.id == favoriteId.removePrefix("brush:") }
+                                } else null
+                                val favoriteIcon = preset?.let { getPresetIcon(mapPresetCategory(it.category)) }
+                                    ?: brush?.let { getWasmIcon(mapWasmCategory(it.category)) }
+                                val favoriteName = preset?.name ?: brush?.title
+                                if (favoriteIcon != null && favoriteName != null) {
+                                    val selected = (preset != null && preset.id == engine.selectedPreset?.id) ||
+                                        (brush != null && brush.id == engine.selectedBrush?.id)
+                                    Box(
+                                        modifier = Modifier.size(30.dp).clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                            .border(
+                                                if (selected) 2.dp else 1.dp,
+                                                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                                CircleShape
+                                            )
+                                            .clickable {
+                                                if (preset != null) engine.selectPreset(preset) else if (brush != null) engine.selectBrush(brush)
+                                                refreshState()
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(favoriteIcon, contentDescription = favoriteName, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(16.dp))
+                                        Icon(
+                                            Icons.Default.Star,
+                                            contentDescription = "Favorito",
+                                            tint = Color(0xFFFFC107),
+                                            modifier = Modifier.align(Alignment.BottomEnd).size(9.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -1355,6 +1411,14 @@ fun EsenhoMainScreen(
         if (showBrushDrawer) {
             BrushDrawer(
                 engine = engine,
+                favoriteBrushIds = favoriteBrushIds,
+                onToggleFavorite = { id ->
+                    val updated = favoriteBrushIds.toMutableSet().apply {
+                        if (!add(id)) remove(id)
+                    }
+                    favoriteBrushIds = updated
+                    storageManager.saveFavoriteBrushes(updated)
+                },
                 onBrushUpdated = { refreshState() },
                 onDismiss = { showBrushDrawer = false }
             )
