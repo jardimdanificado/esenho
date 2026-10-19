@@ -61,11 +61,22 @@ class NativePainterActivity : ComponentActivity() {
         setContent {
             EsenhoNativeTheme {
                 EsenhoMainScreen(
-                    onExportImage = { bitmap, format -> exportBitmapToGallery(bitmap, format) },
-                    onExportGif = { frames, fps, loop -> exportGifToGallery(frames, fps, loop) },
-                    onExportWebm = { frames, fps -> exportWebmToGallery(frames, fps) }
+                    onExport = ::export
                 )
             }
+        }
+    }
+
+    private fun export(request: NativeExportRequest) {
+        when (request.format) {
+            NativeExportRequest.Format.PNG -> request.bitmap?.let { exportBitmapToGallery(it, Bitmap.CompressFormat.PNG) }
+            NativeExportRequest.Format.JPEG -> request.bitmap?.let { exportBitmapToGallery(it, Bitmap.CompressFormat.JPEG) }
+            NativeExportRequest.Format.WEBP -> request.bitmap?.let {
+                val format = if (Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSY else Bitmap.CompressFormat.WEBP
+                exportBitmapToGallery(it, format)
+            }
+            NativeExportRequest.Format.GIF -> exportGifToGallery(request.frames, request.fps, request.loop)
+            NativeExportRequest.Format.WEBM -> exportWebmToGallery(request.frames, request.fps)
         }
     }
 
@@ -189,9 +200,7 @@ fun EsenhoNativeTheme(content: @Composable () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EsenhoMainScreen(
-    onExportImage: (Bitmap, Bitmap.CompressFormat) -> Unit,
-    onExportGif: (List<Bitmap>, Int, Boolean) -> Unit,
-    onExportWebm: (List<Bitmap>, Int) -> Unit
+    onExport: (NativeExportRequest) -> Unit
 ) {
     val context = LocalContext.current
     var canvasViewRef by remember { mutableStateOf<EsenhoCanvasView?>(null) }
@@ -550,7 +559,7 @@ fun EsenhoMainScreen(
                                 leadingIcon = { Icon(Icons.Default.Share, null) },
                                 onClick = {
                                     showMenu = false
-                                    engine.getRenderBitmap()?.let { onExportImage(it, Bitmap.CompressFormat.PNG) }
+                                    engine.getRenderBitmap()?.let { bitmap -> onExport(NativeExportRequest(NativeExportRequest.Format.PNG, bitmap = bitmap)) }
                                 }
                             )
                             DropdownMenuItem(
@@ -558,7 +567,7 @@ fun EsenhoMainScreen(
                                 leadingIcon = { Icon(Icons.Default.Share, null) },
                                 onClick = {
                                     showMenu = false
-                                    engine.getRenderBitmap()?.let { onExportImage(it, Bitmap.CompressFormat.JPEG) }
+                                    engine.getRenderBitmap()?.let { bitmap -> onExport(NativeExportRequest(NativeExportRequest.Format.JPEG, bitmap = bitmap)) }
                                 }
                             )
                             DropdownMenuItem(
@@ -566,8 +575,7 @@ fun EsenhoMainScreen(
                                 leadingIcon = { Icon(Icons.Default.Share, null) },
                                 onClick = {
                                     showMenu = false
-                                    val webpFormat = if (Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSY else Bitmap.CompressFormat.WEBP
-                                    engine.getRenderBitmap()?.let { onExportImage(it, webpFormat) }
+                                    engine.getRenderBitmap()?.let { bitmap -> onExport(NativeExportRequest(NativeExportRequest.Format.WEBP, bitmap = bitmap)) }
                                 }
                             )
                             DropdownMenuItem(
@@ -576,7 +584,7 @@ fun EsenhoMainScreen(
                                 onClick = {
                                     showMenu = false
                                     engine.captureCurrentFrame()
-                                    onExportGif(engine.renderAnimationFrames(), engine.animationFps, engine.animationLoop)
+                                    onExport(NativeExportRequest(NativeExportRequest.Format.GIF, frames = engine.renderAnimationFrames(), fps = engine.animationFps, loop = engine.animationLoop))
                                 }
                             )
                             DropdownMenuItem(
@@ -584,7 +592,7 @@ fun EsenhoMainScreen(
                                 leadingIcon = { Icon(Icons.Default.Movie, null) },
                                 onClick = {
                                     showMenu = false
-                                    onExportWebm(engine.renderAnimationFrames(), engine.animationFps)
+                                    onExport(NativeExportRequest(NativeExportRequest.Format.WEBM, frames = engine.renderAnimationFrames(), fps = engine.animationFps))
                                 }
                             )
                             HorizontalDivider()

@@ -13,13 +13,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
@@ -82,7 +80,8 @@ fun AnimationTimelineBar(
     // Each layer row is a separate horizontal scroller, but all of them share
     // one time axis just like the web timeline.
     val timelineHorizontalScroll = rememberScrollState()
-    val timelineLayers = remember(layerRevision) { engine.layers.filter { it.id >= 3 }.toList() }
+    // Match the layer drawer: the topmost layer is shown first.
+    val timelineLayers = remember(layerRevision) { engine.layers.filter { it.id >= 3 }.toList().reversed() }
     // Every cel occupies exactly duration ticks at one shared scale. The 6 dp
     // inter-cel gap is subtracted from its width so the gap completes the tick.
     val durationPixelsPerFrame = with(androidx.compose.ui.platform.LocalDensity.current) { 32.dp.toPx() }
@@ -106,7 +105,6 @@ fun AnimationTimelineBar(
         }
     }
     var fpsMenuExpanded by remember { mutableStateOf(false) }
-    var timelineActionsExpanded by remember { mutableStateOf(false) }
     var showDurationEditor by remember { mutableStateOf(false) }
     var durationInput by remember { mutableStateOf("1") }
     var showClearFrameConfirm by remember { mutableStateOf(false) }
@@ -171,7 +169,7 @@ fun AnimationTimelineBar(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .height(36.dp)
                     .pointerInput(maxTimelineHeight) {
                         detectVerticalDragGestures { change, dragAmount ->
                             change.consume()
@@ -186,10 +184,10 @@ fun AnimationTimelineBar(
             ) {
                 Box(
                     Modifier
-                        .width(60.dp)
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(Color(0xFF9AA0A6))
+                        .width(32.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE6E8EA).copy(alpha = 0.4f))
                 )
             }
 
@@ -287,7 +285,6 @@ fun AnimationTimelineBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Camadas / cels", fontSize = 10.sp, color = Color(0xFFB6BBC0))
-                Spacer(Modifier.weight(1f))
                 IconButton(onClick = {
                     engine.addLayer()
                     layerRevision++
@@ -311,48 +308,40 @@ fun AnimationTimelineBar(
                 }, modifier = Modifier.size(26.dp)) {
                     Icon(Icons.Default.Add, contentDescription = "Adicionar quadro", tint = Color(0xFFFFA83D), modifier = Modifier.size(19.dp))
                 }
-                Box {
-                    TextButton(
-                        onClick = { timelineActionsExpanded = true },
-                        contentPadding = PaddingValues(horizontal = 4.dp),
-                        modifier = Modifier.height(26.dp)
-                    ) {
-                        Text("Mais", fontSize = 10.sp, color = Color(0xFFD0D4D8))
-                        Icon(Icons.Default.ExpandMore, contentDescription = null, tint = Color(0xFFD0D4D8), modifier = Modifier.size(16.dp))
-                    }
-                    DropdownMenu(expanded = timelineActionsExpanded, onDismissRequest = { timelineActionsExpanded = false }) {
-                        DropdownMenuItem(text = { Text("Adicionar grupo") }, leadingIcon = { Icon(Icons.Default.Add, null) }, onClick = {
-                            timelineActionsExpanded = false
-                            val group = engine.createRasterLayerGroup()
-                            engine.moveLayerToRasterGroup(engine.activeLayerIndex, group.id)
-                            groupNameInput = group.name
-                            editingGroupId = group.id
-                            layerRevision++
-                        })
-                        DropdownMenuItem(text = { Text("Duplicar quadro") }, leadingIcon = { Icon(Icons.Default.ContentCopy, null) }, onClick = {
-                            timelineActionsExpanded = false
-                            isPlaying = false
-                            engine.isAnimationPlaying = false
-                            engine.duplicateAnimationFrame()
-                            currentIdx = engine.currentFrameIndex
-                            currentTick = engine.currentAnimationTick
-                            frameCount = engine.animationFrames.size
-                            currentDuration = engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1
-                            onFrameChanged()
-                        })
-                        DropdownMenuItem(text = { Text("Excluir quadro", color = MaterialTheme.colorScheme.error) }, enabled = frameCount > 1, leadingIcon = { Icon(Icons.Default.Delete, null) }, onClick = {
-                            timelineActionsExpanded = false
-                            isPlaying = false
-                            engine.isAnimationPlaying = false
-                            engine.deleteAnimationFrame()
-                            currentIdx = engine.currentFrameIndex
-                            currentTick = engine.currentAnimationTick
-                            frameCount = engine.animationFrames.size
-                            currentDuration = engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1
-                            onFrameChanged()
-                        })
-                    }
+                IconButton(onClick = {
+                    val group = engine.createRasterLayerGroup()
+                    engine.moveLayerToRasterGroup(engine.activeLayerIndex, group.id)
+                    groupNameInput = group.name
+                    editingGroupId = group.id
+                    layerRevision++
+                }, modifier = Modifier.size(26.dp)) {
+                    Icon(Icons.Default.Add, contentDescription = "Adicionar grupo", tint = Color(0xFFD0D4D8), modifier = Modifier.size(16.dp))
                 }
+                IconButton(onClick = {
+                    isPlaying = false
+                    engine.isAnimationPlaying = false
+                    engine.duplicateAnimationFrame()
+                    currentIdx = engine.currentFrameIndex
+                    currentTick = engine.currentAnimationTick
+                    frameCount = engine.animationFrames.size
+                    currentDuration = engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1
+                    onFrameChanged()
+                }, modifier = Modifier.size(26.dp)) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Duplicar quadro", tint = Color(0xFFD0D4D8), modifier = Modifier.size(15.dp))
+                }
+                IconButton(enabled = frameCount > 1, onClick = {
+                    isPlaying = false
+                    engine.isAnimationPlaying = false
+                    engine.deleteAnimationFrame()
+                    currentIdx = engine.currentFrameIndex
+                    currentTick = engine.currentAnimationTick
+                    frameCount = engine.animationFrames.size
+                    currentDuration = engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1
+                    onFrameChanged()
+                }, modifier = Modifier.size(26.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Excluir quadro", tint = if (frameCount > 1) MaterialTheme.colorScheme.error else Color(0xFF777D82), modifier = Modifier.size(15.dp))
+                }
+                Spacer(Modifier.weight(1f))
             }
 
             Slider(
@@ -390,7 +379,7 @@ fun AnimationTimelineBar(
                             Row(
                                 modifier = Modifier.fillMaxWidth().height(24.dp)
                                     .padding(start = (entry.depth * 10).dp)
-                                    .clip(RoundedCornerShape(4.dp)).background(Color(0xFF34383C)),
+                                    .clip(RectangleShape).background(Color(0xFF34383C)),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 TextButton(
@@ -453,7 +442,7 @@ fun AnimationTimelineBar(
                     ) {
                         Column(
                             modifier = Modifier.width(76.dp).fillMaxHeight().padding(start = (entry.depth * 6).dp)
-                                .clip(RoundedCornerShape(4.dp))
+                                .clip(RectangleShape)
                                 .background(if (layer.id == engine.activeLayerIndex) Color(0xFF3A3528) else Color(0xFF303438))
                                 .pointerInput(layer.id, layerRowHeightPixels) {
                                     detectDragGesturesAfterLongPress(
@@ -559,9 +548,9 @@ fun AnimationTimelineBar(
                                 }
                                 Box(
                                 modifier = Modifier.width((cel.duration.coerceAtLeast(1) * 32f - 2f).coerceAtLeast(30f).dp).fillMaxHeight()
-                                        .clip(RoundedCornerShape(5.dp))
+                                        .clip(RectangleShape)
                                         .background(Color(0xFF191B1D))
-                                        .border(if (selected) 2.dp else 1.dp, if (selected) Color(0xFFFFA83D) else Color(0xFF41464A), RoundedCornerShape(5.dp))
+                                        .border(if (selected) 2.dp else 1.dp, if (selected) Color(0xFFFFA83D) else Color(0xFF41464A), RectangleShape)
                                         .combinedClickable(
                                             onClick = { activateCel() },
                                             onLongClick = { celMenuTarget = layer.id to index }
@@ -701,7 +690,7 @@ fun AnimationTimelineBar(
                                             },
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Box(Modifier.width(2.dp).fillMaxHeight(0.62f).background(Color(0xCCFFA83D), RoundedCornerShape(2.dp)))
+                                        Box(Modifier.width(2.dp).fillMaxHeight(0.62f).background(Color(0xCCFFA83D), RectangleShape))
                                     }
                                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                                         Text("Cel ${index + 1}", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = if (selected) Color(0xFFFFBD73) else Color(0xFFCDD1D5), maxLines = 1)

@@ -325,7 +325,7 @@ class EsenhoStorageManager(private val context: Context) {
     fun saveSideSliders(settings: List<SideSliderSetting>): Boolean {
         return try {
             val arr = JSONArray()
-            settings.take(3).forEach { setting ->
+            settings.take(6).forEach { setting ->
                 arr.put(JSONObject().put("paramId", setting.paramId).apply {
                     setting.minVal?.let { put("min", it) }
                     setting.maxVal?.let { put("max", it) }
@@ -353,7 +353,7 @@ class EsenhoStorageManager(private val context: Context) {
                     ))
                 }
             }
-            if (result.isEmpty()) listOf(SideSliderSetting(1), SideSliderSetting(2)) else result.take(3)
+            if (result.isEmpty()) listOf(SideSliderSetting(1), SideSliderSetting(2)) else result.take(6)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load side sliders", e)
             listOf(SideSliderSetting(1), SideSliderSetting(2))

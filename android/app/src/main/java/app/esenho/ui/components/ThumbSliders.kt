@@ -102,7 +102,7 @@ fun ThumbSliders(
         verticalArrangement = Arrangement.spacedBy(5.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        configuredSliders.take(3).forEachIndexed { index, setting ->
+        configuredSliders.take(6).forEachIndexed { index, setting ->
             val template = AVAILABLE_SLIDER_PARAMS.find { it.paramId == setting.paramId } ?: AVAILABLE_SLIDER_PARAMS[0]
             val minVal = setting.minVal ?: template.minVal
             val cfg = template.copy(minVal = minVal, maxVal = (setting.maxVal ?: template.maxVal).coerceAtLeast(minVal + 0.01f))
@@ -113,7 +113,7 @@ fun ThumbSliders(
 
             // Property name and current value stay inside the slider. Tap to change property; drag to adjust.
             val norm = ((currentRawVal - cfg.minVal) / (cfg.maxVal - cfg.minVal)).coerceIn(0f, 1f)
-            val barColor = when (index) {
+            val barColor = when (index % 3) {
                 0 -> Color(0xFF4CAF50) // green
                 1 -> Color(0xFFFFC107) // yellow
                 else -> Color(0xFFE53935) // red
@@ -141,7 +141,7 @@ fun ThumbSliders(
         }
 
         // Add/Manage Slider action button
-        if (configuredSliders.size < 3) {
+        if (configuredSliders.size < 6) {
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
@@ -151,7 +151,7 @@ fun ThumbSliders(
                     .clickable {
                         val next = AVAILABLE_SLIDER_PARAMS.firstOrNull { option -> configuredSliders.none { it.paramId == option.paramId } }
                             ?: AVAILABLE_SLIDER_PARAMS[4] // Smoothing
-                        onConfiguredSlidersChange(configuredSliders.take(3) + SideSliderSetting(next.paramId))
+                        onConfiguredSlidersChange(configuredSliders.take(6) + SideSliderSetting(next.paramId))
                     }
             ) {
                 Box(contentAlignment = Alignment.Center) {
