@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import app.esenho.nativeengine.EsenhoEngine
@@ -116,6 +119,12 @@ fun AnimationTimelineBar(
     var groupNameInput by remember { mutableStateOf("") }
     var groupMenuId by remember { mutableStateOf<String?>(null) }
     var celMenuTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    val collapsedHeight = 132f
+    val maxTimelineHeight = (LocalConfiguration.current.screenHeightDp * 0.62f)
+        .coerceAtMost(560f)
+        .coerceAtLeast(collapsedHeight)
+    val density = LocalDensity.current.density
+    var timelineHeight by remember { mutableFloatStateOf(collapsedHeight) }
 
     LaunchedEffect(timelineLayers) {
         if (timelineLayers.isNotEmpty() && engine.activeLayerIndex !in engine.animationTracks) {
@@ -156,9 +165,34 @@ fun AnimationTimelineBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(132.dp)
+                .height(timelineHeight.dp)
                 .padding(start = 6.dp, end = 6.dp, top = 2.dp, bottom = 3.dp)
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(12.dp)
+                    .pointerInput(maxTimelineHeight) {
+                        detectVerticalDragGestures { change, dragAmount ->
+                            change.consume()
+                            timelineHeight = (timelineHeight - dragAmount / density)
+                                .coerceIn(collapsedHeight, maxTimelineHeight)
+                        }
+                    }
+                    .clickable {
+                        timelineHeight = if (timelineHeight > collapsedHeight + 1f) collapsedHeight else maxTimelineHeight
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    Modifier
+                        .width(34.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Color(0xFF858B90))
+                )
+            }
+
             // Playback controls stay separate from layer and cel editing actions.
             Row(
                 modifier = Modifier.fillMaxWidth().height(30.dp),

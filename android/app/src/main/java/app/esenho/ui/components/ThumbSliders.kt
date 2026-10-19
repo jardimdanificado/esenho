@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,6 +62,20 @@ val AVAILABLE_SLIDER_PARAMS = listOf(
     SliderParamConfig(30, "Variação de Cor (Jitter)", "JitCor", 0f, 100f, "%")
 )
 
+private fun readSliderParameter(engine: EsenhoEngine, paramId: Int): Float = when (paramId) {
+    1 -> engine.brushSize
+    2 -> engine.brushOpacity * 100f
+    else -> engine.getPresetParam(paramId).toFloat()
+}
+
+private fun writeSliderParameter(engine: EsenhoEngine, paramId: Int, value: Float) {
+    when (paramId) {
+        1 -> engine.brushSize = value
+        2 -> engine.brushOpacity = value / 100f
+        else -> engine.setPresetParam(paramId, value.toInt())
+    }
+}
+
 /**
  * Vertical translucent thumb sliders placed at the screen edge.
  * Fully configurable: users can tap the header badge of any slider to assign
@@ -78,6 +93,7 @@ fun ThumbSliders(
     var editingParamId by remember { mutableIntStateOf(1) }
     var rangeMinText by remember { mutableStateOf("1") }
     var rangeMaxText by remember { mutableStateOf("300") }
+    var currentValueText by remember { mutableStateOf("") }
     var refreshTrigger by remember { mutableIntStateOf(0) }
 
     Column(
@@ -93,13 +109,7 @@ fun ThumbSliders(
             val cfg = template.copy(minVal = minVal, maxVal = (setting.maxVal ?: template.maxVal).coerceAtLeast(minVal + 0.01f))
 
             val currentRawVal = remember(cfg.paramId, cfg.minVal, cfg.maxVal, engine.selectedPreset, engine.brushSize, engine.brushOpacity, refreshTrigger) {
-                if (cfg.paramId == 1) {
-                    engine.brushSize.coerceIn(cfg.minVal, cfg.maxVal)
-                } else if (cfg.paramId == 2) {
-                    (engine.brushOpacity * 100f).coerceIn(cfg.minVal, cfg.maxVal)
-                } else {
-                    engine.getPresetParam(cfg.paramId).toFloat().coerceIn(cfg.minVal, cfg.maxVal)
-                }
+                readSliderParameter(engine, cfg.paramId).coerceIn(cfg.minVal, cfg.maxVal)
             }
 
             // Property name and current value stay inside the slider. Tap to change property; drag to adjust.
@@ -119,6 +129,7 @@ fun ThumbSliders(
                     editingParamId = setting.paramId
                     rangeMinText = cfg.minVal.toString().removeSuffix(".0")
                     rangeMaxText = cfg.maxVal.toString().removeSuffix(".0")
+                    currentValueText = readSliderParameter(engine, cfg.paramId).toString().removeSuffix(".0")
                 },
                 onValueChange = { newNorm ->
                     val newVal = cfg.minVal + newNorm * (cfg.maxVal - cfg.minVal)
@@ -209,6 +220,14 @@ fun ThumbSliders(
                             label = { Text("Máximo") }, singleLine = true, modifier = Modifier.weight(1f)
                         )
                     }
+                    OutlinedTextField(
+                        value = currentValueText,
+                        onValueChange = { currentValueText = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' } },
+                        label = { Text("Valor atual (${selectedTemplate.unit.ifBlank { "sem unidade" }})") },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Text("Unidade: ${selectedTemplate.unit.ifBlank { "sem unidade" }}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -230,6 +249,7 @@ fun ThumbSliders(
                                         editingParamId = opt.paramId
                                         rangeMinText = opt.minVal.toString().removeSuffix(".0")
                                         rangeMaxText = opt.maxVal.toString().removeSuffix(".0")
+                                        currentValueText = readSliderParameter(engine, opt.paramId).toString().removeSuffix(".0")
                                     }
                             ) {
                                 Row(
@@ -277,13 +297,16 @@ fun ThumbSliders(
                         ) { Text("Remover", fontSize = 12.sp) }
                         val minValue = rangeMinText.replace(',', '.').toFloatOrNull()
                         val maxValue = rangeMaxText.replace(',', '.').toFloatOrNull()
+                        val currentValue = currentValueText.replace(',', '.').toFloatOrNull()
                         Button(
-                            enabled = minValue != null && maxValue != null && maxValue > minValue,
+                            enabled = minValue != null && maxValue != null && currentValue != null && maxValue > minValue,
                             onClick = {
-                                if (minValue != null && maxValue != null && maxValue > minValue) {
+                                if (minValue != null && maxValue != null && currentValue != null && maxValue > minValue) {
                                     val mutable = configuredSliders.toMutableList()
                                     if (editIdx < mutable.size) mutable[editIdx] = SideSliderSetting(editingParamId, minValue, maxValue)
                                     onConfiguredSlidersChange(mutable)
+                                    writeSliderParameter(engine, editingParamId, currentValue.coerceIn(minValue, maxValue))
+                                    refreshTrigger++
                                     editingSliderIndex = null
                                 }
                             }
