@@ -429,6 +429,16 @@ fun EsenhoMainScreen(
                                 text = { Text(if (engine.guideSnapEnabled) "Desativar aderência" else "Ativar aderência") },
                                 onClick = { engine.guideSnapEnabled = !engine.guideSnapEnabled; showGuidesMenu = false; canvasViewRef?.invalidate() }
                             )
+                            DropdownMenuItem(
+                                text = { Text("Aderir a todas as guias visíveis") },
+                                leadingIcon = { Icon(if (engine.snapToAllVisibleGuides) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank, null) },
+                                onClick = {
+                                    engine.snapToAllVisibleGuides = !engine.snapToAllVisibleGuides
+                                    engine.guideSnapEnabled = true
+                                    showGuidesMenu = false
+                                    canvasViewRef?.invalidate()
+                                }
+                            )
                             HorizontalDivider()
                             listOf(
                                 DrawingGuideType.LINE to "Criar linha",
@@ -444,9 +454,40 @@ fun EsenhoMainScreen(
                             if (engine.canvasGuides.isNotEmpty()) {
                                 HorizontalDivider()
                                 engine.canvasGuides.indices.forEach { index ->
+                                    val isGuideSelected = engine.snapToAllVisibleGuides || index in engine.snapGuideIndices
+                                    val guideTypeName = when (engine.canvasGuides[index].type) {
+                                        DrawingGuideType.LINE -> "Linha"
+                                        DrawingGuideType.CURVE -> "Curva"
+                                        DrawingGuideType.ELLIPSE -> "Elipse"
+                                        DrawingGuideType.SPHERE -> "Esfera"
+                                    }
                                     DropdownMenuItem(
-                                        text = { Text("Aderir à guia ${index + 1}${if (index == engine.activeCanvasGuideIndex) " ✓" else ""}") },
-                                        onClick = { engine.activeCanvasGuideIndex = index; engine.guideSnapEnabled = true; showGuidesMenu = false; canvasViewRef?.invalidate() }
+                                        text = { Text("Guia ${index + 1} · $guideTypeName") },
+                                        leadingIcon = {
+                                            Icon(
+                                                if (isGuideSelected) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+                                                contentDescription = if (isGuideSelected) "Aderência ativada" else "Aderência desativada"
+                                            )
+                                        },
+                                        trailingIcon = {
+                                            IconButton(onClick = {
+                                                engine.removeCanvasGuide(index)
+                                                canvasViewRef?.invalidate()
+                                            }, modifier = Modifier.size(32.dp)) {
+                                                Icon(Icons.Default.DeleteOutline, contentDescription = "Apagar guia", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                                            }
+                                        },
+                                        onClick = {
+                                            if (engine.snapToAllVisibleGuides) {
+                                                engine.snapToAllVisibleGuides = false
+                                                engine.snapGuideIndices.clear()
+                                                engine.snapGuideIndices.addAll(engine.canvasGuides.indices)
+                                            }
+                                            if (isGuideSelected) engine.snapGuideIndices.remove(index) else engine.snapGuideIndices.add(index)
+                                            engine.activeCanvasGuideIndex = index
+                                            engine.guideSnapEnabled = true
+                                            canvasViewRef?.invalidate()
+                                        }
                                     )
                                 }
                             }
@@ -571,6 +612,8 @@ fun EsenhoMainScreen(
                                 onClick = {
                                     showMenu = false
                                     engine.canvasGuides.clear()
+                                    engine.snapGuideIndices.clear()
+                                    engine.snapToAllVisibleGuides = false
                                     engine.activeCanvasGuideIndex = -1
                                     canvasViewRef?.invalidate()
                                 }
@@ -857,19 +900,27 @@ fun EsenhoMainScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+            if (showLayerDrawer) {
+                LayerDrawer(
+                    engine = engine,
+                    onLayersUpdated = { refreshState() },
+                    onDismiss = { showLayerDrawer = false },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             // 4. Floating Action & Toolbars (Transform HUD or Main Tools)
             if (isTransformActive) {
                 Surface(
                     modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .shadow(16.dp, RoundedCornerShape(24.dp)),
+                        .fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(24.dp),
-                    tonalElevation = 6.dp
+                    shape = androidx.compose.ui.graphics.RectangleShape,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1511,14 +1562,6 @@ fun EsenhoMainScreen(
                     refreshState()
                 },
                 onDismiss = { showColorStudio = false }
-            )
-        }
-
-        if (showLayerDrawer) {
-            LayerDrawer(
-                engine = engine,
-                onLayersUpdated = { refreshState() },
-                onDismiss = { showLayerDrawer = false }
             )
         }
 

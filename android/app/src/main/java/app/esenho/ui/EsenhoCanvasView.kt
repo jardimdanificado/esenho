@@ -305,6 +305,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
             if (guide.paths.isNotEmpty() && guide.paths.any { it.size >= 2 }) {
                 eng.canvasGuides += guide
                 eng.activeCanvasGuideIndex = eng.canvasGuides.lastIndex
+                if (!eng.snapToAllVisibleGuides) eng.snapGuideIndices += eng.activeCanvasGuideIndex
             }
         }
         creatingGuideType = null
@@ -316,23 +317,29 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
     private fun constrainToGuide(x: Float, y: Float): Pair<Float, Float> {
         val eng = engine ?: return x to y
-        if (!eng.guideSnapEnabled || eng.guideCreationType != null || eng.currentTool !in setOf(ToolMode.BRUSH, ToolMode.ERASER, ToolMode.SMUDGE, ToolMode.BLEND)) return x to y
-        val guide = eng.canvasGuides.getOrNull(eng.activeCanvasGuideIndex) ?: return x to y
+        val tool = eng.currentTool
+        if (!eng.guideSnapEnabled || eng.guideCreationType != null ||
+            (tool != ToolMode.BRUSH && tool != ToolMode.ERASER && tool != ToolMode.SMUDGE && tool != ToolMode.BLEND)) return x to y
+        val guides = if (eng.snapToAllVisibleGuides) eng.canvasGuides.toList()
+            else eng.snapGuideIndices.mapNotNull { eng.canvasGuides.getOrNull(it) }
+        if (guides.isEmpty()) return x to y
         var bestDistance = Float.POSITIVE_INFINITY
         var bestX = x
         var bestY = y
-        guide.paths.forEach { path ->
-            for (i in 0 until path.lastIndex) {
-                val a = path[i]
-                val b = path[i + 1]
-                val dx = b.x - a.x
-                val dy = b.y - a.y
-                val length = dx * dx + dy * dy
-                val t = if (length <= 0f) 0f else (((x - a.x) * dx + (y - a.y) * dy) / length).coerceIn(0f, 1f)
-                val px = a.x + t * dx
-                val py = a.y + t * dy
-                val distance = (x - px) * (x - px) + (y - py) * (y - py)
-                if (distance < bestDistance) { bestDistance = distance; bestX = px; bestY = py }
+        guides.forEach { guide ->
+            guide.paths.forEach { path ->
+                for (i in 0 until path.lastIndex) {
+                    val a = path[i]
+                    val b = path[i + 1]
+                    val dx = b.x - a.x
+                    val dy = b.y - a.y
+                    val length = dx * dx + dy * dy
+                    val t = if (length <= 0f) 0f else (((x - a.x) * dx + (y - a.y) * dy) / length).coerceIn(0f, 1f)
+                    val px = a.x + t * dx
+                    val py = a.y + t * dy
+                    val distance = (x - px) * (x - px) + (y - py) * (y - py)
+                    if (distance < bestDistance) { bestDistance = distance; bestX = px; bestY = py }
+                }
             }
         }
         return bestX to bestY

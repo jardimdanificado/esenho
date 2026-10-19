@@ -827,9 +827,30 @@ class EsenhoEngine(
     // The pixel art overlay follows the actual document pixel boundaries.
     var pixelArtGridStep: Int = 1
     var guideSnapEnabled: Boolean = true
+    var snapToAllVisibleGuides: Boolean = false
+    val snapGuideIndices = mutableSetOf<Int>()
     var guideCreationType: DrawingGuideType? = null
     val canvasGuides = mutableListOf<CanvasGuide>()
     var activeCanvasGuideIndex: Int = -1
+
+    fun removeCanvasGuide(index: Int) {
+        if (index !in canvasGuides.indices) return
+        canvasGuides.removeAt(index)
+        val adjusted = snapGuideIndices.mapNotNull { selected ->
+            when {
+                selected == index -> null
+                selected > index -> selected - 1
+                else -> selected
+            }
+        }
+        snapGuideIndices.clear()
+        snapGuideIndices.addAll(adjusted)
+        activeCanvasGuideIndex = when {
+            activeCanvasGuideIndex == index -> canvasGuides.lastIndex
+            activeCanvasGuideIndex > index -> activeCanvasGuideIndex - 1
+            else -> activeCanvasGuideIndex
+        }
+    }
 
     val lassoPoints = mutableListOf<Pair<Int, Int>>()
     private var selectionBrushScratchLayer = -1
@@ -1110,6 +1131,8 @@ class EsenhoEngine(
         rasterLayerGroups.clear()
         rasterGroupOrder.clear()
         canvasGuides.clear()
+        snapGuideIndices.clear()
+        snapToAllVisibleGuides = false
         activeCanvasGuideIndex = -1
         nextRasterGroupId = 1
         currentAnimationTick = 0

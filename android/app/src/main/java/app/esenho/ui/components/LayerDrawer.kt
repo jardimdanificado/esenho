@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallMerge
@@ -22,10 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import app.esenho.nativeengine.EsenhoEngine
 import app.esenho.nativeengine.LayerBlendMode
 import app.esenho.nativeengine.LayerModel
@@ -35,7 +34,8 @@ import app.esenho.nativeengine.LayerModel
 fun LayerDrawer(
     engine: EsenhoEngine,
     onLayersUpdated: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var layersList by remember { mutableStateOf(engine.layers.toList().reversed()) }
     var activeLayerId by remember { mutableIntStateOf(engine.activeLayerIndex) }
@@ -46,7 +46,8 @@ fun LayerDrawer(
     var brushAssetName by remember { mutableStateOf("") }
     val context = LocalContext.current
     val activeLayer = layersList.find { it.id == activeLayerId }
-    val activeCelBitmap = engine.animationTracks[activeLayerId]?.frames?.getOrNull(engine.animationTracks[activeLayerId]?.activeCelIndex ?: -1)?.bitmap
+    val maxDockHeight = (LocalConfiguration.current.screenHeightDp * 0.56f).coerceAtLeast(240f)
+    var dockHeight by remember { mutableFloatStateOf(minOf(390f, maxDockHeight)) }
     var showResizeDialog by remember(activeLayerId) { mutableStateOf(false) }
     var resizeWidth by remember(engine.width, engine.height) {
         mutableStateOf(engine.width.toString())
@@ -62,22 +63,31 @@ fun LayerDrawer(
         onLayersUpdated()
     }
 
-    Popup(
-        alignment = Alignment.BottomCenter,
-        offset = IntOffset(0, -with(LocalDensity.current) { 64.dp.roundToPx() }),
-        onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = false)
+    Surface(
+        modifier = modifier.fillMaxWidth().height(dockHeight.dp),
+        shape = RectangleShape,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
-        Surface(
-            modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().heightIn(max = 440.dp),
-            shape = RectangleShape,
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp
-        ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp)
-                .padding(horizontal = 14.dp).padding(bottom = 16.dp)
-        ) {
+        Column(Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(24.dp)
+                    .pointerInput(maxDockHeight) {
+                        detectVerticalDragGestures { change, dragAmount ->
+                            change.consume()
+                            dockHeight = (dockHeight - dragAmount / density).coerceIn(28f, maxDockHeight)
+                        }
+                    }
+                    .clickable { dockHeight = if (dockHeight <= 36f) minOf(390f, maxDockHeight) else 28f },
+                contentAlignment = Alignment.Center
+            ) {
+                Box(Modifier.width(32.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)))
+            }
+            if (dockHeight > 40f) Column(
+                modifier = Modifier.fillMaxWidth().weight(1f)
+                    .padding(horizontal = 14.dp).padding(bottom = 8.dp)
+            ) {
             // Header with Layer Action buttons
             Row(
                 modifier = Modifier
@@ -443,7 +453,7 @@ fun LayerDrawer(
                 }
             }
         }
-        }
+    }
     }
 
     if (showBrushAssetDialog) {

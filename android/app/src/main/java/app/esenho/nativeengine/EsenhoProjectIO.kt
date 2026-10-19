@@ -49,6 +49,8 @@ object EsenhoProjectIO {
         val rasterGroups: List<GroupSnapshot>,
         val rasterGroupOrder: List<String>,
         val guides: List<GuideSnapshot>,
+        val snapAllVisibleGuides: Boolean,
+        val snapGuideIndices: List<Int>,
         val fps: Int,
         val currentFrame: Int,
         val currentTick: Int,
@@ -124,6 +126,8 @@ object EsenhoProjectIO {
                 groups,
                 engine.rasterGroupOrder.toList(),
                 engine.canvasGuides.map { GuideSnapshot(it.type, it.paths) },
+                engine.snapToAllVisibleGuides,
+                engine.snapGuideIndices.toList(),
                 engine.animationFps,
                 engine.currentFrameIndex,
                 engine.currentAnimationTick,
@@ -200,7 +204,7 @@ object EsenhoProjectIO {
             }
             guidesJson.put(org.json.JSONObject().put("type", guide.type.name).put("paths", paths))
         }
-        val metadata = org.json.JSONObject().put("format", 6).put("width", snapshot.width).put("height", snapshot.height)
+        val metadata = org.json.JSONObject().put("format", 7).put("width", snapshot.width).put("height", snapshot.height)
             .put("active", snapshot.active).put("layers", layersJson).put("fps", snapshot.fps)
             .put("currentFrame", snapshot.currentFrame).put("currentTick", snapshot.currentTick)
             .put("loop", snapshot.loop).put("onionEnabled", snapshot.onionEnabled)
@@ -209,6 +213,8 @@ object EsenhoProjectIO {
             .put("onionNextTint", snapshot.onionNextTint).put("animationTracks", tracksJson)
             .put("rasterGroups", groupsJson).put("rasterGroupOrder", org.json.JSONArray(snapshot.rasterGroupOrder))
             .put("guides", guidesJson)
+            .put("snapAllVisibleGuides", snapshot.snapAllVisibleGuides)
+            .put("snapGuideIndices", org.json.JSONArray(snapshot.snapGuideIndices))
             .put("selectionOp", snapshot.selectionOp.name)
             .put("wandTolerance", snapshot.wandTolerance)
             .put("wandContiguous", snapshot.wandContiguous)
@@ -254,7 +260,7 @@ object EsenhoProjectIO {
         val meta = entries["project.json"] ?: error("Arquivo de projeto inválido")
         val json = org.json.JSONObject(meta.toString(Charsets.UTF_8))
         val format = json.optInt("format", 1)
-        require(format in 1..6) { "Versão de projeto não suportada" }
+        require(format in 1..7) { "Versão de projeto não suportada" }
         val width = json.getInt("width").coerceIn(1, 8192)
         val height = json.getInt("height").coerceIn(1, 8192)
         val savedLayers = json.getJSONArray("layers")
@@ -296,6 +302,17 @@ object EsenhoProjectIO {
                 }
             }
             engine.activeCanvasGuideIndex = engine.canvasGuides.lastIndex
+            engine.snapToAllVisibleGuides = format >= 7 && json.optBoolean("snapAllVisibleGuides", false)
+            engine.snapGuideIndices.clear()
+            if (format >= 7) {
+                val selected = json.optJSONArray("snapGuideIndices") ?: org.json.JSONArray()
+                repeat(selected.length()) { selectedIndex ->
+                    val guideIndex = selected.optInt(selectedIndex, -1)
+                    if (guideIndex in engine.canvasGuides.indices) engine.snapGuideIndices += guideIndex
+                }
+            } else if (engine.activeCanvasGuideIndex >= 0) {
+                engine.snapGuideIndices += engine.activeCanvasGuideIndex
+            }
         }
         engine.layerNames.clear()
         engine.transformInterpolation = runCatching {
