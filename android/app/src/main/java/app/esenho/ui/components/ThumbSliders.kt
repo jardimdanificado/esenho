@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import app.esenho.nativeengine.EsenhoEngine
+import app.esenho.nativeengine.DYNAMIC_SETTING_KEYS
 import app.esenho.nativeengine.EsenhoStorageManager.SideSliderSetting
 
 data class SliderParamConfig(
@@ -39,7 +40,7 @@ data class SliderParamConfig(
     val unit: String
 )
 
-val AVAILABLE_SLIDER_PARAMS = listOf(
+private val STANDARD_SLIDER_PARAMS = listOf(
     SliderParamConfig(1, "Tamanho (Diâmetro)", "Tam", 1f, 300f, "px"),
     SliderParamConfig(2, "Opacidade", "Opac", 1f, 100f, "%"),
     SliderParamConfig(4, "Fluxo (Flow)", "Flux", 1f, 100f, "%"),
@@ -62,16 +63,53 @@ val AVAILABLE_SLIDER_PARAMS = listOf(
     SliderParamConfig(30, "Variação de Cor (Jitter)", "JitCor", 0f, 100f, "%")
 )
 
-private fun readSliderParameter(engine: EsenhoEngine, paramId: Int): Float = when (paramId) {
-    1 -> engine.brushSize
-    2 -> engine.brushOpacity * 100f
+private fun dynamicBaseRange(key: String): ClosedFloatingPointRange<Float> = when (key) {
+    "radius_log", "smudge_radius_log", "smudge_length_log" -> -5f..8f
+    "ellipse_angle" -> -360f..360f
+    "color_h" -> 0f..1f
+    "change_color_h" -> -1f..1f
+    "dabs_per_basic_radius", "dabs_per_actual_radius", "dabs_per_second", "smudge_length", "smudge_bucket", "posterize_num" -> -10f..20f
+    "speed_fine_slowness", "speed_coarse_slowness", "offset_by_speed_slowness", "lazy_tracking", "stroke_duration_log", "stroke_holdtime" -> -2f..2f
+    "color_s", "color_v", "hardness", "opaque", "opaque_multiply", "opaque_linearize", "radius_by_random", "smudge", "smudge_transparency", "stroke_threshold", "ellipse_ratio" -> -1f..2f
+    else -> -2f..2f
+}
+
+private val DYNAMIC_SLIDER_PARAMS = DYNAMIC_SETTING_KEYS.mapIndexed { index, key ->
+    val range = dynamicBaseRange(key)
+    SliderParamConfig(-1000 - index, "Dinâmico: ${key.replace('_', ' ')}", "D${key.replace("_", "").take(4)}", range.start, range.endInclusive, "")
+}
+private const val PRESSURE_MIN_PARAM = -2001
+private const val PRESSURE_MAX_PARAM = -2002
+private val PRESSURE_SLIDER_PARAMS = listOf(
+    SliderParamConfig(PRESSURE_MIN_PARAM, "Pressão mínima", "PMin", 0f, 99f, "%"),
+    SliderParamConfig(PRESSURE_MAX_PARAM, "Pressão máxima", "PMax", 1f, 100f, "%")
+)
+val AVAILABLE_SLIDER_PARAMS = STANDARD_SLIDER_PARAMS + DYNAMIC_SLIDER_PARAMS + PRESSURE_SLIDER_PARAMS
+
+private fun dynamicSettingIndex(paramId: Int): Int? = (-1000 - paramId).takeIf { paramId in -1047..-1000 }
+
+private fun readSliderParameter(engine: EsenhoEngine, paramId: Int): Float = when {
+    dynamicSettingIndex(paramId) != null -> engine.dynamicBaseValue(dynamicSettingIndex(paramId)!!)
+    paramId == PRESSURE_MIN_PARAM -> engine.selectedPreset?.dynamicConfig?.optInt("pressure_min", 0)?.toFloat() ?: 0f
+    paramId == PRESSURE_MAX_PARAM -> engine.selectedPreset?.dynamicConfig?.optInt("pressure_max", 100)?.toFloat() ?: 100f
+    paramId == 1 -> engine.brushSize
+    paramId == 2 -> engine.brushOpacity * 100f
     else -> engine.getPresetParam(paramId).toFloat()
 }
 
 private fun writeSliderParameter(engine: EsenhoEngine, paramId: Int, value: Float) {
-    when (paramId) {
-        1 -> engine.brushSize = value
-        2 -> engine.brushOpacity = value / 100f
+    val dynamicIndex = dynamicSettingIndex(paramId)
+    when {
+        dynamicIndex != null -> engine.setDynamicBase(dynamicIndex, value)
+        paramId == PRESSURE_MIN_PARAM || paramId == PRESSURE_MAX_PARAM -> {
+            val config = engine.selectedPreset?.dynamicConfig
+            val curve = config?.optString("pressure_curve", "linear") ?: "linear"
+            val min = if (paramId == PRESSURE_MIN_PARAM) value.toInt() else config?.optInt("pressure_min", 0) ?: 0
+            val max = if (paramId == PRESSURE_MAX_PARAM) value.toInt() else config?.optInt("pressure_max", 100) ?: 100
+            engine.setPressureResponse(curve, min, max)
+        }
+        paramId == 1 -> engine.brushSize = value
+        paramId == 2 -> engine.brushOpacity = value / 100f
         else -> engine.setPresetParam(paramId, value.toInt())
     }
 }
@@ -131,9 +169,7 @@ fun ThumbSliders(
                 },
                 onValueChange = { newNorm ->
                     val newVal = cfg.minVal + newNorm * (cfg.maxVal - cfg.minVal)
-                    if (cfg.paramId == 1) engine.brushSize = newVal
-                    else if (cfg.paramId == 2) engine.brushOpacity = newVal / 100f
-                    else engine.setPresetParam(cfg.paramId, newVal.toInt())
+                    writeSliderParameter(engine, cfg.paramId, newVal)
                     refreshTrigger++
                 },
                 onActiveChange = { active -> if (cfg.paramId == 1) onSizeChangeActive(active) }

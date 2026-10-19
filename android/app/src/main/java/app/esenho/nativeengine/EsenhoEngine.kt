@@ -1515,7 +1515,13 @@ class EsenhoEngine(
         val preset = selectedPreset ?: return
         val key = DYNAMIC_SETTING_KEYS.getOrNull(setting) ?: return
         preset.dynamicConfig.put("dyn_$key", value)
-        EsenhoNativeBridge.nativeDynBrushSetBase(setting, if (setting == 0) value * preset.opacity.coerceIn(0, 100) / 100f else value)
+        val wasDynamic = preset.engine.equals("dynamic", true) || preset.engine.equals("mypaint", true) || preset.dynamicConfig.optBoolean("dyn_continuous", false)
+        if (!wasDynamic) {
+            preset.engine = "dynamic"
+            syncDynamicBrush(preset)
+        } else {
+            EsenhoNativeBridge.nativeDynBrushSetBase(setting, if (setting == 0) value * preset.opacity.coerceIn(0, 100) / 100f else value)
+        }
         if (preset.isCustom) storageManager.saveCustomPresets(presetCatalog.filter { it.isCustom })
     }
 
