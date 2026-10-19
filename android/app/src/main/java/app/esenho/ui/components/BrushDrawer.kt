@@ -942,6 +942,7 @@ fun PresetTuner(
                     }
 
                     PresetTunerTab.DYNAMICS -> {
+                        item { DynamicPressureControls(preset, engine, onBrushUpdated) }
                         item {
                             TunerSliderCard(
                                 label = "Suavização / Estabilizador",
@@ -1031,7 +1032,7 @@ fun PresetTuner(
                                 onValueChange = { updateParam(26, it.toInt()) }
                             )
                         }
-                        if (preset.engine.equals("dynamic", true) || preset.engine.equals("mypaint", true)) {
+                        if (preset.engine.equals("dynamic", true) || preset.engine.equals("mypaint", true) || preset.dynamicConfig.optBoolean("dyn_continuous", false)) {
                             item { DynamicCurveEditor(preset, engine, onBrushUpdated) }
                         }
                     }
@@ -1313,36 +1314,46 @@ private fun DynamicCurveEditor(preset: BrushPresetModel, engine: EsenhoEngine, o
     val sensors = listOf("Pressão", "Velocidade fina", "Velocidade", "Aleatório", "Distância do traço", "Direção", "Inclinação", "Ascensão", "Entrada customizada", "Ângulo de ataque", "Inclinação X", "Inclinação Y", "Mapa X", "Mapa Y", "Zoom", "Duração do traço")
     var setting by remember(preset.id) { mutableIntStateOf(0) }
     var input by remember(preset.id) { mutableIntStateOf(0) }
+    val settingName = DYNAMIC_SETTING_KEYS[setting]
+    val (baseMin, baseMax, curveMin, curveMax) = dynamicRanges(settingName)
     val points = remember(preset.id, setting, input) {
         val curves = preset.dynamicConfig.optJSONObject("dyn_curves")
-        val arr = curves?.optJSONObject(DYNAMIC_SETTING_KEYS[setting])?.optJSONArray(input.toString())
-        if (arr == null) mutableStateListOf(0f to 0f, 1f to 1f) else mutableStateListOf<Pair<Float, Float>>().also { out ->
+        val name = DYNAMIC_SETTING_KEYS[setting]
+        val inputs = curves?.optJSONObject(name) ?: curves?.optJSONObject("dyn_$name") ?: curves?.optJSONObject(setting.toString())
+        val arr = inputs?.optJSONArray(input.toString())
+        if (arr == null) mutableStateListOf(sensorRange(input).start to 0f, sensorRange(input).endInclusive to 0f) else mutableStateListOf<Pair<Float, Float>>().also { out ->
             for (i in 0 until arr.length()) arr.optJSONArray(i)?.let { out.add(it.optDouble(0).toFloat() to it.optDouble(1).toFloat()) }
-            if (out.size < 2) { out.clear(); out.add(0f to 0f); out.add(1f to 1f) }
+            if (out.size < 2) { out.clear(); out.add(sensorRange(input).start to 0f); out.add(sensorRange(input).endInclusive to 0f) }
         }
     }
     val curveColor = MaterialTheme.colorScheme.primary
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Text("Curva de resposta", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(6.dp))
-        CompactOptionDropdown("Parâmetro", DYNAMIC_SETTING_KEYS[setting], DYNAMIC_SETTING_KEYS.map { it to it.replace('_', ' ').replaceFirstChar(Char::uppercase) }) { key -> setting = DYNAMIC_SETTING_KEYS.indexOf(key).coerceAtLeast(0) }
+        CompactOptionDropdown("Parâmetro", settingName, DYNAMIC_SETTING_KEYS.map { it to it.replace('_', ' ').replaceFirstChar(Char::uppercase) }) { key -> setting = DYNAMIC_SETTING_KEYS.indexOf(key).coerceAtLeast(0) }
+        var baseValue by remember(preset.id, setting) { mutableFloatStateOf(engine.dynamicBaseValue(setting)) }
+        DynamicBaseSlider(baseValue, baseMin..baseMax, onValueChange = { baseValue = it; engine.setDynamicBase(setting, it); onBrushUpdated() })
         CompactOptionDropdown("Entrada", input.toString(), sensors.mapIndexed { i, label -> i.toString() to label }) { key -> input = key.toIntOrNull() ?: 0 }
         var dragging by remember { mutableIntStateOf(-1) }
         Canvas(Modifier.fillMaxWidth().height(132.dp).padding(8.dp).pointerInput(setting, input, points.size) {
             detectDragGestures(onDragStart = { pos ->
                 val nearest = points.indices.minByOrNull { i ->
-                    val px = points[i].first * size.width
-                    val py = (1f - points[i].second) * size.height
+                    val px = (points[i].first - sensorRange(input).start) / (sensorRange(input).endInclusive - sensorRange(input).start) * size.width
+                    val py = (1f - (points[i].second - curveMin) / (curveMax - curveMin)) * size.height
                     (px - pos.x) * (px - pos.x) + (py - pos.y) * (py - pos.y)
                 } ?: 0
-                if (nearest in 0 until points.size && (pos.x - points[nearest].first * size.width).let { it * it } + (pos.y - (1f - points[nearest].second) * size.height).let { it * it } < 32f * 32f) dragging = nearest
+                if (nearest in 0 until points.size && (pos.x - (points[nearest].first - sensorRange(input).start) / (sensorRange(input).endInclusive - sensorRange(input).start) * size.width).let { it * it } + (pos.y - (1f - (points[nearest].second - curveMin) / (curveMax - curveMin)) * size.height).let { it * it } < 32f * 32f) dragging = nearest
             }, onDrag = { change, _ ->
                 change.consume()
                 val idx = dragging
                 if (idx in points.indices) {
-                    val x = (change.position.x / size.width).coerceIn(0f, 1f)
-                    val y = (1f - change.position.y / size.height).coerceIn(0f, 1f)
-                    val boundedX = if (idx == 0) 0f else if (idx == points.lastIndex) 1f else x.coerceIn(points[idx - 1].first + .02f, points[idx + 1].first - .02f)
+                    val xr = sensorRange(input)
+                    val x = xr.start + (change.position.x / size.width).coerceIn(0f, 1f) * (xr.endInclusive - xr.start)
+                    val y = curveMin + (1f - change.position.y / size.height).coerceIn(0f, 1f) * (curveMax - curveMin)
+                    val gap = (xr.endInclusive - xr.start) * .01f
+                    val left = if (idx == 0) xr.start else points[idx - 1].first + gap
+                    val right = if (idx == points.lastIndex) xr.endInclusive else points[idx + 1].first - gap
+                    val boundedX = x.coerceIn(left, right)
                     points[idx] = boundedX to y
                     engine.setDynamicCurve(setting, input, points.toList()); onBrushUpdated()
                 }
@@ -1356,9 +1367,12 @@ private fun DynamicCurveEditor(preset: BrushPresetModel, engine: EsenhoEngine, o
             }
             for (i in 0 until points.lastIndex) {
                 val a = points[i]; val b = points[i + 1]
-                drawLine(curveColor, Offset(pad + a.first * w, pad + (1f - a.second) * h), Offset(pad + b.first * w, pad + (1f - b.second) * h), 3.dp.toPx(), cap = StrokeCap.Round)
+                val xr = sensorRange(input)
+                val ax = (a.first - xr.start) / (xr.endInclusive - xr.start); val bx = (b.first - xr.start) / (xr.endInclusive - xr.start)
+                val ay = (a.second - curveMin) / (curveMax - curveMin); val by = (b.second - curveMin) / (curveMax - curveMin)
+                drawLine(curveColor, Offset(pad + ax * w, pad + (1f - ay) * h), Offset(pad + bx * w, pad + (1f - by) * h), 3.dp.toPx(), cap = StrokeCap.Round)
             }
-            points.forEach { (x, y) -> drawCircle(curveColor, 6.dp.toPx(), Offset(pad + x * w, pad + (1f - y) * h)) }
+            points.forEach { (x, y) -> val xr = sensorRange(input); drawCircle(curveColor, 6.dp.toPx(), Offset(pad + (x - xr.start) / (xr.endInclusive - xr.start) * w, pad + (1f - (y - curveMin) / (curveMax - curveMin)) * h)) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = {
@@ -1369,8 +1383,69 @@ private fun DynamicCurveEditor(preset: BrushPresetModel, engine: EsenhoEngine, o
                     engine.setDynamicCurve(setting, input, points.toList()); onBrushUpdated()
                 }
             }) { Text("Adicionar ponto") }
-            TextButton(onClick = { engine.setDynamicCurve(setting, input, null); points.clear(); points.add(0f to 0f); points.add(1f to 1f); onBrushUpdated() }) { Text("Curva linear") }
+            TextButton(onClick = { engine.setDynamicCurve(setting, input, null); points.clear(); points.add(sensorRange(input).start to 0f); points.add(sensorRange(input).endInclusive to 0f); onBrushUpdated() }) { Text("Sem ajuste") }
         }
+    }
+}
+
+@Composable
+private fun DynamicBaseSlider(value: Float, range: ClosedFloatingPointRange<Float>, onValueChange: (Float) -> Unit) {
+    var local by remember(value) { mutableFloatStateOf(value) }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .35f))) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Valor base", fontSize = 13.sp)
+                Text("%.2f".format(local), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+            Slider(value = local.coerceIn(range.start, range.endInclusive), valueRange = range, onValueChange = { local = it; onValueChange(it) })
+        }
+    }
+}
+
+private fun dynamicRanges(key: String): List<Float> {
+    val base = when (key) {
+        "radius_log", "smudge_radius_log", "smudge_length_log" -> -5f..8f
+        "ellipse_angle" -> -360f..360f
+        "color_h" -> 0f..1f
+        "change_color_h" -> -1f..1f
+        "dabs_per_basic_radius", "dabs_per_actual_radius", "dabs_per_second", "smudge_length", "smudge_bucket", "posterize_num" -> -10f..20f
+        "speed_fine_slowness", "speed_coarse_slowness", "offset_by_speed_slowness", "lazy_tracking", "stroke_duration_log", "stroke_holdtime" -> -2f..2f
+        "offset_by_speed", "offset_by_random", "tracking_noise", "lazy_tracking_per_dab", "custom_input", "custom_input_slowness" -> -2f..2f
+        "change_color_l", "change_color_hsl_s", "change_color_vrx", "pressure_gain_log" -> -2f..2f
+        "color_s", "color_v", "hardness", "opaque", "opaque_multiply", "opaque_linearize", "radius_by_random", "smudge", "smudge_transparency", "stroke_threshold", "ellipse_ratio" -> -1f..2f
+        else -> -1f..1f
+    }
+    val curve = when (key) {
+        "radius_log", "smudge_radius_log", "smudge_length_log" -> 5f
+        "ellipse_angle" -> 360f
+        "dabs_per_basic_radius", "dabs_per_actual_radius", "dabs_per_second", "smudge_length", "smudge_bucket", "posterize_num" -> 10f
+        else -> maxOf(kotlin.math.abs(base.start), kotlin.math.abs(base.endInclusive))
+    }
+    return listOf(base.start, base.endInclusive, -curve, curve)
+}
+
+private fun sensorRange(input: Int): ClosedFloatingPointRange<Float> = when (input) {
+    1, 2 -> 0f..8f // log speed
+    4 -> 0f..1000f // distance in project pixels
+    5 -> 0f..1f // normalized direction
+    7, 10, 11 -> -1f..1f
+    12, 13 -> 0f..2048f
+    14 -> .1f..8f
+    15 -> 0f..60f
+    else -> 0f..1f
+}
+
+@Composable
+private fun DynamicPressureControls(preset: BrushPresetModel, engine: EsenhoEngine, onBrushUpdated: () -> Unit) {
+    val options = listOf("linear" to "Linear", "soft" to "Suave", "hard" to "Firme", "s-curve" to "Curva S", "0.5" to "Gamma 0,5", "0.75" to "Gamma 0,75", "1.25" to "Gamma 1,25", "1.5" to "Gamma 1,5", "2" to "Gamma 2")
+    var curve by remember(preset.id) { mutableStateOf(preset.dynamicConfig.optString("pressure_curve", "linear")) }
+    var minimum by remember(preset.id) { mutableFloatStateOf(preset.dynamicConfig.optInt("pressure_min", 0).toFloat()) }
+    var maximum by remember(preset.id) { mutableFloatStateOf(preset.dynamicConfig.optInt("pressure_max", 100).toFloat()) }
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text("Resposta da pressão", style = MaterialTheme.typography.titleSmall)
+        CompactOptionDropdown("Curva", curve, options) { curve = it; engine.setPressureResponse(curve, minimum.toInt(), maximum.toInt()); onBrushUpdated() }
+        TunerSliderCard("Pressão mínima", minimum, 0f..99f, "%", { minimum = it.coerceAtMost(maximum - 1f); engine.setPressureResponse(curve, minimum.toInt(), maximum.toInt()); onBrushUpdated() })
+        TunerSliderCard("Pressão máxima", maximum, 1f..100f, "%", { maximum = it.coerceAtLeast(minimum + 1f); engine.setPressureResponse(curve, minimum.toInt(), maximum.toInt()); onBrushUpdated() })
     }
 }
 

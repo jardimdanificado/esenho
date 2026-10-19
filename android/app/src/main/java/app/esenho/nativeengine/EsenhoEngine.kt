@@ -13,6 +13,11 @@ import java.util.ArrayDeque
 import kotlin.math.*
 
 val DYNAMIC_SETTING_KEYS = listOf("opaque", "opaque_multiply", "opaque_linearize", "radius_log", "hardness", "dabs_per_basic_radius", "dabs_per_actual_radius", "dabs_per_second", "radius_by_random", "speed_fine_slowness", "speed_coarse_slowness", "speed_fine_gamma", "speed_coarse_gamma", "offset_by_random", "offset_by_speed", "offset_by_speed_slowness", "lazy_tracking", "lazy_tracking_per_dab", "tracking_noise", "color_h", "color_s", "color_v", "restore_color", "change_color_h", "change_color_l", "change_color_hsl_s", "change_color_vrx", "smudge", "smudge_length", "smudge_radius_log", "smudge_bucket", "smudge_transparency", "eraser", "stroke_threshold", "stroke_duration_log", "stroke_holdtime", "custom_input", "custom_input_slowness", "ellipse_ratio", "ellipse_angle", "direction_filter", "lock_alpha", "colorize", "snap_to_pixel", "pressure_gain_log", "posterize", "posterize_num", "smudge_length_log")
+private val DYNAMIC_ALIASES = mapOf("dyn_dabs_per_actual" to "dyn_dabs_per_actual_radius", "dyn_dabs_per_basic" to "dyn_dabs_per_basic_radius", "dyn_jitter_offset" to "dyn_offset_by_random", "mypaint_dabs_per_actual" to "dyn_dabs_per_actual_radius", "mypaint_dabs_per_basic" to "dyn_dabs_per_basic_radius", "mypaint_speed1_slowness" to "dyn_speed_fine_slowness", "mypaint_speed2_slowness" to "dyn_speed_coarse_slowness", "mypaint_slow_tracking" to "dyn_lazy_tracking", "mypaint_elliptical_ratio" to "dyn_ellipse_ratio", "mypaint_elliptical_angle" to "dyn_ellipse_angle", "mypaint_offset_random" to "dyn_offset_by_random")
+private fun normalizeDynamicConfig(config: JSONObject): JSONObject {
+    DYNAMIC_ALIASES.forEach { (alias, canonical) -> if (!config.has(canonical) && config.has(alias)) config.put(canonical, config.opt(alias)) }
+    return config
+}
 
 enum class ToolMode(val id: Int, val displayName: String) {
     BRUSH(0, "Pincel"),
@@ -256,13 +261,13 @@ data class BrushPresetModel(
                 eraser = obj.optInt("eraser", 0),
                 color = obj.optString("color", ""),
                 engine = obj.optString("engine", "classic"),
-                dynamicConfig = JSONObject().also { config ->
+                dynamicConfig = normalizeDynamicConfig(JSONObject().also { config ->
                     val keys = obj.keys()
                     while (keys.hasNext()) {
                         val key = keys.next()
                         if (key.startsWith("dyn_") || key.startsWith("mypaint_") || key.startsWith("pressure_")) config.put(key, obj.opt(key))
                     }
-                }
+                })
             )
         }
     }
@@ -951,10 +956,10 @@ class EsenhoEngine(
                             eraser = p.optInt("eraser", 0),
                             color = p.optString("color", ""),
                             engine = p.optString("engine", "classic"),
-                            dynamicConfig = JSONObject().also { config ->
+                            dynamicConfig = normalizeDynamicConfig(JSONObject().also { config ->
                                 val keys = p.keys()
                                 while (keys.hasNext()) { val key = keys.next(); if (key.startsWith("dyn_") || key.startsWith("mypaint_") || key.startsWith("pressure_")) config.put(key, p.get(key)) }
-                            }
+                            })
                         )
                     )
                 }
@@ -1486,15 +1491,41 @@ class EsenhoEngine(
             inputs.remove(input.toString())
             EsenhoNativeBridge.nativeDynBrushClearCurve(setting, input)
         } else if (points.size in 2..16) {
-            val xs = FloatArray(points.size) { points[it].first.coerceIn(0f, 1f) }
-            val ys = FloatArray(points.size) { points[it].second.coerceIn(0f, 1f) }
+            val ordered = points.sortedBy { it.first }
+            val xs = FloatArray(ordered.size) { ordered[it].first }
+            val ys = FloatArray(ordered.size) { ordered[it].second }
             val serialized = JSONArray()
-            points.forEach { serialized.put(JSONArray().put(it.first).put(it.second)) }
+            ordered.forEach { serialized.put(JSONArray().put(it.first).put(it.second)) }
             inputs.put(input.toString(), serialized)
             EsenhoNativeBridge.nativeDynBrushSetCurve(setting, input, xs, ys)
         }
         if (inputs.length() == 0) curves.remove(name) else curves.put(name, inputs)
         if (curves.length() == 0) preset.dynamicConfig.remove("dyn_curves") else preset.dynamicConfig.put("dyn_curves", curves)
+        if (preset.isCustom) storageManager.saveCustomPresets(presetCatalog.filter { it.isCustom })
+    }
+
+    fun dynamicBaseValue(setting: Int): Float {
+        val preset = selectedPreset ?: return 0f
+        val key = DYNAMIC_SETTING_KEYS.getOrNull(setting) ?: return 0f
+        val default = when (setting) { 0 -> 1f; 3 -> ln((preset.size.coerceAtLeast(1) / 2f).coerceAtLeast(.1f)); 4 -> .8f; 6 -> 2f; 21, 38 -> 1f; else -> 0f }
+        return preset.dynamicConfig.optDouble("dyn_$key", preset.dynamicConfig.optDouble("mypaint_$key", default.toDouble())).toFloat()
+    }
+
+    fun setDynamicBase(setting: Int, value: Float) {
+        val preset = selectedPreset ?: return
+        val key = DYNAMIC_SETTING_KEYS.getOrNull(setting) ?: return
+        preset.dynamicConfig.put("dyn_$key", value)
+        EsenhoNativeBridge.nativeDynBrushSetBase(setting, if (setting == 0) value * preset.opacity.coerceIn(0, 100) / 100f else value)
+        if (preset.isCustom) storageManager.saveCustomPresets(presetCatalog.filter { it.isCustom })
+    }
+
+    fun setPressureResponse(curve: String, min: Int, max: Int) {
+        val preset = selectedPreset ?: return
+        val lower = min.coerceIn(0, 99)
+        preset.dynamicConfig.put("pressure_curve", curve)
+        preset.dynamicConfig.put("pressure_min", lower)
+        preset.dynamicConfig.put("pressure_max", max.coerceIn(lower + 1, 100))
+        syncDynamicBrush(preset)
         if (preset.isCustom) storageManager.saveCustomPresets(presetCatalog.filter { it.isCustom })
     }
 
