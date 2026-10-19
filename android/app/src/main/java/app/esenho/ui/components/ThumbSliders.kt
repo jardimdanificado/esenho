@@ -25,6 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import app.esenho.nativeengine.EsenhoEngine
@@ -134,6 +136,8 @@ fun ThumbSliders(
     var currentValueText by remember { mutableStateOf("") }
     var refreshTrigger by remember { mutableIntStateOf(0) }
 
+    val barHeight = ((LocalConfiguration.current.screenHeightDp * 0.55f /
+        configuredSliders.size.coerceIn(1, 6)) - 5f).coerceIn(40f, 88f).dp
     Column(
         modifier = modifier
             .width(38.dp),
@@ -151,15 +155,12 @@ fun ThumbSliders(
 
             // Property name and current value stay inside the slider. Tap to change property; drag to adjust.
             val norm = ((currentRawVal - cfg.minVal) / (cfg.maxVal - cfg.minVal)).coerceIn(0f, 1f)
-            val barColor = when (index % 3) {
-                0 -> Color(0xFF4CAF50) // green
-                1 -> Color(0xFFFFC107) // yellow
-                else -> Color(0xFFE53935) // red
-            }
+            val barColor = MaterialTheme.colorScheme.primary
             VerticalThumbBar(
                 value = norm,
                 label = "${cfg.shortLabel} ${currentRawVal.toInt()}${cfg.unit}",
                 fillColor = barColor,
+                barHeight = barHeight,
                 onClick = {
                     editingSliderIndex = index
                     editingParamId = setting.paramId
@@ -359,7 +360,8 @@ fun VerticalThumbBar(
     fillColor: Color = Color(0xFF62676C),
     onClick: () -> Unit,
     onValueChange: (Float) -> Unit,
-    onActiveChange: (Boolean) -> Unit
+    onActiveChange: (Boolean) -> Unit,
+    barHeight: Dp = 88.dp
 ) {
     // pointerInput(Unit) intentionally keeps its gesture coroutine alive while
     // the thumb is dragged. Keep the callbacks fresh when the selected
@@ -372,9 +374,9 @@ fun VerticalThumbBar(
     Box(
         modifier = Modifier
             .width(36.dp)
-            .height(88.dp)
+            .height(barHeight)
             .clip(RoundedCornerShape(13.dp))
-            .background(Color(0x24000000))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f))
             .clickable(onClick = { latestOnClick() })
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
@@ -399,14 +401,14 @@ fun VerticalThumbBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(value.coerceIn(0f, 1f))
-                .background(fillColor.copy(alpha = 0.82f))
+                .background(fillColor.copy(alpha = 0.28f))
         )
 
         // Center pill handle & label
         Text(
             text = label,
-            fontSize = 7.sp,
-            color = Color.White,
+            fontSize = 10.sp,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
             modifier = Modifier

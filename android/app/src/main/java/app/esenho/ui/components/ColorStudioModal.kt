@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -60,16 +62,16 @@ fun ColorStudioModal(
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp,
+            tonalElevation = 0.dp,
             modifier = Modifier.width(320.dp)
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Color Studio", style = MaterialTheme.typography.titleMedium)
+                EditorPanelHeader("Cores", onDismiss)
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // 1. HSV Color Wheel Canvas
@@ -86,7 +88,7 @@ fun ColorStudioModal(
                         value = v
                         onColorChanged(AndroidColor.HSVToColor(floatArrayOf(hue, sat, value)))
                     },
-                    modifier = Modifier.size(220.dp)
+                    modifier = Modifier.sizeIn(maxWidth = 220.dp, maxHeight = 220.dp).fillMaxWidth().aspectRatio(1f)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))

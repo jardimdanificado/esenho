@@ -11,6 +11,7 @@ import android.provider.MediaStore
 import android.util.AtomicFile
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.core.view.WindowCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -39,6 +40,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -172,6 +174,7 @@ fun EsenhoNativeTheme(content: @Composable () -> Unit) {
             // selection accents so the editor does not read as green overall.
             primary = Color(0xFFFFA83D),
             onPrimary = Color(0xFF27190A),
+            onPrimaryContainer = Color(0xFFFFDDB3),
             primaryContainer = Color(0xFF52391F),
             secondary = Color(0xFFB7BCC1),
             onSecondary = Color(0xFF202326),
@@ -188,11 +191,24 @@ fun EsenhoNativeTheme(content: @Composable () -> Unit) {
             surfaceVariant = Color(0xFF303438),
             background = Color(0xFF151719),
             onSurface = Color(0xFFE6E8EA),
+            onSurfaceVariant = Color(0xFFB4BAC0),
             outline = Color(0xFF777D82),
             outlineVariant = Color(0xFF41464A),
             scrim = Color(0x99000000),
             surfaceTint = Color.Transparent
         ),
+        typography = Typography(
+            titleLarge = TextStyle(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold),
+            titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
+            titleSmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
+            bodyLarge = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
+            bodyMedium = TextStyle(fontSize = 13.sp, lineHeight = 18.sp),
+            bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp),
+            labelLarge = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
+            labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
+            labelSmall = TextStyle(fontSize = 11.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium)
+        ),
+        shapes = Shapes(small = RoundedCornerShape(8.dp), medium = RoundedCornerShape(12.dp), large = RoundedCornerShape(16.dp)),
         content = content
     )
 }
@@ -208,6 +224,10 @@ fun EsenhoMainScreen(
     val storageManager = remember { EsenhoStorageManager(context) }
     var sideSliderSettings by remember { mutableStateOf(storageManager.loadSideSliders()) }
     var favoriteBrushIds by remember { mutableStateOf(storageManager.loadFavoriteBrushes()) }
+
+    var focusMode by remember { mutableStateOf(false) }
+    var showAssistMenu by remember { mutableStateOf(false) }
+    BackHandler(enabled = focusMode) { focusMode = false }
 
     // UI Dialog & Drawer States
     var showBrushDrawer by remember { mutableStateOf(false) }
@@ -373,8 +393,7 @@ fun EsenhoMainScreen(
         modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = {},
+            if (!focusMode) EditorTopBar(
                 navigationIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                     // Undo
@@ -389,7 +408,7 @@ fun EsenhoMainScreen(
                         },
                         enabled = canUndo,
                         description = "Desfazer",
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Desfazer", modifier = Modifier.size(18.dp))
                     }
@@ -406,24 +425,39 @@ fun EsenhoMainScreen(
                         },
                         enabled = canRedo,
                         description = "Refazer",
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Refazer", modifier = Modifier.size(18.dp))
                     }
 
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
                 actions = {
                     Box {
                         TooltipIconButton(
-                            onClick = { showGuidesMenu = true },
-                            description = "Guias de traçado",
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.Straighten, contentDescription = "Guias de traçado", modifier = Modifier.size(18.dp), tint = if (engine.canvasGuides.isNotEmpty() && engine.guideSnapEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                            onClick = { showAssistMenu = true },
+                            description = "Auxiliares: guias, grade e simetria",
+                            modifier = Modifier.size(40.dp)
+                        ) { Icon(Icons.Default.Tune, "Auxiliares", modifier = Modifier.size(20.dp),
+                            tint = if (pixelArtGrid || symmetryMode != SymmetryMode.OFF || engine.guideSnapEnabled)
+                                MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
+                        DropdownMenu(expanded = showAssistMenu, onDismissRequest = { showAssistMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Guias de traçado") },
+                                leadingIcon = { Icon(Icons.Default.Straighten, null) },
+                                onClick = { showAssistMenu = false; showGuidesMenu = true }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Grade Pixel Art") },
+                                leadingIcon = { Icon(Icons.Default.GridOn, null) },
+                                trailingIcon = if (pixelArtGrid) {{ Icon(Icons.Default.Check, null) }} else null,
+                                onClick = { engine.pixelArtGrid = !engine.pixelArtGrid; refreshState(); showAssistMenu = false }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Simetria · ${symmetryMode.displayName}") },
+                                leadingIcon = { Icon(Icons.Default.Stream, null) },
+                                onClick = { showAssistMenu = false; showSymmetryMenu = true }
+                            )
                         }
                         DropdownMenu(expanded = showGuidesMenu, onDismissRequest = { showGuidesMenu = false }) {
                             DropdownMenuItem(
@@ -497,22 +531,6 @@ fun EsenhoMainScreen(
                                 }
                             }
                         }
-                    }
-                    TooltipIconButton(
-                        onClick = { engine.pixelArtGrid = !engine.pixelArtGrid; refreshState() },
-                        description = if (pixelArtGrid) "Ocultar grade Pixel Art" else "Mostrar grade Pixel Art",
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(Icons.Default.GridOn, contentDescription = "Grade Pixel Art", modifier = Modifier.size(18.dp), tint = if (pixelArtGrid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                    }
-                    Box {
-                        TooltipIconButton(
-                            onClick = { showSymmetryMenu = true },
-                            description = "Simetria: ${symmetryMode.displayName}",
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.Stream, contentDescription = "Simetria", modifier = Modifier.size(18.dp), tint = if (symmetryMode != SymmetryMode.OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                        }
                         DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
                             SymmetryMode.values().forEach { mode ->
                                 DropdownMenuItem(
@@ -527,7 +545,7 @@ fun EsenhoMainScreen(
                     TooltipIconButton(
                         onClick = { showAnimationTimeline = !showAnimationTimeline },
                         description = "Animação",
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             Icons.Default.Animation,
@@ -541,7 +559,7 @@ fun EsenhoMainScreen(
                     TooltipIconButton(
                         onClick = { showFilterModal = true },
                         description = "Filtros",
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(Icons.Default.AutoAwesome, contentDescription = "Filtros", modifier = Modifier.size(18.dp))
                     }
@@ -556,7 +574,7 @@ fun EsenhoMainScreen(
                         TooltipIconButton(
                             onClick = { showLayerDrawer = !showLayerDrawer },
                             description = "Camadas",
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(40.dp)
                         ) {
                             Icon(Icons.Default.Layers, contentDescription = "Camadas", modifier = Modifier.size(18.dp))
                         }
@@ -570,7 +588,7 @@ fun EsenhoMainScreen(
                         TooltipIconButton(
                             onClick = { showMenu = true },
                             description = "Mais Opções",
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(40.dp)
                         ) {
                             Icon(Icons.Default.MoreVert, contentDescription = "Mais", modifier = Modifier.size(18.dp))
                         }
@@ -578,6 +596,12 @@ fun EsenhoMainScreen(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Modo de foco") },
+                                leadingIcon = { Icon(Icons.Default.Fullscreen, null) },
+                                onClick = { showMenu = false; focusMode = true }
+                            )
+                            HorizontalDivider()
                             DropdownMenuItem(
                                 text = { Text("Novo Projeto...") },
                                 leadingIcon = { Icon(Icons.Default.AddBox, null) },
@@ -729,12 +753,24 @@ fun EsenhoMainScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
+            if (focusMode) {
+                Surface(
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+                ) {
+                    TooltipIconButton(onClick = { focusMode = false }, description = "Sair do modo de foco", modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Default.FullscreenExit, contentDescription = "Sair do modo de foco")
+                    }
+                }
+            }
+
             // 2. Active Selection Floating HUD Bar
-            if (selectionActive) {
+            if (selectionActive && !focusMode) {
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .padding(top = 16.dp)
+                        .padding(start = 48.dp, end = 8.dp, top = 8.dp)
                         .shadow(8.dp, RoundedCornerShape(18.dp)),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
                     shape = RoundedCornerShape(18.dp)
@@ -878,7 +914,7 @@ fun EsenhoMainScreen(
             }
 
             // 3. Translucent Configurable Thumb Sliders (Left Edge)
-            ThumbSliders(
+            if (!focusMode) ThumbSliders(
                 engine = engine,
                 configuredSliders = sideSliderSettings,
                 onConfiguredSlidersChange = { newSettings ->
@@ -895,7 +931,7 @@ fun EsenhoMainScreen(
             )
 
             // Timeline and dock share one column to remove guessed overlay offsets.
-            Column(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+            if (!focusMode) Column(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             // 5. Animation Timeline Bar (Raster Animator)
             if (showAnimationTimeline) {
                 AnimationTimelineBar(
@@ -1099,10 +1135,10 @@ fun EsenhoMainScreen(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surface,
                     shape = androidx.compose.ui.graphics.RectangleShape,
-                    tonalElevation = 6.dp
+                    tonalElevation = 0.dp
                 ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(3.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1229,7 +1265,7 @@ fun EsenhoMainScreen(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(Icons.Default.StarBorder, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                            Text("Favoritos", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                            Text(activeBrushName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     } else {
                         Row(
@@ -1251,7 +1287,7 @@ fun EsenhoMainScreen(
                                     val selected = (preset != null && preset.id == engine.selectedPreset?.id) ||
                                         (brush != null && brush.id == engine.selectedBrush?.id)
                                     Box(
-                                        modifier = Modifier.size(30.dp).clip(CircleShape)
+                                        modifier = Modifier.size(40.dp).clip(CircleShape)
                                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
                                             .border(
                                                 if (selected) 2.dp else 1.dp,
@@ -1283,12 +1319,15 @@ fun EsenhoMainScreen(
                     ) {
                         (engine.getActivePalette()?.colors?.take(4) ?: emptyList()).forEach { chipColor ->
                             Box(
-                                Modifier.size(16.dp).clip(CircleShape).background(Color(chipColor))
-                                    .border(1.dp, if (chipColor == currentColor) Color.White else Color.Gray, CircleShape)
-                                    .clickable { currentColor = chipColor; engine.currentColor = chipColor; refreshState() }
-                            )
+                                Modifier.size(28.dp).clip(CircleShape)
+                                    .clickable { currentColor = chipColor; engine.currentColor = chipColor; refreshState() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(Modifier.size(18.dp).clip(CircleShape).background(Color(chipColor))
+                                    .border(1.dp, if (chipColor == currentColor) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline, CircleShape))
+                            }
                         }
-                        TooltipIconButton(onClick = { showColorStudio = true }, description = "Color Studio", modifier = Modifier.size(36.dp)) {
+                        TooltipIconButton(onClick = { showColorStudio = true }, description = "Cores", modifier = Modifier.size(36.dp)) {
                             Box(
                                 Modifier.size(27.dp).clip(RoundedCornerShape(7.dp))
                                     .background(Color(currentColor))
@@ -1641,7 +1680,7 @@ fun ToolNavButton(
                 containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
                 contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
             ),
-            modifier = Modifier.size(38.dp)
+            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
         ) {
             if (icon != null) {
                 Icon(icon, contentDescription = description, modifier = Modifier.size(19.dp))

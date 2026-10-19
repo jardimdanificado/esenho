@@ -1,6 +1,10 @@
 package app.esenho.ui.components
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,13 +50,13 @@ fun NativeExportDialog(
         onDismissRequest = onDismiss,
         title = { Text("Exportar") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()).selectableGroup(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 formats.forEach { (format, label) ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { selectedFormat = format },
+                        modifier = Modifier.fillMaxWidth().selectable(selected = selectedFormat == format, role = Role.RadioButton, onClick = { selectedFormat = format }),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        RadioButton(selected = selectedFormat == format, onClick = { selectedFormat = format })
+                        RadioButton(selected = selectedFormat == format, onClick = null)
                         Text(label, style = MaterialTheme.typography.bodyMedium)
                     }
                 }

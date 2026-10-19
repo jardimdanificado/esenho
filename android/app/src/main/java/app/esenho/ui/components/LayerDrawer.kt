@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -47,7 +50,7 @@ fun LayerDrawer(
     val context = LocalContext.current
     val activeLayer = layersList.find { it.id == activeLayerId }
     val maxDockHeight = (LocalConfiguration.current.screenHeightDp * 0.56f).coerceAtLeast(240f)
-    var dockHeight by remember { mutableFloatStateOf(minOf(390f, maxDockHeight)) }
+    var dockHeight by remember { mutableFloatStateOf(minOf(320f, maxDockHeight)) }
     var showResizeDialog by remember(activeLayerId) { mutableStateOf(false) }
     var resizeWidth by remember(engine.width, engine.height) {
         mutableStateOf(engine.width.toString())
@@ -65,7 +68,7 @@ fun LayerDrawer(
 
     Surface(
         modifier = modifier.fillMaxWidth().height(dockHeight.dp),
-        shape = RectangleShape,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
@@ -79,14 +82,15 @@ fun LayerDrawer(
                             dockHeight = (dockHeight - dragAmount / density).coerceIn(28f, maxDockHeight)
                         }
                     }
-                    .clickable { dockHeight = if (dockHeight <= 36f) minOf(390f, maxDockHeight) else 28f },
+                    .clickable { dockHeight = if (dockHeight <= 36f) minOf(320f, maxDockHeight) else 28f },
                 contentAlignment = Alignment.Center
             ) {
                 Box(Modifier.width(32.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)))
             }
             if (dockHeight > 40f) Column(
                 modifier = Modifier.fillMaxWidth().weight(1f)
-                    .padding(horizontal = 14.dp).padding(bottom = 8.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp).padding(bottom = 8.dp)
             ) {
             // Header with Layer Action buttons
             Row(
@@ -146,7 +150,7 @@ fun LayerDrawer(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 120.dp, max = 180.dp),
+                    .heightIn(min = 72.dp, max = 180.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(layersList, key = { it.id }) { layer ->
@@ -161,7 +165,7 @@ fun LayerDrawer(
                                 refresh()
                             }
                             .border(
-                                width = if (isSelected) 2.dp else 1.dp,
+                                width = 1.dp,
                                 color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                                 shape = RoundedCornerShape(8.dp)
                             ),
@@ -278,7 +282,7 @@ fun LayerDrawer(
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 2.dp)
                         ) {
                             // Bloquear Alpha
                             TooltipBox(

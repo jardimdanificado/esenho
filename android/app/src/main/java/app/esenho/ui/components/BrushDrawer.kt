@@ -1,5 +1,9 @@
 package app.esenho.ui.components
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
@@ -181,7 +185,9 @@ fun BrushDrawer(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RectangleShape,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
         windowInsets = WindowInsets.safeDrawing
     ) {
         Column(
@@ -189,8 +195,10 @@ fun BrushDrawer(
                 .fillMaxWidth()
                 .heightIn(max = 620.dp)
                 .padding(horizontal = 14.dp)
-                .padding(bottom = 16.dp)
+                .padding(bottom = 8.dp)
         ) {
+            EditorPanelHeader(if (showTuner) "Ajustes do pincel" else "Pincéis", onDismiss,
+                onBack = if (showTuner) {{ showTuner = false }} else null)
             if (showTuner && engine.selectedPreset != null) {
                 PresetTuner(
                     engine = engine,
@@ -199,12 +207,7 @@ fun BrushDrawer(
                 )
             } else if (showTuner && engine.selectedBrush != null) {
                 val b = engine.selectedBrush!!
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(b.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                    IconButton(onClick = { showTuner = false }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Voltar aos presets")
-                    }
-                }
+                Text(b.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                 LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
                         TunerSliderCard(
@@ -304,6 +307,15 @@ fun BrushDrawer(
                     modifier = Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(min = 180.dp, max = 470.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    if ((activeTab == BrushDrawerTab.PRESETS && filteredPresets.isEmpty()) ||
+                        (activeTab == BrushDrawerTab.WASM_PROCEDURAL && filteredWasmBrushes.isEmpty())) {
+                        item {
+                            Text("Nenhum pincel encontrado. Tente outra busca ou categoria.",
+                                modifier = Modifier.padding(vertical = 24.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                     if (activeTab == BrushDrawerTab.PRESETS) {
                         items(filteredPresets, key = { it.id }) { preset ->
                             val selected = engine.selectedPreset?.id == preset.id
@@ -401,7 +413,7 @@ fun PresetItemCard(
                 )
                 Text(
                     text = "${preset.size}px • ${preset.opacity}%",
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
                 )
@@ -496,7 +508,7 @@ fun BrushItemCard(
                     ) {
                         Text(
                             text = categoryTag,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -505,7 +517,7 @@ fun BrushItemCard(
                     if (paramCount > 0) {
                         Text(
                             text = "$paramCount ajustes",
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -649,12 +661,11 @@ fun PresetTuner(
         onBrushUpdated()
     }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
         // Preset Header with Reset and Save buttons
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -676,13 +687,16 @@ fun PresetTuner(
                     Text(
                         text = preset.name,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
 
                 }
             }
 
             Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
