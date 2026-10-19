@@ -12,29 +12,22 @@ import android.util.AtomicFile
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
-import androidx.core.view.WindowCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Redo
-import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -42,10 +35,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
 import app.esenho.R
 import app.esenho.nativeengine.*
 import app.esenho.ui.components.*
@@ -60,47 +53,68 @@ class NativePainterActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        setContent {
-            EsenhoNativeTheme {
-                EsenhoMainScreen(
-                    onExport = ::export
-                )
-            }
-        }
+        setContent { EsenhoNativeTheme { EsenhoMainScreen(onExport = ::export) } }
     }
 
     private fun export(request: NativeExportRequest) {
         when (request.format) {
-            NativeExportRequest.Format.PNG -> request.bitmap?.let { exportBitmapToGallery(it, Bitmap.CompressFormat.PNG) }
-            NativeExportRequest.Format.JPEG -> request.bitmap?.let { exportBitmapToGallery(it, Bitmap.CompressFormat.JPEG) }
-            NativeExportRequest.Format.WEBP -> request.bitmap?.let {
-                val format = if (Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSY else Bitmap.CompressFormat.WEBP
-                exportBitmapToGallery(it, format)
-            }
-            NativeExportRequest.Format.GIF -> exportGifToGallery(request.frames, request.fps, request.loop)
+            NativeExportRequest.Format.PNG ->
+                request.bitmap?.let { exportBitmapToGallery(it, Bitmap.CompressFormat.PNG) }
+            NativeExportRequest.Format.JPEG ->
+                request.bitmap?.let { exportBitmapToGallery(it, Bitmap.CompressFormat.JPEG) }
+            NativeExportRequest.Format.WEBP ->
+                request.bitmap?.let {
+                    val format =
+                        if (Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSY
+                        else Bitmap.CompressFormat.WEBP
+                    exportBitmapToGallery(it, format)
+                }
+            NativeExportRequest.Format.GIF ->
+                exportGifToGallery(request.frames, request.fps, request.loop)
             NativeExportRequest.Format.WEBM -> exportWebmToGallery(request.frames, request.fps)
         }
     }
 
-    private fun exportBitmapToGallery(bitmap: Bitmap, format: Bitmap.CompressFormat = Bitmap.CompressFormat.PNG) {
+    private fun exportBitmapToGallery(
+        bitmap: Bitmap,
+        format: Bitmap.CompressFormat = Bitmap.CompressFormat.PNG,
+    ) {
         val isJpeg = format == Bitmap.CompressFormat.JPEG
-        val isWebp = format == Bitmap.CompressFormat.WEBP ||
-            (Build.VERSION.SDK_INT >= 30 && format == Bitmap.CompressFormat.WEBP_LOSSY)
-        val ext = when { isJpeg -> "jpg"; isWebp -> "webp"; else -> "png" }
-        val mime = when { isJpeg -> "image/jpeg"; isWebp -> "image/webp"; else -> "image/png" }
+        val isWebp =
+            format == Bitmap.CompressFormat.WEBP ||
+                (Build.VERSION.SDK_INT >= 30 && format == Bitmap.CompressFormat.WEBP_LOSSY)
+        val ext =
+            when {
+                isJpeg -> "jpg"
+                isWebp -> "webp"
+                else -> "png"
+            }
+        val mime =
+            when {
+                isJpeg -> "image/jpeg"
+                isWebp -> "image/webp"
+                else -> "image/png"
+            }
         val filename = "esenho_${System.currentTimeMillis()}.$ext"
         val fos: OutputStream?
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val contentValues = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
-                put(MediaStore.MediaColumns.MIME_TYPE, mime)
-                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Esenho")
-            }
-            val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+            val contentValues =
+                ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                    put(MediaStore.MediaColumns.MIME_TYPE, mime)
+                    put(
+                        MediaStore.MediaColumns.RELATIVE_PATH,
+                        Environment.DIRECTORY_PICTURES + "/Esenho",
+                    )
+                }
+            val uri =
+                contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
             fos = uri?.let { contentResolver.openOutputStream(it) }
         } else {
-            val imagesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).toString()
+            val imagesDir =
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+                    .toString()
             val image = java.io.File(imagesDir, filename)
             fos = java.io.FileOutputStream(image)
         }
@@ -108,30 +122,39 @@ class NativePainterActivity : ComponentActivity() {
         fos?.use {
             val quality = if (isJpeg) 95 else 100
             bitmap.compress(format, quality, it)
-            Toast.makeText(this, "Desenho salvo com sucesso na Galeria ($ext)!", Toast.LENGTH_SHORT).show()
-        } ?: run {
-            Toast.makeText(this, "Falha ao exportar imagem", Toast.LENGTH_SHORT).show()
-        }
+            Toast.makeText(this, "Desenho salvo com sucesso na Galeria ($ext)!", Toast.LENGTH_SHORT)
+                .show()
+        } ?: run { Toast.makeText(this, "Falha ao exportar imagem", Toast.LENGTH_SHORT).show() }
     }
 
     private fun exportGifToGallery(frames: List<Bitmap>, fps: Int, loop: Boolean) {
         val filename = "esenho_${System.currentTimeMillis()}.gif"
-        val output = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
-                put(MediaStore.MediaColumns.MIME_TYPE, "image/gif")
-                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Esenho")
+        val output =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values =
+                    ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                        put(MediaStore.MediaColumns.MIME_TYPE, "image/gif")
+                        put(
+                            MediaStore.MediaColumns.RELATIVE_PATH,
+                            Environment.DIRECTORY_PICTURES + "/Esenho",
+                        )
+                    }
+                contentResolver
+                    .insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                    ?.let(contentResolver::openOutputStream)
+            } else {
+                val dir =
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+                java.io.FileOutputStream(java.io.File(dir, filename))
             }
-            contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                ?.let(contentResolver::openOutputStream)
-        } else {
-            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-            java.io.FileOutputStream(java.io.File(dir, filename))
-        }
         runCatching {
-            val stream = output ?: error("Não foi possível criar o arquivo")
-            stream.use { GifWriter.write(frames, fps, loop, it) }
-        }.onSuccess { Toast.makeText(this, "GIF exportado para a Galeria", Toast.LENGTH_SHORT).show() }
+                val stream = output ?: error("Não foi possível criar o arquivo")
+                stream.use { GifWriter.write(frames, fps, loop, it) }
+            }
+            .onSuccess {
+                Toast.makeText(this, "GIF exportado para a Galeria", Toast.LENGTH_SHORT).show()
+            }
             .onFailure { Toast.makeText(this, "Falha ao exportar GIF", Toast.LENGTH_SHORT).show() }
             .also { frames.forEach { frame -> if (!frame.isRecycled) frame.recycle() } }
     }
@@ -140,84 +163,132 @@ class NativePainterActivity : ComponentActivity() {
         val filename = "esenho_${System.currentTimeMillis()}.webm"
         val temp = java.io.File(cacheDir, filename)
         Thread {
-            val result = runCatching {
-                WebmWriter.write(frames, fps, temp)
-                val output = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    val values = ContentValues().apply {
-                        put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
-                        put(MediaStore.MediaColumns.MIME_TYPE, "video/webm")
-                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/Esenho")
-                    }
-                    contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                        ?.let(contentResolver::openOutputStream)
-                } else {
-                    val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
-                    java.io.FileOutputStream(java.io.File(dir, filename))
-                } ?: error("Não foi possível criar o arquivo de vídeo")
-                output.use { stream -> temp.inputStream().use { it.copyTo(stream) } }
+                val result = runCatching {
+                    WebmWriter.write(frames, fps, temp)
+                    val output =
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            val values =
+                                ContentValues().apply {
+                                    put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                                    put(MediaStore.MediaColumns.MIME_TYPE, "video/webm")
+                                    put(
+                                        MediaStore.MediaColumns.RELATIVE_PATH,
+                                        Environment.DIRECTORY_MOVIES + "/Esenho",
+                                    )
+                                }
+                            contentResolver
+                                .insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                                ?.let(contentResolver::openOutputStream)
+                        } else {
+                            val dir =
+                                Environment.getExternalStoragePublicDirectory(
+                                    Environment.DIRECTORY_MOVIES
+                                )
+                            java.io.FileOutputStream(java.io.File(dir, filename))
+                        } ?: error("Não foi possível criar o arquivo de vídeo")
+                    output.use { stream -> temp.inputStream().use { it.copyTo(stream) } }
+                }
+                runOnUiThread {
+                    result
+                        .onSuccess {
+                            Toast.makeText(
+                                    this,
+                                    "WebM exportado para os vídeos",
+                                    Toast.LENGTH_SHORT,
+                                )
+                                .show()
+                        }
+                        .onFailure {
+                            Toast.makeText(
+                                    this,
+                                    "Falha ao exportar WebM: ${it.message}",
+                                    Toast.LENGTH_LONG,
+                                )
+                                .show()
+                        }
+                }
+                temp.delete()
+                frames.forEach { frame -> if (!frame.isRecycled) frame.recycle() }
             }
-            runOnUiThread {
-                result.onSuccess { Toast.makeText(this, "WebM exportado para os vídeos", Toast.LENGTH_SHORT).show() }
-                    .onFailure { Toast.makeText(this, "Falha ao exportar WebM: ${it.message}", Toast.LENGTH_LONG).show() }
-            }
-            temp.delete()
-            frames.forEach { frame -> if (!frame.isRecycled) frame.recycle() }
-        }.start()
+            .start()
     }
 }
 
 @Composable
 fun EsenhoNativeTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = darkColorScheme(
-            // Keep large surfaces neutral; reserve color for interaction and
-            // selection accents so the editor does not read as green overall.
-            primary = Color(0xFFFFA83D),
-            onPrimary = Color(0xFF27190A),
-            onPrimaryContainer = Color(0xFFFFDDB3),
-            primaryContainer = Color(0xFF52391F),
-            secondary = Color(0xFFB7BCC1),
-            onSecondary = Color(0xFF202326),
-            secondaryContainer = Color(0xFF34383C),
-            onSecondaryContainer = Color(0xFFE1E4E7),
-            tertiary = Color(0xFFE58A7B),
-            tertiaryContainer = Color(0xFF49302E),
-            onTertiaryContainer = Color(0xFFFFDAD4),
-            error = Color(0xFFFFB4AB),
-            onError = Color(0xFF690005),
-            errorContainer = Color(0xFF93000A),
-            onErrorContainer = Color(0xFFFFDAD6),
-            surface = Color(0xFF202326),
-            surfaceVariant = Color(0xFF303438),
-            background = Color(0xFF151719),
-            onSurface = Color(0xFFE6E8EA),
-            onSurfaceVariant = Color(0xFFB4BAC0),
-            outline = Color(0xFF777D82),
-            outlineVariant = Color(0xFF41464A),
-            scrim = Color(0x99000000),
-            surfaceTint = Color.Transparent
-        ),
-        typography = Typography(
-            titleLarge = TextStyle(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold),
-            titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
-            titleSmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
-            bodyLarge = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
-            bodyMedium = TextStyle(fontSize = 13.sp, lineHeight = 18.sp),
-            bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp),
-            labelLarge = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
-            labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
-            labelSmall = TextStyle(fontSize = 11.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium)
-        ),
-        shapes = Shapes(small = RoundedCornerShape(8.dp), medium = RoundedCornerShape(12.dp), large = RoundedCornerShape(16.dp)),
-        content = content
+        colorScheme =
+            darkColorScheme(
+                // Keep large surfaces neutral; reserve color for interaction and
+                // selection accents so the editor does not read as green overall.
+                primary = Color(0xFFB6ABFF),
+                onPrimary = Color(0xFF211B40),
+                onPrimaryContainer = Color(0xFFE8E0FF),
+                primaryContainer = Color(0xFF332B50),
+                secondary = Color(0xFFB7BCC1),
+                onSecondary = Color(0xFF191C25),
+                secondaryContainer = Color(0xFF34383C),
+                onSecondaryContainer = Color(0xFFE1E4E7),
+                tertiary = Color(0xFFE58A7B),
+                tertiaryContainer = Color(0xFF49302E),
+                onTertiaryContainer = Color(0xFFFFDAD4),
+                error = Color(0xFFFFB4AB),
+                onError = Color(0xFF690005),
+                errorContainer = Color(0xFF93000A),
+                onErrorContainer = Color(0xFFFFDAD6),
+                surface = Color(0xFF191C25),
+                surfaceVariant = Color(0xFF272C39),
+                background = Color(0xFF0E1118),
+                onSurface = Color(0xFFE8ECF5),
+                onSurfaceVariant = Color(0xFFA8B0C2),
+                outline = Color(0xFF777D82),
+                outlineVariant = Color(0xFF353B4B),
+                scrim = Color(0x99000000),
+                surfaceTint = Color.Transparent,
+            ),
+        typography =
+            Typography(
+                titleLarge =
+                    TextStyle(
+                        fontSize = 20.sp,
+                        lineHeight = 26.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                titleMedium =
+                    TextStyle(
+                        fontSize = 16.sp,
+                        lineHeight = 22.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                titleSmall =
+                    TextStyle(
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                bodyLarge = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
+                bodyMedium = TextStyle(fontSize = 13.sp, lineHeight = 18.sp),
+                bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp),
+                labelLarge =
+                    TextStyle(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
+                labelMedium =
+                    TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
+                labelSmall =
+                    TextStyle(fontSize = 11.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium),
+            ),
+        shapes =
+            Shapes(
+                small = RoundedCornerShape(8.dp),
+                medium = RoundedCornerShape(12.dp),
+                large = RoundedCornerShape(16.dp),
+            ),
+        content = content,
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun EsenhoMainScreen(
-    onExport: (NativeExportRequest) -> Unit
-) {
+fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     val context = LocalContext.current
     var canvasViewRef by remember { mutableStateOf<EsenhoCanvasView?>(null) }
     val engine = remember { EsenhoEngine(context, 1080, 1920) }
@@ -226,16 +297,14 @@ fun EsenhoMainScreen(
     var favoriteBrushIds by remember { mutableStateOf(storageManager.loadFavoriteBrushes()) }
 
     var focusMode by remember { mutableStateOf(false) }
+    var activePanel by remember { mutableStateOf<WorkspacePanel?>(null) }
+    var showWorkspaceActions by remember { mutableStateOf(false) }
+    var documentTab by remember { mutableIntStateOf(0) }
     var showAssistMenu by remember { mutableStateOf(false) }
     BackHandler(enabled = focusMode) { focusMode = false }
 
     // UI Dialog & Drawer States
-    var showBrushDrawer by remember { mutableStateOf(false) }
-    var showColorStudio by remember { mutableStateOf(false) }
-    var showLayerDrawer by remember { mutableStateOf(false) }
-    var showFilterModal by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
-    var showAnimationTimeline by remember { mutableStateOf(false) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var showProjectManager by remember { mutableStateOf(false) }
     var showClearLayerConfirm by remember { mutableStateOf(false) }
@@ -295,15 +364,22 @@ fun EsenhoMainScreen(
         pixelArtGrid = engine.pixelArtGrid
         isTransformActive = engine.transformState != null
         engine.transformState?.let { activeTransformMode = it.mode }
-        activeTransformInterpolation = engine.transformState?.interpolation ?: engine.transformInterpolation
+        activeTransformInterpolation =
+            engine.transformState?.interpolation ?: engine.transformInterpolation
         activeBrushName = engine.activeBrushDisplayName
-        engine.snapshotSelectedFavoriteTool()?.let { (id, state) -> storageManager.saveFavoriteToolState(id, state) }
+        engine.snapshotSelectedFavoriteTool()?.let { (id, state) ->
+            storageManager.saveFavoriteToolState(id, state)
+        }
         canvasViewRef?.invalidate()
     }
 
     fun chooseTool(mode: ToolMode) {
         showSelectMenu = false
         toolMenuCategory = null
+        if (mode.name.startsWith("SELECT_") || mode == ToolMode.LASSO_FILL)
+            activePanel = WorkspacePanel.SELECTION
+        else if (activePanel == WorkspacePanel.SELECTION || activePanel == WorkspacePanel.TRANSFORM)
+            activePanel = null
         if (mode == ToolMode.SELECT_WAND) {
             if (isTransformActive) engine.cancelTransform()
             isTransformActive = false
@@ -313,6 +389,7 @@ fun EsenhoMainScreen(
         } else if (mode == ToolMode.TRANSFORM) {
             if (engine.beginTransform(selectionOnly = engine.selectionActive)) {
                 isTransformActive = true
+                activePanel = WorkspacePanel.TRANSFORM
                 currentTool = mode
             }
         } else {
@@ -324,24 +401,50 @@ fun EsenhoMainScreen(
         refreshState()
     }
 
-    val saveProjectLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/x-esenho")
-    ) { uri ->
-        if (uri != null) runCatching {
-            context.contentResolver.openOutputStream(uri)?.use { EsenhoProjectIO.save(engine, it) }
-                ?: error("Não foi possível criar o arquivo")
-        }.onSuccess { Toast.makeText(context, "Projeto salvo", Toast.LENGTH_SHORT).show() }
-            .onFailure { Toast.makeText(context, "Falha ao salvar projeto: ${it.message}", Toast.LENGTH_LONG).show() }
-    }
-    val openProjectLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) runCatching {
-            context.contentResolver.openInputStream(uri)?.use { EsenhoProjectIO.load(engine, it) }
-                ?: error("Não foi possível abrir o arquivo")
-        }.onSuccess { refreshState(); Toast.makeText(context, "Projeto aberto", Toast.LENGTH_SHORT).show() }
-            .onFailure { Toast.makeText(context, "Falha ao abrir projeto: ${it.message}", Toast.LENGTH_LONG).show() }
-    }
+    val saveProjectLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("application/x-esenho")
+        ) { uri ->
+            if (uri != null)
+                runCatching {
+                        context.contentResolver.openOutputStream(uri)?.use {
+                            EsenhoProjectIO.save(engine, it)
+                        } ?: error("Não foi possível criar o arquivo")
+                    }
+                    .onSuccess {
+                        Toast.makeText(context, "Projeto salvo", Toast.LENGTH_SHORT).show()
+                    }
+                    .onFailure {
+                        Toast.makeText(
+                                context,
+                                "Falha ao salvar projeto: ${it.message}",
+                                Toast.LENGTH_LONG,
+                            )
+                            .show()
+                    }
+        }
+    val openProjectLauncher =
+        rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) { uri
+            ->
+            if (uri != null)
+                runCatching {
+                        context.contentResolver.openInputStream(uri)?.use {
+                            EsenhoProjectIO.load(engine, it)
+                        } ?: error("Não foi possível abrir o arquivo")
+                    }
+                    .onSuccess {
+                        refreshState()
+                        Toast.makeText(context, "Projeto aberto", Toast.LENGTH_SHORT).show()
+                    }
+                    .onFailure {
+                        Toast.makeText(
+                                context,
+                                "Falha ao abrir projeto: ${it.message}",
+                                Toast.LENGTH_LONG,
+                            )
+                            .show()
+                    }
+        }
 
     // Keep an editable layered recovery copy in private app storage.
     LaunchedEffect(engine) {
@@ -365,980 +468,1320 @@ fun EsenhoMainScreen(
     }
 
     // Image Picker Launcher (Import image from Android Gallery to Layer)
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            var bitmap: Bitmap? = null
-            try {
-                bitmap = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
-                if (bitmap != null) {
-                    engine.importImageToLayer(bitmap)
-                    engine.clearSelection()
-                    val transforming = engine.beginTransform()
-                    isTransformActive = transforming
-                    if (transforming) currentTool = ToolMode.TRANSFORM
-                    refreshState()
-                    Toast.makeText(context, "Imagem importada para nova camada!", Toast.LENGTH_SHORT).show()
+    val imagePickerLauncher =
+        rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) {
+            uri: Uri? ->
+            if (uri != null) {
+                var bitmap: Bitmap? = null
+                try {
+                    bitmap =
+                        context.contentResolver.openInputStream(uri)?.use {
+                            BitmapFactory.decodeStream(it)
+                        }
+                    if (bitmap != null) {
+                        engine.importImageToLayer(bitmap)
+                        engine.clearSelection()
+                        val transforming = engine.beginTransform()
+                        isTransformActive = transforming
+                        if (transforming) currentTool = ToolMode.TRANSFORM
+                        refreshState()
+                        Toast.makeText(
+                                context,
+                                "Imagem importada para nova camada!",
+                                Toast.LENGTH_SHORT,
+                            )
+                            .show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Erro ao importar imagem", Toast.LENGTH_SHORT).show()
+                } finally {
+                    bitmap?.takeUnless { it.isRecycled }?.recycle()
                 }
-            } catch (e: Exception) {
-                Toast.makeText(context, "Erro ao importar imagem", Toast.LENGTH_SHORT).show()
-            } finally {
-                bitmap?.takeUnless { it.isRecycled }?.recycle()
             }
         }
-    }
 
-    Scaffold(
-        modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            if (!focusMode) EditorTopBar(
-                navigationIcon = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Undo
-                    TooltipIconButton(
-                        onClick = {
-                            if (isTransformActive) {
-                                isTransformActive = false
-                                engine.cancelTransform()
-                            }
-                            engine.undo()
-                            refreshState()
-                        },
-                        enabled = canUndo,
-                        description = "Desfazer",
-                        modifier = Modifier.size(40.dp)
+    val panelContent: @Composable () -> Unit = {
+        when (activePanel) {
+            WorkspacePanel.BRUSHES ->
+                BrushDrawer(
+                    engine = engine,
+                    favoriteBrushIds = favoriteBrushIds,
+                    embedded = true,
+                    onToggleFavorite = { id ->
+                        val updated =
+                            favoriteBrushIds.toMutableSet().apply { if (!add(id)) remove(id) }
+                        favoriteBrushIds = updated
+                        storageManager.saveFavoriteBrushes(updated)
+                    },
+                    onBrushUpdated = { refreshState() },
+                    onDismiss = { activePanel = null },
+                )
+            WorkspacePanel.COLOR ->
+                ColorStudioModal(
+                    engine = engine,
+                    initialColor = currentColor,
+                    recentColors = engine.recentColors,
+                    embedded = true,
+                    onColorChanged = { c ->
+                        currentColor = c
+                        engine.currentColor = c
+                        refreshState()
+                    },
+                    onDismiss = { activePanel = null },
+                )
+            WorkspacePanel.LAYERS ->
+                LayerDrawer(
+                    engine = engine,
+                    embedded = true,
+                    onLayersUpdated = { refreshState() },
+                    onDismiss = { activePanel = null },
+                )
+            WorkspacePanel.ANIMATION ->
+                Column(Modifier.fillMaxSize()) {
+                    EditorPanelHeader("Animação", { activePanel = null })
+                    AnimationTimelineBar(
+                        engine = engine,
+                        embedded = true,
+                        onFrameChanged = { canvasViewRef?.invalidate() },
+                        onClose = { activePanel = null },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            WorkspacePanel.EFFECTS ->
+                FilterModal(
+                    engine = engine,
+                    embedded = true,
+                    onFilterApplied = { refreshState() },
+                    onDismiss = { activePanel = null },
+                )
+            WorkspacePanel.SELECTION ->
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)
+                ) {
+                    EditorPanelHeader("Seleção", { activePanel = null })
+                    Text(
+                        if (selectionActive) "Edite a área selecionada"
+                        else "Desenhe uma seleção na tela ou use Selecionar tudo.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Desfazer", modifier = Modifier.size(18.dp))
-                    }
-
-                    // Redo
-                    TooltipIconButton(
-                        onClick = {
-                            if (isTransformActive) {
-                                isTransformActive = false
-                                engine.cancelTransform()
-                            }
-                            engine.redo()
-                            refreshState()
-                        },
-                        enabled = canRedo,
-                        description = "Refazer",
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Refazer", modifier = Modifier.size(18.dp))
-                    }
-
-                    }
-                },
-                actions = {
-                    Box {
-                        TooltipIconButton(
-                            onClick = { showAssistMenu = true },
-                            description = "Auxiliares: guias, grade e simetria",
-                            modifier = Modifier.size(40.dp)
-                        ) { Icon(Icons.Default.Tune, "Auxiliares", modifier = Modifier.size(20.dp),
-                            tint = if (pixelArtGrid || symmetryMode != SymmetryMode.OFF || engine.guideSnapEnabled)
-                                MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
-                        DropdownMenu(expanded = showAssistMenu, onDismissRequest = { showAssistMenu = false }) {
-                            DropdownMenuItem(
-                                text = { Text("Guias de traçado") },
-                                leadingIcon = { Icon(Icons.Default.Straighten, null) },
-                                onClick = { showAssistMenu = false; showGuidesMenu = true }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Grade Pixel Art") },
-                                leadingIcon = { Icon(Icons.Default.GridOn, null) },
-                                trailingIcon = if (pixelArtGrid) {{ Icon(Icons.Default.Check, null) }} else null,
-                                onClick = { engine.pixelArtGrid = !engine.pixelArtGrid; refreshState(); showAssistMenu = false }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Simetria · ${symmetryMode.displayName}") },
-                                leadingIcon = { Icon(Icons.Default.Stream, null) },
-                                onClick = { showAssistMenu = false; showSymmetryMenu = true }
-                            )
-                        }
-                        DropdownMenu(expanded = showGuidesMenu, onDismissRequest = { showGuidesMenu = false }) {
-                            DropdownMenuItem(
-                                text = { Text(if (engine.guideSnapEnabled) "Desativar aderência" else "Ativar aderência") },
-                                onClick = { engine.guideSnapEnabled = !engine.guideSnapEnabled; showGuidesMenu = false; canvasViewRef?.invalidate() }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Aderir a todas as guias visíveis") },
-                                leadingIcon = { Icon(if (engine.snapToAllVisibleGuides) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank, null) },
-                                onClick = {
-                                    engine.snapToAllVisibleGuides = !engine.snapToAllVisibleGuides
-                                    engine.guideSnapEnabled = true
-                                    showGuidesMenu = false
-                                    canvasViewRef?.invalidate()
-                                }
-                            )
-                            HorizontalDivider()
-                            listOf(
-                                DrawingGuideType.LINE to "Criar linha",
-                                DrawingGuideType.CURVE to "Criar curva livre",
-                                DrawingGuideType.ELLIPSE to "Criar elipse",
-                                DrawingGuideType.SPHERE to "Criar esfera"
-                            ).forEach { (type, label) ->
-                                DropdownMenuItem(
-                                    text = { Text(label) },
-                                    onClick = { engine.guideCreationType = type; engine.guideSnapEnabled = true; showGuidesMenu = false; canvasViewRef?.invalidate() }
+                        Box {
+                            TextButton(
+                                onClick = { showSelectionOpMenu = true },
+                                contentPadding = PaddingValues(horizontal = 5.dp),
+                                modifier = Modifier.height(30.dp),
+                            ) {
+                                Text(engine.selectionOp.displayName, fontSize = 10.sp, maxLines = 1)
+                                Icon(
+                                    Icons.Default.ExpandMore,
+                                    null,
+                                    modifier = Modifier.size(14.dp),
                                 )
                             }
-                            key(guideMenuRevision) {
-                                if (engine.canvasGuides.isNotEmpty()) {
-                                    HorizontalDivider()
-                                    engine.canvasGuides.indices.forEach { index ->
-                                        val isGuideSelected = engine.snapToAllVisibleGuides || index in engine.snapGuideIndices
-                                        val guideTypeName = when (engine.canvasGuides[index].type) {
-                                            DrawingGuideType.LINE -> "Linha"
-                                            DrawingGuideType.CURVE -> "Curva"
-                                            DrawingGuideType.ELLIPSE -> "Elipse"
-                                            DrawingGuideType.SPHERE -> "Esfera"
-                                        }
+                            DropdownMenu(
+                                expanded = showSelectionOpMenu,
+                                onDismissRequest = { showSelectionOpMenu = false },
+                            ) {
+                                SelectionOp.values().forEach { operation ->
+                                    DropdownMenuItem(
+                                        text = { Text(operation.displayName) },
+                                        trailingIcon =
+                                            if (engine.selectionOp == operation) {
+                                                { Icon(Icons.Default.Check, null) }
+                                            } else null,
+                                        onClick = {
+                                            engine.selectionOp = operation
+                                            showSelectionOpMenu = false
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        WorkspaceActionButton(
+                            onClick = {
+                                if (engine.copySelectionToClipboard()) canPasteSelection = true
+                                refreshState()
+                            },
+                            enabled = selectionActive,
+                            description = "Copiar seleção",
+                            modifier = Modifier.width(140.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = "Copiar seleção",
+                                modifier = Modifier.size(17.dp),
+                            )
+                        }
+                        WorkspaceActionButton(
+                            onClick = {
+                                if (engine.cutSelectionToClipboard()) canPasteSelection = true
+                                refreshState()
+                            },
+                            enabled = selectionActive,
+                            description = "Recortar seleção",
+                            modifier = Modifier.width(140.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.ContentCut,
+                                contentDescription = "Recortar seleção",
+                                modifier = Modifier.size(17.dp),
+                            )
+                        }
+                        WorkspaceActionButton(
+                            onClick = {
+                                engine.fillSelection(currentColor)
+                                refreshState()
+                            },
+                            enabled = selectionActive,
+                            description = "Preencher",
+                            modifier = Modifier.width(140.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.FormatColorFill,
+                                contentDescription = "Preencher seleção",
+                                modifier = Modifier.size(17.dp),
+                            )
+                        }
+                        WorkspaceActionButton(
+                            onClick = { if (engine.cropCanvasToSelection()) refreshState() },
+                            enabled = selectionActive,
+                            description = "Cortar tela",
+                            modifier = Modifier.width(140.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Crop,
+                                contentDescription = "Cortar tela para seleção",
+                                modifier = Modifier.size(17.dp),
+                            )
+                        }
+                        WorkspaceActionButton(
+                            onClick = {
+                                customBrushTipName =
+                                    "Ponta ${engine.presetCatalog.count { it.isCustom } + 1}"
+                                showCreateBrushTipDialog = true
+                            },
+                            enabled = selectionActive,
+                            description = "Criar ponta",
+                            modifier = Modifier.width(140.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Brush,
+                                contentDescription = "Criar ponta de pincel",
+                                modifier = Modifier.size(17.dp),
+                            )
+                        }
+                        WorkspaceActionButton(
+                            onClick = {
+                                customGrainName =
+                                    "Textura ${engine.presetCatalog.count { it.isCustom } + 1}"
+                                showCreateGrainDialog = true
+                            },
+                            enabled = selectionActive,
+                            description = "Criar textura",
+                            modifier = Modifier.width(140.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.GridOn,
+                                contentDescription = "Criar textura de grão",
+                                modifier = Modifier.size(17.dp),
+                            )
+                        }
+                        WorkspaceActionButton(
+                            onClick = {
+                                engine.pasteSelectionClipboard()
+                                refreshState()
+                            },
+                            description = "Colar seleção",
+                            enabled = canPasteSelection,
+                            modifier = Modifier.width(140.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.ContentPaste,
+                                contentDescription = "Colar seleção",
+                                modifier = Modifier.size(17.dp),
+                            )
+                        }
+                        // Select All
+                        WorkspaceActionButton(
+                            onClick = {
+                                engine.selectAll()
+                                refreshState()
+                            },
+                            description = "Selecionar Tudo",
+                            modifier = Modifier.width(140.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.SelectAll,
+                                contentDescription = "Selecionar Tudo",
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+
+                        // Invert Selection
+                        WorkspaceActionButton(
+                            onClick = {
+                                engine.invertSelection()
+                                refreshState()
+                            },
+                            enabled = selectionActive,
+                            description = "Inverter Seleção",
+                            modifier = Modifier.width(140.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.InvertColors,
+                                contentDescription = "Inverter Seleção",
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+
+                        TextButton(
+                            onClick = { showSelectionFeatherDialog = true },
+                            contentPadding = PaddingValues(horizontal = 5.dp),
+                            modifier = Modifier.height(32.dp),
+                        ) {
+                            Text("Suavizar borda", fontSize = 10.sp, maxLines = 1)
+                        }
+
+                        // Deselect
+                        WorkspaceActionButton(
+                            onClick = {
+                                engine.clearSelection()
+                                refreshState()
+                            },
+                            enabled = selectionActive,
+                            description = "Deselecionar",
+                            modifier = Modifier.width(140.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Deselect,
+                                contentDescription = "Deselecionar",
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+
+                        // Delete Selected Pixels
+                        WorkspaceActionButton(
+                            onClick = {
+                                engine.clearSelectedPixels()
+                                refreshState()
+                            },
+                            enabled = selectionActive,
+                            description = "Apagar Pixels Selecionados",
+                            modifier = Modifier.width(140.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.DeleteOutline,
+                                contentDescription = "Apagar Pixels Selecionados",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+
+                        // Transform Selection (M4 / R1)
+                        WorkspaceActionButton(
+                            onClick = {
+                                val ok = engine.beginTransform(selectionOnly = true)
+                                if (ok) {
+                                    isTransformActive = true
+                                    activePanel = WorkspacePanel.TRANSFORM
+                                    currentTool = ToolMode.TRANSFORM
+                                    refreshState()
+                                }
+                            },
+                            enabled = selectionActive,
+                            description = "Transformar Seleção",
+                            modifier = Modifier.width(140.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.OpenWith,
+                                contentDescription = "Transformar Seleção",
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
+            WorkspacePanel.TRANSFORM ->
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)
+                ) {
+                    EditorPanelHeader("Transformação", { activePanel = null })
+                    if (!isTransformActive)
+                        Text(
+                            "Escolha uma área para transformar.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    else
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = "Transformar",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                            Box {
+                                TextButton(
+                                    onClick = { showTransformModeMenu = true },
+                                    contentPadding = PaddingValues(horizontal = 6.dp),
+                                ) {
+                                    Text(activeTransformMode.title, fontSize = 11.sp)
+                                    Icon(
+                                        Icons.Default.ExpandMore,
+                                        contentDescription = "Modo de transformação",
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showTransformModeMenu,
+                                    onDismissRequest = { showTransformModeMenu = false },
+                                ) {
+                                    TransformState.Mode.values().forEach { mode ->
                                         DropdownMenuItem(
-                                            text = { Text("Guia ${index + 1} · $guideTypeName") },
-                                            leadingIcon = {
-                                                Icon(
-                                                    if (isGuideSelected) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
-                                                    contentDescription = if (isGuideSelected) "Aderência ativada" else "Aderência desativada"
-                                                )
-                                            },
-                                            trailingIcon = {
-                                                IconButton(onClick = {
-                                                    engine.removeCanvasGuide(index)
-                                                    guideMenuRevision++
-                                                    canvasViewRef?.invalidate()
-                                                }, modifier = Modifier.size(32.dp)) {
-                                                    Icon(Icons.Default.DeleteOutline, contentDescription = "Apagar guia", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
-                                                }
-                                            },
+                                            text = { Text(mode.title) },
+                                            trailingIcon =
+                                                if (activeTransformMode == mode) {
+                                                    { Icon(Icons.Default.Check, null) }
+                                                } else null,
                                             onClick = {
-                                                if (engine.snapToAllVisibleGuides) {
-                                                    engine.snapToAllVisibleGuides = false
-                                                    engine.snapGuideIndices.clear()
-                                                    engine.snapGuideIndices.addAll(engine.canvasGuides.indices)
-                                                }
-                                                if (isGuideSelected) engine.snapGuideIndices.remove(index) else engine.snapGuideIndices.add(index)
-                                                engine.activeCanvasGuideIndex = index
-                                                engine.guideSnapEnabled = true
-                                                guideMenuRevision++
+                                                activeTransformMode = mode
+                                                engine.transformModePreference = mode
+                                                engine.transformState?.mode = mode
+                                                showTransformModeMenu = false
                                                 canvasViewRef?.invalidate()
-                                            }
+                                            },
                                         )
                                     }
                                 }
                             }
-                        }
-                        DropdownMenu(expanded = showSymmetryMenu, onDismissRequest = { showSymmetryMenu = false }) {
-                            SymmetryMode.values().forEach { mode ->
-                                DropdownMenuItem(
-                                    text = { Text(mode.displayName) },
-                                    trailingIcon = if (symmetryMode == mode) {{ Icon(Icons.Default.Check, null) }} else null,
-                                    onClick = { showSymmetryMenu = false; engine.symmetryMode = mode; refreshState() }
+
+                            WorkspaceActionButton(
+                                onClick = {
+                                    transformLockAspect = !transformLockAspect
+                                    engine.transformLockAspect = transformLockAspect
+                                    canvasViewRef?.invalidate()
+                                },
+                                description =
+                                    if (transformLockAspect) "Proporção bloqueada"
+                                    else "Bloquear proporção",
+                                modifier = Modifier.width(140.dp),
+                            ) {
+                                Icon(
+                                    if (transformLockAspect) Icons.Default.Lock
+                                    else Icons.Default.LockOpen,
+                                    contentDescription =
+                                        if (transformLockAspect) "Proporção bloqueada"
+                                        else "Proporção livre",
+                                    tint =
+                                        if (transformLockAspect) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(19.dp),
+                                )
+                            }
+
+                            TextButton(
+                                onClick = {
+                                    activeTransformInterpolation =
+                                        if (
+                                            activeTransformInterpolation ==
+                                                TransformState.Interpolation.NEAREST
+                                        )
+                                            TransformState.Interpolation.BILINEAR
+                                        else TransformState.Interpolation.NEAREST
+                                    engine.transformInterpolation = activeTransformInterpolation
+                                    engine.transformState?.interpolation =
+                                        activeTransformInterpolation
+                                    canvasViewRef?.invalidate()
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp),
+                            ) {
+                                Text(activeTransformInterpolation.title, fontSize = 10.sp)
+                            }
+
+                            WorkspaceActionButton(
+                                onClick = {
+                                    engine.flipTransformH()
+                                    canvasViewRef?.invalidate()
+                                },
+                                description = "Espelhar Horizontal",
+                                modifier = Modifier.width(140.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.Flip,
+                                    contentDescription = "Espelhar Horizontal",
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+
+                            WorkspaceActionButton(
+                                onClick = {
+                                    engine.rotateTransform90()
+                                    canvasViewRef?.invalidate()
+                                },
+                                description = "Girar 90°",
+                                modifier = Modifier.width(140.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.RotateRight,
+                                    contentDescription = "Girar 90°",
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+
+                            Box {
+                                WorkspaceActionButton(
+                                    onClick = { showTransformActions = true },
+                                    description = "Mais ações de transformação",
+                                    modifier = Modifier.width(140.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Default.MoreVert,
+                                        contentDescription = "Ações de transformação",
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showTransformActions,
+                                    onDismissRequest = { showTransformActions = false },
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Girar 90° anti-horário") },
+                                        leadingIcon = { Icon(Icons.Default.RotateLeft, null) },
+                                        onClick = {
+                                            showTransformActions = false
+                                            engine.rotateTransformBy(-90f)
+                                            canvasViewRef?.invalidate()
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Girar 180°") },
+                                        leadingIcon = {
+                                            Icon(Icons.Default.Rotate90DegreesCw, null)
+                                        },
+                                        onClick = {
+                                            showTransformActions = false
+                                            engine.rotateTransformBy(180f)
+                                            canvasViewRef?.invalidate()
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Centralizar no canvas") },
+                                        leadingIcon = {
+                                            Icon(Icons.Default.CenterFocusStrong, null)
+                                        },
+                                        onClick = {
+                                            showTransformActions = false
+                                            engine.centerTransform()
+                                            canvasViewRef?.invalidate()
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Ajustar ao canvas") },
+                                        leadingIcon = { Icon(Icons.Default.FitScreen, null) },
+                                        onClick = {
+                                            showTransformActions = false
+                                            engine.fitTransformToCanvas()
+                                            canvasViewRef?.invalidate()
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Redefinir transformação") },
+                                        leadingIcon = { Icon(Icons.Default.Refresh, null) },
+                                        onClick = {
+                                            showTransformActions = false
+                                            engine.resetTransform()
+                                            canvasViewRef?.invalidate()
+                                        },
+                                    )
+                                }
+                            }
+
+                            WorkspaceActionButton(
+                                onClick = {
+                                    isTransformActive = false
+                                    activePanel = null
+                                    engine.cancelTransform()
+                                    currentTool = ToolMode.BRUSH
+                                    refreshState()
+                                },
+                                description = "Cancelar Transformação",
+                                modifier = Modifier.width(140.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Cancelar",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+
+                            WorkspaceActionButton(
+                                onClick = {
+                                    isTransformActive = false
+                                    activePanel = null
+                                    engine.commitTransform()
+                                    currentTool = ToolMode.BRUSH
+                                    refreshState()
+                                },
+                                description = "Confirmar Transformação",
+                                emphasized = true,
+                                modifier = Modifier.width(140.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = "Confirmar Transformação",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(20.dp),
                                 )
                             }
                         }
-                    }
-                    // Animation Toggle
-                    TooltipIconButton(
-                        onClick = { showAnimationTimeline = !showAnimationTimeline },
-                        description = "Animação",
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Animation,
-                            contentDescription = "Animação",
-                            tint = if (showAnimationTimeline) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    // Filters Gallery
-                    TooltipIconButton(
-                        onClick = { showFilterModal = true },
-                        description = "Filtros",
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = "Filtros", modifier = Modifier.size(18.dp))
-                    }
-
-                    // Layers Drawer
-                    BadgedBox(
-                        badge = {
-                            Badge { Text("$activeLayerCount") }
+                }
+            WorkspacePanel.CONTROLS ->
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)
+                ) {
+                    EditorPanelHeader("Seus parâmetros", { activePanel = null })
+                    Text(
+                        "Toque no valor para escolher o parâmetro e o intervalo. Arraste para ajustar.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    ThumbSliders(
+                        engine = engine,
+                        configuredSliders = sideSliderSettings,
+                        horizontal = true,
+                        onConfiguredSlidersChange = {
+                            sideSliderSettings = it
+                            storageManager.saveSideSliders(it)
                         },
-                        modifier = Modifier.padding(end = 4.dp)
-                    ) {
-                        TooltipIconButton(
-                            onClick = { showLayerDrawer = !showLayerDrawer },
-                            description = "Camadas",
-                            modifier = Modifier.size(40.dp)
+                        onSizeChangeActive = { active ->
+                            canvasViewRef?.previewBrushSize = if (active) engine.brushSize else 0f
+                            if (!active) refreshState()
+                        },
+                    )
+                }
+            null -> Unit
+        }
+    }
+    BackHandler(enabled = activePanel != null && !focusMode) { activePanel = null }
+
+    Scaffold(
+        modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        topBar = {
+            if (!focusMode)
+                WorkspaceHeader(
+                    dimensions = "${engine.width} × ${engine.height} px",
+                    canUndo = canUndo,
+                    canRedo = canRedo,
+                    onUndo = {
+                        if (isTransformActive) {
+                            isTransformActive = false
+                            engine.cancelTransform()
+                        }
+                        engine.undo()
+                        refreshState()
+                    },
+                    onRedo = {
+                        if (isTransformActive) {
+                            isTransformActive = false
+                            engine.cancelTransform()
+                        }
+                        engine.redo()
+                        refreshState()
+                    },
+                    onDocument = { showWorkspaceActions = true },
+                    onFocus = { focusMode = true },
+                )
+        },
+        bottomBar = {
+            if (!focusMode)
+                WorkspaceNavigation(activePanel) { panel ->
+                    activePanel = if (activePanel == panel) null else panel
+                }
+        },
+    ) { paddingValues ->
+        BoxWithConstraints(Modifier.fillMaxSize().padding(paddingValues)) {
+            val useSideInspector =
+                maxWidth >= 700.dp || (maxWidth >= 600.dp && maxWidth > maxHeight * 1.4f)
+            val inspectorWidth = (maxWidth * 0.38f).coerceIn(300.dp, 360.dp)
+            val mobilePanelHeight = (maxHeight * 0.46f).coerceAtMost(400.dp)
+            Row(Modifier.fillMaxSize()) {
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    Row(Modifier.weight(1f).fillMaxWidth()) {
+                        if (!focusMode)
+                            WorkspaceToolRail(currentTool, { chooseTool(it) }) {
+                                Box {
+                                    ToolNavButton(
+                                        icon = Icons.Default.Apps,
+                                        isSelected = showSelectMenu,
+                                        description = "Todas as ferramentas e formas",
+                                        onClick = {
+                                            toolMenuCategory = null
+                                            showSelectMenu = true
+                                        },
+                                    )
+                                    DropdownMenu(
+                                        expanded = showSelectMenu,
+                                        onDismissRequest = {
+                                            showSelectMenu = false
+                                            toolMenuCategory = null
+                                        },
+                                    ) {
+                                        if (toolMenuCategory == null) {
+                                            DropdownMenuItem(
+                                                text = { Text("Pintura") },
+                                                leadingIcon = { Icon(Icons.Default.Brush, null) },
+                                                trailingIcon = {
+                                                    Icon(Icons.Default.ExpandMore, null)
+                                                },
+                                                onClick = { toolMenuCategory = "paint" },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Seleção") },
+                                                leadingIcon = {
+                                                    Icon(Icons.Default.CropFree, null)
+                                                },
+                                                trailingIcon = {
+                                                    Icon(Icons.Default.ExpandMore, null)
+                                                },
+                                                onClick = { toolMenuCategory = "selection" },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Transformar") },
+                                                leadingIcon = {
+                                                    Icon(Icons.Default.OpenWith, null)
+                                                },
+                                                trailingIcon =
+                                                    if (currentTool == ToolMode.TRANSFORM) {
+                                                        { Icon(Icons.Default.Check, null) }
+                                                    } else null,
+                                                onClick = { chooseTool(ToolMode.TRANSFORM) },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Formas") },
+                                                leadingIcon = {
+                                                    Icon(Icons.Default.Category, null)
+                                                },
+                                                trailingIcon = {
+                                                    Icon(Icons.Default.ExpandMore, null)
+                                                },
+                                                onClick = { toolMenuCategory = "shapes" },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Mais ferramentas") },
+                                                leadingIcon = {
+                                                    Icon(Icons.Default.MoreHoriz, null)
+                                                },
+                                                trailingIcon = {
+                                                    Icon(Icons.Default.ExpandMore, null)
+                                                },
+                                                onClick = { toolMenuCategory = "more" },
+                                            )
+                                        } else {
+                                            DropdownMenuItem(
+                                                text = { Text("Voltar às ferramentas") },
+                                                leadingIcon = {
+                                                    Icon(Icons.Default.ArrowBack, null)
+                                                },
+                                                onClick = { toolMenuCategory = null },
+                                            )
+                                            HorizontalDivider()
+                                            val modes =
+                                                when (toolMenuCategory) {
+                                                    "paint" ->
+                                                        listOf(
+                                                            Triple(
+                                                                ToolMode.BRUSH,
+                                                                "Pincel",
+                                                                Icons.Default.Brush,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.ERASER,
+                                                                "Borracha",
+                                                                Icons.Default.Delete,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.FILL,
+                                                                "Balde de tinta",
+                                                                Icons.Default.FormatColorFill,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.SMUDGE,
+                                                                "Borrar",
+                                                                Icons.Default.WaterDrop,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.BLEND,
+                                                                "Mesclar",
+                                                                Icons.Default.BlurCircular,
+                                                            ),
+                                                        )
+                                                    "selection" ->
+                                                        listOf(
+                                                            Triple(
+                                                                ToolMode.SELECT_RECT,
+                                                                "Retângulo",
+                                                                Icons.Default.CropSquare,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.SELECT_ELLIPSE,
+                                                                "Elipse",
+                                                                Icons.Default.Circle,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.SELECT_LASSO,
+                                                                "Laço",
+                                                                Icons.Default.Gesture,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.SELECT_BRUSH_MASK,
+                                                                "Pincel de seleção",
+                                                                Icons.Default.Brush,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.SELECT_WAND,
+                                                                "Varinha mágica",
+                                                                Icons.Default.AutoFixHigh,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.LASSO_FILL,
+                                                                "Laço preenchido",
+                                                                Icons.Default.Gesture,
+                                                            ),
+                                                        )
+                                                    "shapes" ->
+                                                        listOf(
+                                                            Triple(
+                                                                ToolMode.LINE,
+                                                                "Linha",
+                                                                Icons.Default.HorizontalRule,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.RECTANGLE,
+                                                                "Retângulo",
+                                                                Icons.Default.CropSquare,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.ELLIPSE,
+                                                                "Elipse / círculo",
+                                                                Icons.Default.RadioButtonUnchecked,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.ERASE_RECTANGLE,
+                                                                "Apagar retângulo",
+                                                                Icons.Default.CropSquare,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.ERASE_ELLIPSE,
+                                                                "Apagar elipse",
+                                                                Icons.Default.Circle,
+                                                            ),
+                                                        )
+                                                    else ->
+                                                        listOf(
+                                                            Triple(
+                                                                ToolMode.EYEDROPPER,
+                                                                "Conta-gotas",
+                                                                Icons.Default.Colorize,
+                                                            ),
+                                                            Triple(
+                                                                ToolMode.PAN,
+                                                                "Mover tela",
+                                                                Icons.Default.PanTool,
+                                                            ),
+                                                        )
+                                                }
+                                            modes.forEach { (mode, label, icon) ->
+                                                DropdownMenuItem(
+                                                    text = { Text(label) },
+                                                    leadingIcon = {
+                                                        if (mode == ToolMode.ERASER)
+                                                            Icon(
+                                                                painterResource(
+                                                                    R.drawable.ic_eraser
+                                                                ),
+                                                                null,
+                                                            )
+                                                        else Icon(icon, null)
+                                                    },
+                                                    trailingIcon =
+                                                        if (currentTool == mode) {
+                                                            { Icon(Icons.Default.Check, null) }
+                                                        } else null,
+                                                    onClick = { chooseTool(mode) },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        Box(
+                            Modifier.weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.background)
                         ) {
-                            Icon(Icons.Default.Layers, contentDescription = "Camadas", modifier = Modifier.size(18.dp))
+                            AndroidView(
+                                factory = { ctx ->
+                                    EsenhoCanvasView(ctx).apply {
+                                        this.engine = engine
+                                        this.onStateChanged = { refreshState() }
+                                        this.onColorPicked = { c ->
+                                            currentColor = c
+                                            engine.currentColor = c
+                                        }
+                                        canvasViewRef = this
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+
+                            if (focusMode) {
+                                Surface(
+                                    Modifier.align(Alignment.TopEnd).padding(12.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                ) {
+                                    IconButton(onClick = { focusMode = false }) {
+                                        Icon(Icons.Default.FullscreenExit, "Sair do modo de foco")
+                                    }
+                                }
+                            }
                         }
                     }
+                    if (!focusMode) {
 
-                    Spacer(modifier = Modifier.width(4.dp))
-
-                    // Overflow Menu (Full project & canvas operations)
-                    var showMenu by remember { mutableStateOf(false) }
-                    Box {
-                        TooltipIconButton(
-                            onClick = { showMenu = true },
-                            description = "Mais Opções",
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Mais", modifier = Modifier.size(18.dp))
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Modo de foco") },
-                                leadingIcon = { Icon(Icons.Default.Fullscreen, null) },
-                                onClick = { showMenu = false; focusMode = true }
+                        WorkspaceProperties(
+                            toolName = currentTool.displayName,
+                            onToolOptions = {
+                                if (isTransformActive) activePanel = WorkspacePanel.TRANSFORM
+                                else if (selectionActive || currentTool.name.startsWith("SELECT_"))
+                                    activePanel = WorkspacePanel.SELECTION
+                                else {
+                                    toolMenuCategory = null
+                                    showSelectMenu = true
+                                }
+                            },
+                            brushName = activeBrushName,
+                            color = currentColor,
+                            size = brushSize,
+                            opacity = brushOpacity,
+                            onSize = {
+                                engine.brushSize = it
+                                brushSize = it
+                                canvasViewRef?.previewBrushSize = it
+                            },
+                            onOpacity = {
+                                engine.brushOpacity = it
+                                brushOpacity = it
+                            },
+                            onChangeFinished = {
+                                canvasViewRef?.previewBrushSize = 0f
+                                refreshState()
+                            },
+                            onBrush = { activePanel = WorkspacePanel.BRUSHES },
+                            onColor = { activePanel = WorkspacePanel.COLOR },
+                            onParameters = { activePanel = WorkspacePanel.CONTROLS },
+                        )
+                        if (!useSideInspector && activePanel != null) {
+                            WorkspaceInspector(
+                                activePanel!!,
+                                Modifier.fillMaxWidth().height(mobilePanelHeight),
+                                panelContent,
                             )
-                            HorizontalDivider()
+                        }
+                    }
+                }
+                if (!focusMode && useSideInspector && activePanel != null) {
+                    WorkspaceInspector(
+                        activePanel!!,
+                        Modifier.width(inspectorWidth).fillMaxHeight().padding(start = 8.dp),
+                        panelContent,
+                    )
+                }
+            }
+        }
+
+        if (showWorkspaceActions) {
+            ModalBottomSheet(
+                onDismissRequest = { showWorkspaceActions = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = MaterialTheme.colorScheme.surface,
+            ) {
+                Column(
+                    Modifier.fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 20.dp)
+                ) {
+                    EditorPanelHeader(
+                        "Documento e espaço de trabalho",
+                        { showWorkspaceActions = false },
+                    )
+                    WorkspaceSectionTabs(
+                        listOf("Projeto", "Tela", "Seleção"),
+                        documentTab,
+                        { documentTab = it },
+                    )
+                    when (documentTab) {
+                        0 -> {
                             DropdownMenuItem(
-                                text = { Text("Novo Projeto...") },
+                                text = { Text("Nova tela") },
                                 leadingIcon = { Icon(Icons.Default.AddBox, null) },
                                 onClick = {
-                                    showMenu = false
+                                    showWorkspaceActions = false
                                     showNewProjectDialog = true
-                                }
+                                },
                             )
                             DropdownMenuItem(
-                                text = { Text("Gerenciar Projetos...") },
+                                text = { Text("Salvar e abrir projetos") },
                                 leadingIcon = { Icon(Icons.Default.FolderOpen, null) },
-                                onClick = { showMenu = false; showProjectManager = true }
+                                onClick = {
+                                    showWorkspaceActions = false
+                                    showProjectManager = true
+                                },
                             )
                             DropdownMenuItem(
-                                text = { Text("Importar Imagem...") },
+                                text = { Text("Importar imagem") },
                                 leadingIcon = { Icon(Icons.Default.Image, null) },
                                 onClick = {
-                                    showMenu = false
+                                    showWorkspaceActions = false
                                     imagePickerLauncher.launch("image/*")
-                                }
+                                },
                             )
+                            DropdownMenuItem(
+                                text = { Text("Exportar…") },
+                                leadingIcon = { Icon(Icons.Default.Share, null) },
+                                onClick = {
+                                    showWorkspaceActions = false
+                                    showExportDialog = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "esenho v${context.getString(R.string.app_version).substringBefore('-')}"
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Default.Info, null) },
+                                enabled = false,
+                                onClick = {},
+                            )
+                        }
+                        1 -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "Guias, grade e simetria",
+                                    Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Box {
+                                    TooltipIconButton(
+                                        onClick = { showAssistMenu = true },
+                                        description = "Auxiliares: guias, grade e simetria",
+                                        modifier = Modifier.size(40.dp),
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Tune,
+                                            "Auxiliares",
+                                            modifier = Modifier.size(20.dp),
+                                            tint =
+                                                if (
+                                                    pixelArtGrid ||
+                                                        symmetryMode != SymmetryMode.OFF ||
+                                                        engine.guideSnapEnabled
+                                                )
+                                                    MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = showAssistMenu,
+                                        onDismissRequest = { showAssistMenu = false },
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Guias de traçado") },
+                                            leadingIcon = { Icon(Icons.Default.Straighten, null) },
+                                            onClick = {
+                                                showAssistMenu = false
+                                                showGuidesMenu = true
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Grade Pixel Art") },
+                                            leadingIcon = { Icon(Icons.Default.GridOn, null) },
+                                            trailingIcon =
+                                                if (pixelArtGrid) {
+                                                    { Icon(Icons.Default.Check, null) }
+                                                } else null,
+                                            onClick = {
+                                                engine.pixelArtGrid = !engine.pixelArtGrid
+                                                refreshState()
+                                                showAssistMenu = false
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text("Simetria · ${symmetryMode.displayName}")
+                                            },
+                                            leadingIcon = { Icon(Icons.Default.Stream, null) },
+                                            onClick = {
+                                                showAssistMenu = false
+                                                showSymmetryMenu = true
+                                            },
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = showGuidesMenu,
+                                        onDismissRequest = { showGuidesMenu = false },
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    if (engine.guideSnapEnabled)
+                                                        "Desativar aderência"
+                                                    else "Ativar aderência"
+                                                )
+                                            },
+                                            onClick = {
+                                                engine.guideSnapEnabled = !engine.guideSnapEnabled
+                                                showGuidesMenu = false
+                                                canvasViewRef?.invalidate()
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Aderir a todas as guias visíveis") },
+                                            leadingIcon = {
+                                                Icon(
+                                                    if (engine.snapToAllVisibleGuides)
+                                                        Icons.Default.CheckBox
+                                                    else Icons.Default.CheckBoxOutlineBlank,
+                                                    null,
+                                                )
+                                            },
+                                            onClick = {
+                                                engine.snapToAllVisibleGuides =
+                                                    !engine.snapToAllVisibleGuides
+                                                engine.guideSnapEnabled = true
+                                                showGuidesMenu = false
+                                                canvasViewRef?.invalidate()
+                                            },
+                                        )
+                                        HorizontalDivider()
+                                        listOf(
+                                                DrawingGuideType.LINE to "Criar linha",
+                                                DrawingGuideType.CURVE to "Criar curva livre",
+                                                DrawingGuideType.ELLIPSE to "Criar elipse",
+                                                DrawingGuideType.SPHERE to "Criar esfera",
+                                            )
+                                            .forEach { (type, label) ->
+                                                DropdownMenuItem(
+                                                    text = { Text(label) },
+                                                    onClick = {
+                                                        engine.guideCreationType = type
+                                                        engine.guideSnapEnabled = true
+                                                        showGuidesMenu = false
+                                                        canvasViewRef?.invalidate()
+                                                    },
+                                                )
+                                            }
+                                        key(guideMenuRevision) {
+                                            if (engine.canvasGuides.isNotEmpty()) {
+                                                HorizontalDivider()
+                                                engine.canvasGuides.indices.forEach { index ->
+                                                    val isGuideSelected =
+                                                        engine.snapToAllVisibleGuides ||
+                                                            index in engine.snapGuideIndices
+                                                    val guideTypeName =
+                                                        when (engine.canvasGuides[index].type) {
+                                                            DrawingGuideType.LINE -> "Linha"
+                                                            DrawingGuideType.CURVE -> "Curva"
+                                                            DrawingGuideType.ELLIPSE -> "Elipse"
+                                                            DrawingGuideType.SPHERE -> "Esfera"
+                                                        }
+                                                    DropdownMenuItem(
+                                                        text = {
+                                                            Text(
+                                                                "Guia ${index + 1} · $guideTypeName"
+                                                            )
+                                                        },
+                                                        leadingIcon = {
+                                                            Icon(
+                                                                if (isGuideSelected)
+                                                                    Icons.Default.CheckBox
+                                                                else
+                                                                    Icons.Default
+                                                                        .CheckBoxOutlineBlank,
+                                                                contentDescription =
+                                                                    if (isGuideSelected)
+                                                                        "Aderência ativada"
+                                                                    else "Aderência desativada",
+                                                            )
+                                                        },
+                                                        trailingIcon = {
+                                                            IconButton(
+                                                                onClick = {
+                                                                    engine.removeCanvasGuide(index)
+                                                                    guideMenuRevision++
+                                                                    canvasViewRef?.invalidate()
+                                                                },
+                                                                modifier = Modifier.size(32.dp),
+                                                            ) {
+                                                                Icon(
+                                                                    Icons.Default.DeleteOutline,
+                                                                    contentDescription =
+                                                                        "Apagar guia",
+                                                                    modifier = Modifier.size(18.dp),
+                                                                    tint =
+                                                                        MaterialTheme.colorScheme
+                                                                            .error,
+                                                                )
+                                                            }
+                                                        },
+                                                        onClick = {
+                                                            if (engine.snapToAllVisibleGuides) {
+                                                                engine.snapToAllVisibleGuides =
+                                                                    false
+                                                                engine.snapGuideIndices.clear()
+                                                                engine.snapGuideIndices.addAll(
+                                                                    engine.canvasGuides.indices
+                                                                )
+                                                            }
+                                                            if (isGuideSelected)
+                                                                engine.snapGuideIndices.remove(
+                                                                    index
+                                                                )
+                                                            else engine.snapGuideIndices.add(index)
+                                                            engine.activeCanvasGuideIndex = index
+                                                            engine.guideSnapEnabled = true
+                                                            guideMenuRevision++
+                                                            canvasViewRef?.invalidate()
+                                                        },
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    DropdownMenu(
+                                        expanded = showSymmetryMenu,
+                                        onDismissRequest = { showSymmetryMenu = false },
+                                    ) {
+                                        SymmetryMode.values().forEach { mode ->
+                                            DropdownMenuItem(
+                                                text = { Text(mode.displayName) },
+                                                trailingIcon =
+                                                    if (symmetryMode == mode) {
+                                                        { Icon(Icons.Default.Check, null) }
+                                                    } else null,
+                                                onClick = {
+                                                    showSymmetryMenu = false
+                                                    engine.symmetryMode = mode
+                                                    refreshState()
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                             DropdownMenuItem(
                                 text = { Text("Redimensionar Tela...") },
                                 leadingIcon = { Icon(Icons.Default.AspectRatio, null) },
                                 onClick = {
-                                    showMenu = false
+                                    showWorkspaceActions = false
                                     canvasResizeWidth = engine.width.toString()
                                     canvasResizeHeight = engine.height.toString()
                                     canvasResizeError = null
                                     showCanvasResizeDialog = true
-                                }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Resetar Zoom & Posição") },
+                                leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) },
+                                onClick = {
+                                    showWorkspaceActions = false
+                                    canvasViewRef?.resetView()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Espelhar Tela Horizontal") },
+                                leadingIcon = { Icon(Icons.Default.Flip, null) },
+                                onClick = {
+                                    showWorkspaceActions = false
+                                    engine.flipCanvasH()
+                                    refreshState()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Espelhar Tela Vertical") },
+                                leadingIcon = { Icon(Icons.Default.FlipCameraAndroid, null) },
+                                onClick = {
+                                    showWorkspaceActions = false
+                                    engine.flipCanvasV()
+                                    refreshState()
+                                },
                             )
                             DropdownMenuItem(
                                 text = { Text("Remover todas as guias") },
                                 leadingIcon = { Icon(Icons.Default.DeleteOutline, null) },
                                 enabled = engine.canvasGuides.isNotEmpty(),
                                 onClick = {
-                                    showMenu = false
+                                    showWorkspaceActions = false
                                     engine.canvasGuides.clear()
                                     engine.snapGuideIndices.clear()
                                     engine.snapToAllVisibleGuides = false
                                     engine.activeCanvasGuideIndex = -1
                                     canvasViewRef?.invalidate()
-                                }
+                                },
                             )
+                        }
+                        else -> {
                             DropdownMenuItem(
                                 text = { Text("Selecionar Tudo") },
                                 leadingIcon = { Icon(Icons.Default.SelectAll, null) },
                                 onClick = {
-                                    showMenu = false
+                                    showWorkspaceActions = false
                                     engine.selectAll()
                                     refreshState()
-                                }
+                                },
                             )
                             DropdownMenuItem(
                                 text = { Text("Inverter Seleção") },
                                 leadingIcon = { Icon(Icons.Default.InvertColors, null) },
                                 onClick = {
-                                    showMenu = false
+                                    showWorkspaceActions = false
                                     engine.invertSelection()
                                     refreshState()
-                                }
+                                },
                             )
                             DropdownMenuItem(
                                 text = { Text("Colar seleção") },
                                 leadingIcon = { Icon(Icons.Default.ContentPaste, null) },
                                 enabled = canPasteSelection,
                                 onClick = {
-                                    showMenu = false
+                                    showWorkspaceActions = false
                                     engine.pasteSelectionClipboard()
                                     refreshState()
-                                }
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("Exportar…") },
-                                leadingIcon = { Icon(Icons.Default.Share, null) },
-                                onClick = { showMenu = false; showExportDialog = true }
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("Espelhar Tela Horizontal") },
-                                leadingIcon = { Icon(Icons.Default.Flip, null) },
-                                onClick = {
-                                    showMenu = false
-                                    engine.flipCanvasH()
-                                    refreshState()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Espelhar Tela Vertical") },
-                                leadingIcon = { Icon(Icons.Default.FlipCameraAndroid, null) },
-                                onClick = {
-                                    showMenu = false
-                                    engine.flipCanvasV()
-                                    refreshState()
-                                }
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("Resetar Zoom & Posição") },
-                                leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) },
-                                onClick = {
-                                    showMenu = false
-                                    canvasViewRef?.resetView()
-                                }
+                                },
                             )
                             DropdownMenuItem(
                                 text = { Text("Limpar Camada Atual") },
                                 leadingIcon = { Icon(Icons.Default.DeleteSweep, null) },
                                 onClick = {
-                                    showMenu = false
+                                    showWorkspaceActions = false
                                     showClearLayerConfirm = true
-                                }
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("esenho v${context.getString(R.string.app_version).substringBefore('-')}") },
-                                leadingIcon = { Icon(Icons.Default.Info, null) },
-                                enabled = false,
-                                onClick = {}
-                            )
-                        }
-                    }
-
-
-                }
-            )
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // 1. Hardware-Accelerated Native Canvas Viewport
-            AndroidView(
-                factory = { ctx ->
-                    EsenhoCanvasView(ctx).apply {
-                        this.engine = engine
-                        this.onStateChanged = { refreshState() }
-                        this.onColorPicked = { c ->
-                            currentColor = c
-                            engine.currentColor = c
-                        }
-                        canvasViewRef = this
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-
-            if (focusMode) {
-                Surface(
-                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-                ) {
-                    TooltipIconButton(onClick = { focusMode = false }, description = "Sair do modo de foco", modifier = Modifier.size(48.dp)) {
-                        Icon(Icons.Default.FullscreenExit, contentDescription = "Sair do modo de foco")
-                    }
-                }
-            }
-
-            // 2. Active Selection Floating HUD Bar
-            if (selectionActive && !focusMode) {
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(start = 48.dp, end = 8.dp, top = 8.dp)
-                        .shadow(8.dp, RoundedCornerShape(18.dp)),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-                    shape = RoundedCornerShape(18.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box {
-                            TextButton(
-                                onClick = { showSelectionOpMenu = true },
-                                contentPadding = PaddingValues(horizontal = 5.dp),
-                                modifier = Modifier.height(30.dp)
-                            ) {
-                                Text(engine.selectionOp.displayName, fontSize = 10.sp, maxLines = 1)
-                                Icon(Icons.Default.ExpandMore, null, modifier = Modifier.size(14.dp))
-                            }
-                            DropdownMenu(expanded = showSelectionOpMenu, onDismissRequest = { showSelectionOpMenu = false }) {
-                                SelectionOp.values().forEach { operation ->
-                                    DropdownMenuItem(
-                                        text = { Text(operation.displayName) },
-                                        trailingIcon = if (engine.selectionOp == operation) {{ Icon(Icons.Default.Check, null) }} else null,
-                                        onClick = { engine.selectionOp = operation; showSelectionOpMenu = false }
-                                    )
-                                }
-                            }
-                        }
-                        TooltipIconButton(
-                            onClick = {
-                                if (engine.copySelectionToClipboard()) canPasteSelection = true
-                                refreshState()
-                            },
-                            description = "Copiar seleção",
-                            modifier = Modifier.size(32.dp)
-                        ) { Icon(Icons.Default.ContentCopy, contentDescription = "Copiar seleção", modifier = Modifier.size(17.dp)) }
-                        TooltipIconButton(
-                            onClick = {
-                                if (engine.cutSelectionToClipboard()) canPasteSelection = true
-                                refreshState()
-                            },
-                            description = "Recortar seleção",
-                            modifier = Modifier.size(32.dp)
-                        ) { Icon(Icons.Default.ContentCut, contentDescription = "Recortar seleção", modifier = Modifier.size(17.dp)) }
-                        TooltipIconButton(
-                            onClick = { engine.fillSelection(currentColor); refreshState() },
-                            description = "Preencher seleção com a cor atual",
-                            modifier = Modifier.size(32.dp)
-                        ) { Icon(Icons.Default.FormatColorFill, contentDescription = "Preencher seleção", modifier = Modifier.size(17.dp)) }
-                        TooltipIconButton(
-                            onClick = { if (engine.cropCanvasToSelection()) refreshState() },
-                            description = "Cortar tela para os limites da seleção",
-                            modifier = Modifier.size(32.dp)
-                        ) { Icon(Icons.Default.Crop, contentDescription = "Cortar tela para seleção", modifier = Modifier.size(17.dp)) }
-                        TooltipIconButton(
-                            onClick = {
-                                customBrushTipName = "Ponta ${engine.presetCatalog.count { it.isCustom } + 1}"
-                                showCreateBrushTipDialog = true
-                            },
-                            description = "Criar ponta de pincel da seleção",
-                            modifier = Modifier.size(32.dp)
-                        ) { Icon(Icons.Default.Brush, contentDescription = "Criar ponta de pincel", modifier = Modifier.size(17.dp)) }
-                        TooltipIconButton(
-                            onClick = {
-                                customGrainName = "Textura ${engine.presetCatalog.count { it.isCustom } + 1}"
-                                showCreateGrainDialog = true
-                            },
-                            description = "Criar textura de grão da seleção",
-                            modifier = Modifier.size(32.dp)
-                        ) { Icon(Icons.Default.GridOn, contentDescription = "Criar textura de grão", modifier = Modifier.size(17.dp)) }
-                        TooltipIconButton(
-                            onClick = { engine.pasteSelectionClipboard(); refreshState() },
-                            description = "Colar seleção",
-                            enabled = canPasteSelection,
-                            modifier = Modifier.size(32.dp)
-                        ) { Icon(Icons.Default.ContentPaste, contentDescription = "Colar seleção", modifier = Modifier.size(17.dp)) }
-                        // Select All
-                        TooltipIconButton(
-                            onClick = { engine.selectAll(); refreshState() },
-                            description = "Selecionar Tudo",
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.SelectAll, contentDescription = "Selecionar Tudo", modifier = Modifier.size(18.dp))
-                        }
-
-                        // Invert Selection
-                        TooltipIconButton(
-                            onClick = { engine.invertSelection(); refreshState() },
-                            description = "Inverter Seleção",
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.InvertColors, contentDescription = "Inverter Seleção", modifier = Modifier.size(18.dp))
-                        }
-
-                        TextButton(
-                            onClick = { showSelectionFeatherDialog = true },
-                            contentPadding = PaddingValues(horizontal = 5.dp),
-                            modifier = Modifier.height(32.dp)
-                        ) { Text("Suavizar borda", fontSize = 10.sp, maxLines = 1) }
-
-                        // Deselect
-                        TooltipIconButton(
-                            onClick = { engine.clearSelection(); refreshState() },
-                            description = "Deselecionar",
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.Deselect, contentDescription = "Deselecionar", modifier = Modifier.size(18.dp))
-                        }
-
-                        // Delete Selected Pixels
-                        TooltipIconButton(
-                            onClick = { engine.clearSelectedPixels(); refreshState() },
-                            description = "Apagar Pixels Selecionados",
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.DeleteOutline,
-                                contentDescription = "Apagar Pixels Selecionados",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        // Transform Selection (M4 / R1)
-                        TooltipIconButton(
-                            onClick = {
-                                val ok = engine.beginTransform(selectionOnly = true)
-                                if (ok) {
-                                    isTransformActive = true
-                                    currentTool = ToolMode.TRANSFORM
-                                    refreshState()
-                                }
-                            },
-                            description = "Transformar Seleção",
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.OpenWith, contentDescription = "Transformar Seleção", modifier = Modifier.size(18.dp))
-                        }
-                    }
-                }
-            }
-
-            // 3. Translucent Configurable Thumb Sliders (Left Edge)
-            if (!focusMode) ThumbSliders(
-                engine = engine,
-                configuredSliders = sideSliderSettings,
-                onConfiguredSlidersChange = { newSettings ->
-                    sideSliderSettings = newSettings
-                    storageManager.saveSideSliders(newSettings)
-                },
-                onSizeChangeActive = { active ->
-                    canvasViewRef?.previewBrushSize = if (active) engine.brushSize else 0f
-                    if (!active) refreshState()
-                },
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 4.dp, top = 6.dp)
-            )
-
-            // Timeline and dock share one column to remove guessed overlay offsets.
-            if (!focusMode) Column(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-            // 5. Animation Timeline Bar (Raster Animator)
-            if (showAnimationTimeline) {
-                AnimationTimelineBar(
-                    engine = engine,
-                    onFrameChanged = { canvasViewRef?.invalidate() },
-                    onClose = { showAnimationTimeline = false },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            if (showLayerDrawer) {
-                LayerDrawer(
-                    engine = engine,
-                    onLayersUpdated = { refreshState() },
-                    onDismiss = { showLayerDrawer = false },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            // 4. Floating Action & Toolbars (Transform HUD or Main Tools)
-            if (isTransformActive) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = androidx.compose.ui.graphics.RectangleShape,
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Transformar",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(end = 4.dp)
-                        )
-                        Box {
-                            TextButton(
-                                onClick = { showTransformModeMenu = true },
-                                contentPadding = PaddingValues(horizontal = 6.dp)
-                            ) {
-                                Text(activeTransformMode.title, fontSize = 11.sp)
-                                Icon(Icons.Default.ExpandMore, contentDescription = "Modo de transformação", modifier = Modifier.size(16.dp))
-                            }
-                            DropdownMenu(
-                                expanded = showTransformModeMenu,
-                                onDismissRequest = { showTransformModeMenu = false }
-                            ) {
-                                TransformState.Mode.values().forEach { mode ->
-                                    DropdownMenuItem(
-                                        text = { Text(mode.title) },
-                                        trailingIcon = if (activeTransformMode == mode) {{ Icon(Icons.Default.Check, null) }} else null,
-                                        onClick = {
-                                            activeTransformMode = mode
-                                            engine.transformModePreference = mode
-                                            engine.transformState?.mode = mode
-                                            showTransformModeMenu = false
-                                            canvasViewRef?.invalidate()
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        TooltipIconButton(
-                            onClick = {
-                                transformLockAspect = !transformLockAspect
-                                engine.transformLockAspect = transformLockAspect
-                                canvasViewRef?.invalidate()
-                            },
-                            description = if (transformLockAspect) "Proporção bloqueada" else "Bloquear proporção",
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                if (transformLockAspect) Icons.Default.Lock else Icons.Default.LockOpen,
-                                contentDescription = if (transformLockAspect) "Proporção bloqueada" else "Proporção livre",
-                                tint = if (transformLockAspect) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(19.dp)
-                            )
-                        }
-
-                        TextButton(
-                            onClick = {
-                                activeTransformInterpolation = if (activeTransformInterpolation == TransformState.Interpolation.NEAREST)
-                                    TransformState.Interpolation.BILINEAR else TransformState.Interpolation.NEAREST
-                                engine.transformInterpolation = activeTransformInterpolation
-                                engine.transformState?.interpolation = activeTransformInterpolation
-                                canvasViewRef?.invalidate()
-                            },
-                            contentPadding = PaddingValues(horizontal = 6.dp)
-                        ) {
-                            Text(activeTransformInterpolation.title, fontSize = 10.sp)
-                        }
-
-                        TooltipIconButton(
-                            onClick = { engine.flipTransformH(); canvasViewRef?.invalidate() },
-                            description = "Espelhar Horizontal",
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(Icons.Default.Flip, contentDescription = "Espelhar Horizontal", modifier = Modifier.size(20.dp))
-                        }
-
-                        TooltipIconButton(
-                            onClick = { engine.rotateTransform90(); canvasViewRef?.invalidate() },
-                            description = "Girar 90°",
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(Icons.Default.RotateRight, contentDescription = "Girar 90°", modifier = Modifier.size(20.dp))
-                        }
-
-                        Box {
-                            TooltipIconButton(
-                                onClick = { showTransformActions = true },
-                                description = "Mais ações de transformação",
-                                modifier = Modifier.size(36.dp)
-                            ) { Icon(Icons.Default.MoreVert, contentDescription = "Ações de transformação", modifier = Modifier.size(20.dp)) }
-                            DropdownMenu(
-                                expanded = showTransformActions,
-                                onDismissRequest = { showTransformActions = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Girar 90° anti-horário") },
-                                    leadingIcon = { Icon(Icons.Default.RotateLeft, null) },
-                                    onClick = {
-                                        showTransformActions = false
-                                        engine.rotateTransformBy(-90f)
-                                        canvasViewRef?.invalidate()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Girar 180°") },
-                                    leadingIcon = { Icon(Icons.Default.Rotate90DegreesCw, null) },
-                                    onClick = {
-                                        showTransformActions = false
-                                        engine.rotateTransformBy(180f)
-                                        canvasViewRef?.invalidate()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Centralizar no canvas") },
-                                    leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) },
-                                    onClick = { showTransformActions = false; engine.centerTransform(); canvasViewRef?.invalidate() }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Ajustar ao canvas") },
-                                    leadingIcon = { Icon(Icons.Default.FitScreen, null) },
-                                    onClick = { showTransformActions = false; engine.fitTransformToCanvas(); canvasViewRef?.invalidate() }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Redefinir transformação") },
-                                    leadingIcon = { Icon(Icons.Default.Refresh, null) },
-                                    onClick = { showTransformActions = false; engine.resetTransform(); canvasViewRef?.invalidate() }
-                                )
-                            }
-                        }
-
-                        TooltipIconButton(
-                            onClick = {
-                                isTransformActive = false
-                                engine.cancelTransform()
-                                currentTool = ToolMode.BRUSH
-                                refreshState()
-                            },
-                            description = "Cancelar Transformação",
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Cancelar",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        TooltipIconButton(
-                            onClick = {
-                                isTransformActive = false
-                                engine.commitTransform()
-                                currentTool = ToolMode.BRUSH
-                                refreshState()
-                            },
-                            description = "Confirmar Transformação",
-                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = "Confirmar Transformação",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(20.dp)
+                                },
                             )
                         }
                     }
                 }
-            } else {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = androidx.compose.ui.graphics.RectangleShape,
-                    tonalElevation = 0.dp
-                ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val modeIcon = when (currentTool) {
-                        ToolMode.ERASER -> null
-                        ToolMode.SMUDGE -> Icons.Default.WaterDrop
-                        ToolMode.BLEND -> Icons.Default.BlurCircular
-                        ToolMode.FILL -> Icons.Default.FormatColorFill
-                        ToolMode.LASSO_FILL -> Icons.Default.Gesture
-                        ToolMode.SELECT_RECT, ToolMode.SELECT_LASSO, ToolMode.SELECT_ELLIPSE, ToolMode.SELECT_BRUSH_MASK -> Icons.Default.CropFree
-                        ToolMode.SELECT_WAND -> Icons.Default.AutoFixHigh
-                        ToolMode.TRANSFORM -> Icons.Default.OpenWith
-                        ToolMode.LINE, ToolMode.RECTANGLE, ToolMode.ELLIPSE, ToolMode.ERASE_RECTANGLE, ToolMode.ERASE_ELLIPSE -> Icons.Default.Category
-                        ToolMode.EYEDROPPER -> Icons.Default.Colorize
-                        ToolMode.PAN -> Icons.Default.PanTool
-                        else -> Icons.Default.Brush
-                    }
-                    Box {
-                        ToolNavButton(
-                            icon = modeIcon,
-                            painter = if (currentTool == ToolMode.ERASER) painterResource(R.drawable.ic_eraser) else null,
-                            isSelected = true,
-                            description = "Modo: ${currentTool.displayName}",
-                            onClick = { toolMenuCategory = null; showSelectMenu = true }
-                        )
-                        DropdownMenu(
-                            expanded = showSelectMenu,
-                            onDismissRequest = { showSelectMenu = false; toolMenuCategory = null }
-                        ) {
-                            if (toolMenuCategory == null) {
-                                DropdownMenuItem(
-                                    text = { Text("Pintura") },
-                                    leadingIcon = { Icon(Icons.Default.Brush, null) },
-                                    trailingIcon = { Icon(Icons.Default.ExpandMore, null) },
-                                    onClick = { toolMenuCategory = "paint" }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Seleção") },
-                                    leadingIcon = { Icon(Icons.Default.CropFree, null) },
-                                    trailingIcon = { Icon(Icons.Default.ExpandMore, null) },
-                                    onClick = { toolMenuCategory = "selection" }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Transformar") },
-                                    leadingIcon = { Icon(Icons.Default.OpenWith, null) },
-                                    trailingIcon = if (currentTool == ToolMode.TRANSFORM) {{ Icon(Icons.Default.Check, null) }} else null,
-                                    onClick = { chooseTool(ToolMode.TRANSFORM) }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Formas") },
-                                    leadingIcon = { Icon(Icons.Default.Category, null) },
-                                    trailingIcon = { Icon(Icons.Default.ExpandMore, null) },
-                                    onClick = { toolMenuCategory = "shapes" }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Mais ferramentas") },
-                                    leadingIcon = { Icon(Icons.Default.MoreHoriz, null) },
-                                    trailingIcon = { Icon(Icons.Default.ExpandMore, null) },
-                                    onClick = { toolMenuCategory = "more" }
-                                )
-                            } else {
-                                DropdownMenuItem(
-                                    text = { Text("Voltar às ferramentas") },
-                                    leadingIcon = { Icon(Icons.Default.ArrowBack, null) },
-                                    onClick = { toolMenuCategory = null }
-                                )
-                                HorizontalDivider()
-                                val modes = when (toolMenuCategory) {
-                                    "paint" -> listOf(
-                                        Triple(ToolMode.BRUSH, "Pincel", Icons.Default.Brush),
-                                        Triple(ToolMode.ERASER, "Borracha", Icons.Default.Delete),
-                                        Triple(ToolMode.FILL, "Balde de tinta", Icons.Default.FormatColorFill),
-                                        Triple(ToolMode.SMUDGE, "Borrar", Icons.Default.WaterDrop),
-                                        Triple(ToolMode.BLEND, "Mesclar", Icons.Default.BlurCircular)
-                                    )
-                                    "selection" -> listOf(
-                                        Triple(ToolMode.SELECT_RECT, "Retângulo", Icons.Default.CropSquare),
-                                        Triple(ToolMode.SELECT_ELLIPSE, "Elipse", Icons.Default.Circle),
-                                        Triple(ToolMode.SELECT_LASSO, "Laço", Icons.Default.Gesture),
-                                        Triple(ToolMode.SELECT_BRUSH_MASK, "Pincel de seleção", Icons.Default.Brush),
-                                        Triple(ToolMode.SELECT_WAND, "Varinha mágica", Icons.Default.AutoFixHigh),
-                                        Triple(ToolMode.LASSO_FILL, "Laço preenchido", Icons.Default.Gesture)
-                                    )
-                                    "shapes" -> listOf(
-                                        Triple(ToolMode.LINE, "Linha", Icons.Default.HorizontalRule),
-                                        Triple(ToolMode.RECTANGLE, "Retângulo", Icons.Default.CropSquare),
-                                        Triple(ToolMode.ELLIPSE, "Elipse / círculo", Icons.Default.RadioButtonUnchecked),
-                                        Triple(ToolMode.ERASE_RECTANGLE, "Apagar retângulo", Icons.Default.CropSquare),
-                                        Triple(ToolMode.ERASE_ELLIPSE, "Apagar elipse", Icons.Default.Circle)
-                                    )
-                                    else -> listOf(
-                                        Triple(ToolMode.EYEDROPPER, "Conta-gotas", Icons.Default.Colorize),
-                                        Triple(ToolMode.PAN, "Mover tela", Icons.Default.PanTool)
-                                    )
-                                }
-                                modes.forEach { (mode, label, icon) ->
-                                    DropdownMenuItem(
-                                        text = { Text(label) },
-                                        leadingIcon = { if (mode == ToolMode.ERASER) Icon(painterResource(R.drawable.ic_eraser), null) else Icon(icon, null) },
-                                        trailingIcon = if (currentTool == mode) {{ Icon(Icons.Default.Check, null) }} else null,
-                                        onClick = { chooseTool(mode) }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    val presetTypeIcon = engine.selectedPreset?.let { preset ->
-                        getPresetIcon(mapPresetCategory(preset.category))
-                    } ?: if (engine.selectedBrush != null) Icons.Default.AutoAwesome else Icons.Default.Brush
-                    ToolNavButton(
-                        icon = presetTypeIcon,
-                        isSelected = showBrushDrawer,
-                        description = "Preset: $activeBrushName",
-                        onClick = { showBrushDrawer = true }
-                    )
-
-                    if (favoriteBrushIds.isEmpty()) {
-                        Row(
-                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
-                                .clickable { showBrushDrawer = true }
-                                .padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(Icons.Default.StarBorder, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                            Text(activeBrushName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(3.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            favoriteBrushIds.forEach { favoriteId ->
-                                val preset = if (favoriteId.startsWith("preset:")) {
-                                    engine.presetCatalog.firstOrNull { it.id == favoriteId.removePrefix("preset:") }
-                                } else null
-                                val brush = if (favoriteId.startsWith("brush:")) {
-                                    engine.brushCatalog.firstOrNull { it.id == favoriteId.removePrefix("brush:") }
-                                } else null
-                                val favoriteIcon = preset?.let { getPresetIcon(mapPresetCategory(it.category)) }
-                                    ?: brush?.let { getWasmIcon(mapWasmCategory(it.category)) }
-                                val favoriteName = preset?.name ?: brush?.title
-                                if (favoriteIcon != null && favoriteName != null) {
-                                    val selected = (preset != null && preset.id == engine.selectedPreset?.id) ||
-                                        (brush != null && brush.id == engine.selectedBrush?.id)
-                                    Box(
-                                        modifier = Modifier.size(40.dp).clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                                            .border(
-                                                if (selected) 2.dp else 1.dp,
-                                                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                                                CircleShape
-                                            )
-                                            .clickable {
-                                                if (preset != null) engine.selectPreset(preset) else if (brush != null) engine.selectBrush(brush)
-                                                refreshState()
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(favoriteIcon, contentDescription = favoriteName, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(16.dp))
-                                        Icon(
-                                            Icons.Default.Star,
-                                            contentDescription = "Favorito",
-                                            tint = Color(0xFFFFC107),
-                                            modifier = Modifier.align(Alignment.BottomEnd).size(9.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        modifier = Modifier.padding(start = 2.dp, end = 6.dp)
-                    ) {
-                        (engine.getActivePalette()?.colors?.take(4) ?: emptyList()).forEach { chipColor ->
-                            Box(
-                                Modifier.size(28.dp).clip(CircleShape)
-                                    .clickable { currentColor = chipColor; engine.currentColor = chipColor; refreshState() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Box(Modifier.size(18.dp).clip(CircleShape).background(Color(chipColor))
-                                    .border(1.dp, if (chipColor == currentColor) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline, CircleShape))
-                            }
-                        }
-                        TooltipIconButton(onClick = { showColorStudio = true }, description = "Cores", modifier = Modifier.size(36.dp)) {
-                            Box(
-                                Modifier.size(27.dp).clip(RoundedCornerShape(7.dp))
-                                    .background(Color(currentColor))
-                                    .border(2.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), RoundedCornerShape(7.dp))
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
             }
         }
 
@@ -1349,15 +1792,19 @@ fun EsenhoMainScreen(
                 title = { Text("Limpar camada?") },
                 text = { Text("Todo o conteúdo da camada atual será removido.") },
                 confirmButton = {
-                    TextButton(onClick = {
-                        engine.clearActiveLayer()
-                        showClearLayerConfirm = false
-                        refreshState()
-                    }) { Text("Limpar", color = MaterialTheme.colorScheme.error) }
+                    TextButton(
+                        onClick = {
+                            engine.clearActiveLayer()
+                            showClearLayerConfirm = false
+                            refreshState()
+                        }
+                    ) {
+                        Text("Limpar", color = MaterialTheme.colorScheme.error)
+                    }
                 },
                 dismissButton = {
                     TextButton(onClick = { showClearLayerConfirm = false }) { Text("Cancelar") }
-                }
+                },
             )
         }
         if (showWandSettings) {
@@ -1366,23 +1813,34 @@ fun EsenhoMainScreen(
                 title = { Text("Varinha mágica") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Tolerância: ${wandTolerance.toInt()}", style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            "Tolerância: ${wandTolerance.toInt()}",
+                            style = MaterialTheme.typography.labelMedium,
+                        )
                         Slider(
                             value = wandTolerance,
-                            onValueChange = { wandTolerance = it; engine.wandTolerance = it.toInt() },
+                            onValueChange = {
+                                wandTolerance = it
+                                engine.wandTolerance = it.toInt()
+                            },
                             valueRange = 0f..255f,
-                            steps = 254
+                            steps = 254,
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(
                                 checked = wandContiguous,
-                                onCheckedChange = { wandContiguous = it; engine.wandContiguous = it }
+                                onCheckedChange = {
+                                    wandContiguous = it
+                                    engine.wandContiguous = it
+                                },
                             )
                             Text("Selecionar apenas pixels conectados")
                         }
                     }
                 },
-                confirmButton = { TextButton(onClick = { showWandSettings = false }) { Text("Pronto") } }
+                confirmButton = {
+                    TextButton(onClick = { showWandSettings = false }) { Text("Pronto") }
+                },
             )
         }
         if (showCreateBrushTipDialog) {
@@ -1396,7 +1854,7 @@ fun EsenhoMainScreen(
                             value = customBrushTipName,
                             onValueChange = { customBrushTipName = it.take(40) },
                             label = { Text("Nome da ponta") },
-                            singleLine = true
+                            singleLine = true,
                         )
                     }
                 },
@@ -1409,15 +1867,29 @@ fun EsenhoMainScreen(
                             if (created) {
                                 currentTool = ToolMode.BRUSH
                                 engine.currentTool = ToolMode.BRUSH
-                                Toast.makeText(context, "Ponta criada e salva nos presets", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                        context,
+                                        "Ponta criada e salva nos presets",
+                                        Toast.LENGTH_SHORT,
+                                    )
+                                    .show()
                             } else {
-                                Toast.makeText(context, "Não foi possível criar a ponta (limite de 2048 px por lado)", Toast.LENGTH_LONG).show()
+                                Toast.makeText(
+                                        context,
+                                        "Não foi possível criar a ponta (limite de 2048 px por lado)",
+                                        Toast.LENGTH_LONG,
+                                    )
+                                    .show()
                             }
                             refreshState()
-                        }
-                    ) { Text("Criar") }
+                        },
+                    ) {
+                        Text("Criar")
+                    }
                 },
-                dismissButton = { TextButton(onClick = { showCreateBrushTipDialog = false }) { Text("Cancelar") } }
+                dismissButton = {
+                    TextButton(onClick = { showCreateBrushTipDialog = false }) { Text("Cancelar") }
+                },
             )
         }
         if (showCreateGrainDialog) {
@@ -1431,7 +1903,7 @@ fun EsenhoMainScreen(
                             value = customGrainName,
                             onValueChange = { customGrainName = it.take(40) },
                             label = { Text("Nome da textura") },
-                            singleLine = true
+                            singleLine = true,
                         )
                     }
                 },
@@ -1444,15 +1916,29 @@ fun EsenhoMainScreen(
                             if (created) {
                                 currentTool = ToolMode.BRUSH
                                 engine.currentTool = ToolMode.BRUSH
-                                Toast.makeText(context, "Textura criada e salva nos presets", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                        context,
+                                        "Textura criada e salva nos presets",
+                                        Toast.LENGTH_SHORT,
+                                    )
+                                    .show()
                             } else {
-                                Toast.makeText(context, "Não foi possível criar a textura (limite de 2048 px por lado)", Toast.LENGTH_LONG).show()
+                                Toast.makeText(
+                                        context,
+                                        "Não foi possível criar a textura (limite de 2048 px por lado)",
+                                        Toast.LENGTH_LONG,
+                                    )
+                                    .show()
                             }
                             refreshState()
-                        }
-                    ) { Text("Criar") }
+                        },
+                    ) {
+                        Text("Criar")
+                    }
                 },
-                dismissButton = { TextButton(onClick = { showCreateGrainDialog = false }) { Text("Cancelar") } }
+                dismissButton = {
+                    TextButton(onClick = { showCreateGrainDialog = false }) { Text("Cancelar") }
+                },
             )
         }
         if (showSelectionFeatherDialog) {
@@ -1461,23 +1947,34 @@ fun EsenhoMainScreen(
                 title = { Text("Suavizar borda da seleção") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Raio: ${selectionFeatherRadius.toInt()} px", style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            "Raio: ${selectionFeatherRadius.toInt()} px",
+                            style = MaterialTheme.typography.labelMedium,
+                        )
                         Slider(
                             value = selectionFeatherRadius,
                             onValueChange = { selectionFeatherRadius = it },
                             valueRange = 1f..16f,
-                            steps = 14
+                            steps = 14,
                         )
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        engine.featherSelection(selectionFeatherRadius.toInt())
-                        showSelectionFeatherDialog = false
-                        refreshState()
-                    }) { Text("Aplicar") }
+                    TextButton(
+                        onClick = {
+                            engine.featherSelection(selectionFeatherRadius.toInt())
+                            showSelectionFeatherDialog = false
+                            refreshState()
+                        }
+                    ) {
+                        Text("Aplicar")
+                    }
                 },
-                dismissButton = { TextButton(onClick = { showSelectionFeatherDialog = false }) { Text("Cancelar") } }
+                dismissButton = {
+                    TextButton(onClick = { showSelectionFeatherDialog = false }) {
+                        Text("Cancelar")
+                    }
+                },
             )
         }
         if (showCanvasResizeDialog) {
@@ -1486,77 +1983,152 @@ fun EsenhoMainScreen(
                 title = { Text("Redimensionar tela") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Todos os cels de animação serão redimensionados com interpolação suave.")
+                        Text(
+                            "Todos os cels de animação serão redimensionados com interpolação suave."
+                        )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = canvasResizeWidth,
-                                onValueChange = { canvasResizeWidth = it.filter(Char::isDigit).take(5); canvasResizeError = null },
+                                onValueChange = {
+                                    canvasResizeWidth = it.filter(Char::isDigit).take(5)
+                                    canvasResizeError = null
+                                },
                                 label = { Text("Largura") },
                                 singleLine = true,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                             OutlinedTextField(
                                 value = canvasResizeHeight,
-                                onValueChange = { canvasResizeHeight = it.filter(Char::isDigit).take(5); canvasResizeError = null },
+                                onValueChange = {
+                                    canvasResizeHeight = it.filter(Char::isDigit).take(5)
+                                    canvasResizeError = null
+                                },
                                 label = { Text("Altura") },
                                 singleLine = true,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                         }
-                        canvasResizeError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                        Text("Máximo: 8192 px por lado e 32 megapixels.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        canvasResizeError?.let {
+                            Text(
+                                it,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Text(
+                            "Máximo: 8192 px por lado e 32 megapixels.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        val newWidth = canvasResizeWidth.toIntOrNull()
-                        val newHeight = canvasResizeHeight.toIntOrNull()
-                        if (newWidth == null || newHeight == null || newWidth !in 1..8192 || newHeight !in 1..8192 || newWidth.toLong() * newHeight > 32_000_000L) {
-                            canvasResizeError = "Informe dimensões válidas dentro do limite."
-                        } else if (engine.resizeCanvas(newWidth, newHeight)) {
-                            showCanvasResizeDialog = false
-                            canvasViewRef?.resetView()
-                            refreshState()
-                        } else if (newWidth == engine.width && newHeight == engine.height) {
-                            showCanvasResizeDialog = false
-                        } else {
-                            canvasResizeError = "Falha ao redimensionar. Feche a transformação ou tente dimensões menores."
+                    TextButton(
+                        onClick = {
+                            val newWidth = canvasResizeWidth.toIntOrNull()
+                            val newHeight = canvasResizeHeight.toIntOrNull()
+                            if (
+                                newWidth == null ||
+                                    newHeight == null ||
+                                    newWidth !in 1..8192 ||
+                                    newHeight !in 1..8192 ||
+                                    newWidth.toLong() * newHeight > 32_000_000L
+                            ) {
+                                canvasResizeError = "Informe dimensões válidas dentro do limite."
+                            } else if (engine.resizeCanvas(newWidth, newHeight)) {
+                                showCanvasResizeDialog = false
+                                canvasViewRef?.resetView()
+                                refreshState()
+                            } else if (newWidth == engine.width && newHeight == engine.height) {
+                                showCanvasResizeDialog = false
+                            } else {
+                                canvasResizeError =
+                                    "Falha ao redimensionar. Feche a transformação ou tente dimensões menores."
+                            }
                         }
-                    }) { Text("Aplicar") }
+                    ) {
+                        Text("Aplicar")
+                    }
                 },
-                dismissButton = { TextButton(onClick = { showCanvasResizeDialog = false }) { Text("Cancelar") } }
+                dismissButton = {
+                    TextButton(onClick = { showCanvasResizeDialog = false }) { Text("Cancelar") }
+                },
             )
         }
         if (showProjectManager) {
-            AlertDialog(
-                onDismissRequest = { showProjectManager = false },
-                title = { Text("Projetos") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Salve e abra projetos editáveis com camadas e quadros de animação. Uma cópia de recuperação é criada automaticamente a cada 5 minutos.")
-                        Button(
-                            onClick = { showProjectManager = false; saveProjectLauncher.launch("esenho.esenho") },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Icon(Icons.Default.Save, null); Spacer(Modifier.width(8.dp)); Text("Salvar projeto") }
-                        OutlinedButton(
-                            onClick = { showProjectManager = false; openProjectLauncher.launch(arrayOf("application/x-esenho", "application/octet-stream", "*/*")) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Abrir projeto") }
-                        OutlinedButton(
-                            enabled = context.filesDir.resolve("autosave.esenho").exists(),
-                            onClick = {
-                                showProjectManager = false
-                                runCatching {
-                                    context.filesDir.resolve("autosave.esenho").inputStream().use { EsenhoProjectIO.load(engine, it) }
-                                }.onSuccess { refreshState(); Toast.makeText(context, "Autosave restaurado", Toast.LENGTH_SHORT).show() }
-                                    .onFailure { Toast.makeText(context, "Falha ao restaurar autosave: ${it.message}", Toast.LENGTH_LONG).show() }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Icon(Icons.Default.History, null); Spacer(Modifier.width(8.dp)); Text("Restaurar autosave") }
+            WorkspacePanelContainer(false, { showProjectManager = false }) {
+                Column(
+                    Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    EditorPanelHeader("Seus projetos", { showProjectManager = false })
+                    Text(
+                        "Continue uma criação ou guarde uma cópia editável com camadas e animação.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    WorkspaceActionButton(
+                        description = "Salvar projeto editável",
+                        emphasized = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            showProjectManager = false
+                            saveProjectLauncher.launch("esenho.esenho")
+                        },
+                    ) {
+                        Icon(Icons.Default.Save, null)
                     }
-                },
-                confirmButton = { TextButton(onClick = { showProjectManager = false }) { Text("Fechar") } }
-            )
+                    WorkspaceActionButton(
+                        description = "Abrir um projeto",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            showProjectManager = false
+                            openProjectLauncher.launch(
+                                arrayOf("application/x-esenho", "application/octet-stream", "*/*")
+                            )
+                        },
+                    ) {
+                        Icon(Icons.Default.FolderOpen, null)
+                    }
+                    WorkspaceActionButton(
+                        description = "Restaurar cópia automática",
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = context.filesDir.resolve("autosave.esenho").exists(),
+                        onClick = {
+                            showProjectManager = false
+                            runCatching {
+                                    context.filesDir.resolve("autosave.esenho").inputStream().use {
+                                        EsenhoProjectIO.load(engine, it)
+                                    }
+                                }
+                                .onSuccess {
+                                    refreshState()
+                                    Toast.makeText(
+                                            context,
+                                            "Autosave restaurado",
+                                            Toast.LENGTH_SHORT,
+                                        )
+                                        .show()
+                                }
+                                .onFailure {
+                                    Toast.makeText(
+                                            context,
+                                            "Falha ao restaurar autosave: ${it.message}",
+                                            Toast.LENGTH_LONG,
+                                        )
+                                        .show()
+                                }
+                        },
+                    ) {
+                        Icon(Icons.Default.History, null)
+                    }
+                    Text(
+                        "Uma cópia de recuperação é salva a cada 5 minutos.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
         if (showNewProjectDialog) {
             NewProjectDialog(
@@ -1575,37 +2147,7 @@ fun EsenhoMainScreen(
                     canvasViewRef?.centerCanvas()
                     refreshState()
                 },
-                onDismiss = { showNewProjectDialog = false }
-            )
-        }
-
-        if (showBrushDrawer) {
-            BrushDrawer(
-                engine = engine,
-                favoriteBrushIds = favoriteBrushIds,
-                onToggleFavorite = { id ->
-                    val updated = favoriteBrushIds.toMutableSet().apply {
-                        if (!add(id)) remove(id)
-                    }
-                    favoriteBrushIds = updated
-                    storageManager.saveFavoriteBrushes(updated)
-                },
-                onBrushUpdated = { refreshState() },
-                onDismiss = { showBrushDrawer = false }
-            )
-        }
-
-        if (showColorStudio) {
-            ColorStudioModal(
-                engine = engine,
-                initialColor = currentColor,
-                recentColors = engine.recentColors,
-                onColorChanged = { c ->
-                    currentColor = c
-                    engine.currentColor = c
-                    refreshState()
-                },
-                onDismiss = { showColorStudio = false }
+                onDismiss = { showNewProjectDialog = false },
             )
         }
 
@@ -1613,15 +2155,7 @@ fun EsenhoMainScreen(
             NativeExportDialog(
                 engine = engine,
                 onExport = onExport,
-                onDismiss = { showExportDialog = false }
-            )
-        }
-
-        if (showFilterModal) {
-            FilterModal(
-                engine = engine,
-                onFilterApplied = { refreshState() },
-                onDismiss = { showFilterModal = false }
+                onDismiss = { showExportDialog = false },
             )
         }
     }
@@ -1635,23 +2169,19 @@ fun TooltipIconButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     TooltipBox(
         positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-        tooltip = {
-            PlainTooltip {
-                Text(description, fontSize = 11.sp)
-            }
-        },
-        state = rememberTooltipState()
+        tooltip = { PlainTooltip { Text(description, fontSize = 11.sp) } },
+        state = rememberTooltipState(),
     ) {
         IconButton(
             onClick = onClick,
             modifier = modifier,
             enabled = enabled,
             colors = colors,
-            content = content
+            content = content,
         )
     }
 }
@@ -1663,24 +2193,25 @@ fun ToolNavButton(
     painter: Painter? = null,
     isSelected: Boolean,
     description: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     TooltipBox(
         positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-        tooltip = {
-            PlainTooltip {
-                Text(description, fontSize = 11.sp)
-            }
-        },
-        state = rememberTooltipState()
+        tooltip = { PlainTooltip { Text(description, fontSize = 11.sp) } },
+        state = rememberTooltipState(),
     ) {
         IconButton(
             onClick = onClick,
-            colors = IconButtonDefaults.iconButtonColors(
-                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-            ),
-            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+            colors =
+                IconButtonDefaults.iconButtonColors(
+                    containerColor =
+                        if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                        else Color.Transparent,
+                    contentColor =
+                        if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSurface,
+                ),
+            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)),
         ) {
             if (icon != null) {
                 Icon(icon, contentDescription = description, modifier = Modifier.size(19.dp))

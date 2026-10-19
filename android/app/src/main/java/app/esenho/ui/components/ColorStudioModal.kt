@@ -44,7 +44,8 @@ fun ColorStudioModal(
     initialColor: Int,
     recentColors: List<Int>,
     onColorChanged: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    embedded: Boolean = false
 ) {
     val hsv = remember {
         val arr = FloatArray(3)
@@ -60,12 +61,21 @@ fun ColorStudioModal(
         AndroidColor.HSVToColor(floatArrayOf(hue, sat, value))
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    LaunchedEffect(initialColor) {
+        // Keep hue/saturation when our own gesture reaches black or white.
+        if (initialColor != currentColor) {
+            val sampled = FloatArray(3)
+            AndroidColor.colorToHSV(initialColor, sampled)
+            hue = sampled[0]; sat = sampled[1]; value = sampled[2]
+        }
+    }
+
+    WorkspaceDialogContainer(embedded, onDismiss) {
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
-            modifier = Modifier.width(320.dp)
+            modifier = if (embedded) Modifier.fillMaxSize() else Modifier.width(320.dp)
         ) {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()).padding(16.dp),

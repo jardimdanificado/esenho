@@ -1,99 +1,129 @@
 package app.esenho.ui.components
 
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.esenho.nativeengine.EsenhoEngine
 import app.esenho.ui.NativeExportRequest
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun NativeExportDialog(
     engine: EsenhoEngine,
     onExport: (NativeExportRequest) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
-    val formats = listOf(
-        NativeExportRequest.Format.PNG to "Imagem PNG",
-        NativeExportRequest.Format.JPEG to "Imagem JPEG",
-        NativeExportRequest.Format.WEBP to "Imagem WebP",
-        NativeExportRequest.Format.GIF to "Animação GIF",
-        NativeExportRequest.Format.WEBM to "Animação WebM"
-    )
+    var animated by remember { mutableStateOf(false) }
     var selectedFormat by remember { mutableStateOf(NativeExportRequest.Format.PNG) }
     var fps by remember { mutableIntStateOf(engine.animationFps.coerceIn(1, 60)) }
     var loop by remember { mutableStateOf(engine.animationLoop) }
+    val formats =
+        if (animated) listOf(NativeExportRequest.Format.GIF, NativeExportRequest.Format.WEBM)
+        else
+            listOf(
+                NativeExportRequest.Format.PNG,
+                NativeExportRequest.Format.JPEG,
+                NativeExportRequest.Format.WEBP,
+            )
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Exportar") },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState()).selectableGroup(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                formats.forEach { (format, label) ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().selectable(selected = selectedFormat == format, role = Role.RadioButton, onClick = { selectedFormat = format }),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(selected = selectedFormat == format, onClick = null)
-                        Text(label, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-                if (selectedFormat == NativeExportRequest.Format.GIF || selectedFormat == NativeExportRequest.Format.WEBM) {
-                    Text("Velocidade: $fps fps", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
-                    Slider(value = fps.toFloat(), onValueChange = { fps = it.toInt().coerceIn(1, 60) }, valueRange = 1f..60f)
-                    if (selectedFormat == NativeExportRequest.Format.GIF) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Repetir animação", modifier = Modifier.weight(1f))
-                            Switch(checked = loop, onCheckedChange = { loop = it })
-                        }
-                    }
-                }
+    WorkspacePanelContainer(false, onDismiss) {
+        Column(
+            Modifier.fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp)
+        ) {
+            EditorPanelHeader("Exportar criação", onDismiss)
+            Text(
+                "${engine.width} × ${engine.height} px · ${engine.layers.size} camadas",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            WorkspaceSectionTabs(listOf("Imagem", "Animação"), if (animated) 1 else 0) {
+                animated = it == 1
+                selectedFormat =
+                    if (animated) NativeExportRequest.Format.GIF else NativeExportRequest.Format.PNG
             }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                val request = when (selectedFormat) {
-                    NativeExportRequest.Format.PNG,
-                    NativeExportRequest.Format.JPEG,
-                    NativeExportRequest.Format.WEBP -> engine.getRenderBitmap()?.let {
-                        NativeExportRequest(selectedFormat, bitmap = it)
-                    }
-                    NativeExportRequest.Format.GIF -> {
-                        engine.captureCurrentFrame()
-                        NativeExportRequest(selectedFormat, frames = engine.renderAnimationFrames(), fps = fps, loop = loop)
-                    }
-                    NativeExportRequest.Format.WEBM -> NativeExportRequest(
-                        selectedFormat,
-                        frames = engine.renderAnimationFrames(),
-                        fps = fps
+            Text("Formato de saída", style = MaterialTheme.typography.titleSmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                formats.forEach { format ->
+                    FilterChip(
+                        selected = selectedFormat == format,
+                        onClick = { selectedFormat = format },
+                        label = { Text(format.name) },
                     )
                 }
-                request?.let(onExport)
-                onDismiss()
-            }) { Text("Exportar") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
-    )
+            }
+            Text(
+                when (selectedFormat) {
+                    NativeExportRequest.Format.PNG ->
+                        "Imagem sem perda de qualidade, com transparência."
+                    NativeExportRequest.Format.JPEG ->
+                        "Arquivo menor para compartilhar imagens com fundo."
+                    NativeExportRequest.Format.WEBP ->
+                        "Imagem compacta com suporte a transparência."
+                    NativeExportRequest.Format.GIF ->
+                        "Animação compatível com navegadores e mensageiros."
+                    NativeExportRequest.Format.WEBM -> "Vídeo da animação para compartilhar."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 12.dp),
+            )
+            if (animated) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Velocidade", style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        "$fps fps",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Slider(fps.toFloat(), { fps = it.toInt().coerceIn(1, 60) }, valueRange = 1f..60f)
+                if (selectedFormat == NativeExportRequest.Format.GIF)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Repetir animação", Modifier.weight(1f))
+                        Switch(loop, { loop = it })
+                    }
+            }
+            Button(
+                onClick = {
+                    val request =
+                        when (selectedFormat) {
+                            NativeExportRequest.Format.PNG,
+                            NativeExportRequest.Format.JPEG,
+                            NativeExportRequest.Format.WEBP ->
+                                engine.getRenderBitmap()?.let {
+                                    NativeExportRequest(selectedFormat, bitmap = it)
+                                }
+                            NativeExportRequest.Format.GIF -> {
+                                engine.captureCurrentFrame()
+                                NativeExportRequest(
+                                    selectedFormat,
+                                    frames = engine.renderAnimationFrames(),
+                                    fps = fps,
+                                    loop = loop,
+                                )
+                            }
+                            NativeExportRequest.Format.WEBM ->
+                                NativeExportRequest(
+                                    selectedFormat,
+                                    frames = engine.renderAnimationFrames(),
+                                    fps = fps,
+                                )
+                        }
+                    request?.let(onExport)
+                    onDismiss()
+                },
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(48.dp),
+            ) {
+                Text("Exportar ${selectedFormat.name}")
+            }
+        }
+    }
 }

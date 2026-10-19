@@ -119,14 +119,15 @@ fun BrushDrawer(
     favoriteBrushIds: Set<String>,
     onToggleFavorite: (String) -> Unit,
     onBrushUpdated: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    embedded: Boolean = false
 ) {
     var activeTab by remember { mutableStateOf(if (engine.selectedBrush != null) BrushDrawerTab.WASM_PROCEDURAL else BrushDrawerTab.PRESETS) }
     var searchQuery by remember { mutableStateOf("") }
+    var favoritesOnly by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf("Todos") }
     var showTuner by remember { mutableStateOf(false) }
     var catalogVersion by remember { mutableIntStateOf(0) }
-    var searchExpanded by remember { mutableStateOf(false) }
     var categoryMenuExpanded by remember { mutableStateOf(false) }
 
     // When tab changes, reset category filter
@@ -134,7 +135,7 @@ fun BrushDrawer(
         selectedCategory = "Todos"
     }
 
-    val filteredPresets = remember(selectedCategory, searchQuery, engine.presetCatalog.size, catalogVersion) {
+    val filteredPresets = remember(selectedCategory, searchQuery, engine.presetCatalog.size, catalogVersion, favoritesOnly, favoriteBrushIds) {
         engine.presetCatalog.filter { p ->
             val matchCategory = when (selectedCategory) {
                 "Todos" -> true
@@ -147,11 +148,11 @@ fun BrushDrawer(
                 p.category.contains(searchQuery, ignoreCase = true) ||
                 p.id.contains(searchQuery, ignoreCase = true)
             }
-            matchCategory && matchSearch
+            matchCategory && matchSearch && (!favoritesOnly || "preset:${p.id}" in favoriteBrushIds)
         }
     }
 
-    val filteredWasmBrushes = remember(selectedCategory, searchQuery, engine.brushCatalog.size) {
+    val filteredWasmBrushes = remember(selectedCategory, searchQuery, engine.brushCatalog.size, favoritesOnly, favoriteBrushIds) {
         engine.brushCatalog.filter { b ->
             val matchCategory = if (selectedCategory == "Todos") true else mapWasmCategory(b.category) == selectedCategory
             val matchSearch = if (searchQuery.isBlank()) true else {
@@ -159,7 +160,7 @@ fun BrushDrawer(
                 b.category.contains(searchQuery, ignoreCase = true) ||
                 b.id.contains(searchQuery, ignoreCase = true)
             }
-            matchCategory && matchSearch
+            matchCategory && matchSearch && (!favoritesOnly || "brush:${b.id}" in favoriteBrushIds)
         }
     }
 
@@ -182,18 +183,11 @@ fun BrushDrawer(
         "Cosmos & Ciência"
     )
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        windowInsets = WindowInsets.safeDrawing
-    ) {
+    WorkspacePanelContainer(embedded = embedded, onDismiss = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 620.dp)
+                .then(if (embedded) Modifier.fillMaxSize() else Modifier.heightIn(max = 620.dp))
                 .padding(horizontal = 14.dp)
                 .padding(bottom = 8.dp)
         ) {
@@ -242,7 +236,7 @@ fun BrushDrawer(
                     FilterChip(
                         selected = activeTab == BrushDrawerTab.PRESETS,
                         onClick = { activeTab = BrushDrawerTab.PRESETS },
-                        label = { Text("Presets", fontWeight = FontWeight.SemiBold, fontSize = 11.sp) },
+                        label = { Text("Biblioteca", fontWeight = FontWeight.SemiBold, fontSize = 11.sp) },
                         modifier = Modifier.weight(1f).height(32.dp)
                     )
                     FilterChip(
@@ -258,49 +252,35 @@ fun BrushDrawer(
                     }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Box {
-                        OutlinedButton(
-                            onClick = { categoryMenuExpanded = true },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Text(selectedCategory, fontSize = 11.sp, maxLines = 1)
-                            Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
+                OutlinedTextField(
+                    value = searchQuery, onValueChange = { searchQuery = it },
+                    placeholder = { Text("Buscar pincel, textura ou efeito") },
+                    leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(18.dp)) },
+                    trailingIcon = if (searchQuery.isNotEmpty()) {{
+                        IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, "Limpar busca", Modifier.size(18.dp)) }
+                    }} else null,
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+                )
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        OutlinedButton(onClick = { categoryMenuExpanded = true },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
+                            Text(selectedCategory, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                            Icon(Icons.Default.ExpandMore, null, Modifier.size(16.dp))
                         }
                         DropdownMenu(expanded = categoryMenuExpanded, onDismissRequest = { categoryMenuExpanded = false }) {
                             (if (activeTab == BrushDrawerTab.PRESETS) presetCategories else wasmCategories).forEach { category ->
-                                DropdownMenuItem(
-                                    text = { Text(category) },
-                                    leadingIcon = if (selectedCategory == category) {{ Icon(Icons.Default.Check, null) }} else null,
-                                    onClick = { selectedCategory = category; categoryMenuExpanded = false }
-                                )
+                                DropdownMenuItem(text = { Text(category) },
+                                    trailingIcon = if (selectedCategory == category) {{ Icon(Icons.Default.Check, null) }} else null,
+                                    onClick = { selectedCategory = category; categoryMenuExpanded = false })
                             }
                         }
                     }
-                    if (searchExpanded) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("Buscar", fontSize = 12.sp) },
-                            singleLine = true,
-                            trailingIcon = {
-                                IconButton(onClick = { searchQuery = ""; searchExpanded = false }) {
-                                    Icon(Icons.Default.Close, "Fechar busca", modifier = Modifier.size(16.dp))
-                                }
-                            },
-                            modifier = Modifier.weight(1f).height(48.dp)
-                        )
-                    } else {
-                        Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { searchExpanded = true }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Search, contentDescription = "Buscar")
-                        }
-                    }
+                    FilterChip(selected = favoritesOnly, onClick = { favoritesOnly = !favoritesOnly },
+                        leadingIcon = { Icon(Icons.Default.Star, null, Modifier.size(16.dp)) }, label = { Text("Favoritos") })
                 }
 
                 LazyColumn(
@@ -327,7 +307,7 @@ fun BrushDrawer(
                                 onClick = {
                                     engine.selectPreset(preset)
                                     onBrushUpdated()
-                                    onDismiss()
+                                    if (!embedded) onDismiss()
                                 },
                                 onTuneClick = {
                                     if (!selected) { engine.selectPreset(preset); onBrushUpdated() }
@@ -349,7 +329,7 @@ fun BrushDrawer(
                                 onClick = {
                                     engine.selectBrush(brush)
                                     onBrushUpdated()
-                                    if (brush.params.isNotEmpty()) showTuner = true else onDismiss()
+                                    if (brush.params.isNotEmpty()) showTuner = true else if (!embedded) onDismiss()
                                 }
                             )
                         }
@@ -375,8 +355,8 @@ fun PresetItemCard(
             .clip(RoundedCornerShape(10.dp))
             .clickable { onClick() }
             .border(
-                width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                width = 1.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
                 shape = RoundedCornerShape(10.dp)
             ),
         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
@@ -462,8 +442,8 @@ fun BrushItemCard(
             .clip(RoundedCornerShape(10.dp))
             .clickable { onClick() }
             .border(
-                width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                width = 1.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
                 shape = RoundedCornerShape(10.dp)
             ),
         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),

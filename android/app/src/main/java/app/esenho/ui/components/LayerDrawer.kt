@@ -38,7 +38,8 @@ fun LayerDrawer(
     engine: EsenhoEngine,
     onLayersUpdated: () -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    embedded: Boolean = false
 ) {
     var layersList by remember { mutableStateOf(engine.layers.toList().reversed()) }
     var activeLayerId by remember { mutableIntStateOf(engine.activeLayerIndex) }
@@ -67,14 +68,14 @@ fun LayerDrawer(
     }
 
     Surface(
-        modifier = modifier.fillMaxWidth().height(dockHeight.dp),
+        modifier = if (embedded) modifier.fillMaxSize() else modifier.fillMaxWidth().height(dockHeight.dp),
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
     ) {
         Column(Modifier.fillMaxSize()) {
-            Box(
+            if (!embedded) Box(
                 modifier = Modifier.fillMaxWidth().height(24.dp)
                     .pointerInput(maxDockHeight) {
                         detectVerticalDragGestures { change, dragAmount ->
@@ -87,7 +88,7 @@ fun LayerDrawer(
             ) {
                 Box(Modifier.width(32.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)))
             }
-            if (dockHeight > 40f) Column(
+            if (embedded || dockHeight > 40f) Column(
                 modifier = Modifier.fillMaxWidth().weight(1f)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 12.dp).padding(bottom = 8.dp)
@@ -150,7 +151,7 @@ fun LayerDrawer(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 72.dp, max = 180.dp),
+                    .heightIn(min = 72.dp, max = if (embedded) 360.dp else 180.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(layersList, key = { it.id }) { layer ->

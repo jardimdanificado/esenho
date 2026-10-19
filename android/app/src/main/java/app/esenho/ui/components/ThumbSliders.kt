@@ -1,6 +1,8 @@
 package app.esenho.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
@@ -127,7 +129,8 @@ fun ThumbSliders(
     configuredSliders: List<SideSliderSetting>,
     onConfiguredSlidersChange: (List<SideSliderSetting>) -> Unit,
     onSizeChangeActive: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    horizontal: Boolean = false
 ) {
     var editingSliderIndex by remember { mutableStateOf<Int?>(null) }
     var editingParamId by remember { mutableIntStateOf(1) }
@@ -138,12 +141,7 @@ fun ThumbSliders(
 
     val barHeight = ((LocalConfiguration.current.screenHeightDp * 0.55f /
         configuredSliders.size.coerceIn(1, 6)) - 5f).coerceIn(40f, 88f).dp
-    Column(
-        modifier = modifier
-            .width(38.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    ParameterLayout(horizontal, modifier) {
         configuredSliders.take(6).forEachIndexed { index, setting ->
             val template = AVAILABLE_SLIDER_PARAMS.find { it.paramId == setting.paramId } ?: AVAILABLE_SLIDER_PARAMS[0]
             val minVal = setting.minVal ?: template.minVal
@@ -160,7 +158,8 @@ fun ThumbSliders(
                 value = norm,
                 label = "${cfg.shortLabel} ${currentRawVal.toInt()}${cfg.unit}",
                 fillColor = barColor,
-                barHeight = barHeight,
+                barHeight = if (horizontal) 144.dp else barHeight,
+                barWidth = if (horizontal) 72.dp else 36.dp,
                 onClick = {
                     editingSliderIndex = index
                     editingParamId = setting.paramId
@@ -361,7 +360,8 @@ fun VerticalThumbBar(
     onClick: () -> Unit,
     onValueChange: (Float) -> Unit,
     onActiveChange: (Boolean) -> Unit,
-    barHeight: Dp = 88.dp
+    barHeight: Dp = 88.dp,
+    barWidth: Dp = 36.dp
 ) {
     // pointerInput(Unit) intentionally keeps its gesture coroutine alive while
     // the thumb is dragged. Keep the callbacks fresh when the selected
@@ -373,7 +373,7 @@ fun VerticalThumbBar(
 
     Box(
         modifier = Modifier
-            .width(36.dp)
+            .width(barWidth)
             .height(barHeight)
             .clip(RoundedCornerShape(13.dp))
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f))
@@ -415,5 +415,15 @@ fun VerticalThumbBar(
                 .align(Alignment.Center)
                 .padding(2.dp)
         )
+    }
+}
+
+@Composable
+private fun ParameterLayout(horizontal: Boolean, modifier: Modifier, content: @Composable () -> Unit) {
+    if (horizontal) {
+        Row(modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) { content() }
+    } else {
+        Column(modifier.width(38.dp), verticalArrangement = Arrangement.spacedBy(5.dp), horizontalAlignment = Alignment.CenterHorizontally) { content() }
     }
 }

@@ -29,7 +29,8 @@ import app.esenho.nativeengine.FilterModel
 fun FilterModal(
     engine: EsenhoEngine,
     onFilterApplied: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    embedded: Boolean = false
 ) {
     var selectedFilter by remember { mutableStateOf<FilterModel?>(null) }
     var param1 by remember { mutableFloatStateOf(10f) }
@@ -39,17 +40,11 @@ fun FilterModal(
     var saturation by remember { mutableFloatStateOf(0f) }
     var value by remember { mutableFloatStateOf(0f) }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        windowInsets = WindowInsets.safeDrawing
-    ) {
+    WorkspacePanelContainer(embedded = embedded, onDismiss = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(if (embedded) Modifier.fillMaxHeight() else Modifier)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 14.dp)
                 .padding(bottom = 12.dp)

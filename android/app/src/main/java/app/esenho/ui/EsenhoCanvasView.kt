@@ -86,7 +86,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
     // Paints
     private val bgPaint = Paint().apply {
-        color = 0xFF181A1B.toInt()
+        color = 0xFF0E1118.toInt()
         style = Paint.Style.FILL
     }
 
@@ -215,7 +215,14 @@ class EsenhoCanvasView @JvmOverloads constructor(
             if (engine == null) {
                 engine = EsenhoEngine(context, 1080, 1920)
             }
-            centerCanvas(w, h)
+            if (oldw > 0 && oldh > 0) {
+                // Opening an inspector preserves zoom and the drawing point at the center.
+                transformMatrix.postTranslate((w - oldw) / 2f, (h - oldh) / 2f)
+                transformMatrix.invert(inverseMatrix)
+                invalidate()
+            } else {
+                centerCanvas(w, h)
+            }
         }
     }
 

@@ -61,7 +61,8 @@ fun AnimationTimelineBar(
     engine: EsenhoEngine,
     onFrameChanged: () -> Unit,
     onClose: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    embedded: Boolean = false
 ) {
     var isPlaying by remember { mutableStateOf(engine.isAnimationPlaying) }
     var currentIdx by remember { mutableIntStateOf(engine.currentFrameIndex) }
@@ -136,6 +137,10 @@ fun AnimationTimelineBar(
         }
     }
 
+    DisposableEffect(Unit) {
+        onDispose { engine.isAnimationPlaying = false }
+    }
+
     LaunchedEffect(isPlaying, fps) {
         if (isPlaying) {
             while (isActive && isPlaying) {
@@ -164,10 +169,10 @@ fun AnimationTimelineBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(timelineHeight.dp)
+                .then(if (embedded) Modifier.fillMaxHeight() else Modifier.height(timelineHeight.dp))
                 .padding(start = 4.dp, end = 4.dp, top = 0.dp, bottom = 1.dp)
         ) {
-            Box(
+            if (!embedded) Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(24.dp)
@@ -194,10 +199,10 @@ fun AnimationTimelineBar(
 
             // Playback controls stay separate from layer and cel editing actions.
             Row(
-                modifier = Modifier.fillMaxWidth().height(26.dp),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).height(44.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = {
+                if (!embedded) IconButton(onClick = {
                     isPlaying = false
                     engine.isAnimationPlaying = false
                     onClose()
@@ -227,8 +232,8 @@ fun AnimationTimelineBar(
                     },
                     modifier = Modifier.size(28.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = if (isPlaying) Color(0xFFFFA83D) else Color(0xFF3A3F43),
-                        contentColor = if (isPlaying) Color(0xFF27190A) else Color(0xFFE5E8EB)
+                        containerColor = if (isPlaying) Color(0xFFB6ABFF) else Color(0xFF3A3F43),
+                        contentColor = if (isPlaying) Color(0xFF211B40) else Color(0xFFE5E8EB)
                     )
                 ) {
                     Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = if (isPlaying) "Pausar" else "Reproduzir", modifier = Modifier.size(19.dp))
@@ -246,7 +251,7 @@ fun AnimationTimelineBar(
                     contentPadding = PaddingValues(horizontal = 3.dp), modifier = Modifier.height(26.dp)
                 ) { Icon(Icons.Default.SkipNext, contentDescription = "Próximo quadro", tint = Color(0xFFD0D4D8), modifier = Modifier.size(18.dp)) }
                 IconButton(onClick = { loop = !loop; engine.animationLoop = loop }, modifier = Modifier.size(30.dp)) {
-                    Icon(Icons.Default.Repeat, contentDescription = if (loop) "Desativar repetição" else "Ativar repetição", tint = if (loop) Color(0xFFFFA83D) else Color(0xFF92989E), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Repeat, contentDescription = if (loop) "Desativar repetição" else "Ativar repetição", tint = if (loop) Color(0xFFB6ABFF) else Color(0xFF92989E), modifier = Modifier.size(18.dp))
                 }
                 Box {
                     TextButton(onClick = { fpsMenuExpanded = true }, contentPadding = PaddingValues(horizontal = 7.dp)) {
@@ -261,7 +266,7 @@ fun AnimationTimelineBar(
                                     engine.animationFps = rate
                                     fpsMenuExpanded = false
                                 },
-                                trailingIcon = if (fps == rate) {{ Text("✓", color = Color(0xFFFFA83D)) }} else null
+                                trailingIcon = if (fps == rate) {{ Text("✓", color = Color(0xFFB6ABFF)) }} else null
                             )
                         }
                     }
@@ -274,7 +279,7 @@ fun AnimationTimelineBar(
                     },
                     modifier = Modifier.size(32.dp)
                 ) {
-                    Icon(Icons.Default.Layers, contentDescription = if (onionSkin) "Desativar onion skin" else "Ativar onion skin", tint = if (onionSkin) Color(0xFFFFA83D) else Color(0xFF92989E), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Layers, contentDescription = if (onionSkin) "Desativar onion skin" else "Ativar onion skin", tint = if (onionSkin) Color(0xFFB6ABFF) else Color(0xFF92989E), modifier = Modifier.size(18.dp))
                 }
                 IconButton(onClick = { showOnionSettings = true }, modifier = Modifier.size(26.dp)) {
                     Icon(Icons.Default.Tune, contentDescription = "Configurar onion skin", tint = Color(0xFFB6BBC0), modifier = Modifier.size(16.dp))
@@ -282,7 +287,7 @@ fun AnimationTimelineBar(
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth().height(20.dp),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).height(40.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Camadas / cels", fontSize = 10.sp, color = Color(0xFFB6BBC0))
@@ -307,7 +312,7 @@ fun AnimationTimelineBar(
                     currentDuration = engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1
                     onFrameChanged()
                 }, modifier = Modifier.size(26.dp)) {
-                    Icon(Icons.Default.Add, contentDescription = "Adicionar quadro", tint = Color(0xFFFFA83D), modifier = Modifier.size(19.dp))
+                    Icon(Icons.Default.Add, contentDescription = "Adicionar quadro", tint = Color(0xFFB6ABFF), modifier = Modifier.size(19.dp))
                 }
                 IconButton(onClick = {
                     val group = engine.createRasterLayerGroup()
@@ -387,7 +392,7 @@ fun AnimationTimelineBar(
                                     onClick = { group.collapsed = !group.collapsed; layerRevision++ },
                                     contentPadding = PaddingValues(horizontal = 4.dp),
                                     modifier = Modifier.height(28.dp)
-                                ) { Text(if (group.collapsed) "▸" else "▾", color = Color(0xFFFFA83D)) }
+                                ) { Text(if (group.collapsed) "▸" else "▾", color = Color(0xFFB6ABFF)) }
                                 IconButton(
                                     onClick = { engine.toggleRasterLayerGroupVisibility(group.id); layerRevision++; onFrameChanged() },
                                     modifier = Modifier.size(26.dp)
@@ -399,7 +404,7 @@ fun AnimationTimelineBar(
                                         modifier = Modifier.size(15.dp)
                                     )
                                 }
-                                Text(group.name, fontSize = 10.sp, maxLines = 1, color = Color(0xFFFFBD73), modifier = Modifier.weight(1f))
+                                Text(group.name, fontSize = 10.sp, maxLines = 1, color = Color(0xFFD6CEFF), modifier = Modifier.weight(1f))
                                 Text("${engine.rasterGroupLayerIds(group.id).size} cam.", fontSize = 8.sp, color = Color(0xFF92989E))
                                 Box {
                                     IconButton(onClick = { groupMenuId = group.id }, modifier = Modifier.size(24.dp)) {
@@ -492,7 +497,7 @@ fun AnimationTimelineBar(
                                 }
                                 Text(
                                     layer.name, fontSize = 8.sp, maxLines = 1,
-                                    color = if (layer.id == engine.activeLayerIndex) Color(0xFFFFBD73) else Color(0xFFCDD1D5),
+                                    color = if (layer.id == engine.activeLayerIndex) Color(0xFFD6CEFF) else Color(0xFFCDD1D5),
                                     modifier = Modifier.weight(1f)
                                 )
                                 Box {
@@ -551,7 +556,7 @@ fun AnimationTimelineBar(
                                 modifier = Modifier.width((cel.duration.coerceAtLeast(1) * 24f - 2f).coerceAtLeast(22f).dp).fillMaxHeight()
                                         .clip(RectangleShape)
                                         .background(Color(0xFF191B1D))
-                                        .border(if (selected) 2.dp else 1.dp, if (selected) Color(0xFFFFA83D) else Color(0xFF41464A), RectangleShape)
+                                        .border(if (selected) 2.dp else 1.dp, if (selected) Color(0xFFB6ABFF) else Color(0xFF41464A), RectangleShape)
                                         .combinedClickable(
                                             onClick = { activateCel() },
                                             onLongClick = { celMenuTarget = layer.id to index }
@@ -694,8 +699,8 @@ fun AnimationTimelineBar(
                                         Box(Modifier.width(2.dp).fillMaxHeight(0.62f).background(Color(0xCCFFA83D), RectangleShape))
                                     }
                                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                        Text("Cel ${index + 1}", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = if (selected) Color(0xFFFFBD73) else Color(0xFFCDD1D5), maxLines = 1)
-                                        Text("${cel.duration}f", fontSize = 9.sp, color = if (selected) Color(0xFFFFA83D) else Color(0xFF92989E), maxLines = 1)
+                                        Text("Cel ${index + 1}", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = if (selected) Color(0xFFD6CEFF) else Color(0xFFCDD1D5), maxLines = 1)
+                                        Text("${cel.duration}f", fontSize = 9.sp, color = if (selected) Color(0xFFB6ABFF) else Color(0xFF92989E), maxLines = 1)
                                     }
                                 }
                                 Spacer(Modifier.width(2.dp).fillMaxHeight())
