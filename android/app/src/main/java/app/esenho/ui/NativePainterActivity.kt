@@ -214,6 +214,7 @@ fun EsenhoMainScreen(
     var showColorStudio by remember { mutableStateOf(false) }
     var showLayerDrawer by remember { mutableStateOf(false) }
     var showFilterModal by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
     var showAnimationTimeline by remember { mutableStateOf(false) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var showProjectManager by remember { mutableStateOf(false) }
@@ -274,6 +275,7 @@ fun EsenhoMainScreen(
         engine.transformState?.let { activeTransformMode = it.mode }
         activeTransformInterpolation = engine.transformState?.interpolation ?: engine.transformInterpolation
         activeBrushName = engine.activeBrushDisplayName
+        engine.snapshotSelectedFavoriteTool()?.let { (id, state) -> storageManager.saveFavoriteToolState(id, state) }
         canvasViewRef?.invalidate()
     }
 
@@ -469,7 +471,7 @@ fun EsenhoMainScreen(
                         modifier = Modifier.padding(end = 4.dp)
                     ) {
                         TooltipIconButton(
-                            onClick = { showLayerDrawer = true },
+                            onClick = { showLayerDrawer = !showLayerDrawer },
                             description = "Camadas",
                             modifier = Modifier.size(36.dp)
                         ) {
@@ -555,45 +557,9 @@ fun EsenhoMainScreen(
                             )
                             HorizontalDivider()
                             DropdownMenuItem(
-                                text = { Text("Exportar Imagem (PNG)") },
+                                text = { Text("Exportar…") },
                                 leadingIcon = { Icon(Icons.Default.Share, null) },
-                                onClick = {
-                                    showMenu = false
-                                    engine.getRenderBitmap()?.let { bitmap -> onExport(NativeExportRequest(NativeExportRequest.Format.PNG, bitmap = bitmap)) }
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Exportar Imagem (JPEG)") },
-                                leadingIcon = { Icon(Icons.Default.Share, null) },
-                                onClick = {
-                                    showMenu = false
-                                    engine.getRenderBitmap()?.let { bitmap -> onExport(NativeExportRequest(NativeExportRequest.Format.JPEG, bitmap = bitmap)) }
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Exportar Imagem (WebP)") },
-                                leadingIcon = { Icon(Icons.Default.Share, null) },
-                                onClick = {
-                                    showMenu = false
-                                    engine.getRenderBitmap()?.let { bitmap -> onExport(NativeExportRequest(NativeExportRequest.Format.WEBP, bitmap = bitmap)) }
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Exportar Animação (GIF)") },
-                                leadingIcon = { Icon(Icons.Default.Share, null) },
-                                onClick = {
-                                    showMenu = false
-                                    engine.captureCurrentFrame()
-                                    onExport(NativeExportRequest(NativeExportRequest.Format.GIF, frames = engine.renderAnimationFrames(), fps = engine.animationFps, loop = engine.animationLoop))
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Exportar Animação (WebM)") },
-                                leadingIcon = { Icon(Icons.Default.Movie, null) },
-                                onClick = {
-                                    showMenu = false
-                                    onExport(NativeExportRequest(NativeExportRequest.Format.WEBM, frames = engine.renderAnimationFrames(), fps = engine.animationFps))
-                                }
+                                onClick = { showMenu = false; showExportDialog = true }
                             )
                             HorizontalDivider()
                             DropdownMenuItem(
@@ -825,6 +791,7 @@ fun EsenhoMainScreen(
                 },
                 onSizeChangeActive = { active ->
                     canvasViewRef?.previewBrushSize = if (active) engine.brushSize else 0f
+                    if (!active) refreshState()
                 },
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -1504,6 +1471,14 @@ fun EsenhoMainScreen(
                 engine = engine,
                 onLayersUpdated = { refreshState() },
                 onDismiss = { showLayerDrawer = false }
+            )
+        }
+
+        if (showExportDialog) {
+            NativeExportDialog(
+                engine = engine,
+                onExport = onExport,
+                onDismiss = { showExportDialog = false }
             )
         }
 

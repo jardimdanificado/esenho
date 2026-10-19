@@ -1252,7 +1252,11 @@ class EsenhoEngine(
 
     // ── Brush Preset & Procedural Selection & Tuning ──
 
-    fun selectPreset(preset: BrushPresetModel) {
+    fun selectPreset(sourcePreset: BrushPresetModel) {
+        val saved = storageManager.loadFavoriteToolState("preset:${sourcePreset.id}")
+            ?.takeIf { it.optString("kind") == "preset" }
+            ?.optJSONObject("preset")
+        val preset = saved?.let(BrushPresetModel::fromJson) ?: sourcePreset
         selectedPreset = preset
         selectedBrush = null
         EsenhoNativeBridge.nativeBrushReset()
@@ -1576,21 +1580,43 @@ class EsenhoEngine(
     }
 
     fun selectBrush(brush: BrushModel?) {
-        selectedBrush = brush
+        val savedBrushState = brush?.let { storageManager.loadFavoriteToolState("brush:${it.id}") }
+            ?.takeIf { it.optString("kind") == "brush" }
+        savedBrushState?.let {
+            brushSize = it.optDouble("size", brushSize.toDouble()).toFloat()
+            brushOpacity = it.optDouble("opacity", brushOpacity.toDouble()).toFloat()
+            it.optJSONObject("liveParams")?.let { params ->
+                val keys = params.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    key.toIntOrNull()?.let { paramId -> liveBrushSliderParams[paramId] = params.optInt(key) }
+                }
+            }
+        }
+        val selectedBrushModel = brush?.let { source ->
+            val saved = savedBrushState
+            if (saved == null) source else {
+                val values = saved.optJSONArray("params")
+                source.copy(params = source.params.mapIndexed { index, param ->
+                    param.copy(currentVal = values?.optInt(index, param.currentVal) ?: param.currentVal)
+                })
+            }
+        }
+        selectedBrush = selectedBrushModel
         selectedPreset = null
         EsenhoNativeBridge.nativeDynBrushEnable(false)
         EsenhoNativeBridge.nativeBrushSetPressureMap(0, 100, 0, 1f)
         EsenhoNativeBridge.nativeBrushReset()
-        if (brush == null) {
+        if (selectedBrushModel == null) {
             EsenhoNativeBridge.nativeBrushSetProceduralSpacing(-1f)
             EsenhoNativeBridge.nativeSelectBrush("classic")
         } else {
-            EsenhoNativeBridge.nativeSelectBrush(brush.id)
-            EsenhoNativeBridge.nativeBrushSetProceduralSpacing(brush.spacing)
+            EsenhoNativeBridge.nativeSelectBrush(selectedBrushModel.id)
+            EsenhoNativeBridge.nativeBrushSetProceduralSpacing(selectedBrushModel.spacing)
             EsenhoNativeBridge.nativeBrushSetProceduralOpacity(brushOpacity)
             EsenhoNativeBridge.nativeBrushSetSize(brushSize)
             // Apply current values of parameters
-            brush.params.forEachIndexed { idx, p ->
+            selectedBrushModel.params.forEachIndexed { idx, p ->
                 EsenhoNativeBridge.nativeSetBrushParam(idx, p.currentVal)
             }
         }
@@ -1598,6 +1624,31 @@ class EsenhoEngine(
             EsenhoNativeBridge.nativeBrushSetParam(paramId, value)
         }
         currentTool = ToolMode.BRUSH
+    }
+
+    fun snapshotSelectedFavoriteTool(): Pair<String, JSONObject>? {
+        selectedPreset?.let { preset ->
+            val id = "preset:${preset.id}"
+            if (id in storageManager.loadFavoriteBrushes()) {
+                return id to JSONObject().put("kind", "preset").put("preset", preset.toJson())
+            }
+        }
+        selectedBrush?.let { brush ->
+            val id = "brush:${brush.id}"
+            if (id in storageManager.loadFavoriteBrushes()) {
+                val params = org.json.JSONArray()
+                brush.params.forEach { params.put(it.currentVal) }
+                val liveParams = JSONObject()
+                liveBrushSliderParams.forEach { (paramId, value) -> liveParams.put(paramId.toString(), value) }
+                return id to JSONObject()
+                    .put("kind", "brush")
+                    .put("size", brushSize)
+                    .put("opacity", brushOpacity)
+                    .put("liveParams", liveParams)
+                    .put("params", params)
+            }
+        }
+        return null
     }
 
     fun resetPresetToDefaults() {

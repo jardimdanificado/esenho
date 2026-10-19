@@ -41,7 +41,6 @@ fun FilterModal(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = RectangleShape,
-        dragHandle = { ModalBottomSheetDefaults.DragHandle() },
         windowInsets = WindowInsets.safeDrawing
     ) {
         Column(

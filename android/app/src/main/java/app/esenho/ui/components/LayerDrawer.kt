@@ -22,6 +22,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.platform.LocalDensity
 import app.esenho.nativeengine.EsenhoEngine
 import app.esenho.nativeengine.LayerBlendMode
 import app.esenho.nativeengine.LayerModel
@@ -58,19 +62,21 @@ fun LayerDrawer(
         onLayersUpdated()
     }
 
-    ModalBottomSheet(
+    Popup(
+        alignment = Alignment.BottomCenter,
+        offset = IntOffset(0, -with(LocalDensity.current) { 64.dp.roundToPx() }),
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RectangleShape,
-        dragHandle = { ModalBottomSheetDefaults.DragHandle() },
-        windowInsets = WindowInsets.safeDrawing
+        properties = PopupProperties(focusable = false)
     ) {
+        Surface(
+            modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().heightIn(max = 440.dp),
+            shape = RectangleShape,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 8.dp
+        ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 440.dp)
-                .padding(horizontal = 14.dp)
-                .padding(bottom = 16.dp)
+            modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp)
+                .padding(horizontal = 14.dp).padding(bottom = 16.dp)
         ) {
             // Header with Layer Action buttons
             Row(
@@ -117,6 +123,9 @@ fun LayerDrawer(
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = "Deletar", modifier = Modifier.size(18.dp))
+                    }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "Fechar camadas", modifier = Modifier.size(17.dp))
                     }
                 }
             }
@@ -433,6 +442,7 @@ fun LayerDrawer(
                     }
                 }
             }
+        }
         }
     }
 

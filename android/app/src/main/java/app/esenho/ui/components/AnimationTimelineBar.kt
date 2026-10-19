@@ -84,8 +84,8 @@ fun AnimationTimelineBar(
     val timelineLayers = remember(layerRevision) { engine.layers.filter { it.id >= 3 }.toList().reversed() }
     // Every cel occupies exactly duration ticks at one shared scale. The 6 dp
     // inter-cel gap is subtracted from its width so the gap completes the tick.
-    val durationPixelsPerFrame = with(androidx.compose.ui.platform.LocalDensity.current) { 32.dp.toPx() }
-    val layerRowHeightPixels = with(androidx.compose.ui.platform.LocalDensity.current) { 30.dp.toPx() }
+    val durationPixelsPerFrame = with(androidx.compose.ui.platform.LocalDensity.current) { 24.dp.toPx() }
+    val layerRowHeightPixels = with(androidx.compose.ui.platform.LocalDensity.current) { 22.dp.toPx() }
     val timelineEntries = remember(layerRevision) {
         buildList {
             fun addGroup(groupId: String, depth: Int) {
@@ -117,7 +117,7 @@ fun AnimationTimelineBar(
     var groupNameInput by remember { mutableStateOf("") }
     var groupMenuId by remember { mutableStateOf<String?>(null) }
     var celMenuTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    val collapsedHeight = 168f
+    val collapsedHeight = 124f
     val maxTimelineHeight = (LocalConfiguration.current.screenHeightDp * 0.62f)
         .coerceAtMost(560f)
         .coerceAtLeast(collapsedHeight)
@@ -164,12 +164,12 @@ fun AnimationTimelineBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(timelineHeight.dp)
-                .padding(start = 6.dp, end = 6.dp, top = 2.dp, bottom = 3.dp)
+                .padding(start = 4.dp, end = 4.dp, top = 0.dp, bottom = 1.dp)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(36.dp)
+                    .height(24.dp)
                     .pointerInput(maxTimelineHeight) {
                         detectVerticalDragGestures { change, dragAmount ->
                             change.consume()
@@ -193,7 +193,7 @@ fun AnimationTimelineBar(
 
             // Playback controls stay separate from layer and cel editing actions.
             Row(
-                modifier = Modifier.fillMaxWidth().height(30.dp),
+                modifier = Modifier.fillMaxWidth().height(26.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = {
@@ -217,7 +217,7 @@ fun AnimationTimelineBar(
                         currentDuration = engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1
                         onFrameChanged()
                     },
-                    contentPadding = PaddingValues(horizontal = 3.dp), modifier = Modifier.height(30.dp)
+                    contentPadding = PaddingValues(horizontal = 3.dp), modifier = Modifier.height(26.dp)
                 ) { Icon(Icons.Default.SkipPrevious, contentDescription = "Quadro anterior", tint = Color(0xFFD0D4D8), modifier = Modifier.size(18.dp)) }
                 FilledIconButton(
                     onClick = {
@@ -242,7 +242,7 @@ fun AnimationTimelineBar(
                         currentDuration = engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1
                         onFrameChanged()
                     },
-                    contentPadding = PaddingValues(horizontal = 3.dp), modifier = Modifier.height(30.dp)
+                    contentPadding = PaddingValues(horizontal = 3.dp), modifier = Modifier.height(26.dp)
                 ) { Icon(Icons.Default.SkipNext, contentDescription = "Próximo quadro", tint = Color(0xFFD0D4D8), modifier = Modifier.size(18.dp)) }
                 IconButton(onClick = { loop = !loop; engine.animationLoop = loop }, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Default.Repeat, contentDescription = if (loop) "Desativar repetição" else "Ativar repetição", tint = if (loop) Color(0xFFFFA83D) else Color(0xFF92989E), modifier = Modifier.size(18.dp))
@@ -281,7 +281,7 @@ fun AnimationTimelineBar(
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth().height(26.dp),
+                modifier = Modifier.fillMaxWidth().height(20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Camadas / cels", fontSize = 10.sp, color = Color(0xFFB6BBC0))
@@ -358,7 +358,7 @@ fun AnimationTimelineBar(
                 },
                 valueRange = 0f..(engine.totalAnimationTicks() - 1).coerceAtLeast(1).toFloat(),
                 enabled = engine.totalAnimationTicks() > 1,
-                modifier = Modifier.fillMaxWidth().height(18.dp)
+                modifier = Modifier.fillMaxWidth().height(14.dp)
             )
 
             Spacer(Modifier.height(2.dp))
@@ -377,7 +377,7 @@ fun AnimationTimelineBar(
                         is TimelineEntry.Group -> {
                             val group = entry.group
                             Row(
-                                modifier = Modifier.fillMaxWidth().height(24.dp)
+                                modifier = Modifier.fillMaxWidth().height(20.dp)
                                     .padding(start = (entry.depth * 10).dp)
                                     .clip(RectangleShape).background(Color(0xFF34383C)),
                                 verticalAlignment = Alignment.CenterVertically
@@ -437,11 +437,11 @@ fun AnimationTimelineBar(
                     var reorderDragRemainder by remember(layer.id) { mutableFloatStateOf(0f) }
                     var reorderUndoToken by remember(layer.id) { mutableStateOf(0L) }
                     Row(
-                        modifier = Modifier.fillMaxWidth().height(30.dp),
+                        modifier = Modifier.fillMaxWidth().height(22.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(
-                            modifier = Modifier.width(76.dp).fillMaxHeight().padding(start = (entry.depth * 6).dp)
+                            modifier = Modifier.width(68.dp).fillMaxHeight().padding(start = (entry.depth * 4).dp)
                                 .clip(RectangleShape)
                                 .background(if (layer.id == engine.activeLayerIndex) Color(0xFF3A3528) else Color(0xFF303438))
                                 .pointerInput(layer.id, layerRowHeightPixels) {
@@ -547,7 +547,7 @@ fun AnimationTimelineBar(
                                     onFrameChanged()
                                 }
                                 Box(
-                                modifier = Modifier.width((cel.duration.coerceAtLeast(1) * 32f - 2f).coerceAtLeast(30f).dp).fillMaxHeight()
+                                modifier = Modifier.width((cel.duration.coerceAtLeast(1) * 24f - 2f).coerceAtLeast(22f).dp).fillMaxHeight()
                                         .clip(RectangleShape)
                                         .background(Color(0xFF191B1D))
                                         .border(if (selected) 2.dp else 1.dp, if (selected) Color(0xFFFFA83D) else Color(0xFF41464A), RectangleShape)
@@ -701,7 +701,7 @@ fun AnimationTimelineBar(
                             }
                             val layerDurationTicks = track.frames.sumOf { it.duration.coerceAtLeast(1) }
                             val remainingTicks = (engine.totalAnimationTicks() - layerDurationTicks).coerceAtLeast(0)
-                            Spacer(Modifier.width((remainingTicks * 32f).dp).fillMaxHeight())
+                            Spacer(Modifier.width((remainingTicks * 24f).dp).fillMaxHeight())
                         }
                     }
                         }

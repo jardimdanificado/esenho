@@ -50,6 +50,9 @@ class EsenhoStorageManager(private val context: Context) {
     private val favoritesFile: File
         get() = File(context.filesDir, FAVORITES_FILENAME)
 
+    private val favoriteStatesFile: File
+        get() = File(context.filesDir, "esenho_favorite_tool_states.json")
+
     /**
      * Atomically writes content to the target file via temporary file and atomic rename.
      * Guarantees that readers never see partially written or corrupted files.
@@ -380,6 +383,35 @@ class EsenhoStorageManager(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load favorite brushes", e)
             emptySet()
+        }
+    }
+
+    fun saveFavoriteToolState(id: String, state: JSONObject): Boolean = try {
+        val states = loadFavoriteToolStates().apply { put(id, state) }
+        val root = JSONObject()
+        states.forEach { (key, value) -> root.put(key, value) }
+        atomicWrite(favoriteStatesFile, root.toString())
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to save favorite tool state", e)
+        false
+    }
+
+    fun loadFavoriteToolState(id: String): JSONObject? = loadFavoriteToolStates()[id]
+
+    private fun loadFavoriteToolStates(): MutableMap<String, JSONObject> {
+        val content = safeRead(favoriteStatesFile) ?: return mutableMapOf()
+        return try {
+            val root = JSONObject(content)
+            buildMap {
+                val keys = root.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    root.optJSONObject(key)?.let { put(key, it) }
+                }
+            }.toMutableMap()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load favorite tool states", e)
+            mutableMapOf()
         }
     }
 }
