@@ -244,6 +244,7 @@ fun EsenhoMainScreen(
     var wandContiguous by remember { mutableStateOf(engine.wandContiguous) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
     var showGuidesMenu by remember { mutableStateOf(false) }
+    var guideMenuRevision by remember { mutableIntStateOf(0) }
 
     // Reactive State
     var canUndo by remember { mutableStateOf(false) }
@@ -451,44 +452,48 @@ fun EsenhoMainScreen(
                                     onClick = { engine.guideCreationType = type; engine.guideSnapEnabled = true; showGuidesMenu = false; canvasViewRef?.invalidate() }
                                 )
                             }
-                            if (engine.canvasGuides.isNotEmpty()) {
-                                HorizontalDivider()
-                                engine.canvasGuides.indices.forEach { index ->
-                                    val isGuideSelected = engine.snapToAllVisibleGuides || index in engine.snapGuideIndices
-                                    val guideTypeName = when (engine.canvasGuides[index].type) {
-                                        DrawingGuideType.LINE -> "Linha"
-                                        DrawingGuideType.CURVE -> "Curva"
-                                        DrawingGuideType.ELLIPSE -> "Elipse"
-                                        DrawingGuideType.SPHERE -> "Esfera"
-                                    }
-                                    DropdownMenuItem(
-                                        text = { Text("Guia ${index + 1} · $guideTypeName") },
-                                        leadingIcon = {
-                                            Icon(
-                                                if (isGuideSelected) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
-                                                contentDescription = if (isGuideSelected) "Aderência ativada" else "Aderência desativada"
-                                            )
-                                        },
-                                        trailingIcon = {
-                                            IconButton(onClick = {
-                                                engine.removeCanvasGuide(index)
-                                                canvasViewRef?.invalidate()
-                                            }, modifier = Modifier.size(32.dp)) {
-                                                Icon(Icons.Default.DeleteOutline, contentDescription = "Apagar guia", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
-                                            }
-                                        },
-                                        onClick = {
-                                            if (engine.snapToAllVisibleGuides) {
-                                                engine.snapToAllVisibleGuides = false
-                                                engine.snapGuideIndices.clear()
-                                                engine.snapGuideIndices.addAll(engine.canvasGuides.indices)
-                                            }
-                                            if (isGuideSelected) engine.snapGuideIndices.remove(index) else engine.snapGuideIndices.add(index)
-                                            engine.activeCanvasGuideIndex = index
-                                            engine.guideSnapEnabled = true
-                                            canvasViewRef?.invalidate()
+                            key(guideMenuRevision) {
+                                if (engine.canvasGuides.isNotEmpty()) {
+                                    HorizontalDivider()
+                                    engine.canvasGuides.indices.forEach { index ->
+                                        val isGuideSelected = engine.snapToAllVisibleGuides || index in engine.snapGuideIndices
+                                        val guideTypeName = when (engine.canvasGuides[index].type) {
+                                            DrawingGuideType.LINE -> "Linha"
+                                            DrawingGuideType.CURVE -> "Curva"
+                                            DrawingGuideType.ELLIPSE -> "Elipse"
+                                            DrawingGuideType.SPHERE -> "Esfera"
                                         }
-                                    )
+                                        DropdownMenuItem(
+                                            text = { Text("Guia ${index + 1} · $guideTypeName") },
+                                            leadingIcon = {
+                                                Icon(
+                                                    if (isGuideSelected) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+                                                    contentDescription = if (isGuideSelected) "Aderência ativada" else "Aderência desativada"
+                                                )
+                                            },
+                                            trailingIcon = {
+                                                IconButton(onClick = {
+                                                    engine.removeCanvasGuide(index)
+                                                    guideMenuRevision++
+                                                    canvasViewRef?.invalidate()
+                                                }, modifier = Modifier.size(32.dp)) {
+                                                    Icon(Icons.Default.DeleteOutline, contentDescription = "Apagar guia", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                                                }
+                                            },
+                                            onClick = {
+                                                if (engine.snapToAllVisibleGuides) {
+                                                    engine.snapToAllVisibleGuides = false
+                                                    engine.snapGuideIndices.clear()
+                                                    engine.snapGuideIndices.addAll(engine.canvasGuides.indices)
+                                                }
+                                                if (isGuideSelected) engine.snapGuideIndices.remove(index) else engine.snapGuideIndices.add(index)
+                                                engine.activeCanvasGuideIndex = index
+                                                engine.guideSnapEnabled = true
+                                                guideMenuRevision++
+                                                canvasViewRef?.invalidate()
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
