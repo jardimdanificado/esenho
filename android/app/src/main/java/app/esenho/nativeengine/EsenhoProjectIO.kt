@@ -39,6 +39,7 @@ object EsenhoProjectIO {
         val layerOrders: List<Int>,
         val childGroupIds: List<String>
     )
+    data class GuideSnapshot(val type: DrawingGuideType, val paths: List<List<GuidePoint>>)
     data class Snapshot(
         val width: Int,
         val height: Int,
@@ -47,6 +48,7 @@ object EsenhoProjectIO {
         val animationTracks: List<TrackSnapshot>,
         val rasterGroups: List<GroupSnapshot>,
         val rasterGroupOrder: List<String>,
+        val guides: List<GuideSnapshot>,
         val fps: Int,
         val currentFrame: Int,
         val currentTick: Int,
@@ -121,6 +123,7 @@ object EsenhoProjectIO {
                 tracks,
                 groups,
                 engine.rasterGroupOrder.toList(),
+                engine.canvasGuides.map { GuideSnapshot(it.type, it.paths) },
                 engine.animationFps,
                 engine.currentFrameIndex,
                 engine.currentAnimationTick,
@@ -187,7 +190,17 @@ object EsenhoProjectIO {
                 .put("layerOrders", org.json.JSONArray(group.layerOrders))
                 .put("childGroupIds", org.json.JSONArray(group.childGroupIds)))
         }
-        val metadata = org.json.JSONObject().put("format", 4).put("width", snapshot.width).put("height", snapshot.height)
+        val guidesJson = org.json.JSONArray()
+        snapshot.guides.forEach { guide ->
+            val paths = org.json.JSONArray()
+            guide.paths.forEach { path ->
+                val points = org.json.JSONArray()
+                path.forEach { point -> points.put(org.json.JSONArray().put(point.x).put(point.y)) }
+                paths.put(points)
+            }
+            guidesJson.put(org.json.JSONObject().put("type", guide.type.name).put("paths", paths))
+        }
+        val metadata = org.json.JSONObject().put("format", 6).put("width", snapshot.width).put("height", snapshot.height)
             .put("active", snapshot.active).put("layers", layersJson).put("fps", snapshot.fps)
             .put("currentFrame", snapshot.currentFrame).put("currentTick", snapshot.currentTick)
             .put("loop", snapshot.loop).put("onionEnabled", snapshot.onionEnabled)
@@ -195,6 +208,7 @@ object EsenhoProjectIO {
             .put("onionOpacity", snapshot.onionOpacity).put("onionPrevTint", snapshot.onionPrevTint)
             .put("onionNextTint", snapshot.onionNextTint).put("animationTracks", tracksJson)
             .put("rasterGroups", groupsJson).put("rasterGroupOrder", org.json.JSONArray(snapshot.rasterGroupOrder))
+            .put("guides", guidesJson)
             .put("selectionOp", snapshot.selectionOp.name)
             .put("wandTolerance", snapshot.wandTolerance)
             .put("wandContiguous", snapshot.wandContiguous)
@@ -240,13 +254,49 @@ object EsenhoProjectIO {
         val meta = entries["project.json"] ?: error("Arquivo de projeto inválido")
         val json = org.json.JSONObject(meta.toString(Charsets.UTF_8))
         val format = json.optInt("format", 1)
-        require(format in 1..4) { "Versão de projeto não suportada" }
+        require(format in 1..6) { "Versão de projeto não suportada" }
         val width = json.getInt("width").coerceIn(1, 8192)
         val height = json.getInt("height").coerceIn(1, 8192)
         val savedLayers = json.getJSONArray("layers")
         require(savedLayers.length() > 0) { "O projeto não contém camadas" }
 
         engine.initEngine(width, height)
+        engine.canvasGuides.clear()
+        if (format >= 5) {
+            val guides = json.optJSONArray("guides") ?: org.json.JSONArray()
+            repeat(guides.length()) guideLoop@ { index ->
+                val guide = guides.optJSONObject(index) ?: return@guideLoop
+                if (format >= 6) {
+                    val type = runCatching { DrawingGuideType.valueOf(guide.optString("type")) }.getOrNull() ?: return@guideLoop
+                    val pathsJson = guide.optJSONArray("paths") ?: return@guideLoop
+                    val paths = mutableListOf<List<GuidePoint>>()
+                    repeat(pathsJson.length()) pathLoop@ { pathIndex ->
+                        val pointJson = pathsJson.optJSONArray(pathIndex) ?: return@pathLoop
+                        val points = mutableListOf<GuidePoint>()
+                        repeat(pointJson.length()) pointLoop@ { pointIndex ->
+                            val pair = pointJson.optJSONArray(pointIndex) ?: return@pointLoop
+                            if (pair.length() >= 2) {
+                                val x = pair.optDouble(0, -1.0).toFloat()
+                                val y = pair.optDouble(1, -1.0).toFloat()
+                                if (x in 0f..width.toFloat() && y in 0f..height.toFloat()) points += GuidePoint(x, y)
+                            }
+                        }
+                        if (points.size >= 2) paths += points
+                    }
+                    if (paths.isNotEmpty()) engine.canvasGuides += CanvasGuide(type, paths)
+                } else {
+                    val vertical = guide.optString("orientation") == "VERTICAL"
+                    val position = guide.optDouble("position", -1.0).toFloat()
+                    val limit = if (vertical) width else height
+                    if (position in 0f..limit.toFloat()) {
+                        val points = if (vertical) listOf(GuidePoint(position, 0f), GuidePoint(position, height.toFloat()))
+                            else listOf(GuidePoint(0f, position), GuidePoint(width.toFloat(), position))
+                        engine.canvasGuides += CanvasGuide(DrawingGuideType.LINE, listOf(points))
+                    }
+                }
+            }
+            engine.activeCanvasGuideIndex = engine.canvasGuides.lastIndex
+        }
         engine.layerNames.clear()
         engine.transformInterpolation = runCatching {
             TransformState.Interpolation.valueOf(json.optString("transformInterpolation", "NEAREST"))

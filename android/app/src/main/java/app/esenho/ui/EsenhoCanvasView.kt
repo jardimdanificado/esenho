@@ -6,6 +6,9 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import app.esenho.nativeengine.EsenhoEngine
+import app.esenho.nativeengine.CanvasGuide
+import app.esenho.nativeengine.DrawingGuideType
+import app.esenho.nativeengine.GuidePoint
 import app.esenho.nativeengine.ToolMode
 import kotlin.math.*
 
@@ -57,6 +60,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
     private var lastSingleTouchY = 0f
     private val matrixValues = FloatArray(9)
     private var stylusEraserPreviousTool: ToolMode? = null
+    private var creatingGuideType: DrawingGuideType? = null
+    private var guideStart = GuidePoint(0f, 0f)
+    private val guideDraft = mutableListOf<GuidePoint>()
 
     private fun restoreStylusEraserTool() {
         val previous = stylusEraserPreviousTool ?: return
@@ -194,6 +200,15 @@ class EsenhoCanvasView @JvmOverloads constructor(
         isAntiAlias = false
     }
 
+    private val guidePaint = Paint().apply {
+        color = 0xDD43D9C2.toInt()
+        strokeWidth = 1.75f
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        isAntiAlias = true
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         if (w > 0 && h > 0) {
@@ -234,6 +249,106 @@ class EsenhoCanvasView @JvmOverloads constructor(
         return Pair(pts[0], pts[1])
     }
 
+    private fun ellipsePath(bounds: Pair<GuidePoint, GuidePoint>, rxFactor: Float = 1f, ryFactor: Float = 1f): List<GuidePoint> {
+        val (a, b) = bounds
+        val cx = (a.x + b.x) / 2f
+        val cy = (a.y + b.y) / 2f
+        val rx = abs(b.x - a.x) * 0.5f * rxFactor
+        val ry = abs(b.y - a.y) * 0.5f * ryFactor
+        return (0..96).map { i ->
+            val angle = i * (2.0 * Math.PI / 96.0)
+            GuidePoint(cx + cos(angle).toFloat() * rx, cy + sin(angle).toFloat() * ry)
+        }
+    }
+
+    private fun createGuide(type: DrawingGuideType, a: GuidePoint, b: GuidePoint, curve: List<GuidePoint> = emptyList()): CanvasGuide {
+        val paths = when (type) {
+            DrawingGuideType.LINE -> listOf(listOf(a, b))
+            DrawingGuideType.CURVE -> listOf((curve + b).distinct())
+            DrawingGuideType.ELLIPSE -> listOf(ellipsePath(a to b))
+            DrawingGuideType.SPHERE -> listOf(ellipsePath(a to b), ellipsePath(a to b, 0.34f, 1f), ellipsePath(a to b, 1f, 0.34f))
+        }
+        return CanvasGuide(type, paths.filter { it.size >= 2 })
+    }
+
+    private fun beginGuideGesture(x: Float, y: Float): Boolean {
+        val eng = engine ?: return false
+        val type = eng.guideCreationType ?: return false
+        val point = mapToCanvas(x, y)
+        guideStart = GuidePoint(point.first.coerceIn(0f, eng.width.toFloat()), point.second.coerceIn(0f, eng.height.toFloat()))
+        guideDraft.clear()
+        guideDraft += guideStart
+        creatingGuideType = type
+        invalidate()
+        return true
+    }
+
+    private fun moveGuideGesture(x: Float, y: Float) {
+        val eng = engine ?: return
+        val type = creatingGuideType ?: return
+        val p = mapToCanvas(x, y)
+        val point = GuidePoint(p.first.coerceIn(0f, eng.width.toFloat()), p.second.coerceIn(0f, eng.height.toFloat()))
+        if (type == DrawingGuideType.CURVE) {
+            val last = guideDraft.lastOrNull()
+            if (last == null || hypot(point.x - last.x, point.y - last.y) >= 2f) guideDraft += point
+        } else if (guideDraft.size == 1) guideDraft += point else guideDraft[1] = point
+        invalidate()
+    }
+
+    private fun finishGuideGesture(x: Float, y: Float, cancelled: Boolean = false) {
+        val eng = engine ?: return
+        val type = creatingGuideType ?: return
+        if (!cancelled) {
+            moveGuideGesture(x, y)
+            val end = guideDraft.lastOrNull() ?: guideStart
+            val guide = createGuide(type, guideStart, end, guideDraft.toList())
+            if (guide.paths.isNotEmpty() && guide.paths.any { it.size >= 2 }) {
+                eng.canvasGuides += guide
+                eng.activeCanvasGuideIndex = eng.canvasGuides.lastIndex
+            }
+        }
+        creatingGuideType = null
+        guideDraft.clear()
+        eng.guideCreationType = null
+        onStateChanged?.invoke()
+        invalidate()
+    }
+
+    private fun constrainToGuide(x: Float, y: Float): Pair<Float, Float> {
+        val eng = engine ?: return x to y
+        if (!eng.guideSnapEnabled || eng.guideCreationType != null || eng.currentTool !in setOf(ToolMode.BRUSH, ToolMode.ERASER, ToolMode.SMUDGE, ToolMode.BLEND)) return x to y
+        val guide = eng.canvasGuides.getOrNull(eng.activeCanvasGuideIndex) ?: return x to y
+        var bestDistance = Float.POSITIVE_INFINITY
+        var bestX = x
+        var bestY = y
+        guide.paths.forEach { path ->
+            for (i in 0 until path.lastIndex) {
+                val a = path[i]
+                val b = path[i + 1]
+                val dx = b.x - a.x
+                val dy = b.y - a.y
+                val length = dx * dx + dy * dy
+                val t = if (length <= 0f) 0f else (((x - a.x) * dx + (y - a.y) * dy) / length).coerceIn(0f, 1f)
+                val px = a.x + t * dx
+                val py = a.y + t * dy
+                val distance = (x - px) * (x - px) + (y - py) * (y - py)
+                if (distance < bestDistance) { bestDistance = distance; bestX = px; bestY = py }
+            }
+        }
+        return bestX to bestY
+    }
+
+    private fun drawGuide(canvas: Canvas, guide: CanvasGuide) {
+        guide.paths.forEach { points ->
+            if (points.size < 2) return@forEach
+            val path = Path().apply {
+                moveTo(points.first().x, points.first().y)
+                points.drop(1).forEach { lineTo(it.x, it.y) }
+            }
+            canvas.drawPath(path, guidePaint)
+        }
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val pointerCount = event.pointerCount
 
@@ -249,6 +364,8 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 isEyedropperActive = false
                 lastSingleTouchX = event.x
                 lastSingleTouchY = event.y
+
+                if (beginGuideGesture(event.x, event.y)) return true
 
                 val tState = engine?.transformState
                 if (tState != null) {
@@ -297,7 +414,8 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     engine?.currentTool = ToolMode.ERASER
                 }
 
-                val (cx, cy) = mapToCanvas(event.x, event.y)
+                val raw = mapToCanvas(event.x, event.y)
+                val (cx, cy) = constrainToGuide(raw.first, raw.second)
                 val pressure = if (event.pressure > 0.01f) event.pressure else 0.85f
                 val tilt = (event.getAxisValue(MotionEvent.AXIS_TILT) * 180f / Math.PI).toInt()
                 if (event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) {
@@ -347,6 +465,10 @@ class EsenhoCanvasView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_MOVE -> {
+                if (creatingGuideType != null && pointerCount == 1) {
+                    moveGuideGesture(event.x, event.y)
+                    return true
+                }
                 val tState = engine?.transformState
                 if (tState != null && activeTransformHandle != app.esenho.nativeengine.TransformState.Handle.NONE && pointerCount == 1) {
                     val (cx, cy) = mapToCanvas(event.x, event.y)
@@ -478,12 +600,14 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
                     val historySize = event.historySize
                     for (h in 0 until historySize) {
-                        val (hcx, hcy) = mapToCanvas(event.getHistoricalX(h), event.getHistoricalY(h))
+                        val raw = mapToCanvas(event.getHistoricalX(h), event.getHistoricalY(h))
+                        val (hcx, hcy) = constrainToGuide(raw.first, raw.second)
                         val hp = event.getHistoricalPressure(h)
                         engine?.onTouchMove(hcx, hcy, if (hp > 0.01f) hp else 0.85f)
                     }
 
-                    val (cx, cy) = mapToCanvas(event.x, event.y)
+                    val raw = mapToCanvas(event.x, event.y)
+                    val (cx, cy) = constrainToGuide(raw.first, raw.second)
                     val pressure = if (event.pressure > 0.01f) event.pressure else 0.85f
                     val tilt = (event.getAxisValue(MotionEvent.AXIS_TILT) * 180f / Math.PI).toInt()
 
@@ -514,6 +638,10 @@ class EsenhoCanvasView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_UP -> {
+                if (creatingGuideType != null) {
+                    finishGuideGesture(event.x, event.y)
+                    return true
+                }
                 if (isTransforming) {
                     val duration = event.eventTime - historyGestureStartTime
                     if (!historyGestureHandled && !twoFingerMoved && duration <= 650L) {
@@ -567,7 +695,8 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     return true
                 }
 
-                val (cx, cy) = mapToCanvas(event.x, event.y)
+                val raw = mapToCanvas(event.x, event.y)
+                val (cx, cy) = constrainToGuide(raw.first, raw.second)
                 val pressure = if (event.pressure > 0.01f) event.pressure else 0.85f
                 pendingCanvasDown?.let { pending ->
                     pendingCanvasDown = null
@@ -581,6 +710,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_CANCEL -> {
+                if (creatingGuideType != null) finishGuideGesture(lastSingleTouchX, lastSingleTouchY, cancelled = true)
                 activeTransformHandle = app.esenho.nativeengine.TransformState.Handle.NONE
                 isEyedropperActive = false
                 isTransforming = false
@@ -674,6 +804,11 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 }
                 else -> {}
             }
+        }
+
+        eng.canvasGuides.forEach { drawGuide(canvas, it) }
+        creatingGuideType?.let { type ->
+            if (guideDraft.size >= 2) drawGuide(canvas, createGuide(type, guideStart, guideDraft.last(), guideDraft.toList()))
         }
 
         // 6. Active Selection Boundary (Dynamic High-Contrast Marching Ants)

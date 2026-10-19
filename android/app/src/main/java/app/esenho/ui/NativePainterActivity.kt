@@ -243,6 +243,7 @@ fun EsenhoMainScreen(
     var wandTolerance by remember { mutableFloatStateOf(engine.wandTolerance.toFloat()) }
     var wandContiguous by remember { mutableStateOf(engine.wandContiguous) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
+    var showGuidesMenu by remember { mutableStateOf(false) }
 
     // Reactive State
     var canUndo by remember { mutableStateOf(false) }
@@ -415,6 +416,42 @@ fun EsenhoMainScreen(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
                 actions = {
+                    Box {
+                        TooltipIconButton(
+                            onClick = { showGuidesMenu = true },
+                            description = "Guias de traçado",
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.Straighten, contentDescription = "Guias de traçado", modifier = Modifier.size(18.dp), tint = if (engine.canvasGuides.isNotEmpty() && engine.guideSnapEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        }
+                        DropdownMenu(expanded = showGuidesMenu, onDismissRequest = { showGuidesMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(if (engine.guideSnapEnabled) "Desativar aderência" else "Ativar aderência") },
+                                onClick = { engine.guideSnapEnabled = !engine.guideSnapEnabled; showGuidesMenu = false; canvasViewRef?.invalidate() }
+                            )
+                            HorizontalDivider()
+                            listOf(
+                                DrawingGuideType.LINE to "Criar linha",
+                                DrawingGuideType.CURVE to "Criar curva livre",
+                                DrawingGuideType.ELLIPSE to "Criar elipse",
+                                DrawingGuideType.SPHERE to "Criar esfera"
+                            ).forEach { (type, label) ->
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = { engine.guideCreationType = type; engine.guideSnapEnabled = true; showGuidesMenu = false; canvasViewRef?.invalidate() }
+                                )
+                            }
+                            if (engine.canvasGuides.isNotEmpty()) {
+                                HorizontalDivider()
+                                engine.canvasGuides.indices.forEach { index ->
+                                    DropdownMenuItem(
+                                        text = { Text("Aderir à guia ${index + 1}${if (index == engine.activeCanvasGuideIndex) " ✓" else ""}") },
+                                        onClick = { engine.activeCanvasGuideIndex = index; engine.guideSnapEnabled = true; showGuidesMenu = false; canvasViewRef?.invalidate() }
+                                    )
+                                }
+                            }
+                        }
+                    }
                     TooltipIconButton(
                         onClick = { engine.pixelArtGrid = !engine.pixelArtGrid; refreshState() },
                         description = if (pixelArtGrid) "Ocultar grade Pixel Art" else "Mostrar grade Pixel Art",
@@ -525,6 +562,17 @@ fun EsenhoMainScreen(
                                     canvasResizeHeight = engine.height.toString()
                                     canvasResizeError = null
                                     showCanvasResizeDialog = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Remover todas as guias") },
+                                leadingIcon = { Icon(Icons.Default.DeleteOutline, null) },
+                                enabled = engine.canvasGuides.isNotEmpty(),
+                                onClick = {
+                                    showMenu = false
+                                    engine.canvasGuides.clear()
+                                    engine.activeCanvasGuideIndex = -1
+                                    canvasViewRef?.invalidate()
                                 }
                             )
                             DropdownMenuItem(

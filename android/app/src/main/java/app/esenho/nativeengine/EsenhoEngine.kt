@@ -392,6 +392,12 @@ data class LayerModel(
     var clipping: Boolean = false
 )
 
+enum class DrawingGuideType { LINE, CURVE, ELLIPSE, SPHERE }
+
+data class GuidePoint(val x: Float, val y: Float)
+
+data class CanvasGuide(val type: DrawingGuideType, val paths: List<List<GuidePoint>>)
+
 data class AnimationCel(
     val id: String,
     var bitmap: Bitmap,
@@ -820,6 +826,10 @@ class EsenhoEngine(
     var pixelArtGrid: Boolean = false
     // The pixel art overlay follows the actual document pixel boundaries.
     var pixelArtGridStep: Int = 1
+    var guideSnapEnabled: Boolean = true
+    var guideCreationType: DrawingGuideType? = null
+    val canvasGuides = mutableListOf<CanvasGuide>()
+    var activeCanvasGuideIndex: Int = -1
 
     val lassoPoints = mutableListOf<Pair<Int, Int>>()
     private var selectionBrushScratchLayer = -1
@@ -1099,6 +1109,8 @@ class EsenhoEngine(
         layerBaseVisibility.clear()
         rasterLayerGroups.clear()
         rasterGroupOrder.clear()
+        canvasGuides.clear()
+        activeCanvasGuideIndex = -1
         nextRasterGroupId = 1
         currentAnimationTick = 0
         EsenhoNativeBridge.nativeInit(width, height)
