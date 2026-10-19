@@ -12,6 +12,8 @@ import org.json.JSONObject
 import java.util.ArrayDeque
 import kotlin.math.*
 
+val DYNAMIC_SETTING_KEYS = listOf("opaque", "opaque_multiply", "opaque_linearize", "radius_log", "hardness", "dabs_per_basic_radius", "dabs_per_actual_radius", "dabs_per_second", "radius_by_random", "speed_fine_slowness", "speed_coarse_slowness", "speed_fine_gamma", "speed_coarse_gamma", "offset_by_random", "offset_by_speed", "offset_by_speed_slowness", "lazy_tracking", "lazy_tracking_per_dab", "tracking_noise", "color_h", "color_s", "color_v", "restore_color", "change_color_h", "change_color_l", "change_color_hsl_s", "change_color_vrx", "smudge", "smudge_length", "smudge_radius_log", "smudge_bucket", "smudge_transparency", "eraser", "stroke_threshold", "stroke_duration_log", "stroke_holdtime", "custom_input", "custom_input_slowness", "ellipse_ratio", "ellipse_angle", "direction_filter", "lock_alpha", "colorize", "snap_to_pixel", "pressure_gain_log", "posterize", "posterize_num", "smudge_length_log")
+
 enum class ToolMode(val id: Int, val displayName: String) {
     BRUSH(0, "Pincel"),
     ERASER(0, "Borracha"),
@@ -947,7 +949,12 @@ class EsenhoEngine(
                             dryingRate = p.optInt("drying_rate", 0),
                             mode = p.optInt("mode", 0),
                             eraser = p.optInt("eraser", 0),
-                            color = p.optString("color", "")
+                            color = p.optString("color", ""),
+                            engine = p.optString("engine", "classic"),
+                            dynamicConfig = JSONObject().also { config ->
+                                val keys = p.keys()
+                                while (keys.hasNext()) { val key = keys.next(); if (key.startsWith("dyn_") || key.startsWith("mypaint_") || key.startsWith("pressure_")) config.put(key, p.get(key)) }
+                            }
                         )
                     )
                 }
@@ -1296,6 +1303,7 @@ class EsenhoEngine(
         selectedBrush = null
         EsenhoNativeBridge.nativeBrushReset()
         EsenhoNativeBridge.nativeSelectBrush("classic")
+        EsenhoNativeBridge.nativeDynBrushReset()
         EsenhoNativeBridge.nativeDynBrushEnable(false)
 
         brushSize = preset.size.toFloat()
@@ -1415,16 +1423,7 @@ class EsenhoEngine(
     }
 
     private fun syncDynamicBrush(preset: BrushPresetModel) {
-        val settingKeys = listOf(
-            "opaque", "opaque_multiply", "opaque_linearize", "radius_log", "hardness", "dabs_per_basic_radius",
-            "dabs_per_actual_radius", "dabs_per_second", "radius_by_random", "speed_fine_slowness", "speed_coarse_slowness",
-            "speed_fine_gamma", "speed_coarse_gamma", "offset_by_random", "offset_by_speed", "offset_by_speed_slowness",
-            "lazy_tracking", "lazy_tracking_per_dab", "tracking_noise", "color_h", "color_s", "color_v", "restore_color",
-            "change_color_h", "change_color_l", "change_color_hsl_s", "change_color_vrx", "smudge", "smudge_length",
-            "smudge_radius_log", "smudge_bucket", "smudge_transparency", "eraser", "stroke_threshold", "stroke_duration_log",
-            "stroke_holdtime", "custom_input", "custom_input_slowness", "ellipse_ratio", "ellipse_angle", "direction_filter",
-            "lock_alpha", "colorize", "snap_to_pixel", "pressure_gain_log", "posterize", "posterize_num", "smudge_length_log"
-        )
+        val settingKeys = DYNAMIC_SETTING_KEYS
         val dynamic = preset.engine.equals("dynamic", true) || preset.engine.equals("mypaint", true) || preset.dynamicConfig.optBoolean("dyn_continuous", false)
         val pressureCurve = preset.dynamicConfig.opt("pressure_curve")?.toString()?.lowercase().orEmpty()
         val curveType = when (pressureCurve) {
@@ -1475,6 +1474,28 @@ class EsenhoEngine(
                 if (valid) EsenhoNativeBridge.nativeDynBrushSetCurve(setting, input, xs, ys)
             }
         }
+    }
+
+    fun setDynamicCurve(setting: Int, input: Int, points: List<Pair<Float, Float>>?) {
+        val preset = selectedPreset ?: return
+        if (setting !in DYNAMIC_SETTING_KEYS.indices || input !in 0..15) return
+        val curves = preset.dynamicConfig.optJSONObject("dyn_curves") ?: JSONObject()
+        val name = DYNAMIC_SETTING_KEYS[setting]
+        val inputs = curves.optJSONObject(name) ?: JSONObject()
+        if (points == null) {
+            inputs.remove(input.toString())
+            EsenhoNativeBridge.nativeDynBrushClearCurve(setting, input)
+        } else if (points.size in 2..16) {
+            val xs = FloatArray(points.size) { points[it].first.coerceIn(0f, 1f) }
+            val ys = FloatArray(points.size) { points[it].second.coerceIn(0f, 1f) }
+            val serialized = JSONArray()
+            points.forEach { serialized.put(JSONArray().put(it.first).put(it.second)) }
+            inputs.put(input.toString(), serialized)
+            EsenhoNativeBridge.nativeDynBrushSetCurve(setting, input, xs, ys)
+        }
+        if (inputs.length() == 0) curves.remove(name) else curves.put(name, inputs)
+        if (curves.length() == 0) preset.dynamicConfig.remove("dyn_curves") else preset.dynamicConfig.put("dyn_curves", curves)
+        if (preset.isCustom) storageManager.saveCustomPresets(presetCatalog.filter { it.isCustom })
     }
 
     fun setPresetParam(paramId: Int, value: Int) {

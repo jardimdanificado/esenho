@@ -1,8 +1,10 @@
 package app.esenho.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -14,6 +16,9 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +33,8 @@ import app.esenho.R
 import app.esenho.nativeengine.BrushModel
 import app.esenho.nativeengine.BrushPresetModel
 import app.esenho.nativeengine.EsenhoEngine
+import app.esenho.nativeengine.DYNAMIC_SETTING_KEYS
+import org.json.JSONObject
 
 fun mapWasmCategory(cat: String): String {
     return when (cat.trim().lowercase()) {
@@ -1024,6 +1031,9 @@ fun PresetTuner(
                                 onValueChange = { updateParam(26, it.toInt()) }
                             )
                         }
+                        if (preset.engine.equals("dynamic", true) || preset.engine.equals("mypaint", true)) {
+                            item { DynamicCurveEditor(preset, engine, onBrushUpdated) }
+                        }
                     }
 
                     PresetTunerTab.TEXTURE -> {
@@ -1297,6 +1307,73 @@ fun TunerSliderCard(
         }
     }
 }
+
+@Composable
+private fun DynamicCurveEditor(preset: BrushPresetModel, engine: EsenhoEngine, onBrushUpdated: () -> Unit) {
+    val sensors = listOf("Pressão", "Velocidade fina", "Velocidade", "Aleatório", "Distância do traço", "Direção", "Inclinação", "Ascensão", "Entrada customizada", "Ângulo de ataque", "Inclinação X", "Inclinação Y", "Mapa X", "Mapa Y", "Zoom", "Duração do traço")
+    var setting by remember(preset.id) { mutableIntStateOf(0) }
+    var input by remember(preset.id) { mutableIntStateOf(0) }
+    val points = remember(preset.id, setting, input) {
+        val curves = preset.dynamicConfig.optJSONObject("dyn_curves")
+        val arr = curves?.optJSONObject(DYNAMIC_SETTING_KEYS[setting])?.optJSONArray(input.toString())
+        if (arr == null) mutableStateListOf(0f to 0f, 1f to 1f) else mutableStateListOf<Pair<Float, Float>>().also { out ->
+            for (i in 0 until arr.length()) arr.optJSONArray(i)?.let { out.add(it.optDouble(0).toFloat() to it.optDouble(1).toFloat()) }
+            if (out.size < 2) { out.clear(); out.add(0f to 0f); out.add(1f to 1f) }
+        }
+    }
+    val curveColor = MaterialTheme.colorScheme.primary
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text("Curva de resposta", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(Modifier.height(6.dp))
+        CompactOptionDropdown("Parâmetro", DYNAMIC_SETTING_KEYS[setting], DYNAMIC_SETTING_KEYS.map { it to it.replace('_', ' ').replaceFirstChar(Char::uppercase) }) { key -> setting = DYNAMIC_SETTING_KEYS.indexOf(key).coerceAtLeast(0) }
+        CompactOptionDropdown("Entrada", input.toString(), sensors.mapIndexed { i, label -> i.toString() to label }) { key -> input = key.toIntOrNull() ?: 0 }
+        var dragging by remember { mutableIntStateOf(-1) }
+        Canvas(Modifier.fillMaxWidth().height(132.dp).padding(8.dp).pointerInput(setting, input, points.size) {
+            detectDragGestures(onDragStart = { pos ->
+                val nearest = points.indices.minByOrNull { i ->
+                    val px = points[i].first * size.width
+                    val py = (1f - points[i].second) * size.height
+                    (px - pos.x) * (px - pos.x) + (py - pos.y) * (py - pos.y)
+                } ?: 0
+                if (nearest in 0 until points.size && (pos.x - points[nearest].first * size.width).let { it * it } + (pos.y - (1f - points[nearest].second) * size.height).let { it * it } < 32f * 32f) dragging = nearest
+            }, onDrag = { change, _ ->
+                change.consume()
+                val idx = dragging
+                if (idx in points.indices) {
+                    val x = (change.position.x / size.width).coerceIn(0f, 1f)
+                    val y = (1f - change.position.y / size.height).coerceIn(0f, 1f)
+                    val boundedX = if (idx == 0) 0f else if (idx == points.lastIndex) 1f else x.coerceIn(points[idx - 1].first + .02f, points[idx + 1].first - .02f)
+                    points[idx] = boundedX to y
+                    engine.setDynamicCurve(setting, input, points.toList()); onBrushUpdated()
+                }
+            }, onDragEnd = { dragging = -1 })
+        }) {
+            val pad = 4.dp.toPx(); val w = size.width - 2 * pad; val h = size.height - 2 * pad
+            for (i in 0..4) {
+                val x = pad + w * i / 4f; val y = pad + h * i / 4f
+                drawLine(Color.Gray.copy(alpha = .35f), Offset(x, pad), Offset(x, pad + h), 1.dp.toPx())
+                drawLine(Color.Gray.copy(alpha = .35f), Offset(pad, y), Offset(pad + w, y), 1.dp.toPx())
+            }
+            for (i in 0 until points.lastIndex) {
+                val a = points[i]; val b = points[i + 1]
+                drawLine(curveColor, Offset(pad + a.first * w, pad + (1f - a.second) * h), Offset(pad + b.first * w, pad + (1f - b.second) * h), 3.dp.toPx(), cap = StrokeCap.Round)
+            }
+            points.forEach { (x, y) -> drawCircle(curveColor, 6.dp.toPx(), Offset(pad + x * w, pad + (1f - y) * h)) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = {
+                if (points.size < 16) {
+                    val segment = (0 until points.lastIndex).maxByOrNull { points[it + 1].first - points[it].first } ?: 0
+                    val a = points[segment]; val b = points[segment + 1]
+                    points.add(segment + 1, ((a.first + b.first) / 2f) to ((a.second + b.second) / 2f))
+                    engine.setDynamicCurve(setting, input, points.toList()); onBrushUpdated()
+                }
+            }) { Text("Adicionar ponto") }
+            TextButton(onClick = { engine.setDynamicCurve(setting, input, null); points.clear(); points.add(0f to 0f); points.add(1f to 1f); onBrushUpdated() }) { Text("Curva linear") }
+        }
+    }
+}
+
 
 @Composable
 fun TunerSwitchCard(

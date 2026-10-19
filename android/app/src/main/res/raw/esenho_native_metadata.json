@@ -52,7 +52,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "soft_pencil",
@@ -106,7 +107,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "mech_pencil",
@@ -160,7 +162,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "blue_pencil",
@@ -214,7 +217,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": "#458588"
+      "color": "#458588",
+      "engine": "classic"
     },
     {
       "id": "conte",
@@ -268,7 +272,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "washi_sketch",
@@ -322,7 +327,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "studio_inker",
@@ -376,7 +382,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "inker",
@@ -430,7 +437,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "gpen",
@@ -484,7 +492,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "dry_ink",
@@ -538,7 +547,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "fountain",
@@ -592,7 +602,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "brush_pen",
@@ -646,7 +657,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "precision_liner",
@@ -700,7 +712,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "solid_vector",
@@ -754,7 +767,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "oil_impasto",
@@ -808,7 +822,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "oil",
@@ -862,7 +877,8 @@
       "drying_rate": 0,
       "mode": 2,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "acrylic",
@@ -916,7 +932,8 @@
       "drying_rate": 0,
       "mode": 2,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "wet_acrylic",
@@ -970,7 +987,8 @@
       "drying_rate": 0,
       "mode": 2,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "gouache",
@@ -1024,7 +1042,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "palette_knife",
@@ -1078,7 +1097,8 @@
       "drying_rate": 0,
       "mode": 2,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "watercolor",
@@ -1132,7 +1152,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "watercolor_granulating",
@@ -1186,7 +1207,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "wet_on_wet_bloom",
@@ -1240,7 +1262,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "sumie_wash",
@@ -1294,7 +1317,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "clear_water_wash",
@@ -1348,7 +1372,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "marker",
@@ -1402,7 +1427,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "brush_marker",
@@ -1456,7 +1482,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "highlighter",
@@ -1510,7 +1537,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "charcoal",
@@ -1564,7 +1592,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "hard_charcoal",
@@ -1618,7 +1647,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "pastel",
@@ -1672,7 +1702,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "charcoal_soft",
@@ -1726,7 +1757,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "soft_airbrush",
@@ -1780,7 +1812,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "airbrush",
@@ -1834,7 +1867,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "hard_airbrush",
@@ -1888,7 +1922,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "spray",
@@ -1942,7 +1977,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "pixel",
@@ -1996,7 +2032,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "halftone",
@@ -2050,7 +2087,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "crosshatch",
@@ -2104,7 +2142,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "neon_glow",
@@ -2158,7 +2197,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "paper_texture",
@@ -2212,7 +2252,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "canvas_texture",
@@ -2266,7 +2307,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "sponge_fx",
@@ -2320,7 +2362,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "grunge_distress",
@@ -2374,7 +2417,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "stucco_plaster",
@@ -2428,7 +2472,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "tree_bark_brush",
@@ -2482,7 +2527,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "cracked_mud",
@@ -2536,7 +2582,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "vintage_engraving",
@@ -2590,7 +2637,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "smudge",
@@ -2644,7 +2692,8 @@
       "drying_rate": 0,
       "mode": 1,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "blend",
@@ -2698,7 +2747,8 @@
       "drying_rate": 0,
       "mode": 2,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "rake_blend",
@@ -2752,7 +2802,8 @@
       "drying_rate": 0,
       "mode": 1,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "hard_eraser",
@@ -2806,7 +2857,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 1,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "soft_eraser",
@@ -2860,7 +2912,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 1,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "textured_eraser",
@@ -2914,7 +2967,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 1,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "tech_pen",
@@ -2968,7 +3022,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "airbrush_continuous",
@@ -3022,7 +3077,12 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "dynamic",
+      "dyn_radius_log": 3.5,
+      "dyn_hardness": 0.35,
+      "dyn_dabs_per_second": 80,
+      "dyn_dabs_per_actual": 0.8
     },
     {
       "id": "calligraphy_chisel_dyn",
@@ -3076,7 +3136,13 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "dynamic",
+      "dyn_radius_log": 2.4,
+      "dyn_hardness": 0.95,
+      "dyn_ellipse_ratio": 4.2,
+      "dyn_ellipse_angle": 45,
+      "dyn_dabs_per_actual": 4
     },
     {
       "id": "streamline_inker_dyn",
@@ -3130,7 +3196,12 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "dynamic",
+      "dyn_radius_log": 1.8,
+      "dyn_hardness": 0.98,
+      "dyn_lazy_tracking": 0.08,
+      "dyn_dabs_per_actual": 5
     },
     {
       "id": "charcoal_expressive_dyn",
@@ -3184,7 +3255,12 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "dynamic",
+      "dyn_radius_log": 2.8,
+      "dyn_hardness": 0.5,
+      "dyn_pressure_gain_log": 0.4,
+      "dyn_jitter_offset": 0.15
     },
     {
       "id": "wet_acrylic_smudge",
@@ -3238,7 +3314,12 @@
       "drying_rate": 0,
       "mode": 2,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "dynamic",
+      "dyn_radius_log": 3.2,
+      "dyn_hardness": 0.8,
+      "dyn_smudge": 0.75,
+      "dyn_smudge_length": 1.8
     },
     {
       "id": "salt_bloom_wash",
@@ -3292,7 +3373,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "wood_grain",
@@ -3346,7 +3428,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "sandpaper_grit",
@@ -3400,7 +3483,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "crackle_fissure",
@@ -3454,7 +3538,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "marble_veins",
@@ -3508,7 +3593,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     },
     {
       "id": "denim_fabric",
@@ -3562,7 +3648,8 @@
       "drying_rate": 0,
       "mode": 0,
       "eraser": 0,
-      "color": ""
+      "color": "",
+      "engine": "classic"
     }
   ],
   "brushes": [

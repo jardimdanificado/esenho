@@ -259,7 +259,9 @@ if (fs.existsSync(presetsPath)) {
           drying_rate: drying_rate,
           mode: v.mode || 0,
           eraser: v.eraser ? 1 : 0,
-          color: v.color || ''
+          color: v.color || '',
+          engine: v.engine || 'classic',
+          ...Object.fromEntries(Object.entries(v).filter(([key]) => key.startsWith('dyn_') || key.startsWith('mypaint_') || key.startsWith('pressure_')))
         });
       }
     }
