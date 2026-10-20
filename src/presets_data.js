@@ -28,12 +28,12 @@ const CURATED_BRUSH_PRESETS = {
     flow: 48,
     spacing: 4,
     smoothing: 15,
-    tex_mode: 1, // Paper grain
-    texture: 'paper',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_scale: 85,
     tex_scale_with_size: 0,
     texture_contrast: 32,
-    grain: 0,
+    grain: 18,
     scatter: 0,
     pressure_size: 1,
     pressure_flow: 1,
@@ -56,12 +56,12 @@ const CURATED_BRUSH_PRESETS = {
     flow: 55,
     spacing: 5,
     smoothing: 15,
-    tex_mode: 9, // Charcoal Tooth
-    texture: 'charcoal_tooth',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_scale: 90,
     tex_scale_with_size: 0,
     texture_contrast: 50,
-    grain: 0,
+    grain: 42,
     scatter: 0,
     size_jitter: 2,
     pressure_size: 1,
@@ -85,8 +85,8 @@ const CURATED_BRUSH_PRESETS = {
     flow: 65,
     spacing: 3,
     smoothing: 20,
-    tex_mode: 1,
-    texture: 'paper',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 18,
     texture_scale: 60,
     pressure_size: 0,
@@ -94,7 +94,7 @@ const CURATED_BRUSH_PRESETS = {
     subpixel: 1,
     mode: 0,
     eraser: 0,
-    grain: 0,
+    grain: 18,
     tex_scale_with_size: 0,
   },
   blue_pencil: {
@@ -112,12 +112,12 @@ const CURATED_BRUSH_PRESETS = {
     spacing: 4,
     color: '#458588',
     dab_blend: 1, // Multiply
-    tex_mode: 1,
-    texture: 'paper',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 35,
     texture_scale: 90,
     tex_scale_with_size: 0,
-    grain: 0,
+    grain: 18,
     smoothing: 15,
     pressure_size: 0,
     pressure_flow: 1,
@@ -140,11 +140,11 @@ const CURATED_BRUSH_PRESETS = {
     hardness: 75,
     flow: 58,
     spacing: 5,
-    tex_mode: 1,
-    texture: 'paper',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 48,
     tex_scale_with_size: 0,
-    grain: 0,
+    grain: 18,
     scatter: 0,
     smoothing: 12,
     pressure_size: 1,
@@ -167,12 +167,12 @@ const CURATED_BRUSH_PRESETS = {
     flow: 52,
     spacing: 5,
     smoothing: 15,
-    tex_mode: 19, // Washi Fiber
-    texture: 'washi',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 40,
     texture_scale: 100,
     tex_scale_with_size: 0,
-    grain: 0,
+    grain: 20,
     pressure_size: 1,
     pressure_flow: 1,
     tilt_angle: 1,
@@ -203,8 +203,8 @@ const CURATED_BRUSH_PRESETS = {
     velocity: 8,
     pressure_size: 1,
     pressure_flow: 0,
-    grain: 0,
-    texture: 'paper',
+    grain: 18,
+    texture: 'none',
     subpixel: 1,
     mode: 0,
     eraser: 0,
@@ -237,8 +237,8 @@ const CURATED_BRUSH_PRESETS = {
     velocity: 8,
     pressure_size: 1,
     pressure_flow: 0,
-    grain: 0,
-    texture: 'paper',
+    grain: 18,
+    texture: 'none',
     subpixel: 1,
     mode: 0,
     eraser: 0
@@ -279,8 +279,8 @@ const CURATED_BRUSH_PRESETS = {
     hardness: 65,
     flow: 85,
     spacing: 4,
-    tex_mode: 28, // Dry Bristle Scrape
-    texture: 'dry_scrape',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 58,
     texture_scale: 110,
     tex_scale_with_size: 0,
@@ -293,7 +293,7 @@ const CURATED_BRUSH_PRESETS = {
     subpixel: 1,
     mode: 0,
     eraser: 0,
-    grain: 0,
+    grain: 35,
   },
   fountain: {
     $schema: 'esenho/brush/v1',
@@ -423,8 +423,8 @@ const CURATED_BRUSH_PRESETS = {
     wetness: 28,
     color_pickup: 22,
     depletion: 12,
-    tex_mode: 2,
-    texture: 'canvas',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 25,
   },
   oil: {
@@ -447,8 +447,8 @@ const CURATED_BRUSH_PRESETS = {
     depletion: 18,
     impasto: 28,
     pigment_mode: 1,
-    tex_mode: 2, // Canvas weave
-    texture: 'canvas',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 30,
     texture_scale: 100,
     tex_scale_with_size: 0,
@@ -475,8 +475,8 @@ const CURATED_BRUSH_PRESETS = {
     wetness: 24,
     color_pickup: 18,
     depletion: 12,
-    tex_mode: 12, // Dense Linen
-    texture: 'linen',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 22,
     auto_rotate: 1,
     pressure_size: 1,
@@ -503,8 +503,8 @@ const CURATED_BRUSH_PRESETS = {
     wetness: 38,
     color_pickup: 25,
     depletion: 12,
-    tex_mode: 2,
-    texture: 'canvas',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     pressure_size: 1,
     pressure_flow: 1,
     eraser: 0,
@@ -538,8 +538,8 @@ const CURATED_BRUSH_PRESETS = {
     wetness: 18,
     color_pickup: 15,
     depletion: 16,
-    tex_mode: 1,
-    texture: 'paper',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 22,
     pressure_size: 1,
     pressure_flow: 1,
@@ -568,8 +568,8 @@ const CURATED_BRUSH_PRESETS = {
     wetness: 30,
     color_pickup: 38,
     depletion: 20,
-    tex_mode: 2,
-    texture: 'canvas',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     pressure_size: 1,
     pressure_flow: 1,
     eraser: 0,
@@ -602,8 +602,8 @@ const CURATED_BRUSH_PRESETS = {
     pigment_mode: 1,
     drying_rate: 18,
     wetness: 80,
-    tex_mode: 8, // Cold press watercolor paper
-    texture: 'watercolor',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_scale: 120,
     tex_scale_with_size: 0,
     pressure_size: 1,
@@ -631,8 +631,8 @@ const CURATED_BRUSH_PRESETS = {
     fringe: 32,
     granulation: 65,
     pigment_mode: 1,
-    tex_mode: 8,
-    texture: 'watercolor',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     tex_scale_with_size: 0,
     pressure_size: 1,
     pressure_flow: 1,
@@ -686,8 +686,8 @@ const CURATED_BRUSH_PRESETS = {
     fringe: 25,
     granulation: 22,
     pigment_mode: 0,
-    tex_mode: 19, // Washi
-    texture: 'washi',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     tex_scale_with_size: 0,
     pressure_size: 1,
     pressure_flow: 1,
@@ -743,8 +743,8 @@ const CURATED_BRUSH_PRESETS = {
     dab_blend: 1, // Multiply
     bleed: 5,
     pigment_mode: 1,
-    tex_mode: 1,
-    texture: 'paper',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 12,
     pressure_size: 0,
     pressure_flow: 0,
@@ -769,8 +769,8 @@ const CURATED_BRUSH_PRESETS = {
     dab_blend: 1, // Multiply
     taper_in: 12,
     taper_out: 18,
-    tex_mode: 1,
-    texture: 'paper',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     pressure_size: 1,
     pressure_flow: 0,
     mode: 0,
@@ -794,8 +794,8 @@ const CURATED_BRUSH_PRESETS = {
     flow: 100,
     spacing: 4,
     dab_blend: 1, // Multiply
-    tex_mode: 1,
-    texture: 'paper',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     pressure_size: 0,
     pressure_flow: 0,
     mode: 0,
@@ -820,11 +820,11 @@ const CURATED_BRUSH_PRESETS = {
     hardness: 40,
     flow: 42,
     spacing: 7,
-    tex_mode: 9, // Charcoal Tooth
-    texture: 'charcoal_tooth',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 65,
     tex_scale_with_size: 0,
-    grain: 0,
+    grain: 42,
     scatter: 0,
     size_jitter: 3,
     smoothing: 10,
@@ -847,11 +847,11 @@ const CURATED_BRUSH_PRESETS = {
     hardness: 75,
     flow: 65,
     spacing: 5,
-    tex_mode: 9,
-    texture: 'charcoal_tooth',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 45,
     tex_scale_with_size: 0,
-    grain: 0,
+    grain: 42,
     scatter: 0,
     smoothing: 12,
     pressure_size: 1,
@@ -873,11 +873,11 @@ const CURATED_BRUSH_PRESETS = {
     hardness: 55,
     flow: 68,
     spacing: 6,
-    tex_mode: 29, // Irregular pastel paper tooth
-    texture: 'pastel_board',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_contrast: 52,
     tex_scale_with_size: 0,
-    grain: 0,
+    grain: 38,
     scatter: 0,
     size_jitter: 2,
     smoothing: 12,
@@ -900,8 +900,8 @@ const CURATED_BRUSH_PRESETS = {
     hardness: 80,
     flow: 48,
     spacing: 8,
-    tex_mode: 9,
-    texture: 'charcoal_tooth',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     tex_scale_with_size: 0,
     pressure_size: 1,
     pressure_flow: 1,
@@ -917,7 +917,7 @@ const CURATED_BRUSH_PRESETS = {
       pressureFlow: true,
       tiltAngle: true
     },
-    grain: 0,
+    grain: 42,
     scatter: 0,
     size_jitter: 3,
     texture_contrast: 62,
@@ -941,8 +941,8 @@ const CURATED_BRUSH_PRESETS = {
     spacing: 4,
     smoothing: 20,
     buildup: 1,
-    tex_mode: 22, // Stipple Noise
-    texture: 'stipple_noise',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_scale: 80,
     pressure_size: 0,
     pressure_flow: 1,
@@ -973,8 +973,8 @@ const CURATED_BRUSH_PRESETS = {
     spacing: 4,
     smoothing: 20,
     buildup: 1,
-    tex_mode: 22,
-    texture: 'stipple_noise',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     texture_scale: 80,
     pressure_size: 0,
     pressure_flow: 1,
@@ -1020,8 +1020,8 @@ const CURATED_BRUSH_PRESETS = {
     scatter: 60,
     size_jitter: 45,
     opacity_jitter: 35,
-    tex_mode: 23, // Spatter Drops
-    texture: 'spatter_drops',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     grain: 15,
     pressure_flow: 1,
     mode: 0,
@@ -1342,7 +1342,7 @@ const CURATED_BRUSH_PRESETS = {
     $schema: 'esenho/brush/v1',
     id: 'smudge',
     name: 'Finger Smudge',
-    desc: 'Soft fingertip smudging and blending on paper grain for pencil and charcoal',
+    desc: 'Soft fingertip smudging of existing pigment without adding a surface pattern',
     category: 'blend',
     builtin: true,
     shape: 'soft_round',
@@ -1353,8 +1353,8 @@ const CURATED_BRUSH_PRESETS = {
     spacing: 4,
     smoothing: 18,
     mode: 1, // Smudge mode
-    tex_mode: 1,
-    texture: 'paper',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     grain: 0,
     eraser: 0,
     pressure_size: 0,
@@ -1376,8 +1376,8 @@ const CURATED_BRUSH_PRESETS = {
     color_pickup: 65,
     spacing: 4,
     smoothing: 18,
-    tex_mode: 2,
-    texture: 'canvas',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     grain: 0,
     eraser: 0,
     smudge: 55,
@@ -1447,8 +1447,8 @@ const CURATED_BRUSH_PRESETS = {
     smoothing: 18,
     mode: 0,
     eraser: 1,
-    tex_mode: 1,
-    texture: 'paper',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     grain: 0,
     pressure_size: 0,
     pressure_flow: 1,
@@ -1468,8 +1468,8 @@ const CURATED_BRUSH_PRESETS = {
     hardness: 45,
     flow: 75,
     spacing: 8,
-    tex_mode: 6, // Grunge
-    texture: 'grunge',
+    tex_mode: 0, // Pigment deposition, without a fixed surface mask
+    texture: 'none',
     scatter: 15,
     size_jitter: 12,
     angle_jitter: 25,
@@ -1477,7 +1477,7 @@ const CURATED_BRUSH_PRESETS = {
     smoothing: 10,
     mode: 0,
     eraser: 1,
-    grain: 0
+    grain: 50
   },
 
   // ==========================================

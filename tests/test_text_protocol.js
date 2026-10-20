@@ -1756,8 +1756,8 @@ async function run() {
   }
 
   host.executeCommand('preset charcoal');
-  if (host.activeBrush !== 'charcoal' || host.brushParams.grain !== 65 || host.brushParams.scatter !== 18) {
-    throw new Error(`Expected preset charcoal active with grain 65 scatter 18, got activeBrush=${host.activeBrush}, grain=${host.brushParams.grain}`);
+  if (host.activeBrush !== 'charcoal' || host.brushParams.grain !== 42 || host.brushParams.scatter !== 0) {
+    throw new Error(`Expected preset charcoal active with pigment grain 42 scatter 0, got activeBrush=${host.activeBrush}, grain=${host.brushParams.grain}`);
   }
 
   host.executeCommand('preset soft_eraser');
@@ -1798,11 +1798,11 @@ async function run() {
 
   // Test that switching from charcoal (grain, scatter, jitter) to inker resets all non-inker params cleanly
   host.executeCommand('preset charcoal');
-  if (host.brushParams.grain !== 65 || host.brushParams.scatter !== 18 || host.brushParams.size_jitter !== 14 || host.activeTexture !== 'charcoal_tooth') {
+  if (host.brushParams.grain !== 42 || host.brushParams.scatter !== 0 || host.brushParams.size_jitter !== 3 || host.activeTexture !== 'none') {
     throw new Error("Charcoal params not set properly");
   }
   host.executeCommand('preset inker');
-  if (host.brushParams.grain !== 12 || host.brushParams.scatter !== 0 || host.brushParams.size_jitter !== 0 || host.activeTexture !== 'paper') {
+  if (host.brushParams.grain !== 18 || host.brushParams.scatter !== 0 || host.brushParams.size_jitter !== 0 || host.activeTexture !== 'none') {
     throw new Error(`Preset parameter leak: inker inherited previous params (grain=${host.brushParams.grain}, scatter=${host.brushParams.scatter}, jitter=${host.brushParams.size_jitter}, texture=${host.activeTexture})`);
   }
 
@@ -1825,7 +1825,7 @@ async function run() {
     throw new Error(`Expected custom_textured_brush to save texture=grunge, got ${host.customBrushPresets.custom_textured_brush?.texture}`);
   }
   host.executeCommand('preset inker');
-  if (host.activeTexture !== 'paper') throw new Error("Expected inker to have texture=paper");
+  if (host.activeTexture !== 'none') throw new Error("Expected inker to have no fixed background texture");
   host.executeCommand('preset custom_textured_brush');
   if (host.activeTexture !== 'grunge' || host.brushParams.grain !== 42) {
     throw new Error(`Expected custom_textured_brush loaded with texture=grunge grain=42, got texture=${host.activeTexture}, grain=${host.brushParams.grain}`);

@@ -1330,6 +1330,17 @@ class EsenhoEngine(
             ?.takeIf { it.optString("kind") == "preset" }
             ?.optJSONObject("preset")
         val preset = saved?.let(BrushPresetModel::fromJson) ?: sourcePreset
+        if (!sourcePreset.isCustom && !preset.isCustom && sourcePreset.texture == "none" &&
+            preset.customTextureAsset.isBlank() && preset.texture in setOf(
+                "paper", "canvas", "linen", "charcoal_tooth", "pastel_board", "watercolor",
+                "washi", "dry_scrape", "stipple_noise", "spatter_drops", "grunge"
+            )) {
+            // Migrate the former shipped masks in saved favorites, preserving
+            // custom image textures and intentional decorative screens.
+            preset.texture = "none"
+            preset.texMode = 0
+            preset.grain = sourcePreset.grain
+        }
         selectedPreset = preset
         selectedBrush = null
         EsenhoNativeBridge.nativeBrushReset()

@@ -123,8 +123,8 @@ const cycledStrokes = BrushFillEngine.generateStrokes([squarePoly], {
 
 assert.strictEqual(cycledStrokes[0].brushTip.key, 'pencil');
 assert.ok(cycledStrokes[0].brushTip.brushConfig, 'Stroke brushTip must contain brushConfig');
-assert.strictEqual(cycledStrokes[0].brushTip.brushConfig.texture, 'paper', 'Pencil should inherit authentic paper texture');
-assert.strictEqual(cycledStrokes[0].brushTip.brushConfig.grain, 45, 'Pencil should inherit authentic 45 grain');
+assert.strictEqual(cycledStrokes[0].brushTip.brushConfig.texture, 'none', 'Pencil fill should not add a fixed surface mask');
+assert.strictEqual(cycledStrokes[0].brushTip.brushConfig.grain, 18, 'Pencil fill should inherit dry pigment granulation');
 
 assert.strictEqual(cycledStrokes[1].brushTip.key, 'charcoal');
 assert.strictEqual(cycledStrokes[2].brushTip.key, 'acrylic');

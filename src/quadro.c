@@ -988,6 +988,19 @@ static uint8_t  *stroke_mask = 0;
 static uint32_t *stroke_orig = 0;
 static uint32_t stroke_buf_cap = 0;
 
+/* Smearing must sample the substrate before a dab writes to it. Reading the
+   output while scanning amplifies marks into rows and repeated round spots. */
+static uint32_t *dab_source_pixels = 0;
+static uint32_t dab_source_capacity = 0;
+typedef struct {
+    const uint32_t *pixels;
+    int x, y, width;
+} dab_source_t;
+static inline uint32_t dab_source_at(const dab_source_t *source, int x, int y) {
+    return source->pixels[(y - source->y) * source->width + x - source->x];
+}
+
+
 static uint8_t  *g_water_map = 0;
 static uint8_t  *g_height_map = 0;
 static uint32_t paint_physics_cap = 0;
@@ -1390,6 +1403,37 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
 
     if (min_x > max_x || min_y > max_y) return;
 
+    dab_source_t source = { pix, 0, 0, w };
+    if (!eraser && (brush_config.type == W_MODE_SMUDGE || brush_config.type == W_MODE_BLEND || brush_config.smudge_strength > 0)) {
+        int pad_x = move_dx < 0 ? -move_dx : move_dx;
+        int pad_y = move_dy < 0 ? -move_dy : move_dy;
+        int blur_step = r > 6 ? r / 4 : 1;
+        if (pad_x < blur_step) pad_x = blur_step;
+        if (pad_y < blur_step) pad_y = blur_step;
+        int sx0 = min_x - pad_x, sy0 = min_y - pad_y;
+        int sx1 = max_x + pad_x, sy1 = max_y + pad_y;
+        if (sx0 < 0) sx0 = 0;
+        if (sy0 < 0) sy0 = 0;
+        if (sx1 >= w) sx1 = w - 1;
+        if (sy1 >= h) sy1 = h - 1;
+        int sw = sx1 - sx0 + 1, sh = sy1 - sy0 + 1;
+        uint32_t required = (uint32_t)sw * (uint32_t)sh;
+        if (required > dab_source_capacity) {
+            uint32_t capacity = dab_source_capacity ? dab_source_capacity : 1024;
+            while (capacity < required) capacity *= 2;
+            uint32_t *buffer = (uint32_t*)canvas_alloc(capacity * sizeof(uint32_t));
+            if (!buffer) return;
+            dab_source_pixels = buffer;
+            dab_source_capacity = capacity;
+        }
+        for (int sy = 0; sy < sh; ++sy) {
+            for (int sx = 0; sx < sw; ++sx) {
+                dab_source_pixels[sy * sw + sx] = pix[(sy0 + sy) * w + sx0 + sx];
+            }
+        }
+        source = (dab_source_t){ dab_source_pixels, sx0, sy0, sw };
+    }
+
     int eff_flow = (brush_config.flow * dab_flow_pct) / 100;
     uint32_t dab_flow_a = (255 * eff_flow) / 100;
     if (dab_flow_a < 1 && eff_flow > 0) dab_flow_a = 1;
@@ -1623,7 +1667,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                 int sy = y - move_dy;
                 uint32_t src_p = 0;
                 if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
-                    src_p = pix[sy * w + sx];
+                    src_p = dab_source_at(&source, sx, sy);
                 }
                 uint32_t src_a = (src_p >> 24) & 0xFF;
                 if (src_a == 0 && orig_a == 0) continue;
@@ -1639,10 +1683,10 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
             } else if (brush_config.type == W_MODE_BLEND) {
                 int step = (r > 6) ? (r / 4) : 1;
                 uint32_t c0 = dst_p;
-                uint32_t c1 = (x - step >= 0) ? pix[y * w + (x - step)] : c0;
-                uint32_t c2 = (x + step < w) ? pix[y * w + (x + step)] : c0;
-                uint32_t c3 = (y - step >= 0) ? pix[(y - step) * w + x] : c0;
-                uint32_t c4 = (y + step < h) ? pix[(y + step) * w + x] : c0;
+                uint32_t c1 = (x - step >= 0) ? dab_source_at(&source, x - step, y) : c0;
+                uint32_t c2 = (x + step < w) ? dab_source_at(&source, x + step, y) : c0;
+                uint32_t c3 = (y - step >= 0) ? dab_source_at(&source, x, y - step) : c0;
+                uint32_t c4 = (y + step < h) ? dab_source_at(&source, x, y + step) : c0;
 
                 uint32_t sum_r = 0, sum_g = 0, sum_b = 0, sum_a = 0, count = 0;
                 uint32_t samples[5] = { c0, c1, c2, c3, c4 };
@@ -1673,7 +1717,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                     int sx = x - move_dx;
                     int sy = y - move_dy;
                     if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
-                        uint32_t src_p = pix[sy * w + sx];
+                        uint32_t src_p = dab_source_at(&source, sx, sy);
                         if (((src_p >> 24) & 0xFF) > 0) {
                             local_c = mix_color(src_p, local_c, brush_config.smudge_strength);
                         }
@@ -1734,7 +1778,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                     int sy = y - move_dy;
                     uint32_t src_p = 0;
                     if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
-                        src_p = pix[sy * w + sx];
+                        src_p = dab_source_at(&source, sx, sy);
                     }
                     uint32_t src_a = (src_p >> 24) & 0xFF;
                     if (src_a > 0) {

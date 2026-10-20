@@ -14,6 +14,12 @@ const textures = createProceduralTextures();
 
 // Collect all shapes and textures used by curated presets
 const used = new Set();
+// Material masks remain available as explicit user choices, even though
+// ordinary drawing/blending presets no longer stamp them onto the canvas.
+for (const name of ['paper', 'canvas', 'linen', 'washi', 'watercolor',
+  'charcoal_tooth', 'pastel_board', 'dry_scrape', 'stipple_noise', 'spatter_drops', 'grunge']) {
+  used.add(name);
+}
 // Always include all 21 tip shapes
 for (const [name, item] of textures.entries()) {
   if (item.category === 'shape') {
