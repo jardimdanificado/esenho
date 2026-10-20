@@ -1,0 +1,22 @@
+{
+  "graphite_pencil": [
+    {
+      "target": {
+        "id": 10001,
+        "name": "Graphite Load",
+        "min": 0,
+        "max": 100,
+        "kind": "slider",
+        "options": [],
+        "owner": "wasm:graphite_pencil"
+      },
+      "curveId": "curve_soft",
+      "input": "pressure",
+      "low": 0.2,
+      "high": 0.95,
+      "scale": 200,
+      "repeat": false,
+      "enabled": true
+    }
+  ]
+}

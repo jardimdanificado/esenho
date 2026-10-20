@@ -25,6 +25,7 @@ extern void w_brush_set_type(int32_t type);
 extern void w_brush_set_shape(int32_t shape);
 extern void w_brush_reset(void);
 extern void w_brush_dyn_init(void);
+extern float w_brush_dyn_get_base(int32_t setting);
 extern void w_brush_dyn_set_base(int32_t setting, float value);
 extern void w_brush_dyn_set_curve(int32_t setting, int32_t input, int32_t n, const float *x, const float *y);
 extern void w_brush_dyn_clear_curve(int32_t setting, int32_t input);
@@ -123,6 +124,9 @@ JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDyn
 }
 JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDynBrushSetBase(JNIEnv *env, jobject thiz, jint setting, jfloat value) {
     if (setting >= 0 && setting < 48) w_brush_dyn_set_base(setting, value);
+}
+JNIEXPORT jfloat JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDynBrushGetBase(JNIEnv *env, jobject thiz, jint setting) {
+    return w_brush_dyn_get_base(setting);
 }
 JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDynBrushSetCurve(JNIEnv *env, jobject thiz, jint setting, jint input, jfloatArray xArray, jfloatArray yArray) {
     if (!xArray || !yArray || setting < 0 || setting >= 48 || input < 0 || input >= 16) return;

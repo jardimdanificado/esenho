@@ -1,0 +1,197 @@
+[
+  {
+    "id": "curve_linear",
+    "name": "Linear",
+    "interpolation": "linear",
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        1
+      ]
+    ]
+  },
+  {
+    "id": "curve_soft",
+    "name": "Pressão Suave",
+    "interpolation": "smooth",
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0.18,
+        0.42
+      ],
+      [
+        0.5,
+        0.78
+      ],
+      [
+        1,
+        1
+      ]
+    ]
+  },
+  {
+    "id": "curve_firm",
+    "name": "Pressão Firme",
+    "interpolation": "smooth",
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0.4,
+        0.1
+      ],
+      [
+        0.7,
+        0.46
+      ],
+      [
+        1,
+        1
+      ]
+    ]
+  },
+  {
+    "id": "curve_s",
+    "name": "Resposta em S",
+    "interpolation": "smooth",
+    "points": [
+      [
+        0,
+        0
+      ],
+      [
+        0.25,
+        0.08
+      ],
+      [
+        0.75,
+        0.92
+      ],
+      [
+        1,
+        1
+      ]
+    ]
+  },
+  {
+    "id": "curve_pulse",
+    "name": "Pulso",
+    "interpolation": "smooth",
+    "points": [
+      [
+        0,
+        0.05
+      ],
+      [
+        0.18,
+        1
+      ],
+      [
+        0.5,
+        0.12
+      ],
+      [
+        0.82,
+        1
+      ],
+      [
+        1,
+        0.05
+      ]
+    ]
+  },
+  {
+    "id": "curve_wave",
+    "name": "Ondulação",
+    "interpolation": "smooth",
+    "points": [
+      [
+        0,
+        0.5
+      ],
+      [
+        0.25,
+        1
+      ],
+      [
+        0.5,
+        0.5
+      ],
+      [
+        0.75,
+        0
+      ],
+      [
+        1,
+        0.5
+      ]
+    ]
+  },
+  {
+    "id": "curve_steps",
+    "name": "Três Patamares",
+    "interpolation": "steps",
+    "points": [
+      [
+        0,
+        0.1
+      ],
+      [
+        0.33,
+        0.5
+      ],
+      [
+        0.66,
+        1
+      ],
+      [
+        1,
+        1
+      ]
+    ]
+  },
+  {
+    "id": "curve_valley",
+    "name": "Vale",
+    "interpolation": "smooth",
+    "points": [
+      [
+        0,
+        1
+      ],
+      [
+        0.5,
+        0.1
+      ],
+      [
+        1,
+        1
+      ]
+    ]
+  },
+  {
+    "id": "curve_inverse",
+    "name": "Inversa",
+    "interpolation": "linear",
+    "points": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        0
+      ]
+    ]
+  }
+]

@@ -943,12 +943,14 @@ for (const [mId, mObj] of Object.entries(materials)) {
 // Assemble Master Standard Schema
 const dataPackage = {
   $schema: 'esenho/data/v1',
+  brushResponseCurves: require('../src/brush_curves_data.json'),
   version: '1.0.0',
   name: 'Esenho Universal Standard Resources',
   description: 'Unified single-file resource library for brush presets, textures, brush tips, materials, curves, meshes, wasm fx plugins, palettes, and brush fill presets.',
   exportedAt: new Date().toISOString(),
   stats: {
     brushPresets: Object.keys(brushPresets).length,
+    brushResponseCurves: require('../src/brush_curves_data.json').length,
     textures: Object.keys(textures).length,
     brushTips: Object.keys(brushTips).length,
     materials: Object.keys(materials).length,

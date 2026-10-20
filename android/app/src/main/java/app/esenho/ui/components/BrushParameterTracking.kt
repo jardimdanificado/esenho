@@ -18,6 +18,7 @@ import app.esenho.nativeengine.EsenhoStorageManager.SideSliderSetting
 internal data class BrushTrackingContext(
     val engine: EsenhoEngine,
     val settings: List<SideSliderSetting>,
+    val onBrushUpdated: () -> Unit = {},
     val onChanged: (List<SideSliderSetting>) -> Unit,
 )
 internal val LocalBrushTracking = staticCompositionLocalOf<BrushTrackingContext?> { null }
@@ -47,4 +48,5 @@ internal fun TrackParameterButton(parameterId: Int?) {
             tint = if (tracked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+    BrushCurveLinkButton(context.engine, config, context.onBrushUpdated)
 }

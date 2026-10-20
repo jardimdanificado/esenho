@@ -746,6 +746,10 @@ class EsenhoCanvasView @JvmOverloads constructor(
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
 
         val eng = engine ?: return
+        if (eng.isStrokeActive && eng.needsCurveTimeTicks) {
+            eng.tickCurveStroke()
+            postInvalidateOnAnimation()
+        }
 
         canvas.save()
         canvas.concat(transformMatrix)

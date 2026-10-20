@@ -532,7 +532,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     val panelContent: @Composable () -> Unit = {
         when (activePanel) {
             WorkspacePanel.BRUSHES ->
-                CompositionLocalProvider(LocalBrushTracking provides BrushTrackingContext(engine, sideSliderSettings) { settings ->
+                CompositionLocalProvider(LocalBrushTracking provides BrushTrackingContext(engine, sideSliderSettings, onBrushUpdated = { refreshState() }) { settings ->
                     sideSliderSettings = settings
                     storageManager.saveSideSliders(settings)
                     engineRevision++

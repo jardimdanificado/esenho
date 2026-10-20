@@ -1,4 +1,223 @@
 {
+  "responseCurves": [
+    {
+      "id": "curve_linear",
+      "name": "Linear",
+      "interpolation": "linear",
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "curve_soft",
+      "name": "Pressão Suave",
+      "interpolation": "smooth",
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0.18,
+          0.42
+        ],
+        [
+          0.5,
+          0.78
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "curve_firm",
+      "name": "Pressão Firme",
+      "interpolation": "smooth",
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0.4,
+          0.1
+        ],
+        [
+          0.7,
+          0.46
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "curve_s",
+      "name": "Resposta em S",
+      "interpolation": "smooth",
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0.25,
+          0.08
+        ],
+        [
+          0.75,
+          0.92
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "curve_pulse",
+      "name": "Pulso",
+      "interpolation": "smooth",
+      "points": [
+        [
+          0,
+          0.05
+        ],
+        [
+          0.18,
+          1
+        ],
+        [
+          0.5,
+          0.12
+        ],
+        [
+          0.82,
+          1
+        ],
+        [
+          1,
+          0.05
+        ]
+      ]
+    },
+    {
+      "id": "curve_wave",
+      "name": "Ondulação",
+      "interpolation": "smooth",
+      "points": [
+        [
+          0,
+          0.5
+        ],
+        [
+          0.25,
+          1
+        ],
+        [
+          0.5,
+          0.5
+        ],
+        [
+          0.75,
+          0
+        ],
+        [
+          1,
+          0.5
+        ]
+      ]
+    },
+    {
+      "id": "curve_steps",
+      "name": "Três Patamares",
+      "interpolation": "steps",
+      "points": [
+        [
+          0,
+          0.1
+        ],
+        [
+          0.33,
+          0.5
+        ],
+        [
+          0.66,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "curve_valley",
+      "name": "Vale",
+      "interpolation": "smooth",
+      "points": [
+        [
+          0,
+          1
+        ],
+        [
+          0.5,
+          0.1
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "id": "curve_inverse",
+      "name": "Inversa",
+      "interpolation": "linear",
+      "points": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ]
+      ]
+    }
+  ],
+  "proceduralCurveBindings": {
+    "graphite_pencil": [
+      {
+        "target": {
+          "id": 10001,
+          "name": "Graphite Load",
+          "min": 0,
+          "max": 100,
+          "kind": "slider",
+          "options": [],
+          "owner": "wasm:graphite_pencil"
+        },
+        "curveId": "curve_soft",
+        "input": "pressure",
+        "low": 0.2,
+        "high": 0.95,
+        "scale": 200,
+        "repeat": false,
+        "enabled": true
+      }
+    ]
+  },
   "realismParameters": [
     {
       "id": 58,
@@ -4425,6 +4644,487 @@
       "realism_tip_wear": 10,
       "realism_pressure_size": 85,
       "realism_pressure_flow": 125
+    },
+    {
+      "id": "curves_ink_s",
+      "name": "Pena · Pressão em S",
+      "desc": "Uma curva em S abre a ponta e outra curva suaviza a flexibilidade conforme a pressão.",
+      "category": "ink",
+      "shape": "circle",
+      "shape_id": 0,
+      "size": 22,
+      "opacity": 95,
+      "hardness": 92,
+      "flow": 85,
+      "spacing": 4,
+      "roundness": 100,
+      "angle": 0,
+      "smoothing": 20,
+      "midpoint": 50,
+      "scatter": 0,
+      "grain": 0,
+      "tex_mode": 0,
+      "texture": "none",
+      "texture_scale": 100,
+      "texture_contrast": 100,
+      "tex_scale_with_size": 0,
+      "tex_angle": 0,
+      "auto_rotate": 0,
+      "velocity": 0,
+      "taper_in": 0,
+      "taper_out": 0,
+      "fade": 0,
+      "size_jitter": 0,
+      "angle_jitter": 0,
+      "opacity_jitter": 0,
+      "color_jitter": 0,
+      "dab_blend": 0,
+      "subpixel": 1,
+      "smudge": 0,
+      "wetness": 0,
+      "depletion": 0,
+      "color_pickup": 0,
+      "pressure_size": 0,
+      "pressure_flow": 0,
+      "tilt_angle": 0,
+      "buildup": 0,
+      "water": 0,
+      "bleed": 0,
+      "granulation": 0,
+      "fringe": 0,
+      "pigment_mode": 0,
+      "impasto": 0,
+      "drying_rate": 0,
+      "mode": 0,
+      "eraser": 0,
+      "color": "",
+      "engine": "classic",
+      "curve_bindings": [
+        {
+          "target": {
+            "id": 1,
+            "name": "Tamanho (Diâmetro)",
+            "min": 1,
+            "max": 100,
+            "kind": "slider",
+            "options": [],
+            "owner": ""
+          },
+          "curveId": "curve_s",
+          "input": "pressure",
+          "low": 0.015,
+          "high": 0.32,
+          "scale": 200,
+          "repeat": false,
+          "enabled": true
+        },
+        {
+          "target": {
+            "id": 58,
+            "name": "Flexibilidade da ponta",
+            "min": 0,
+            "max": 100,
+            "kind": "slider",
+            "options": [],
+            "owner": "classic"
+          },
+          "curveId": "curve_soft",
+          "input": "pressure",
+          "low": 0.1,
+          "high": 0.9,
+          "scale": 200,
+          "repeat": false,
+          "enabled": true
+        }
+      ],
+      "realism_recovery": 35
+    },
+    {
+      "id": "curves_distance_ribbon",
+      "name": "Fita · Ondulação por Distância",
+      "desc": "A distância repete a ondulação da largura e alterna o perfil de deposição em patamares.",
+      "category": "paint",
+      "shape": "circle",
+      "shape_id": 0,
+      "size": 24,
+      "opacity": 95,
+      "hardness": 82,
+      "flow": 85,
+      "spacing": 4,
+      "roundness": 100,
+      "angle": 0,
+      "smoothing": 20,
+      "midpoint": 50,
+      "scatter": 0,
+      "grain": 0,
+      "tex_mode": 0,
+      "texture": "none",
+      "texture_scale": 100,
+      "texture_contrast": 100,
+      "tex_scale_with_size": 0,
+      "tex_angle": 0,
+      "auto_rotate": 0,
+      "velocity": 0,
+      "taper_in": 0,
+      "taper_out": 0,
+      "fade": 0,
+      "size_jitter": 0,
+      "angle_jitter": 0,
+      "opacity_jitter": 0,
+      "color_jitter": 0,
+      "dab_blend": 0,
+      "subpixel": 1,
+      "smudge": 0,
+      "wetness": 0,
+      "depletion": 0,
+      "color_pickup": 0,
+      "pressure_size": 0,
+      "pressure_flow": 0,
+      "tilt_angle": 0,
+      "buildup": 0,
+      "water": 0,
+      "bleed": 0,
+      "granulation": 0,
+      "fringe": 0,
+      "pigment_mode": 0,
+      "impasto": 0,
+      "drying_rate": 0,
+      "mode": 0,
+      "eraser": 0,
+      "color": "",
+      "engine": "classic",
+      "curve_bindings": [
+        {
+          "target": {
+            "id": 1,
+            "name": "Tamanho (Diâmetro)",
+            "min": 1,
+            "max": 100,
+            "kind": "slider",
+            "options": [],
+            "owner": ""
+          },
+          "curveId": "curve_wave",
+          "input": "distance",
+          "low": 0.06,
+          "high": 0.32,
+          "scale": 160,
+          "repeat": true,
+          "enabled": true
+        },
+        {
+          "target": {
+            "id": 70,
+            "name": "Perfil de deposição",
+            "min": 0,
+            "max": 4,
+            "kind": "choice",
+            "options": [
+              "0",
+              "1",
+              "2",
+              "3",
+              "4"
+            ],
+            "owner": "classic"
+          },
+          "curveId": "curve_steps",
+          "input": "distance",
+          "low": 0,
+          "high": 1,
+          "scale": 240,
+          "repeat": true,
+          "enabled": true
+        }
+      ],
+      "realism_deposition_strength": 70
+    },
+    {
+      "id": "curves_speed_dry",
+      "name": "Seco · Velocidade",
+      "desc": "A mesma curva inversa reduz tamanho e fluxo ao acelerar o gesto.",
+      "category": "paint",
+      "shape": "circle",
+      "shape_id": 0,
+      "size": 28,
+      "opacity": 95,
+      "hardness": 80,
+      "flow": 80,
+      "spacing": 4,
+      "roundness": 100,
+      "angle": 0,
+      "smoothing": 20,
+      "midpoint": 50,
+      "scatter": 0,
+      "grain": 0,
+      "tex_mode": 0,
+      "texture": "none",
+      "texture_scale": 100,
+      "texture_contrast": 100,
+      "tex_scale_with_size": 0,
+      "tex_angle": 0,
+      "auto_rotate": 0,
+      "velocity": 0,
+      "taper_in": 0,
+      "taper_out": 0,
+      "fade": 0,
+      "size_jitter": 0,
+      "angle_jitter": 0,
+      "opacity_jitter": 0,
+      "color_jitter": 0,
+      "dab_blend": 0,
+      "subpixel": 1,
+      "smudge": 0,
+      "wetness": 0,
+      "depletion": 0,
+      "color_pickup": 0,
+      "pressure_size": 0,
+      "pressure_flow": 0,
+      "tilt_angle": 0,
+      "buildup": 0,
+      "water": 0,
+      "bleed": 0,
+      "granulation": 0,
+      "fringe": 0,
+      "pigment_mode": 0,
+      "impasto": 0,
+      "drying_rate": 0,
+      "mode": 0,
+      "eraser": 0,
+      "color": "",
+      "engine": "classic",
+      "curve_bindings": [
+        {
+          "target": {
+            "id": 1,
+            "name": "Tamanho (Diâmetro)",
+            "min": 1,
+            "max": 100,
+            "kind": "slider",
+            "options": [],
+            "owner": ""
+          },
+          "curveId": "curve_inverse",
+          "input": "speed",
+          "low": 0.06,
+          "high": 0.3,
+          "scale": 1200,
+          "repeat": false,
+          "enabled": true
+        },
+        {
+          "target": {
+            "id": 4,
+            "name": "Fluxo (Flow)",
+            "min": 0,
+            "max": 100,
+            "kind": "slider",
+            "options": [],
+            "owner": ""
+          },
+          "curveId": "curve_inverse",
+          "input": "speed",
+          "low": 0.16,
+          "high": 0.9,
+          "scale": 1000,
+          "repeat": false,
+          "enabled": true
+        }
+      ],
+      "realism_bristle_count": 12,
+      "realism_bristle_spread": 60,
+      "realism_bristle_irregularity": 45,
+      "realism_paper_response": 50,
+      "realism_paper_depth": 40
+    },
+    {
+      "id": "curves_tilt_charcoal",
+      "name": "Carvão · Inclinação",
+      "desc": "A inclinação amplia a marca e achata sua face com duas respostas reutilizáveis.",
+      "category": "sketch",
+      "shape": "circle",
+      "shape_id": 0,
+      "size": 22,
+      "opacity": 95,
+      "hardness": 65,
+      "flow": 75,
+      "spacing": 4,
+      "roundness": 100,
+      "angle": 0,
+      "smoothing": 20,
+      "midpoint": 50,
+      "scatter": 0,
+      "grain": 0,
+      "tex_mode": 0,
+      "texture": "none",
+      "texture_scale": 100,
+      "texture_contrast": 100,
+      "tex_scale_with_size": 0,
+      "tex_angle": 0,
+      "auto_rotate": 0,
+      "velocity": 0,
+      "taper_in": 0,
+      "taper_out": 0,
+      "fade": 0,
+      "size_jitter": 0,
+      "angle_jitter": 0,
+      "opacity_jitter": 0,
+      "color_jitter": 0,
+      "dab_blend": 0,
+      "subpixel": 1,
+      "smudge": 0,
+      "wetness": 0,
+      "depletion": 0,
+      "color_pickup": 0,
+      "pressure_size": 0,
+      "pressure_flow": 0,
+      "tilt_angle": 0,
+      "buildup": 0,
+      "water": 0,
+      "bleed": 0,
+      "granulation": 0,
+      "fringe": 0,
+      "pigment_mode": 0,
+      "impasto": 0,
+      "drying_rate": 0,
+      "mode": 0,
+      "eraser": 0,
+      "color": "",
+      "engine": "classic",
+      "curve_bindings": [
+        {
+          "target": {
+            "id": 1,
+            "name": "Tamanho (Diâmetro)",
+            "min": 1,
+            "max": 100,
+            "kind": "slider",
+            "options": [],
+            "owner": ""
+          },
+          "curveId": "curve_soft",
+          "input": "tilt",
+          "low": 0.04,
+          "high": 0.38,
+          "scale": 200,
+          "repeat": false,
+          "enabled": true
+        },
+        {
+          "target": {
+            "id": 7,
+            "name": "Arredondamento",
+            "min": 1,
+            "max": 100,
+            "kind": "slider",
+            "options": [],
+            "owner": "classic"
+          },
+          "curveId": "curve_inverse",
+          "input": "tilt",
+          "low": 0.15,
+          "high": 0.9,
+          "scale": 200,
+          "repeat": false,
+          "enabled": true
+        }
+      ],
+      "realism_paper_response": 75,
+      "realism_paper_depth": 60,
+      "realism_tip_wear": 40
+    },
+    {
+      "id": "curves_time_airbrush",
+      "name": "Aerógrafo · Pulso Temporal",
+      "desc": "Fluxo pulsante e opacidade ondulante por tempo, inclusive ao segurar a ponta parada.",
+      "category": "airbrush",
+      "shape": "circle",
+      "shape_id": 0,
+      "size": 36,
+      "opacity": 95,
+      "hardness": 0,
+      "flow": 50,
+      "spacing": 4,
+      "roundness": 100,
+      "angle": 0,
+      "smoothing": 20,
+      "midpoint": 50,
+      "scatter": 0,
+      "grain": 0,
+      "tex_mode": 0,
+      "texture": "none",
+      "texture_scale": 100,
+      "texture_contrast": 100,
+      "tex_scale_with_size": 0,
+      "tex_angle": 0,
+      "auto_rotate": 0,
+      "velocity": 0,
+      "taper_in": 0,
+      "taper_out": 0,
+      "fade": 0,
+      "size_jitter": 0,
+      "angle_jitter": 0,
+      "opacity_jitter": 0,
+      "color_jitter": 0,
+      "dab_blend": 0,
+      "subpixel": 1,
+      "smudge": 0,
+      "wetness": 0,
+      "depletion": 0,
+      "color_pickup": 0,
+      "pressure_size": 0,
+      "pressure_flow": 0,
+      "tilt_angle": 0,
+      "buildup": 1,
+      "water": 0,
+      "bleed": 0,
+      "granulation": 0,
+      "fringe": 0,
+      "pigment_mode": 0,
+      "impasto": 0,
+      "drying_rate": 0,
+      "mode": 0,
+      "eraser": 0,
+      "color": "",
+      "engine": "classic",
+      "curve_bindings": [
+        {
+          "target": {
+            "id": 4,
+            "name": "Fluxo (Flow)",
+            "min": 0,
+            "max": 100,
+            "kind": "slider",
+            "options": [],
+            "owner": ""
+          },
+          "curveId": "curve_pulse",
+          "input": "time",
+          "low": 0.02,
+          "high": 0.58,
+          "scale": 1.6,
+          "repeat": true,
+          "enabled": true
+        },
+        {
+          "target": {
+            "id": 2,
+            "name": "Opacidade",
+            "min": 0,
+            "max": 100,
+            "kind": "slider",
+            "options": [],
+            "owner": ""
+          },
+          "curveId": "curve_wave",
+          "input": "time",
+          "low": 0.2,
+          "high": 0.8,
+          "scale": 2.8,
+          "repeat": true,
+          "enabled": true
+        }
+      ]
     }
   ],
   "brushes": [

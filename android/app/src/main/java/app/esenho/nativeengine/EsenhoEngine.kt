@@ -133,7 +133,8 @@ data class BrushPresetModel(
     var color: String = "",
     var engine: String = "classic",
     var dynamicConfig: JSONObject = JSONObject(),
-    var realismConfig: JSONObject = JSONObject()
+    var realismConfig: JSONObject = JSONObject(),
+    var curveBindings: List<BrushParameterCurve> = emptyList()
 ) {
     fun toJson(): JSONObject {
         val obj = JSONObject()
@@ -194,6 +195,7 @@ data class BrushPresetModel(
         obj.put("eraser", eraser)
         obj.put("color", color)
         obj.put("engine", engine)
+        obj.put("curve_bindings", JSONArray().also { arr -> curveBindings.forEach { arr.put(it.toJson()) } })
         val realismKeys = realismConfig.keys()
         while (realismKeys.hasNext()) {
             val key = realismKeys.next()
@@ -268,6 +270,7 @@ data class BrushPresetModel(
                 color = obj.optString("color", ""),
                 engine = obj.optString("engine", "classic"),
                 realismConfig = brushRealismConfig(obj),
+                curveBindings = readBrushParameterCurves(obj.optJSONArray("curve_bindings")),
                 dynamicConfig = normalizeDynamicConfig(JSONObject().also { config ->
                     val keys = obj.keys()
                     while (keys.hasNext()) {
@@ -378,7 +381,8 @@ data class BrushModel(
     val spacing: Float,
     val minRadius: Float,
     val maxRadius: Float,
-    val params: List<BrushParamModel>
+    val params: List<BrushParamModel>,
+    val curveBindings: List<BrushParameterCurve> = emptyList()
 )
 
 data class FilterParamModel(
@@ -467,6 +471,27 @@ class EsenhoEngine(
         if (changed and StrokeUsageHistory.COLOR_CHANGED != 0) storageManager.saveRecentColors(recentColors)
     }
 
+    val brushCurves by lazy { BrushCurveLibrary(storageManager) }
+    private val curveRuntime = BrushCurveRuntime(this)
+    val usesContinuousBrush: Boolean get() = selectedPreset?.let { isDynamicPreset(it) } == true
+    val needsCurveTimeTicks: Boolean get() = curveRuntime.needsTimeTicks
+    fun curveParameterBase(target: BrushCurveTarget): Float = curveRuntime.base(target)
+    fun supportsCurveTarget(target: BrushCurveTarget): Boolean = curveRuntime.supports(target)
+    fun endCurveStroke() = curveRuntime.end()
+    fun tickCurveStroke() { if (isStrokeActive) curveRuntime.tick(strokeSmoothX, strokeSmoothY) }
+    internal fun nativeCurveStrokeColor(): Int = toNativeColor(currentColor)
+    internal fun restoreCurveTexture() {
+        val preset = selectedPreset ?: return
+        val slot = customBrushAssetSlots[preset.customTextureAsset]
+            ?: EsenhoNativeBridge.nativeSelectTexture(preset.texture.ifBlank { "none" })
+        EsenhoNativeBridge.nativeBrushSetParam(18, slot)
+        EsenhoNativeBridge.nativeBrushSetParam(13, preset.texMode)
+    }
+    private fun emitCurveStroke(state: Int, x: Float, y: Float, previousX: Float, previousY: Float,
+        color: Int, eraser: Int, pressure: Int, tiltX: Int, tiltY: Int) {
+        curveRuntime.applyAt(x, y)
+        EsenhoNativeBridge.nativeStrokeExt(state, x, y, previousX, previousY, color, eraser, pressure, tiltX, tiltY)
+    }
     val realismParameters = mutableListOf<BrushRealismParameter>()
     val presetCatalog = mutableListOf<BrushPresetModel>()
     val brushCatalog = mutableListOf<BrushModel>()
@@ -755,6 +780,7 @@ class EsenhoEngine(
     var currentTool: ToolMode = ToolMode.BRUSH
     var brushSize: Float = 14f
         set(value) {
+            endCurveStroke()
             field = value.coerceIn(1f, 100f)
             liveBrushSliderParams[1] = field.toInt()
             selectedPreset?.let { preset ->
@@ -771,6 +797,7 @@ class EsenhoEngine(
 
     var brushOpacity: Float = 1.0f
         set(value) {
+            endCurveStroke()
             field = value.coerceIn(0f, 1.0f)
             val opInt = (field * 100).toInt()
             liveBrushSliderParams[2] = opInt
@@ -916,6 +943,7 @@ class EsenhoEngine(
             val jsonStr = context.resources.openRawResource(resId).bufferedReader().use { it.readText() }
             val root = JSONObject(jsonStr)
 
+            brushCurves.installBuiltins(root.optJSONArray("responseCurves"))
             realismParameters.clear()
             root.optJSONArray("realismParameters")?.let { parameters ->
                 for (i in 0 until parameters.length()) {
@@ -988,6 +1016,7 @@ class EsenhoEngine(
                             color = p.optString("color", ""),
                             engine = p.optString("engine", "classic"),
                             realismConfig = brushRealismConfig(p),
+                            curveBindings = readBrushParameterCurves(p.optJSONArray("curve_bindings")),
                             dynamicConfig = normalizeDynamicConfig(JSONObject().also { config ->
                                 val keys = p.keys()
                                 while (keys.hasNext()) { val key = keys.next(); if (key.startsWith("dyn_") || key.startsWith("mypaint_") || key.startsWith("pressure_")) config.put(key, p.get(key)) }
@@ -1035,7 +1064,8 @@ class EsenhoEngine(
                             paramsList.add(BrushParamModel(pName, pMin, pMax, pDef, pUnit, pDef))
                         }
                     }
-                    brushCatalog.add(BrushModel(id, title, category, spacing, minR, maxR, paramsList))
+                    brushCatalog.add(BrushModel(id, title, category, spacing, minR, maxR, paramsList,
+                        readBrushParameterCurves(root.optJSONObject("proceduralCurveBindings")?.optJSONArray(id))))
                 }
             }
 
@@ -1205,7 +1235,7 @@ class EsenhoEngine(
 
         // syncLayers creates one first cel for each drawable layer.
         currentFrameIndex = 0
-        selectedPreset?.let(::selectPreset)
+        selectedPreset?.let { selectPreset(it) }
     }
 
     fun resize(w: Int, h: Int) {
@@ -1331,9 +1361,10 @@ class EsenhoEngine(
 
     // ── Brush Preset & Procedural Selection & Tuning ──
 
-    fun selectPreset(sourcePreset: BrushPresetModel) {
+    fun selectPreset(sourcePreset: BrushPresetModel, restoreFavoriteState: Boolean = true) {
+        endCurveStroke()
         rememberProceduralToolState()
-        val saved = storageManager.loadFavoriteToolState("preset:${sourcePreset.id}")
+        val saved = (if (restoreFavoriteState) storageManager.loadFavoriteToolState("preset:${sourcePreset.id}") else null)
             ?.takeIf { it.optString("kind") == "preset" }
             ?.optJSONObject("preset")
         val preset = saved?.let(BrushPresetModel::fromJson) ?: sourcePreset
@@ -1472,6 +1503,7 @@ class EsenhoEngine(
             } catch (_: Exception) {}
         }
 
+        brushCurves.activate("preset:${preset.id}", preset.curveBindings)
         currentTool = if (preset.eraser == 1) ToolMode.ERASER else ToolMode.BRUSH
     }
 
@@ -1572,6 +1604,7 @@ class EsenhoEngine(
     }
 
     fun setDynamicBase(setting: Int, value: Float) {
+        endCurveStroke()
         val preset = selectedPreset ?: return
         val key = DYNAMIC_SETTING_KEYS.getOrNull(setting) ?: return
         val limitedValue = if (setting == 3) value.coerceIn(ln(.5f), ln(50f)) else value
@@ -1588,6 +1621,7 @@ class EsenhoEngine(
     }
 
     fun setPressureResponse(curve: String, min: Int, max: Int) {
+        endCurveStroke()
         val preset = selectedPreset ?: return
         val lower = min.coerceIn(0, 99)
         preset.dynamicConfig.put("pressure_curve", curve)
@@ -1598,6 +1632,7 @@ class EsenhoEngine(
     }
 
     fun setPresetParam(paramId: Int, value: Int) {
+        endCurveStroke()
         val p = selectedPreset
         realismParameters.firstOrNull { it.id == paramId }?.let { param ->
             if (selectedBrush != null) return
@@ -1742,6 +1777,7 @@ class EsenhoEngine(
     }
 
     fun setPresetShape(shapeName: String) {
+        endCurveStroke()
         val p = selectedPreset ?: return
         p.shape = shapeName
         p.customShapeAsset = ""
@@ -1751,6 +1787,7 @@ class EsenhoEngine(
     }
 
     fun setPresetTexture(textureName: String) {
+        endCurveStroke()
         val p = selectedPreset ?: return
         p.texture = textureName
         p.customTextureAsset = ""
@@ -1775,6 +1812,7 @@ class EsenhoEngine(
         val liveParams = JSONObject()
         listOf(1, 2, 4, 5, 19, 20).forEach { liveParams.put(it.toString(), getPresetParam(it)) }
         return JSONObject().put("kind", "brush")
+            .put("curve_bindings", JSONArray().also { arr -> brushCurves.bindings.forEach { arr.put(it.toJson()) } })
             .put("size", brushSize).put("opacity", brushOpacity)
             .put("liveParams", liveParams).put("params", params)
     }
@@ -1784,6 +1822,7 @@ class EsenhoEngine(
     }
 
     fun selectBrush(brush: BrushModel?) {
+        endCurveStroke()
         rememberProceduralToolState()
         val saved = brush?.let { proceduralToolStates[it.id]
             ?: storageManager.loadFavoriteToolState("brush:${it.id}")?.takeIf { state -> state.optString("kind") == "brush" } }
@@ -1816,6 +1855,8 @@ class EsenhoEngine(
                 EsenhoNativeBridge.nativeSetBrushParam(idx, param.currentVal)
             }
         }
+        brushCurves.activate(selected?.let { "brush:${it.id}" } ?: "classic",
+            if (saved?.has("curve_bindings") == true) readBrushParameterCurves(saved.optJSONArray("curve_bindings")) else selected?.curveBindings.orEmpty())
         currentTool = ToolMode.BRUSH
     }
 
@@ -1823,7 +1864,8 @@ class EsenhoEngine(
         selectedPreset?.let { preset ->
             val id = "preset:${preset.id}"
             if (id in storageManager.loadFavoriteBrushes()) {
-                return id to JSONObject().put("kind", "preset").put("preset", preset.toJson())
+                return id to JSONObject().put("kind", "preset").put("preset", preset.toJson().put("curve_bindings",
+                    JSONArray().also { arr -> brushCurves.bindings.forEach { arr.put(it.toJson()) } }))
             }
         }
         selectedBrush?.let { brush ->
@@ -1837,9 +1879,11 @@ class EsenhoEngine(
 
     fun resetPresetToDefaults() {
         val p = selectedPreset ?: return
+        endCurveStroke()
+        if (!brushCurves.resetActiveBindings()) return
         loadCatalogs()
         val original = presetCatalog.find { it.id == p.id } ?: return
-        selectPreset(original)
+        selectPreset(original, restoreFavoriteState = false)
     }
 
     // ── Custom Presets CRUD & Persistence ──
@@ -1913,7 +1957,8 @@ class EsenhoEngine(
             color = String.format("#%06X", 0xFFFFFF and currentColor),
             engine = base?.engine ?: "classic",
             dynamicConfig = JSONObject(base?.dynamicConfig?.toString() ?: "{}"),
-            realismConfig = JSONObject(base?.realismConfig?.toString() ?: "{}")
+            realismConfig = JSONObject(base?.realismConfig?.toString() ?: "{}"),
+            curveBindings = brushCurves.bindings.toList()
         )
 
         if (existing != null) {
@@ -2112,6 +2157,7 @@ class EsenhoEngine(
     }
 
     fun setBrushCustomParam(paramIdx: Int, value: Int) {
+        endCurveStroke()
         val b = selectedBrush ?: return
         if (paramIdx in b.params.indices) {
             val param = b.params[paramIdx]
@@ -2992,6 +3038,7 @@ class EsenhoEngine(
     }
 
     fun onTouchDown(x: Float, y: Float, pressure: Float = 0.85f, tiltX: Int = 0, tiltY: Int = 0) {
+        endCurveStroke()
         strokeUsageHistory.cancel()
         if (currentTool == ToolMode.EYEDROPPER) {
             pickColorAt(x, y)
@@ -3040,6 +3087,9 @@ class EsenhoEngine(
         strokePrevTargetX = x
         strokePrevTargetY = y
 
+        if (currentTool in setOf(ToolMode.BRUSH, ToolMode.ERASER, ToolMode.SMUDGE, ToolMode.BLEND)) {
+            curveRuntime.begin(x, y, pressure, tiltX, tiltY)
+        }
         val isEraser = if (currentTool == ToolMode.ERASER) 1 else 0
         val nativeCol = toNativeColor(currentColor)
         val pInt = (pressure.coerceIn(0.01f, 1f) * 1000).toInt()
@@ -3047,19 +3097,19 @@ class EsenhoEngine(
         when (currentTool) {
             ToolMode.BRUSH, ToolMode.ERASER -> {
                 EsenhoNativeBridge.nativeBrushSetType(0) // Draw mode
-                EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, nativeCol, isEraser, pInt, tiltX, tiltY)
+                emitCurveStroke(0, x, y, x, y, nativeCol, isEraser, pInt, tiltX, tiltY)
             }
             ToolMode.SMUDGE -> {
                 EsenhoNativeBridge.nativeBrushSetType(1) // W_MODE_SMUDGE
-                EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, nativeCol, 0, pInt, tiltX, tiltY)
+                emitCurveStroke(0, x, y, x, y, nativeCol, 0, pInt, tiltX, tiltY)
             }
             ToolMode.BLEND -> {
                 EsenhoNativeBridge.nativeBrushSetType(2) // W_MODE_BLEND
-                EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, nativeCol, 0, pInt, tiltX, tiltY)
+                emitCurveStroke(0, x, y, x, y, nativeCol, 0, pInt, tiltX, tiltY)
             }
             ToolMode.FILL -> {
                 EsenhoNativeBridge.nativeBrushSetType(3) // W_MODE_FILL
-                EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, nativeCol, 0, 1000, 0, 0)
+                emitCurveStroke(0, x, y, x, y, nativeCol, 0, 1000, 0, 0)
                 isStrokeActive = false
                 captureCurrentFrame()
             }
@@ -3067,7 +3117,7 @@ class EsenhoEngine(
                 lassoPoints.clear()
                 lassoPoints.add(Pair(x.toInt(), y.toInt()))
                 EsenhoNativeBridge.nativeBrushSetType(4) // W_MODE_LASSO_FILL
-                EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, nativeCol, 0, 1000, 0, 0)
+                emitCurveStroke(0, x, y, x, y, nativeCol, 0, 1000, 0, 0)
             }
             ToolMode.SELECT_LASSO -> {
                 lassoPoints.clear()
@@ -3088,7 +3138,7 @@ class EsenhoEngine(
                     EsenhoNativeBridge.nativeLayerSelect(selectionBrushScratchLayer)
                     EsenhoNativeBridge.nativeLayerClear(selectionBrushScratchLayer)
                     EsenhoNativeBridge.nativeBrushSetType(0)
-                    EsenhoNativeBridge.nativeStrokeExt(0, x, y, x, y, toNativeColor(Color.WHITE), 0, pInt, tiltX, tiltY)
+                    emitCurveStroke(0, x, y, x, y, toNativeColor(Color.WHITE), 0, pInt, tiltX, tiltY)
                     lastX = x
                     lastY = y
                 }
@@ -3100,6 +3150,8 @@ class EsenhoEngine(
 
     fun onTouchMove(x: Float, y: Float, pressure: Float = 0.85f, tiltX: Int = 0, tiltY: Int = 0) {
         if (!isStrokeActive) return
+        curveRuntime.event(x, y, pressure, tiltX, tiltY)
+        curveRuntime.applyAt(strokeLastMidX, strokeLastMidY)
 
         strokeCurrentX = x
         strokeCurrentY = y
@@ -3110,8 +3162,8 @@ class EsenhoEngine(
         when (currentTool) {
             ToolMode.BRUSH, ToolMode.ERASER, ToolMode.SMUDGE, ToolMode.BLEND -> {
                 val p = selectedPreset
-                val smooth = p?.smoothing ?: brushSmooth
-                val midpoint = p?.midpoint ?: getPresetParam(20)
+                val smooth = curveRuntime.effective(19, p?.smoothing ?: brushSmooth)
+                val midpoint = curveRuntime.effective(20, p?.midpoint ?: getPresetParam(20))
 
                 // Responsive Exponential Moving Average when smooth > 0; direct 1.0 tracking when smooth == 0
                 val s = smooth / 100f
@@ -3162,7 +3214,7 @@ class EsenhoEngine(
                     val by = invT * invT * midPrevY + 2.0f * invT * t * ctrlY + t * t * midCurrY
 
                     val strokeEraser = if (currentTool == ToolMode.ERASER) 1 else 0
-                    EsenhoNativeBridge.nativeStrokeExt(1, bx, by, lastSubX, lastSubY, nativeCol, strokeEraser, pInt, tiltX, tiltY)
+                    emitCurveStroke(1, bx, by, lastSubX, lastSubY, nativeCol, strokeEraser, pInt, tiltX, tiltY)
                     lastSubX = bx
                     lastSubY = by
                 }
@@ -3178,7 +3230,7 @@ class EsenhoEngine(
             }
             ToolMode.LASSO_FILL -> {
                 lassoPoints.add(Pair(x.toInt(), y.toInt()))
-                EsenhoNativeBridge.nativeStrokeExt(1, x, y, lastX, lastY, nativeCol, 0, 1000, 0, 0)
+                emitCurveStroke(1, x, y, lastX, lastY, nativeCol, 0, 1000, 0, 0)
                 lastX = x
                 lastY = y
             }
@@ -3188,7 +3240,7 @@ class EsenhoEngine(
             ToolMode.SELECT_BRUSH_MASK -> {
                 lassoPoints.add(Pair(x.roundToInt(), y.roundToInt()))
                 if (selectionBrushScratchLayer >= 0) {
-                    EsenhoNativeBridge.nativeStrokeExt(
+                    emitCurveStroke(
                         1, x, y, lastX, lastY, toNativeColor(Color.WHITE), 0, pInt, tiltX, tiltY
                     )
                     lastX = x
@@ -3225,16 +3277,16 @@ class EsenhoEngine(
                         val invT = 1.0f - t
                         val bx = invT * invT * strokeLastMidX + 2.0f * invT * t * finalX + t * t * finalX
                         val by = invT * invT * strokeLastMidY + 2.0f * invT * t * finalY + t * t * finalY
-                        EsenhoNativeBridge.nativeStrokeExt(1, bx, by, lastSubX, lastSubY, nativeCol, isEraser, pInt, tiltX, tiltY)
+                        emitCurveStroke(1, bx, by, lastSubX, lastSubY, nativeCol, isEraser, pInt, tiltX, tiltY)
                         lastSubX = bx
                         lastSubY = by
                     }
                 }
-                EsenhoNativeBridge.nativeStrokeExt(2, finalX, finalY, lastSubX, lastSubY, nativeCol, isEraser, pInt, tiltX, tiltY)
+                emitCurveStroke(2, finalX, finalY, lastSubX, lastSubY, nativeCol, isEraser, pInt, tiltX, tiltY)
             }
             ToolMode.LASSO_FILL -> {
                 lassoPoints.add(Pair(x.toInt(), y.toInt()))
-                EsenhoNativeBridge.nativeStrokeExt(2, x, y, lastX, lastY, nativeCol, 0, 1000, 0, 0)
+                emitCurveStroke(2, x, y, lastX, lastY, nativeCol, 0, 1000, 0, 0)
                 lassoPoints.clear()
                 getRenderBitmap()
             }
@@ -3303,7 +3355,7 @@ class EsenhoEngine(
             ToolMode.SELECT_BRUSH_MASK -> {
                 lassoPoints.add(Pair(x.roundToInt(), y.roundToInt()))
                 if (selectionBrushScratchLayer >= 0) {
-                    EsenhoNativeBridge.nativeStrokeExt(2, x, y, lastX, lastY, toNativeColor(Color.WHITE), 0, pInt, tiltX, tiltY)
+                    emitCurveStroke(2, x, y, lastX, lastY, toNativeColor(Color.WHITE), 0, pInt, tiltX, tiltY)
                     finishSelectionBrushStroke()
                 } else {
                     selectBrushMask(lassoPoints, max(1, (brushSize / 2f).roundToInt()))
@@ -3320,6 +3372,7 @@ class EsenhoEngine(
         // Keep the active cel and its timeline thumbnail in sync with edits as
         // soon as a stroke or raster shape is committed.
         captureCurrentFrame()
+        endCurveStroke()
         activeStrokeUndoToken = 0L
     }
 
@@ -4046,6 +4099,7 @@ class EsenhoEngine(
     }
 
     fun cancelActiveStroke() {
+        endCurveStroke()
         strokeUsageHistory.cancel()
         val hadActiveStroke = isStrokeActive
         isStrokeActive = false

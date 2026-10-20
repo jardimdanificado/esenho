@@ -2071,6 +2071,332 @@ Object.assign(CURATED_BRUSH_PRESETS, {
   }
 });
 
+// Reusable curves showcase pressure, motion, discrete controls, tilt and time.
+Object.assign(CURATED_BRUSH_PRESETS, {
+  "curves_ink_s": {
+    "$schema": "esenho/brush/v1",
+    "id": "curves_ink_s",
+    "name": "Pena · Pressão em S",
+    "desc": "Uma curva em S abre a ponta e outra curva suaviza a flexibilidade conforme a pressão.",
+    "category": "ink",
+    "builtin": true,
+    "shape": "circle",
+    "size": 22,
+    "opacity": 95,
+    "hardness": 92,
+    "flow": 85,
+    "spacing": 4,
+    "smoothing": 20,
+    "subpixel": 1,
+    "pressure_size": 0,
+    "pressure_flow": 0,
+    "texture": "none",
+    "tex_mode": 0,
+    "grain": 0,
+    "mode": 0,
+    "eraser": 0,
+    "curve_bindings": [
+      {
+        "target": {
+          "id": 1,
+          "name": "Tamanho (Diâmetro)",
+          "min": 1,
+          "max": 100,
+          "kind": "slider",
+          "options": [],
+          "owner": ""
+        },
+        "curveId": "curve_s",
+        "input": "pressure",
+        "low": 0.015,
+        "high": 0.32,
+        "scale": 200,
+        "repeat": false,
+        "enabled": true
+      },
+      {
+        "target": {
+          "id": 58,
+          "name": "Flexibilidade da ponta",
+          "min": 0,
+          "max": 100,
+          "kind": "slider",
+          "options": [],
+          "owner": "classic"
+        },
+        "curveId": "curve_soft",
+        "input": "pressure",
+        "low": 0.1,
+        "high": 0.9,
+        "scale": 200,
+        "repeat": false,
+        "enabled": true
+      }
+    ],
+    "realism_recovery": 35
+  },
+  "curves_distance_ribbon": {
+    "$schema": "esenho/brush/v1",
+    "id": "curves_distance_ribbon",
+    "name": "Fita · Ondulação por Distância",
+    "desc": "A distância repete a ondulação da largura e alterna o perfil de deposição em patamares.",
+    "category": "paint",
+    "builtin": true,
+    "shape": "circle",
+    "size": 24,
+    "opacity": 95,
+    "hardness": 82,
+    "flow": 85,
+    "spacing": 4,
+    "smoothing": 20,
+    "subpixel": 1,
+    "pressure_size": 0,
+    "pressure_flow": 0,
+    "texture": "none",
+    "tex_mode": 0,
+    "grain": 0,
+    "mode": 0,
+    "eraser": 0,
+    "curve_bindings": [
+      {
+        "target": {
+          "id": 1,
+          "name": "Tamanho (Diâmetro)",
+          "min": 1,
+          "max": 100,
+          "kind": "slider",
+          "options": [],
+          "owner": ""
+        },
+        "curveId": "curve_wave",
+        "input": "distance",
+        "low": 0.06,
+        "high": 0.32,
+        "scale": 160,
+        "repeat": true,
+        "enabled": true
+      },
+      {
+        "target": {
+          "id": 70,
+          "name": "Perfil de deposição",
+          "min": 0,
+          "max": 4,
+          "kind": "choice",
+          "options": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4"
+          ],
+          "owner": "classic"
+        },
+        "curveId": "curve_steps",
+        "input": "distance",
+        "low": 0,
+        "high": 1,
+        "scale": 240,
+        "repeat": true,
+        "enabled": true
+      }
+    ],
+    "realism_deposition_strength": 70
+  },
+  "curves_speed_dry": {
+    "$schema": "esenho/brush/v1",
+    "id": "curves_speed_dry",
+    "name": "Seco · Velocidade",
+    "desc": "A mesma curva inversa reduz tamanho e fluxo ao acelerar o gesto.",
+    "category": "paint",
+    "builtin": true,
+    "shape": "circle",
+    "size": 28,
+    "opacity": 95,
+    "hardness": 80,
+    "flow": 80,
+    "spacing": 4,
+    "smoothing": 20,
+    "subpixel": 1,
+    "pressure_size": 0,
+    "pressure_flow": 0,
+    "texture": "none",
+    "tex_mode": 0,
+    "grain": 0,
+    "mode": 0,
+    "eraser": 0,
+    "curve_bindings": [
+      {
+        "target": {
+          "id": 1,
+          "name": "Tamanho (Diâmetro)",
+          "min": 1,
+          "max": 100,
+          "kind": "slider",
+          "options": [],
+          "owner": ""
+        },
+        "curveId": "curve_inverse",
+        "input": "speed",
+        "low": 0.06,
+        "high": 0.3,
+        "scale": 1200,
+        "repeat": false,
+        "enabled": true
+      },
+      {
+        "target": {
+          "id": 4,
+          "name": "Fluxo (Flow)",
+          "min": 0,
+          "max": 100,
+          "kind": "slider",
+          "options": [],
+          "owner": ""
+        },
+        "curveId": "curve_inverse",
+        "input": "speed",
+        "low": 0.16,
+        "high": 0.9,
+        "scale": 1000,
+        "repeat": false,
+        "enabled": true
+      }
+    ],
+    "realism_bristle_count": 12,
+    "realism_bristle_spread": 60,
+    "realism_bristle_irregularity": 45,
+    "realism_paper_response": 50,
+    "realism_paper_depth": 40
+  },
+  "curves_tilt_charcoal": {
+    "$schema": "esenho/brush/v1",
+    "id": "curves_tilt_charcoal",
+    "name": "Carvão · Inclinação",
+    "desc": "A inclinação amplia a marca e achata sua face com duas respostas reutilizáveis.",
+    "category": "sketch",
+    "builtin": true,
+    "shape": "circle",
+    "size": 22,
+    "opacity": 95,
+    "hardness": 65,
+    "flow": 75,
+    "spacing": 4,
+    "smoothing": 20,
+    "subpixel": 1,
+    "pressure_size": 0,
+    "pressure_flow": 0,
+    "texture": "none",
+    "tex_mode": 0,
+    "grain": 0,
+    "mode": 0,
+    "eraser": 0,
+    "curve_bindings": [
+      {
+        "target": {
+          "id": 1,
+          "name": "Tamanho (Diâmetro)",
+          "min": 1,
+          "max": 100,
+          "kind": "slider",
+          "options": [],
+          "owner": ""
+        },
+        "curveId": "curve_soft",
+        "input": "tilt",
+        "low": 0.04,
+        "high": 0.38,
+        "scale": 200,
+        "repeat": false,
+        "enabled": true
+      },
+      {
+        "target": {
+          "id": 7,
+          "name": "Arredondamento",
+          "min": 1,
+          "max": 100,
+          "kind": "slider",
+          "options": [],
+          "owner": "classic"
+        },
+        "curveId": "curve_inverse",
+        "input": "tilt",
+        "low": 0.15,
+        "high": 0.9,
+        "scale": 200,
+        "repeat": false,
+        "enabled": true
+      }
+    ],
+    "realism_paper_response": 75,
+    "realism_paper_depth": 60,
+    "realism_tip_wear": 40
+  },
+  "curves_time_airbrush": {
+    "$schema": "esenho/brush/v1",
+    "id": "curves_time_airbrush",
+    "name": "Aerógrafo · Pulso Temporal",
+    "desc": "Fluxo pulsante e opacidade ondulante por tempo, inclusive ao segurar a ponta parada.",
+    "category": "airbrush",
+    "builtin": true,
+    "shape": "circle",
+    "size": 36,
+    "opacity": 95,
+    "hardness": 0,
+    "flow": 50,
+    "spacing": 4,
+    "smoothing": 20,
+    "subpixel": 1,
+    "pressure_size": 0,
+    "pressure_flow": 0,
+    "texture": "none",
+    "tex_mode": 0,
+    "grain": 0,
+    "mode": 0,
+    "eraser": 0,
+    "curve_bindings": [
+      {
+        "target": {
+          "id": 4,
+          "name": "Fluxo (Flow)",
+          "min": 0,
+          "max": 100,
+          "kind": "slider",
+          "options": [],
+          "owner": ""
+        },
+        "curveId": "curve_pulse",
+        "input": "time",
+        "low": 0.02,
+        "high": 0.58,
+        "scale": 1.6,
+        "repeat": true,
+        "enabled": true
+      },
+      {
+        "target": {
+          "id": 2,
+          "name": "Opacidade",
+          "min": 0,
+          "max": 100,
+          "kind": "slider",
+          "options": [],
+          "owner": ""
+        },
+        "curveId": "curve_wave",
+        "input": "time",
+        "low": 0.2,
+        "high": 0.8,
+        "scale": 2.8,
+        "repeat": true,
+        "enabled": true
+      }
+    ],
+    "buildup": 1
+  }
+});
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { CURATED_BRUSH_PRESETS };
 }

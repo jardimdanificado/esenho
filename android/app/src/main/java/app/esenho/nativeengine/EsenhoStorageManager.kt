@@ -320,6 +320,26 @@ class EsenhoStorageManager(private val context: Context) {
 
     // ── Side Slider Configuration Persistence ──
 
+    private val brushCurvesFile: File
+        get() = File(context.filesDir, "esenho_brush_curve_library.json")
+
+    fun saveBrushCurveLibrary(state: BrushCurveLibraryState): Boolean = try {
+        atomicWrite(brushCurvesFile, state.toJson().toString())
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to save brush curve library", e)
+        false
+    }
+
+    fun loadBrushCurveLibrary(): BrushCurveLibraryState {
+        val content = safeRead(brushCurvesFile) ?: return BrushCurveLibraryState()
+        return try {
+            BrushCurveLibraryState.fromJson(JSONObject(content))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load brush curve library", e)
+            BrushCurveLibraryState()
+        }
+    }
+
     private val sideSlidersFile: File
         get() = File(context.filesDir, "esenho_side_sliders.json")
 

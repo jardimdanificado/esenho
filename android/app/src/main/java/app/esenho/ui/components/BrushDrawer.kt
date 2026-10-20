@@ -690,6 +690,7 @@ fun BrushItemCard(
 enum class PresetTunerTab(val title: String) {
     COMMON("Geral"),
     SPECIFIC("Pincel"),
+    CURVES("Curvas"),
     TIP("Ponta"),
     DYNAMICS("Dinâmica"),
     TEXTURE("Textura"),
@@ -810,9 +811,9 @@ fun BrushPropertiesPanel(
     val brush = engine.selectedBrush
     val brushKey = preset?.let { "preset:${it.id}" } ?: brush?.let { "brush:${it.id}" } ?: "classic"
     var tunerTab by remember(brushKey) { mutableStateOf(PresetTunerTab.COMMON) }
-    val tabs = if (brush != null) listOf(PresetTunerTab.COMMON, PresetTunerTab.SPECIFIC)
+    val tabs = if (brush != null) listOf(PresetTunerTab.COMMON, PresetTunerTab.SPECIFIC, PresetTunerTab.CURVES)
         else if (preset != null) PresetTunerTab.values().filter { it != PresetTunerTab.SPECIFIC }
-        else listOf(PresetTunerTab.COMMON)
+        else listOf(PresetTunerTab.COMMON, PresetTunerTab.CURVES)
     var tunerVersion by remember(brushKey) { mutableIntStateOf(0) }
     val currentSpecificValues = brush?.params?.map { it.currentVal }.orEmpty()
     val specificValues = remember(brushKey, tunerVersion, currentSpecificValues) { currentSpecificValues }
@@ -1009,7 +1010,9 @@ fun BrushPropertiesPanel(
             modifier = Modifier.fillMaxWidth().height(420.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (tunerTab == PresetTunerTab.COMMON) {
+            if (tunerTab == PresetTunerTab.CURVES) {
+                item { BrushCurvesPanel(engine, onBrushUpdated) }
+            } else if (tunerTab == PresetTunerTab.COMMON) {
                 item { CommonBrushControls(engine, onBrushUpdated) }
             } else if (brush != null) {
                 if (brush.params.isEmpty()) {
@@ -1032,7 +1035,7 @@ fun BrushPropertiesPanel(
                 }
             } else if (preset != null) {
                 when (tunerTab) {
-                    PresetTunerTab.COMMON, PresetTunerTab.SPECIFIC -> Unit
+                    PresetTunerTab.COMMON, PresetTunerTab.SPECIFIC, PresetTunerTab.CURVES -> Unit
                     PresetTunerTab.REALISM -> {
                         item {
                             Text("A pressão usa 100% como resposta linear. Valores menores tornam a resposta mais suave; maiores, mais firme. Cerdas e desgaste em zero desativam seus efeitos.",

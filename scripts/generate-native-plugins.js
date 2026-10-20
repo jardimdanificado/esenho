@@ -262,6 +262,7 @@ if (fs.existsSync(presetsPath)) {
           eraser: v.eraser ? 1 : 0,
           color: v.color || '',
           engine: v.engine || 'classic',
+          ...(v.curve_bindings ? {curve_bindings: v.curve_bindings} : {}),
           ...Object.fromEntries(realismParameters.filter(param => v[param.key] != null).map(param => [param.key, v[param.key]])),
           ...Object.fromEntries(Object.entries(v).filter(([key]) => key.startsWith('dyn_') || key.startsWith('mypaint_') || key.startsWith('pressure_')))
         });
@@ -402,6 +403,8 @@ fs.writeFileSync(path.join(cppGenDir, 'esenho_plugins_registry.c'), regC);
 
 // Save JSON metadata for Kotlin to load
 const metadata = {
+  responseCurves: require('../src/brush_curves_data.json'),
+  proceduralCurveBindings: require('../src/brush_curve_brushes.json'),
   realismParameters,
   presets: presetEntries,
   brushes: brushEntries,

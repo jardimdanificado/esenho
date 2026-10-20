@@ -44,6 +44,7 @@ object EsenhoNativeBridge {
     external fun nativeDynBrushEnable(enabled: Boolean)
     external fun nativeDynBrushReset()
     external fun nativeDynBrushSetBase(setting: Int, value: Float)
+    external fun nativeDynBrushGetBase(setting: Int): Float
     external fun nativeDynBrushSetCurve(setting: Int, input: Int, x: FloatArray, y: FloatArray)
     external fun nativeDynBrushClearCurve(setting: Int, input: Int)
     external fun nativeBrushSetPressureMap(min: Int, max: Int, curve: Int, gamma: Float)

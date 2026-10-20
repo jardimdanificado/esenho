@@ -67,6 +67,10 @@ test-native: bin/test_brush_dynamics bin/test_brush_coverage bin/test_brush_real
 	./bin/test_brush_realism
 	./bin/test_native_svg
 
+test-brush-curves:
+	bash scripts/test-brush-curves.sh
+	node tests/test_saved_brush_curves.js
+
 test-brush-dyn: bin/test_brush_dynamics
 	./bin/test_brush_dynamics
 
@@ -93,4 +97,4 @@ apk:
 clean:
 	rm -rf plugins/*.wasm plugins/brushes/*.wasm plugins/manifest.json plugins/brushes/manifest.json roms bin android/.gradle android/build android/app/build android/app/src/main/assets
 
-.PHONY: all run clean native test-native test-brush-dyn apk
+.PHONY: all run clean native test-native test-brush-dyn test-brush-curves apk
