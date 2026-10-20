@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -65,12 +66,25 @@ fun WorkspaceQuickShelf(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        if (recent) Icons.Default.History else Icons.Default.Palette,
-                        if (recent) "Cores recentes; abrir cores" else "Paleta ativa; abrir cores",
-                        Modifier.size(28.dp).clickable(onClick = onOpenColors).padding(6.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Box(
+                        Modifier.size(32.dp).clickable(onClick = onOpenColors).semantics {
+                            contentDescription =
+                                "Cor atual #%06X; abrir Color Studio"
+                                    .format(engine.currentColor and 0xFFFFFF)
+                        },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            Modifier.size(24.dp)
+                                .clip(CircleShape)
+                                .background(Color(engine.currentColor))
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                    CircleShape,
+                                )
+                        )
+                    }
                     if (colors.isEmpty())
                         Text(
                             "Escolher cores",
@@ -114,9 +128,8 @@ fun WorkspaceQuickShelf(
                 )
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        if (recent) Icons.Default.History else Icons.Default.Star,
-                        if (recent) "Pincéis recentes; abrir pincéis"
-                        else "Pincéis favoritos; abrir pincéis",
+                        Icons.Default.Brush,
+                        "Abrir seletor de presets de pincel",
                         Modifier.size(28.dp).clickable(onClick = onOpenBrushes).padding(6.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

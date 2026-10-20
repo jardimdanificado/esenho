@@ -10,7 +10,7 @@ Tocar novamente no atalho de um painel fecha esse painel. Seleção e transforma
 
 ## Barra de cores e pincéis
 
-A segunda barra fica abaixo dos controles principais e divide o espaço igualmente: amostras de cores à esquerda, pincéis à direita. Cada metade tem rolagem horizontal independente. Os ícones das metades abrem o Color Studio e o catálogo de pincéis.
+A segunda barra fica abaixo dos controles principais e divide o espaço igualmente: amostras de cores à esquerda, pincéis à direita. Cada metade tem rolagem horizontal independente. O círculo com a cor atual abre o Color Studio e se diferencia das amostras quadradas. O ícone de pincel antes dos favoritos/recentes abre diretamente a aba de presets, saindo dos ajustes e dos filtros de busca.
 
 No menu de três pontos da barra principal, escolha **Paleta e pincéis favoritos** ou **Cores e pincéis recentes**. A paleta acompanha a seleção do Color Studio. Os pincéis recentes são registrados ao selecionar presets ou pincéis procedurais, inclusive pelo catálogo, e preservados entre sessões. O mesmo menu permite ocultar e mostrar a segunda barra; modo e visibilidade ficam salvos. O modo de foco também oculta as duas barras.
 

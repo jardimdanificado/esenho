@@ -310,6 +310,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var focusMode by remember { mutableStateOf(false) }
     var quickSlidersOpen by remember { mutableStateOf(false) }
     var activePanel by remember { mutableStateOf<WorkspacePanel?>(null) }
+    var brushPresetRequest by remember { mutableIntStateOf(0) }
     var showWorkspaceActions by remember { mutableStateOf(false) }
     var documentTab by remember { mutableIntStateOf(0) }
     var showAssistMenu by remember { mutableStateOf(false) }
@@ -521,6 +522,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     engine = engine,
                     favoriteBrushIds = favoriteBrushIds,
                     embedded = true,
+                    presetRequest = brushPresetRequest,
                     onToggleFavorite = { id ->
                         val updated =
                             favoriteBrushIds.toMutableSet().apply { if (!add(id)) remove(id) }
@@ -1185,6 +1187,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             )
                         },
                         onBrush = {
+                            brushPresetRequest = 0
                             activePanel =
                                 if (activePanel == WorkspacePanel.BRUSHES) null
                                 else WorkspacePanel.BRUSHES
@@ -1219,7 +1222,10 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             recent = quickShelfRecent,
                             revision = engineRevision,
                             onChanged = { refreshState() },
-                            onOpenBrushes = { activePanel = WorkspacePanel.BRUSHES },
+                            onOpenBrushes = {
+                                brushPresetRequest++
+                                activePanel = WorkspacePanel.BRUSHES
+                            },
                             onOpenColors = { activePanel = WorkspacePanel.COLOR },
                         )
                 }

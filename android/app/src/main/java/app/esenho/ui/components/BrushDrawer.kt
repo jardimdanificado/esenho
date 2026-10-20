@@ -157,6 +157,7 @@ fun BrushDrawer(
     onBrushUpdated: () -> Unit,
     onDismiss: () -> Unit,
     embedded: Boolean = false,
+    presetRequest: Int = 0,
 ) {
     var activeTab by remember {
         mutableStateOf(
@@ -170,6 +171,16 @@ fun BrushDrawer(
     var showTuner by remember { mutableStateOf(false) }
     var catalogVersion by remember { mutableIntStateOf(0) }
     var categoryMenuExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(presetRequest) {
+        if (presetRequest > 0) {
+            activeTab = BrushDrawerTab.PRESETS
+            showTuner = false
+            favoritesOnly = false
+            searchQuery = ""
+            selectedCategory = "Todos"
+        }
+    }
 
     // When tab changes, reset category filter
     LaunchedEffect(activeTab) { selectedCategory = "Todos" }
