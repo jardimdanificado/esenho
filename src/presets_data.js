@@ -864,7 +864,7 @@ const CURATED_BRUSH_PRESETS = {
     $schema: 'esenho/brush/v1',
     id: 'pastel',
     name: 'Chalk Pastel',
-    desc: 'Dry powdery chalk pastel settling into textured pastel board honeycomb grain',
+    desc: 'Dry powdery chalk pastel settling into irregular fine paper tooth',
     category: 'charcoal',
     builtin: true,
     shape: 'charcoal',
@@ -873,7 +873,7 @@ const CURATED_BRUSH_PRESETS = {
     hardness: 55,
     flow: 68,
     spacing: 6,
-    tex_mode: 29, // Pastel Board Honeycomb
+    tex_mode: 29, // Irregular pastel paper tooth
     texture: 'pastel_board',
     texture_contrast: 52,
     tex_scale_with_size: 0,

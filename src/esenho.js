@@ -1497,6 +1497,35 @@ const DOC_HEIGHT = 720;
  */
 function createProceduralTextures() {
   const map = new Map();
+  let randomState = 0x6e624eb7;
+  const random = () => {
+    randomState ^= randomState << 13;
+    randomState ^= randomState >>> 17;
+    randomState ^= randomState << 5;
+    return (randomState >>> 0) / 4294967296;
+  };
+  // Avalanche both coordinates before reading bits: linear hashes create grids.
+  const grainHash = (x, y, seed) => {
+    let n = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + seed) | 0;
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  // Seamless value noise, with local irregularities instead of repeating symbols.
+  const grainNoise = (x, y, sx, sy, seed) => {
+    const gx = x / sx, gy = y / sy;
+    const ix = Math.floor(gx), iy = Math.floor(gy);
+    let u = gx - ix, v = gy - iy;
+    u = u * u * (3 - 2 * u); v = v * v * (3 - 2 * v);
+    const at = (a, b) => grainHash(a & (256 / sx - 1), b & (256 / sy - 1), seed);
+    const a = at(ix, iy) * (1 - u) + at(ix + 1, iy) * u;
+    const b = at(ix, iy + 1) * (1 - u) + at(ix + 1, iy + 1) * u;
+    return a * (1 - v) + b * v;
+  };
+  const materialGrain = (x, y, seed, base, depth, sx = 2, sy = 2) => {
+    const tooth = grainNoise(x, y, sx, sy, seed);
+    const fine = grainHash(x, y, seed + 71);
+    return Math.max(0, Math.min(255, Math.round(base + depth * (tooth - 0.5) + 65 * (fine - 0.5))));
+  };
 
   // Builtin Shapes (64x64 Alpha Masks)
   // 1. Circle
@@ -1832,34 +1861,29 @@ function createProceduralTextures() {
   }
 
   // Procedural Textures
-  // 1. Paper (256x256)
+  // Irregular paper material grain (256x256).
   {
     const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const n1 = Math.sin(x * 0.15) * Math.cos(y * 0.15) * 15;
-        const n2 = Math.sin(x * 0.6 + y * 0.4) * 10;
-        const noise = (Math.random() - 0.5) * 45;
-        const v = Math.max(0, Math.min(255, Math.floor(210 + n1 + n2 + noise)));
+        const v = materialGrain(x, y, 201, 185, 110, 2, 2);
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+        buf[idx] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 255;
       }
     }
     map.set('paper', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 2. Canvas (128x128)
+  // Irregular canvas material grain (256x256).
   {
-    const w = 128, h = 128;
+    const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const wx = Math.sin(x * Math.PI / 4) * 40;
-        const wy = Math.sin(y * Math.PI / 4) * 40;
-        const v = Math.max(0, Math.min(255, Math.floor(180 + wx + wy + (Math.random() - 0.5) * 30)));
+        const v = materialGrain(x, y, 202, 190, 85, 2, 4);
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+        buf[idx] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 255;
       }
     }
     map.set('canvas', { width: w, height: h, data: buf, category: 'texture' });
@@ -1870,7 +1894,7 @@ function createProceduralTextures() {
     const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let i = 0; i < w * h; i++) {
-      const v = Math.floor(Math.random() * 256);
+      const v = Math.floor(random() * 256);
       buf[i * 4 + 0] = v; buf[i * 4 + 1] = v; buf[i * 4 + 2] = v; buf[i * 4 + 3] = 0xFF;
     }
     map.set('noise', { width: w, height: h, data: buf, category: 'texture' });
@@ -1908,17 +1932,15 @@ function createProceduralTextures() {
     map.set('grid', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 6. Grunge (256x256)
+  // Irregular grunge material grain (256x256).
   {
     const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const g1 = Math.sin(x * 0.05) * Math.sin(y * 0.05) * 80;
-        const g2 = Math.cos(x * 0.2 + y * 0.1) * 40;
-        const v = Math.max(0, Math.min(255, Math.floor(128 + g1 + g2 + (Math.random() - 0.5) * 70)));
+        const v = materialGrain(x, y, 206, 150, 190, 8, 8);
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+        buf[idx] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 255;
       }
     }
     map.set('grunge', { width: w, height: h, data: buf, category: 'texture' });
@@ -1939,31 +1961,29 @@ function createProceduralTextures() {
     map.set('hatch', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 8. Watercolor Paper (256x256)
+  // Irregular watercolor material grain (256x256).
   {
     const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const pit = (((Math.floor(x / 3)) * 11 + (Math.floor(y / 3)) * 13) % 23 < 4) ? 40 : 255;
-        const n = Math.floor(190 + (Math.random() - 0.5) * 50);
-        const v = Math.floor((n * pit) / 255);
+        const v = materialGrain(x, y, 208, 180, 155, 4, 4);
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+        buf[idx] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 255;
       }
     }
     map.set('watercolor', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 9. Charcoal Tooth Paper (256x256)
+  // Irregular charcoal tooth material grain (256x256).
   {
     const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const tooth = Math.random() > 0.45 ? 255 : (Math.random() > 0.2 ? 120 : 30);
+        const v = materialGrain(x, y, 209, 170, 220, 2, 2);
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = tooth; buf[idx + 1] = tooth; buf[idx + 2] = tooth; buf[idx + 3] = 0xFF;
+        buf[idx] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 255;
       }
     }
     map.set('charcoal_tooth', { width: w, height: h, data: buf, category: 'texture' });
@@ -1984,32 +2004,29 @@ function createProceduralTextures() {
     map.set('wood', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 11. Leather Pores (128x128)
+  // Irregular leather material grain (256x256).
   {
-    const w = 128, h = 128;
+    const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const cx = (x % 10) - 5, cy = (y % 10) - 5;
-        const d = cx * cx + cy * cy;
-        const v = d <= 3 ? 40 : 240;
+        const v = materialGrain(x, y, 211, 185, 150, 4, 4);
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+        buf[idx] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 255;
       }
     }
     map.set('leather', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 12. Dense Linen (64x64)
+  // Irregular linen material grain (256x256).
   {
-    const w = 64, h = 64;
+    const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const lx = (x % 4 < 2), ly = (y % 4 < 2);
-        const v = (lx ^ ly) ? 240 : 70;
+        const v = materialGrain(x, y, 212, 190, 90, 2, 4);
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+        buf[idx] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 255;
       }
     }
     map.set('linen', { width: w, height: h, data: buf, category: 'texture' });
@@ -2063,16 +2080,15 @@ function createProceduralTextures() {
     map.set('weave', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 16. Sandpaper Grit (256x256)
+  // Irregular sandpaper material grain (256x256).
   {
     const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const g = ((x * 377 + y * 491) ^ (x * y * 13)) & 0xFF;
-        const tooth = g > 110 ? 255 : (g > 50 ? 110 : 25);
+        const v = materialGrain(x, y, 216, 160, 210, 1, 1);
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = tooth; buf[idx + 1] = tooth; buf[idx + 2] = tooth; buf[idx + 3] = 0xFF;
+        buf[idx] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 255;
       }
     }
     map.set('sandpaper', { width: w, height: h, data: buf, category: 'texture' });
@@ -2109,18 +2125,15 @@ function createProceduralTextures() {
     map.set('crackle', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 19. Washi Fibrous Paper (256x256)
+  // Irregular washi material grain (256x256).
   {
     const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const fiber1 = ((x * 7 + y * 29) % 31 < 3) ? 70 : 255;
-        const fiber2 = ((x * 19 - y * 11 + 500) % 43 < 2) ? 50 : 255;
-        const baseN = 195 + Math.floor(Math.sin(x * 0.1) * Math.cos(y * 0.1) * 25 + (Math.random() - 0.5) * 35);
-        const v = Math.max(0, Math.min(255, Math.floor((baseN * fiber1 * fiber2) / (255 * 255))));
+        const v = materialGrain(x, y, 219, 185, 125, 2, 8);
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+        buf[idx] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 255;
       }
     }
     map.set('washi', { width: w, height: h, data: buf, category: 'texture' });
@@ -2134,7 +2147,7 @@ function createProceduralTextures() {
       for (let x = 0; x < w; x++) {
         const p1 = Math.sin(x * 0.08) * Math.sin(y * 0.08) * 45;
         const p2 = ((x * 133 + y * 277) ^ (x * y * 17)) & 0xFF;
-        const v = Math.max(0, Math.min(255, Math.floor(140 + p1 + (p2 > 130 ? 60 : -60) + (Math.random() - 0.5) * 40)));
+        const v = Math.max(0, Math.min(255, Math.floor(140 + p1 + (p2 > 130 ? 60 : -60) + (random() - 0.5) * 40)));
         const idx = (y * w + x) * 4;
         buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
       }
@@ -2142,17 +2155,15 @@ function createProceduralTextures() {
     map.set('concrete', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 21. Mottled Antique Parchment (256x256)
+  // Irregular parchment material grain (256x256).
   {
     const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const m1 = Math.sin(x * 0.02 + y * 0.015) * 40;
-        const m2 = Math.cos(x * 0.05 - y * 0.04) * 25;
-        const v = Math.max(0, Math.min(255, Math.floor(190 + m1 + m2 + (Math.random() - 0.5) * 30)));
+        const v = materialGrain(x, y, 221, 195, 110, 8, 8);
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+        buf[idx] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 255;
       }
     }
     map.set('parchment', { width: w, height: h, data: buf, category: 'texture' });
@@ -2163,7 +2174,7 @@ function createProceduralTextures() {
     const w = 128, h = 128;
     const buf = Buf.alloc(w * h * 4);
     for (let i = 0; i < w * h; i++) {
-      const r = Math.random();
+      const r = random();
       const v = r > 0.65 ? 245 : (r > 0.3 ? 140 : 35);
       buf[i * 4 + 0] = v; buf[i * 4 + 1] = v; buf[i * 4 + 2] = v; buf[i * 4 + 3] = 0xFF;
     }
@@ -2176,9 +2187,9 @@ function createProceduralTextures() {
     const buf = Buf.alloc(w * h * 4);
     buf.fill(240);
     for (let i = 0; i < 90; i++) {
-      const cx = Math.floor(Math.random() * w);
-      const cy = Math.floor(Math.random() * h);
-      const rad = Math.floor(1 + Math.random() * 4);
+      const cx = Math.floor(random() * w);
+      const cy = Math.floor(random() * h);
+      const rad = Math.floor(1 + random() * 4);
       for (let dy = -rad; dy <= rad; dy++) {
         for (let dx = -rad; dx <= rad; dx++) {
           if (dx * dx + dy * dy <= rad * rad) {
@@ -2199,7 +2210,7 @@ function createProceduralTextures() {
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const clump = ((Math.floor(x / 4) * 31 + Math.floor(y / 4) * 47) ^ (x * 3)) & 0xFF;
-        const v = Math.max(0, Math.min(255, Math.floor(200 + (clump > 140 ? 45 : -70) + (Math.random() - 0.5) * 45)));
+        const v = Math.max(0, Math.min(255, Math.floor(200 + (clump > 140 ? 45 : -70) + (random() - 0.5) * 45)));
         const idx = (y * w + x) * 4;
         buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
       }
@@ -2256,34 +2267,29 @@ function createProceduralTextures() {
     map.set('rust_distress', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 28. Dry Brush Directional Scrape (128x128)
+  // Irregular dry scrape material grain (256x256).
   {
-    const w = 128, h = 128;
+    const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const streak = ((x * 53 + (y >> 2) * 97) ^ (x * 11)) & 0xFF;
-        const v = streak > 100 ? 245 : (streak > 40 ? 110 : 25);
+        const v = materialGrain(x, y, 228, 170, 190, 8, 1);
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+        buf[idx] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 255;
       }
     }
     map.set('dry_scrape', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 29. Honeycomb Pastel Board / Canson Mi-Teintes (64x64)
+  // Irregular pastel board material grain (256x256).
   {
-    const w = 64, h = 64;
+    const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const u = (x * 0.8660254 + y * 0.5) % 12;
-        const v = (-x * 0.8660254 + y * 0.5 + 1200) % 12;
-        const w3 = (y % 12);
-        const hexDist = Math.min(Math.abs(u - 6), Math.abs(v - 6), Math.abs(w3 - 6));
-        const vVal = Math.max(0, Math.min(255, Math.floor(60 + hexDist * 38 + (Math.random() - 0.5) * 20)));
+        const v = materialGrain(x, y, 229, 165, 210, 2, 2);
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+        buf[idx] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 255;
       }
     }
     map.set('pastel_board', { width: w, height: h, data: buf, category: 'texture' });
@@ -2299,7 +2305,7 @@ function createProceduralTextures() {
         const xPerturb = (x + wave + 2560) % 32;
         const fissure = Math.abs(xPerturb - 16) / 16;
         const fiberNoise = ((x * 47 + y * 13) % 17 < 3) ? -35 : 20;
-        const v = Math.max(0, Math.min(255, Math.floor(180 * Math.pow(fissure, 0.6) + fiberNoise + (Math.random() - 0.5) * 30)));
+        const v = Math.max(0, Math.min(255, Math.floor(180 * Math.pow(fissure, 0.6) + fiberNoise + (random() - 0.5) * 30)));
         const idx = (y * w + x) * 4;
         buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
       }
@@ -2352,7 +2358,7 @@ function createProceduralTextures() {
         const c1 = Math.sin(x * 0.12) * Math.cos(y * 0.12) * 50;
         const c2 = Math.sin(x * 0.28 - y * 0.22) * 35;
         const pore = ((Math.floor(x / 6) * 17 + Math.floor(y / 6) * 29) % 19 < 3) ? -80 : 20;
-        const v = Math.max(0, Math.min(255, Math.floor(160 + c1 + c2 + pore + (Math.random() - 0.5) * 40)));
+        const v = Math.max(0, Math.min(255, Math.floor(160 + c1 + c2 + pore + (random() - 0.5) * 40)));
         const idx = (y * w + x) * 4;
         buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
       }
@@ -2368,7 +2374,7 @@ function createProceduralTextures() {
       for (let x = 0; x < w; x++) {
         const sweep = Math.sin((x + y * 0.6) * 0.04) * 60;
         const trowel = Math.abs(Math.sin((x * 0.03 - y * 0.05))) * 50;
-        const v = Math.max(0, Math.min(255, Math.floor(150 + sweep + trowel + (Math.random() - 0.5) * 35)));
+        const v = Math.max(0, Math.min(255, Math.floor(150 + sweep + trowel + (random() - 0.5) * 35)));
         const idx = (y * w + x) * 4;
         buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
       }
@@ -2418,7 +2424,7 @@ function createProceduralTextures() {
     const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const streak = Math.sin(x * 0.15 + (Math.random() - 0.5) * 0.8) * 40;
+        const streak = Math.sin(x * 0.15 + (random() - 0.5) * 0.8) * 40;
         const grain = ((x * 199 + y * 337) ^ (x * y * 5)) & 0xFF;
         const v = Math.max(0, Math.min(255, Math.floor(130 + streak + (grain > 120 ? 80 : -70))));
         const idx = (y * w + x) * 4;
@@ -2501,7 +2507,7 @@ function createProceduralTextures() {
         const threadY = (y % 8 < 4) ? 220 : 50;
         const block = (Math.floor(x / 8) + Math.floor(y / 8)) % 2 === 0;
         const v = block ? threadX : threadY;
-        const slub = (Math.random() - 0.5) * 30;
+        const slub = (random() - 0.5) * 30;
         const fin = Math.max(0, Math.min(255, Math.floor(v + slub)));
         const idx = (y * w + x) * 4;
         buf[idx + 0] = fin; buf[idx + 1] = fin; buf[idx + 2] = fin; buf[idx + 3] = 0xFF;
@@ -2520,7 +2526,7 @@ function createProceduralTextures() {
         const c1 = Math.abs(Math.sin(x * 0.05 + Math.sin(y * 0.05) * 2.0));
         const c2 = Math.abs(Math.cos(y * 0.05 + Math.cos(x * 0.05) * 2.0));
         const crack = Math.min(c1, c2);
-        const v = crack < 0.15 ? 30 : Math.min(255, Math.floor(180 + crack * 70 + (Math.random() - 0.5) * 25));
+        const v = crack < 0.15 ? 30 : Math.min(255, Math.floor(180 + crack * 70 + (random() - 0.5) * 25));
         const idx = (y * w + x) * 4;
         buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
       }

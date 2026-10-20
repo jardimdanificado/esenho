@@ -498,6 +498,24 @@ static inline int w_pos_div(int a, int d) {
     return (r != 0 && a < 0) ? (q - 1) : q;
 }
 
+/* Material grain fallback for clients that do not upload builtin texture assets. */
+static inline float w_material_hash(int x, int y, uint32_t seed) {
+    uint32_t n = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u + seed;
+    n = (n ^ (n >> 13)) * 1274126177u;
+    return (float)(n ^ (n >> 16)) / 4294967295.0f;
+}
+static inline int w_material_grain(int x, int y, int seed, int base, int depth, int sx, int sy) {
+    int ix = w_pos_div(x, sx), iy = w_pos_div(y, sy);
+    float u = (float)w_pos_mod(x, sx) / sx, v = (float)w_pos_mod(y, sy) / sy;
+    u = u*u*(3-2*u); v = v*v*(3-2*v);
+    /* Match the seamless 256px builtin materials, including negative positions. */
+    int mx = 256/sx-1, my = 256/sy-1;
+    float a = w_material_hash(ix & mx, iy & my, seed)*(1-u) + w_material_hash((ix+1) & mx, iy & my, seed)*u;
+    float b = w_material_hash(ix & mx, (iy+1) & my, seed)*(1-u) + w_material_hash((ix+1) & mx, (iy+1) & my, seed)*u;
+    int value = (int)(base + depth*(a*(1-v)+b*v-0.5f) + 65*(w_material_hash(w_pos_mod(x,256),w_pos_mod(y,256),seed+71)-0.5f)+0.5f);
+    return value < 0 ? 0 : (value > 255 ? 255 : value);
+}
+
 /** Texture masking: samples uploaded texture buffer or procedural grain/patterns with angle & scale */
 static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, int tex_scale, int tex_contrast, uint32_t base_a) {
     if (base_a == 0) return 0;
@@ -534,13 +552,10 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
     }
     if (mode <= 0) return base_a;
     uint32_t mod_a = base_a;
-    if (mode == 1) { /* Paper grain */
-        uint32_t n = (((uint32_t)tx * 1234567u + (uint32_t)ty * 7654321u) ^ ((uint32_t)tx * (uint32_t)ty * 13u)) & 0xFF;
-        int fiber = (w_pos_mod(tx * 3 + ty * 5, 17) < 3) ? 50 : 255;
-        mod_a = DIV255(DIV255(base_a * n) * fiber);
-    } else if (mode == 2) { /* Canvas weave */
-        int pat = ((w_pos_mod(tx, 6) < 3) ^ (w_pos_mod(ty, 6) < 3)) ? 255 : 40;
-        mod_a = DIV255(base_a * pat);
+    if (mode == 1) { /* Irregular material tooth */
+        mod_a = DIV255(base_a * w_material_grain(tx, ty, 201, 185, 110, 2, 2));
+    } else if (mode == 2) { /* Irregular material tooth */
+        mod_a = DIV255(base_a * w_material_grain(tx, ty, 202, 190, 85, 2, 4));
     } else if (mode == 3) { /* Noise */
         uint32_t n = (((uint32_t)tx * 374761393u + (uint32_t)ty * 668265263u) ^ 0x5bf03635u) & 0xFF;
         mod_a = DIV255(base_a * n);
@@ -552,41 +567,24 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
     } else if (mode == 5) { /* Grid */
         int pat = (w_pos_mod(tx, 8) == 0 || w_pos_mod(ty, 8) == 0) ? 255 : 30;
         mod_a = DIV255(base_a * pat);
-    } else if (mode == 6) { /* Grunge */
-        int bx = w_pos_div(tx, 4);
-        int by = w_pos_div(ty, 4);
-        uint32_t n = (((uint32_t)bx * 101u + (uint32_t)by * 203u) ^ ((uint32_t)tx * 17u + (uint32_t)ty * 31u)) & 0xFF;
-        int pat = n > 120 ? 255 : (n * 255 / 120);
-        mod_a = DIV255(base_a * pat);
+    } else if (mode == 6) { /* Irregular material tooth */
+        mod_a = DIV255(base_a * w_material_grain(tx, ty, 206, 150, 190, 8, 8));
     } else if (mode == 7) { /* Hatch */
         int m = w_pos_mod(tx + ty, 6);
         int pat = (m == 0 || m == 1) ? 255 : 0;
         mod_a = DIV255(base_a * pat);
-    } else if (mode == 8) { /* Watercolor Cold Press Paper */
-        uint32_t n1 = (((uint32_t)tx * 239847u + (uint32_t)ty * 983471u) ^ ((uint32_t)tx * 7u)) & 0xFF;
-        int bx = w_pos_div(tx, 3);
-        int by = w_pos_div(ty, 3);
-        int pit = (w_pos_mod(bx * 11 + by * 13, 23) < 4) ? 40 : 255;
-        mod_a = DIV255(DIV255(base_a * n1) * pit);
-    } else if (mode == 9) { /* Charcoal Tooth */
-        int bx = w_pos_div(tx, 2);
-        int by = w_pos_div(ty, 2);
-        uint32_t n = (((uint32_t)bx * 589237u + (uint32_t)by * 782391u) ^ ((uint32_t)tx * 31u + (uint32_t)ty * 19u)) & 0xFF;
-        int tooth = (n > 140) ? 255 : (n > 70 ? 120 : 20);
-        mod_a = DIV255(base_a * tooth);
+    } else if (mode == 8) { /* Irregular material tooth */
+        mod_a = DIV255(base_a * w_material_grain(tx, ty, 208, 180, 155, 4, 4));
+    } else if (mode == 9) { /* Irregular material tooth */
+        mod_a = DIV255(base_a * w_material_grain(tx, ty, 209, 170, 220, 2, 2));
     } else if (mode == 10) { /* Wood Grain */
         int wave = tx + w_pos_mod(w_pos_div(ty * ty, 120), 24);
         int ring = (w_pos_mod(wave, 12) < 3) ? 255 : 70;
         mod_a = DIV255(base_a * ring);
-    } else if (mode == 11) { /* Leather / Cellular Pores */
-        int cx = w_pos_mod(tx, 10) - 5, cy = w_pos_mod(ty, 10) - 5;
-        int d = cx * cx + cy * cy;
-        int pore = (d <= 3) ? 40 : 240;
-        mod_a = DIV255(base_a * pore);
-    } else if (mode == 12) { /* Dense Linen */
-        int lx = (w_pos_mod(tx, 4) < 2), ly = (w_pos_mod(ty, 4) < 2);
-        int pat = (lx ^ ly) ? 245 : 65;
-        mod_a = DIV255(base_a * pat);
+    } else if (mode == 11) { /* Irregular material tooth */
+        mod_a = DIV255(base_a * w_material_grain(tx, ty, 211, 185, 150, 4, 4));
+    } else if (mode == 12) { /* Irregular material tooth */
+        mod_a = DIV255(base_a * w_material_grain(tx, ty, 212, 190, 90, 2, 4));
     } else if (mode == 13) { /* Marble Veins */
         int v = (((uint32_t)tx * 7u + (uint32_t)w_pos_mod(ty * 13, 31)) ^ ((uint32_t)tx * (uint32_t)ty)) & 0xFF;
         int pat = (v > 180) ? 250 : (v < 60 ? 30 : 160);
@@ -600,10 +598,8 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
         int by = w_pos_mod(w_pos_div(ty, 8), 2);
         int pat = (bx ^ by) ? ((w_pos_mod(tx, 4) < 2) ? 235 : 60) : ((w_pos_mod(ty, 4) < 2) ? 235 : 60);
         mod_a = DIV255(base_a * pat);
-    } else if (mode == 16) { /* Sandpaper Grit */
-        uint32_t g = (((uint32_t)tx * 377u + (uint32_t)ty * 491u) ^ ((uint32_t)tx * (uint32_t)ty * 13u)) & 0xFF;
-        int tooth = g > 110 ? 255 : (g > 50 ? 110 : 25);
-        mod_a = DIV255(base_a * tooth);
+    } else if (mode == 16) { /* Irregular material tooth */
+        mod_a = DIV255(base_a * w_material_grain(tx, ty, 216, 160, 210, 1, 1));
     } else if (mode == 17) { /* Radial Halftone */
         int dx = w_pos_mod(tx, 16) - 8, dy = w_pos_mod(ty, 16) - 8;
         int d = w_isqrt(dx * dx + dy * dy);
@@ -614,21 +610,14 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
         int c = (((uint32_t)tx * 17u + (uint32_t)ty * 31u) ^ ((uint32_t)tx * (uint32_t)ty * 3u)) & 0xFF;
         int pat = (c < 35 || (w_pos_mod(tx + ty * 2, 37) < 3)) ? 30 : 235;
         mod_a = DIV255(base_a * pat);
-    } else if (mode == 19) { /* Washi Fiber */
-        int f1 = (w_pos_mod(tx * 7 + ty * 29, 31) < 3) ? 70 : 255;
-        int f2 = (w_pos_mod(tx * 19 - ty * 11, 43) < 2) ? 50 : 255;
-        mod_a = DIV255(DIV255(base_a * f1) * f2);
+    } else if (mode == 19) { /* Irregular material tooth */
+        mod_a = DIV255(base_a * w_material_grain(tx, ty, 219, 185, 125, 2, 8));
     } else if (mode == 20) { /* Concrete Stone */
         int p1 = (((uint32_t)tx * 133u + (uint32_t)ty * 277u) ^ ((uint32_t)tx * (uint32_t)ty * 17u)) & 0xFF;
         int pat = (p1 > 130) ? 230 : (p1 < 60 ? 50 : 140);
         mod_a = DIV255(base_a * pat);
-    } else if (mode == 21) { /* Antique Parchment */
-        int m1 = w_pos_mod(tx * 31 + ty * 17, 47);
-        int m2 = w_pos_mod(tx * 13 - ty * 29, 37);
-        int pat = 180 + m1 - m2;
-        if (pat < 0) pat = 0;
-        if (pat > 255) pat = 255;
-        mod_a = DIV255(base_a * pat);
+    } else if (mode == 21) { /* Irregular material tooth */
+        mod_a = DIV255(base_a * w_material_grain(tx, ty, 221, 195, 110, 8, 8));
     } else if (mode == 22) { /* Stipple Noise */
         uint32_t r = (((uint32_t)tx * 499u + (uint32_t)ty * 883u) ^ 0x3d3d3d3du) & 0xFF;
         int pat = r > 165 ? 245 : (r > 75 ? 140 : 35);
@@ -657,20 +646,10 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
         int g = (((uint32_t)tx * 19u + (uint32_t)ty * 43u) ^ ((uint32_t)tx * (uint32_t)ty)) & 0xFF;
         int pat = (g > 160) ? 235 : (g < 60 ? 40 : 130);
         mod_a = DIV255(base_a * pat);
-    } else if (mode == 28) { /* Dry Bristle Scrape */
-        int by = w_pos_div(ty, 4);
-        int streak = (((uint32_t)tx * 53u + (uint32_t)by * 97u) ^ ((uint32_t)tx * 11u)) & 0xFF;
-        int pat = streak > 100 ? 245 : (streak > 40 ? 110 : 25);
-        mod_a = DIV255(base_a * pat);
-    } else if (mode == 29) { /* Pastel Board (Honeycomb) */
-        int u = w_pos_mod((tx * 866 + ty * 500) / 1000, 12);
-        int v = w_pos_mod((-tx * 866 + ty * 500) / 1000, 12);
-        int du = (u > 6) ? (12 - u) : u;
-        int dv = (v > 6) ? (12 - v) : v;
-        int hex = (du < dv) ? du : dv;
-        int pat = 60 + hex * 30;
-        if (pat > 255) pat = 255;
-        mod_a = DIV255(base_a * pat);
+    } else if (mode == 28) { /* Irregular material tooth */
+        mod_a = DIV255(base_a * w_material_grain(tx, ty, 228, 170, 190, 8, 1));
+    } else if (mode == 29) { /* Irregular material tooth */
+        mod_a = DIV255(base_a * w_material_grain(tx, ty, 229, 165, 210, 2, 2));
     } else if (mode == 30) { /* Tree Bark */
         int wave = w_pos_mod(ty * 13, 29);
         int xPerturb = w_pos_mod(tx + wave, 32);
