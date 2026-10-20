@@ -464,6 +464,7 @@ class EsenhoEngine(
         10 to 0, 11 to 0, 12 to 0, 17 to 100, 19 to 30, 20 to 50, 21 to 100,
         27 to 0, 28 to 0, 29 to 0, 30 to 0
     )
+    private val proceduralToolStates = mutableMapOf<String, JSONObject>()
     var selectedBrush: BrushModel? = null
         private set
 
@@ -740,18 +741,26 @@ class EsenhoEngine(
         set(value) {
             field = value.coerceIn(1f, 300f)
             liveBrushSliderParams[1] = field.toInt()
+            selectedPreset?.let { preset ->
+                preset.size = field.toInt()
+                if (isDynamicPreset(preset)) {
+                    val radiusLog = ln((field / 2f).coerceAtLeast(.1f))
+                    preset.dynamicConfig.put("dyn_radius_log", radiusLog)
+                    EsenhoNativeBridge.nativeDynBrushSetBase(3, radiusLog)
+                }
+            }
             EsenhoNativeBridge.nativeBrushSetSize(field)
             EsenhoNativeBridge.nativeBrushSetParam(1, field.toInt())
         }
 
     var brushOpacity: Float = 1.0f
         set(value) {
-            field = value.coerceIn(0.01f, 1.0f)
+            field = value.coerceIn(0f, 1.0f)
             val opInt = (field * 100).toInt()
             liveBrushSliderParams[2] = opInt
             EsenhoNativeBridge.nativeBrushSetParam(2, opInt)
             EsenhoNativeBridge.nativeBrushSetProceduralOpacity(field)
-            selectedPreset?.let { it.opacity = opInt }
+            selectedPreset?.let { it.opacity = opInt; syncDynamicCoverage(it) }
         }
 
     var brushHardness: Int = 75
@@ -765,6 +774,7 @@ class EsenhoEngine(
         set(value) {
             field = value.coerceIn(0, 100)
             liveBrushSliderParams[19] = field
+            selectedPreset?.smoothing = field
             EsenhoNativeBridge.nativeBrushSetParam(19, field)
         }
 
@@ -1314,6 +1324,7 @@ class EsenhoEngine(
     // ── Brush Preset & Procedural Selection & Tuning ──
 
     fun selectPreset(sourcePreset: BrushPresetModel) {
+        rememberProceduralToolState()
         rememberRecentBrush("preset:${sourcePreset.id}")
         val saved = storageManager.loadFavoriteToolState("preset:${sourcePreset.id}")
             ?.takeIf { it.optString("kind") == "preset" }
@@ -1442,6 +1453,18 @@ class EsenhoEngine(
         currentTool = if (preset.eraser == 1) ToolMode.ERASER else ToolMode.BRUSH
     }
 
+    private fun isDynamicPreset(preset: BrushPresetModel): Boolean =
+        preset.engine.equals("dynamic", true) || preset.engine.equals("mypaint", true) ||
+            preset.dynamicConfig.optBoolean("dyn_continuous", false)
+
+    private fun syncDynamicCoverage(preset: BrushPresetModel) {
+        if (!isDynamicPreset(preset)) return
+        val base = preset.dynamicConfig.optDouble("dyn_opaque",
+            preset.dynamicConfig.optDouble("mypaint_opaque", 1.0)).toFloat()
+        EsenhoNativeBridge.nativeDynBrushSetBase(0,
+            base * preset.opacity.coerceIn(0, 100) * preset.flow.coerceIn(0, 100) / 10000f)
+    }
+
     private fun syncDynamicBrush(preset: BrushPresetModel) {
         val settingKeys = DYNAMIC_SETTING_KEYS
         val dynamic = preset.engine.equals("dynamic", true) || preset.engine.equals("mypaint", true) || preset.dynamicConfig.optBoolean("dyn_continuous", false)
@@ -1460,14 +1483,14 @@ class EsenhoEngine(
         )
         EsenhoNativeBridge.nativeDynBrushEnable(dynamic)
         if (!dynamic) return
-        EsenhoNativeBridge.nativeDynBrushSetBase(0, preset.opacity.coerceIn(0, 100) / 100f)
+        EsenhoNativeBridge.nativeDynBrushSetBase(0, preset.opacity.coerceIn(0, 100) * preset.flow.coerceIn(0, 100) / 10000f)
         settingKeys.forEachIndexed { index, name ->
             val value = when {
                 preset.dynamicConfig.has("dyn_$name") -> preset.dynamicConfig.optDouble("dyn_$name", Double.NaN)
                 preset.dynamicConfig.has("mypaint_$name") -> preset.dynamicConfig.optDouble("mypaint_$name", Double.NaN)
                 else -> Double.NaN
             }
-            if (!value.isNaN()) EsenhoNativeBridge.nativeDynBrushSetBase(index, if (index == 0) value.toFloat() * preset.opacity.coerceIn(0, 100) / 100f else value.toFloat())
+            if (!value.isNaN()) EsenhoNativeBridge.nativeDynBrushSetBase(index, if (index == 0) value.toFloat() * preset.opacity.coerceIn(0, 100) * preset.flow.coerceIn(0, 100) / 10000f else value.toFloat())
         }
         val curves = preset.dynamicConfig.optJSONObject("dyn_curves") ?: return
         val settingNames = settingKeys.withIndex().associate { it.value to it.index }
@@ -1535,7 +1558,7 @@ class EsenhoEngine(
             preset.engine = "dynamic"
             syncDynamicBrush(preset)
         } else {
-            EsenhoNativeBridge.nativeDynBrushSetBase(setting, if (setting == 0) value * preset.opacity.coerceIn(0, 100) / 100f else value)
+            EsenhoNativeBridge.nativeDynBrushSetBase(setting, if (setting == 0) value * preset.opacity.coerceIn(0, 100) * preset.flow.coerceIn(0, 100) / 10000f else value)
         }
         if (preset.isCustom) storageManager.saveCustomPresets(presetCatalog.filter { it.isCustom })
     }
@@ -1554,15 +1577,33 @@ class EsenhoEngine(
         val p = selectedPreset
         liveBrushSliderParams[paramId] = value
         if (p == null) {
+            when (paramId) {
+                1 -> brushSize = value.toFloat()
+                2 -> brushOpacity = value / 100f
+                19 -> brushSmooth = value
+                5 -> {
+                    val spacing = value.coerceIn(2, 100)
+                    liveBrushSliderParams[5] = spacing
+                    EsenhoNativeBridge.nativeBrushSetProceduralSpacing(spacing / 100f)
+                }
+            }
             EsenhoNativeBridge.nativeBrushSetParam(paramId, value)
             return
         }
         when (paramId) {
-            1 -> { p.size = value; brushSize = value.toFloat() }
+            1 -> brushSize = value.toFloat()
             2 -> { p.opacity = value; brushOpacity = value / 100f }
             3 -> { p.hardness = value; brushHardness = value }
-            4 -> p.flow = value
-            5 -> p.spacing = value
+            4 -> { p.flow = value.coerceIn(0, 100); syncDynamicCoverage(p) }
+            5 -> {
+                p.spacing = value.coerceIn(1, 100)
+                if (isDynamicPreset(p)) {
+                    // Replace density sources together so spacing has one predictable meaning.
+                    setDynamicBase(5, 0f)
+                    setDynamicBase(6, 50f / p.spacing)
+                    setDynamicBase(7, 0f)
+                }
+            }
             9 -> p.tolerance = value.coerceIn(0, 255)
             6 -> p.angle = value
             7 -> p.roundness = value
@@ -1608,7 +1649,12 @@ class EsenhoEngine(
     }
 
     fun getPresetParam(paramId: Int): Int {
-        val p = selectedPreset ?: return liveBrushSliderParams[paramId] ?: 0
+        val p = selectedPreset ?: return when (paramId) {
+            1 -> brushSize.toInt()
+            2 -> (brushOpacity * 100).roundToInt()
+            19 -> brushSmooth
+            else -> liveBrushSliderParams[paramId] ?: 0
+        }
         return when (paramId) {
             1 -> p.size
             2 -> p.opacity
@@ -1687,50 +1733,53 @@ class EsenhoEngine(
         }
     }
 
+    private fun proceduralToolState(brush: BrushModel): JSONObject {
+        val params = org.json.JSONArray()
+        brush.params.forEach { params.put(it.currentVal) }
+        val liveParams = JSONObject()
+        listOf(1, 2, 4, 5, 19, 20).forEach { liveParams.put(it.toString(), getPresetParam(it)) }
+        return JSONObject().put("kind", "brush")
+            .put("size", brushSize).put("opacity", brushOpacity)
+            .put("liveParams", liveParams).put("params", params)
+    }
+
+    private fun rememberProceduralToolState() {
+        selectedBrush?.let { proceduralToolStates[it.id] = proceduralToolState(it) }
+    }
+
     fun selectBrush(brush: BrushModel?) {
+        rememberProceduralToolState()
         brush?.let { rememberRecentBrush("brush:${it.id}") }
-        val savedBrushState = brush?.let { storageManager.loadFavoriteToolState("brush:${it.id}") }
-            ?.takeIf { it.optString("kind") == "brush" }
-        savedBrushState?.let {
-            brushSize = it.optDouble("size", brushSize.toDouble()).toFloat()
-            brushOpacity = it.optDouble("opacity", brushOpacity.toDouble()).toFloat()
-            it.optJSONObject("liveParams")?.let { params ->
-                val keys = params.keys()
-                while (keys.hasNext()) {
-                    val key = keys.next()
-                    key.toIntOrNull()?.let { paramId -> liveBrushSliderParams[paramId] = params.optInt(key) }
-                }
-            }
+        val saved = brush?.let { proceduralToolStates[it.id]
+            ?: storageManager.loadFavoriteToolState("brush:${it.id}")?.takeIf { state -> state.optString("kind") == "brush" } }
+        val values = saved?.optJSONArray("params")
+        val selected = brush?.let { source ->
+            source.copy(params = source.params.mapIndexed { index, param ->
+                param.copy(currentVal = values?.optInt(index, param.defaultVal) ?: param.defaultVal)
+            })
         }
-        val selectedBrushModel = brush?.let { source ->
-            val saved = savedBrushState
-            if (saved == null) source else {
-                val values = saved.optJSONArray("params")
-                source.copy(params = source.params.mapIndexed { index, param ->
-                    param.copy(currentVal = values?.optInt(index, param.currentVal) ?: param.currentVal)
-                })
-            }
-        }
-        selectedBrush = selectedBrushModel
         selectedPreset = null
+        selectedBrush = selected
         EsenhoNativeBridge.nativeDynBrushEnable(false)
         EsenhoNativeBridge.nativeBrushSetPressureMap(0, 100, 0, 1f)
         EsenhoNativeBridge.nativeBrushReset()
-        if (selectedBrushModel == null) {
+        EsenhoNativeBridge.nativeSelectBrush(selected?.id ?: "classic")
+        // Only host controls are shared with procedural kernels; classic tip/material
+        // settings must never overwrite the kernel's own parameters.
+        brushSize = saved?.optDouble("size", brushSize.toDouble())?.toFloat() ?: brushSize
+        brushOpacity = saved?.optDouble("opacity", brushOpacity.toDouble())?.toFloat() ?: brushOpacity
+        val common = saved?.optJSONObject("liveParams")
+        setPresetParam(4, common?.optInt("4", 100) ?: 100)
+        setPresetParam(19, common?.optInt("19", brushSmooth) ?: brushSmooth)
+        setPresetParam(20, common?.optInt("20", 50) ?: 50)
+        if (selected == null) {
             EsenhoNativeBridge.nativeBrushSetProceduralSpacing(-1f)
-            EsenhoNativeBridge.nativeSelectBrush("classic")
         } else {
-            EsenhoNativeBridge.nativeSelectBrush(selectedBrushModel.id)
-            EsenhoNativeBridge.nativeBrushSetProceduralSpacing(selectedBrushModel.spacing)
-            EsenhoNativeBridge.nativeBrushSetProceduralOpacity(brushOpacity)
-            EsenhoNativeBridge.nativeBrushSetSize(brushSize)
-            // Apply current values of parameters
-            selectedBrushModel.params.forEachIndexed { idx, p ->
-                EsenhoNativeBridge.nativeSetBrushParam(idx, p.currentVal)
+            setPresetParam(5, common?.optInt("5", (selected.spacing * 100).roundToInt())
+                ?: (selected.spacing * 100).roundToInt())
+            selected.params.forEachIndexed { idx, param ->
+                EsenhoNativeBridge.nativeSetBrushParam(idx, param.currentVal)
             }
-        }
-        liveBrushSliderParams.forEach { (paramId, value) ->
-            EsenhoNativeBridge.nativeBrushSetParam(paramId, value)
         }
         currentTool = ToolMode.BRUSH
     }
@@ -1745,16 +1794,7 @@ class EsenhoEngine(
         selectedBrush?.let { brush ->
             val id = "brush:${brush.id}"
             if (id in storageManager.loadFavoriteBrushes()) {
-                val params = org.json.JSONArray()
-                brush.params.forEach { params.put(it.currentVal) }
-                val liveParams = JSONObject()
-                liveBrushSliderParams.forEach { (paramId, value) -> liveParams.put(paramId.toString(), value) }
-                return id to JSONObject()
-                    .put("kind", "brush")
-                    .put("size", brushSize)
-                    .put("opacity", brushOpacity)
-                    .put("liveParams", liveParams)
-                    .put("params", params)
+                return id to proceduralToolState(brush)
             }
         }
         return null
@@ -3027,7 +3067,7 @@ class EsenhoEngine(
             ToolMode.BRUSH, ToolMode.ERASER, ToolMode.SMUDGE, ToolMode.BLEND -> {
                 val p = selectedPreset
                 val smooth = p?.smoothing ?: brushSmooth
-                val midpoint = p?.midpoint ?: 50
+                val midpoint = p?.midpoint ?: getPresetParam(20)
 
                 // Responsive Exponential Moving Average when smooth > 0; direct 1.0 tracking when smooth == 0
                 val s = smooth / 100f

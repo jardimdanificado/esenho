@@ -7,6 +7,7 @@
 #include <math.h>
 #include <time.h>
 #include "quadro.h"
+#include "quadro_brush_coverage.h"
 #include "esenho_plugins_registry.h"
 
 #define TAG "EsenhoNative"
@@ -49,6 +50,9 @@ static int g_pressure_curve = 0;
 static float g_pressure_gamma = 1.0f;
 static float g_procedural_spacing = -1.0f;
 static float g_procedural_opacity = 1.0f;
+static float g_procedural_flow = 1.0f;
+static uint32_t *g_procedural_before = NULL;
+static size_t g_procedural_before_capacity = 0;
 static int g_procedural_symmetry = 0;
 static int g_procedural_last_pressure = 1000;
 static int64_t g_procedural_last_ns = 0;
@@ -60,7 +64,7 @@ JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBru
     g_pressure_gamma = gamma < 0.05f ? 0.05f : (gamma > 8.0f ? 8.0f : gamma);
 }
 JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushSetProceduralSpacing(JNIEnv *env, jobject thiz, jfloat spacing) {
-    g_procedural_spacing = spacing < 0.0f ? -1.0f : fminf(0.25f, fmaxf(0.02f, spacing));
+    g_procedural_spacing = spacing < 0.0f ? -1.0f : fminf(1.0f, fmaxf(0.02f, spacing));
 }
 JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushSetProceduralOpacity(JNIEnv *env, jobject thiz, jfloat opacity) {
     g_procedural_opacity = fminf(1.0f, fmaxf(0.0f, opacity));
@@ -503,14 +507,28 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
         uint32_t *pixels = w_layer_get_pixels(active);
         int cw = get_width();
         int ch = get_height();
+        if (!pixels || cw <= 0 || ch <= 0) return;
 
         float pNorm = (float)stroke_pressure / 1000.0f;
-        if (pNorm <= 0.001f) pNorm = 0.85f;
+        if (pNorm < 0.0f) pNorm = 0.0f;
         if (pNorm > 1.0f) pNorm = 1.0f;
         float radius = g_brush_size * 0.5f;
         if (radius < 1.0f) radius = 1.0f;
-        uint32_t procedural_color = ((uint32_t)color & 0x00FFFFFFu) |
-            ((uint32_t)((((uint32_t)color >> 24) & 255u) * g_procedural_opacity + 0.5f) << 24);
+        uint32_t procedural_color = (uint32_t)color;
+        uint32_t coverage = (uint32_t)(g_procedural_opacity * g_procedural_flow * 255.0f + 0.5f);
+        size_t pixel_count = (size_t)cw * (size_t)ch;
+        // Capture once per submitted stroke segment, not once per dab. Reuse
+        // storage; full-strength painting keeps the direct kernel fast path.
+        // A whole-layer capture also supports effects that extend beyond the tip.
+        if (coverage < 255) {
+            if (pixel_count > g_procedural_before_capacity) {
+                uint32_t *buffer = realloc(g_procedural_before, pixel_count * sizeof(uint32_t));
+                if (!buffer) return;
+                g_procedural_before = buffer;
+                g_procedural_before_capacity = pixel_count;
+            }
+            memcpy(g_procedural_before, pixels, pixel_count * sizeof(uint32_t));
+        }
 
         float spacing = g_procedural_spacing >= 0.0f ? g_procedural_spacing : g_current_brush->default_spacing;
         if (spacing < 0.02f) spacing = 0.05f;
@@ -548,7 +566,8 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
                     float t = (float)s / (float)steps;
                     float ix = g_last_dab_x + dx * t;
                     float iy = g_last_dab_y + dy * t;
-                    float dab_pressure = ((float)g_procedural_last_pressure + (float)stroke_pressure * t) / 1000.0f;
+                    float dab_pressure = ((float)g_procedural_last_pressure +
+                        ((float)stroke_pressure - (float)g_procedural_last_pressure) * t) / 1000.0f;
                     render_procedural_dab(pixels, cw, ch, ix, iy, radius,
                         procedural_accepts("pressure") ? dab_pressure : 1.0f,
                         procedural_accepts("angle") ? angle_deg : 0.0f,
@@ -574,6 +593,11 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
             force_composite();
             w_invalidate_layers();
             g_procedural_last_ns = 0;
+        }
+        if (coverage < 255) {
+            w_brush_apply_coverage(pixels, g_procedural_before, pixel_count, coverage);
+            w_invalidate_layers();
+            if (state == 2) force_composite();
         }
         return;
     }
@@ -801,6 +825,7 @@ JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushSetParam(
     JNIEnv *env, jobject thiz, jint param_id, jint val) {
     w_brush_set_param(param_id, val);
+    if (param_id == 4) g_procedural_flow = fminf(1.0f, fmaxf(0.0f, val / 100.0f));
 }
 
 JNIEXPORT void JNICALL
@@ -819,6 +844,9 @@ JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushReset(
     JNIEnv *env, jobject thiz) {
     w_brush_reset();
+    g_procedural_flow = 1.0f;
+    g_procedural_opacity = 1.0f;
+    g_procedural_spacing = -1.0f;
     g_current_brush = NULL;
 }
 

@@ -274,19 +274,11 @@ fun BrushDrawer(
                     .padding(horizontal = 8.dp)
                     .padding(bottom = 4.dp)
         ) {
-            if (!(showTuner && engine.selectedPreset != null))
-                EditorPanelHeader(
-                    if (showTuner) "Ajustes do pincel" else "Pincéis",
-                    onDismiss,
-                    onBack =
-                        if (showTuner) {
-                            { showTuner = false }
-                        } else null,
-                )
-            if (showTuner && engine.selectedPreset != null) {
-                PresetTuner(
+            if (!showTuner) EditorPanelHeader("Pincéis", onDismiss)
+            if (showTuner) {
+                BrushPropertiesPanel(
                     engine = engine,
-                    preset = engine.selectedPreset!!,
+                    preset = engine.selectedPreset,
                     onBack = { showTuner = false },
                     onClose = onDismiss,
                     onBrushUpdated = {
@@ -294,43 +286,6 @@ fun BrushDrawer(
                         onBrushUpdated()
                     },
                 )
-            } else if (showTuner && engine.selectedBrush != null) {
-                val b = engine.selectedBrush!!
-                Text(b.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    item {
-                        TunerSliderCard(
-                            label = "Estabilização / Suavização",
-                            value = engine.brushSmooth.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = {
-                                engine.brushSmooth = it.toInt()
-                                onBrushUpdated()
-                            },
-                        )
-                    }
-                    items(b.params) { param ->
-                        var paramValue by
-                            remember(param, param.currentVal) {
-                                mutableFloatStateOf(param.currentVal.toFloat())
-                            }
-                        TunerSliderCard(
-                            label = param.name,
-                            value = paramValue,
-                            range = param.min.toFloat()..param.max.toFloat(),
-                            unit = param.unit,
-                            onValueChange = {
-                                paramValue = it
-                                engine.setBrushCustomParam(b.params.indexOf(param), it.toInt())
-                                onBrushUpdated()
-                            },
-                        )
-                    }
-                }
             } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -353,16 +308,11 @@ fun BrushDrawer(
                         },
                         modifier = Modifier.weight(1f).height(32.dp),
                     )
-                    if (
-                        engine.selectedPreset != null ||
-                            engine.selectedBrush?.params?.isNotEmpty() == true
+                    IconButton(
+                        onClick = { showTuner = true },
+                        modifier = Modifier.size(32.dp),
                     ) {
-                        IconButton(
-                            onClick = { showTuner = true },
-                            modifier = Modifier.size(32.dp),
-                        ) {
-                            Icon(Icons.Default.Tune, contentDescription = "Ajustes")
-                        }
+                        Icon(Icons.Default.Tune, contentDescription = "Propriedades do pincel")
                     }
                 }
 
@@ -722,6 +672,8 @@ fun BrushItemCard(
 }
 
 enum class PresetTunerTab(val title: String) {
+    COMMON("Geral"),
+    SPECIFIC("Pincel"),
     TIP("Ponta"),
     DYNAMICS("Dinâmica"),
     TEXTURE("Textura"),
@@ -829,15 +781,21 @@ private fun CompactOptionDropdown(
 }
 
 @Composable
-fun PresetTuner(
+fun BrushPropertiesPanel(
     engine: EsenhoEngine,
-    preset: BrushPresetModel,
+    preset: BrushPresetModel?,
     onBrushUpdated: () -> Unit,
     onBack: () -> Unit,
     onClose: () -> Unit,
 ) {
-    var tunerTab by remember { mutableStateOf(PresetTunerTab.TIP) }
-    var tunerVersion by remember { mutableIntStateOf(0) }
+    val brush = engine.selectedBrush
+    val brushKey = preset?.let { "preset:${it.id}" } ?: brush?.let { "brush:${it.id}" } ?: "classic"
+    var tunerTab by remember(brushKey) { mutableStateOf(PresetTunerTab.COMMON) }
+    val tabs = if (brush != null) listOf(PresetTunerTab.COMMON, PresetTunerTab.SPECIFIC)
+        else if (preset != null) PresetTunerTab.values().filter { it != PresetTunerTab.SPECIFIC }
+        else listOf(PresetTunerTab.COMMON)
+    var tunerVersion by remember(brushKey) { mutableIntStateOf(0) }
+    val specificValues = remember(brushKey, tunerVersion) { brush?.params?.map { it.currentVal }.orEmpty() }
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var presetNameInput by remember { mutableStateOf("") }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -845,6 +803,7 @@ fun PresetTuner(
 
     val updateParam: (Int, Int) -> Unit = { id, value ->
         engine.setPresetParam(id, value)
+        tunerVersion++
         onBrushUpdated()
     }
 
@@ -854,14 +813,14 @@ fun PresetTuner(
                 Icon(Icons.Default.ArrowBack, "Voltar aos pincéis", Modifier.size(16.dp))
             }
             Text(
-                preset.name,
+                engine.activeBrushDisplayName,
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             // Delete button for custom presets
-            if (preset.isCustom) {
+            if (preset?.isCustom == true) {
                 IconButton(
                     onClick = { showDeleteConfirmDialog = true },
                     modifier = Modifier.size(28.dp),
@@ -875,34 +834,36 @@ fun PresetTuner(
                 }
             }
 
-            TextButton(
-                onClick = {
-                    engine.resetPresetToDefaults()
-                    tunerVersion++
-                    onBrushUpdated()
-                },
-                contentPadding = PaddingValues(horizontal = 4.dp),
-                modifier = Modifier.height(30.dp).defaultMinSize(minWidth = 1.dp),
-            ) {
-                Text("Padrão", fontSize = 11.sp)
-            }
-            TextButton(
-                onClick = {
-                    presetNameInput = "${preset.name} (Cópia)"
-                    saveErrorMessage = null
-                    showSavePresetDialog = true
-                },
-                contentPadding = PaddingValues(horizontal = 4.dp),
-                modifier = Modifier.height(30.dp).defaultMinSize(minWidth = 1.dp),
-            ) {
-                Text("Salvar", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            if (preset != null) {
+                TextButton(
+                    onClick = {
+                        engine.resetPresetToDefaults()
+                        tunerVersion++
+                        onBrushUpdated()
+                    },
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                    modifier = Modifier.height(30.dp).defaultMinSize(minWidth = 1.dp),
+                ) {
+                    Text("Padrão", fontSize = 11.sp)
+                }
+                TextButton(
+                    onClick = {
+                        presetNameInput = "${preset.name} (Cópia)"
+                        saveErrorMessage = null
+                        showSavePresetDialog = true
+                    },
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                    modifier = Modifier.height(30.dp).defaultMinSize(minWidth = 1.dp),
+                ) {
+                    Text("Salvar", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
             IconButton(onClose, Modifier.size(28.dp)) {
                 Icon(Icons.Default.Close, "Fechar ajustes", Modifier.size(16.dp))
             }
         }
 
-        if (showSavePresetDialog) {
+        if (preset != null && showSavePresetDialog) {
             AlertDialog(
                 onDismissRequest = { showSavePresetDialog = false },
                 title = { Text("Salvar Preset", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
@@ -964,7 +925,7 @@ fun PresetTuner(
             )
         }
 
-        if (showDeleteConfirmDialog) {
+        if (preset != null && showDeleteConfirmDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmDialog = false },
                 title = { Text("Excluir Preset?", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
@@ -1001,12 +962,12 @@ fun PresetTuner(
 
         // Tuner Tab Row
         ScrollableTabRow(
-            selectedTabIndex = tunerTab.ordinal,
+            selectedTabIndex = tabs.indexOf(tunerTab).coerceAtLeast(0),
             edgePadding = 0.dp,
             containerColor = MaterialTheme.colorScheme.surface,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            PresetTunerTab.values().forEach { tab ->
+            tabs.forEach { tab ->
                 Tab(
                     selected = tunerTab == tab,
                     onClick = { tunerTab = tab },
@@ -1027,462 +988,466 @@ fun PresetTuner(
             modifier = Modifier.fillMaxWidth().height(420.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            when (tunerTab) {
-                PresetTunerTab.TIP -> {
-                    item {
-                        TunerSliderCard(
-                            label = "Tamanho (Diâmetro)",
-                            value = preset.size.toFloat(),
-                            range = 1f..300f,
-                            unit = "px",
-                            onValueChange = { updateParam(1, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Opacidade",
-                            value = preset.opacity.toFloat(),
-                            range = 1f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(2, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Dureza da Borda",
-                            value = preset.hardness.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(3, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Fluxo de Tinta",
-                            value = preset.flow.toFloat(),
-                            range = 1f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(4, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Espaçamento entre Dabs",
-                            value = preset.spacing.toFloat(),
-                            range = 1f..50f,
-                            unit = "%",
-                            onValueChange = { updateParam(5, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Arredondamento / Aspecto",
-                            value = preset.roundness.toFloat(),
-                            range = 1f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(7, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Ângulo de Rotação",
-                            value = preset.angle.toFloat(),
-                            range = 0f..360f,
-                            unit = "°",
-                            onValueChange = { updateParam(6, it.toInt()) },
-                        )
-                    }
-                    item {
-                        val currentShape =
-                            preset.shape.ifBlank {
-                                when (preset.shapeId) {
-                                    1 -> "square"
-                                    2 -> "chisel"
-                                    else -> "circle"
+            if (tunerTab == PresetTunerTab.COMMON) {
+                item { CommonBrushControls(engine, onBrushUpdated) }
+            } else if (brush != null) {
+                if (brush.params.isEmpty()) {
+                    item { Text("Este pincel não possui ajustes específicos.", style = MaterialTheme.typography.bodySmall) }
+                }
+                items(brush.params.size, key = { "$brushKey:$it" }) { index ->
+                    val param = brush.params[index]
+                    TunerSliderCard(
+                        label = param.name,
+                        value = specificValues[index].toFloat(),
+                        range = param.min.toFloat()..param.max.toFloat(),
+                        unit = param.unit,
+                        onValueChange = {
+                            engine.setBrushCustomParam(index, it.toInt())
+                            tunerVersion++
+                            onBrushUpdated()
+                        },
+                    )
+                }
+            } else if (preset != null) {
+                when (tunerTab) {
+                    PresetTunerTab.COMMON, PresetTunerTab.SPECIFIC -> Unit
+                    PresetTunerTab.TIP -> {
+                        item {
+                            TunerSliderCard(
+                                label = "Dureza da Borda",
+                                value = preset.hardness.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(3, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Arredondamento / Aspecto",
+                                value = preset.roundness.toFloat(),
+                                range = 1f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(7, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Ângulo de Rotação",
+                                value = preset.angle.toFloat(),
+                                range = 0f..360f,
+                                unit = "°",
+                                onValueChange = { updateParam(6, it.toInt()) },
+                            )
+                        }
+                        item {
+                            val currentShape =
+                                preset.shape.ifBlank {
+                                    when (preset.shapeId) {
+                                        1 -> "square"
+                                        2 -> "chisel"
+                                        else -> "circle"
+                                    }
                                 }
-                            }
-                        CompactOptionDropdown(
-                            title = "Formato da ponta",
-                            selectedKey = currentShape,
-                            options = BUILTIN_SHAPES,
-                            onSelected = { key ->
-                                engine.setPresetShape(key)
-                                tunerVersion++
-                                onBrushUpdated()
-                            },
-                        )
-                    }
-                    item {
-                        TunerSwitchCard(
-                            label = "Anti-Aliasing Subpixel (Precisão de Ponta)",
-                            checked = preset.subpixel == 1,
-                            onCheckedChange = { updateParam(32, if (it) 1 else 0) },
-                        )
-                    }
-                    item {
-                        CompactOptionDropdown(
-                            title = "Mesclagem dos dabs",
-                            selectedKey = preset.dabBlend.toString(),
-                            options =
-                                DAB_BLEND_NAMES.mapIndexed { index, name ->
-                                    index.toString() to name
-                                },
-                            onSelected = { key -> updateParam(31, key.toInt()) },
-                        )
-                    }
-                }
-
-                PresetTunerTab.DYNAMICS -> {
-                    item { DynamicPressureControls(preset, engine, onBrushUpdated) }
-                    item {
-                        TunerSliderCard(
-                            label = "Suavização / Estabilizador",
-                            value = preset.smoothing.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(19, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Bézier Midpoint (Curvatura / Tensão)",
-                            value = preset.midpoint.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(20, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSwitchCard(
-                            label = "Auto-Rotação na Trajetória",
-                            checked = preset.autoRotate == 1,
-                            onCheckedChange = { updateParam(22, if (it) 1 else 0) },
-                        )
-                    }
-                    item {
-                        TunerSwitchCard(
-                            label = "Pressão Controla Tamanho",
-                            checked = preset.pressureSize == 1,
-                            onCheckedChange = { updateParam(39, if (it) 1 else 0) },
-                        )
-                    }
-                    item {
-                        TunerSwitchCard(
-                            label = "Pressão Controla Fluxo / Opacidade",
-                            checked = preset.pressureFlow == 1,
-                            onCheckedChange = { updateParam(40, if (it) 1 else 0) },
-                        )
-                    }
-                    item {
-                        TunerSwitchCard(
-                            label = "Inclinação (Tilt) Controla Ângulo",
-                            checked = preset.tiltAngle == 1,
-                            onCheckedChange = { updateParam(41, if (it) 1 else 0) },
-                        )
-                    }
-                    item {
-                        TunerSwitchCard(
-                            label = "Acúmulo Contínuo (Buildup)",
-                            checked = preset.buildup == 1,
-                            onCheckedChange = { updateParam(42, if (it) 1 else 0) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Sensibilidade à Velocidade",
-                            value = preset.velocity.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(23, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Afilamento Entrada (Taper In)",
-                            value = preset.taperIn.toFloat(),
-                            range = 0f..200f,
-                            unit = "px",
-                            onValueChange = { updateParam(24, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Afilamento Saída (Taper Out)",
-                            value = preset.taperOut.toFloat(),
-                            range = 0f..200f,
-                            unit = "px",
-                            onValueChange = { updateParam(25, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Desvanecimento (Fade)",
-                            value = preset.fade.toFloat(),
-                            range = 0f..2000f,
-                            unit = "px",
-                            onValueChange = { updateParam(26, it.toInt()) },
-                        )
-                    }
-                    if (
-                        preset.engine.equals("dynamic", true) ||
-                            preset.engine.equals("mypaint", true) ||
-                            preset.dynamicConfig.optBoolean("dyn_continuous", false)
-                    ) {
-                        item { DynamicCurveEditor(preset, engine, onBrushUpdated) }
-                    }
-                }
-
-                PresetTunerTab.TEXTURE -> {
-                    item {
-                        val selectedTexture =
-                            if (preset.texMode == 0) "none" else preset.texture.ifBlank { "none" }
-                        CompactOptionDropdown(
-                            title = "Textura",
-                            selectedKey = selectedTexture,
-                            options = BUILTIN_TEXTURES,
-                            onSelected = { key ->
-                                engine.setPresetTexture(key)
-                                tunerVersion++
-                                onBrushUpdated()
-                            },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Intensidade do Grão",
-                            value = preset.grain.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(12, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Escala da Textura",
-                            value = preset.textureScale.toFloat(),
-                            range = 10f..300f,
-                            unit = "%",
-                            onValueChange = { updateParam(17, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Contraste da Textura",
-                            value = preset.textureContrast.toFloat(),
-                            range = 0f..200f,
-                            unit = "%",
-                            onValueChange = { updateParam(21, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Ângulo da Textura",
-                            value = preset.texAngle.toFloat(),
-                            range = 0f..360f,
-                            unit = "°",
-                            onValueChange = { updateParam(16, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSwitchCard(
-                            label = "Escalar Textura Proporcional ao Tamanho",
-                            checked = preset.texScaleWithSize == 1,
-                            onCheckedChange = { updateParam(57, if (it) 1 else 0) },
-                        )
-                    }
-                }
-
-                PresetTunerTab.PHYSICS -> {
-                    item {
-                        Text(
-                            "Água acumulada no papel pode ser seca ou difundida no cel atual.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    engine.dryPaintWater()
+                            CompactOptionDropdown(
+                                title = "Formato da ponta",
+                                selectedKey = currentShape,
+                                options = BUILTIN_SHAPES,
+                                onSelected = { key ->
+                                    engine.setPresetShape(key)
+                                    tunerVersion++
                                     onBrushUpdated()
                                 },
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                Icon(
-                                    Icons.Default.WbSunny,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Spacer(Modifier.width(5.dp))
-                                Text("Secar água", fontSize = 12.sp)
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    engine.diffusePaintWater()
-                                    onBrushUpdated()
-                                },
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                Icon(
-                                    Icons.Default.WaterDrop,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Spacer(Modifier.width(5.dp))
-                                Text("Difundir", fontSize = 12.sp)
-                            }
+                            )
+                        }
+                        item {
+                            TunerSwitchCard(
+                                label = "Anti-Aliasing Subpixel (Precisão de Ponta)",
+                                checked = preset.subpixel == 1,
+                                onCheckedChange = { updateParam(32, if (it) 1 else 0) },
+                            )
+                        }
+                        item {
+                            CompactOptionDropdown(
+                                title = "Mesclagem dos dabs",
+                                selectedKey = preset.dabBlend.toString(),
+                                options =
+                                    DAB_BLEND_NAMES.mapIndexed { index, name ->
+                                        index.toString() to name
+                                    },
+                                onSelected = { key -> updateParam(31, key.toInt()) },
+                            )
                         }
                     }
-                    item {
-                        TunerSliderCard(
-                            label = "Carga de Água (Water Load)",
-                            value = preset.water.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(50, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Sangria & Difusão (Bleed)",
-                            value = preset.bleed.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(51, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Granulação de Pigmento",
-                            value = preset.granulation.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(52, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Coffee Ring / Borda Escura (Fringe)",
-                            value = preset.fringe.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(53, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Umidade / Wetness",
-                            value = preset.wetness.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(11, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Força de Esfregaço / Smudge",
-                            value = preset.smudge.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(10, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Desgaste de Tinta (Depletion)",
-                            value = preset.depletion.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(33, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Coleta de Cor (Color Pickup)",
-                            value = preset.colorPickup.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(34, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Relevo 3D / Espessura a Óleo (Impasto)",
-                            value = preset.impasto.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(55, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSwitchCard(
-                            label = "Mistura de Pigmento Subtrativo Físico",
-                            checked = preset.pigmentMode == 1,
-                            onCheckedChange = { updateParam(54, if (it) 1 else 0) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Taxa de Evaporação / Secagem",
-                            value = preset.dryingRate.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(56, it.toInt()) },
-                        )
-                    }
-                }
 
-                PresetTunerTab.JITTER -> {
-                    item {
-                        TunerSliderCard(
-                            label = "Dispersão de Dabs (Scatter)",
-                            value = preset.scatter.toFloat(),
-                            range = 0f..100f,
-                            unit = "",
-                            onValueChange = { updateParam(8, it.toInt()) },
-                        )
+                    PresetTunerTab.DYNAMICS -> {
+                        item { DynamicPressureControls(preset, engine, onBrushUpdated) }
+                        item {
+                            TunerSwitchCard(
+                                label = "Auto-Rotação na Trajetória",
+                                checked = preset.autoRotate == 1,
+                                onCheckedChange = { updateParam(22, if (it) 1 else 0) },
+                            )
+                        }
+                        item {
+                            TunerSwitchCard(
+                                label = "Pressão Controla Tamanho",
+                                checked = preset.pressureSize == 1,
+                                onCheckedChange = { updateParam(39, if (it) 1 else 0) },
+                            )
+                        }
+                        item {
+                            TunerSwitchCard(
+                                label = "Pressão Controla Fluxo / Opacidade",
+                                checked = preset.pressureFlow == 1,
+                                onCheckedChange = { updateParam(40, if (it) 1 else 0) },
+                            )
+                        }
+                        item {
+                            TunerSwitchCard(
+                                label = "Inclinação (Tilt) Controla Ângulo",
+                                checked = preset.tiltAngle == 1,
+                                onCheckedChange = { updateParam(41, if (it) 1 else 0) },
+                            )
+                        }
+                        item {
+                            TunerSwitchCard(
+                                label = "Acúmulo Contínuo (Buildup)",
+                                checked = preset.buildup == 1,
+                                onCheckedChange = { updateParam(42, if (it) 1 else 0) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Sensibilidade à Velocidade",
+                                value = preset.velocity.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(23, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Afilamento Entrada (Taper In)",
+                                value = preset.taperIn.toFloat(),
+                                range = 0f..200f,
+                                unit = "px",
+                                onValueChange = { updateParam(24, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Afilamento Saída (Taper Out)",
+                                value = preset.taperOut.toFloat(),
+                                range = 0f..200f,
+                                unit = "px",
+                                onValueChange = { updateParam(25, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Desvanecimento (Fade)",
+                                value = preset.fade.toFloat(),
+                                range = 0f..2000f,
+                                unit = "px",
+                                onValueChange = { updateParam(26, it.toInt()) },
+                            )
+                        }
+                        if (
+                            preset.engine.equals("dynamic", true) ||
+                                preset.engine.equals("mypaint", true) ||
+                                preset.dynamicConfig.optBoolean("dyn_continuous", false)
+                        ) {
+                            item { DynamicCurveEditor(preset, engine, onBrushUpdated) }
+                        }
                     }
-                    item {
-                        TunerSliderCard(
-                            label = "Variação de Tamanho (Size Jitter)",
-                            value = preset.sizeJitter.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(27, it.toInt()) },
-                        )
+
+                    PresetTunerTab.TEXTURE -> {
+                        item {
+                            val selectedTexture =
+                                if (preset.texMode == 0) "none" else preset.texture.ifBlank { "none" }
+                            CompactOptionDropdown(
+                                title = "Textura",
+                                selectedKey = selectedTexture,
+                                options = BUILTIN_TEXTURES,
+                                onSelected = { key ->
+                                    engine.setPresetTexture(key)
+                                    tunerVersion++
+                                    onBrushUpdated()
+                                },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Intensidade do Grão",
+                                value = preset.grain.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(12, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Escala da Textura",
+                                value = preset.textureScale.toFloat(),
+                                range = 10f..300f,
+                                unit = "%",
+                                onValueChange = { updateParam(17, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Contraste da Textura",
+                                value = preset.textureContrast.toFloat(),
+                                range = 0f..200f,
+                                unit = "%",
+                                onValueChange = { updateParam(21, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Ângulo da Textura",
+                                value = preset.texAngle.toFloat(),
+                                range = 0f..360f,
+                                unit = "°",
+                                onValueChange = { updateParam(16, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSwitchCard(
+                                label = "Escalar Textura Proporcional ao Tamanho",
+                                checked = preset.texScaleWithSize == 1,
+                                onCheckedChange = { updateParam(57, if (it) 1 else 0) },
+                            )
+                        }
                     }
-                    item {
-                        TunerSliderCard(
-                            label = "Variação de Ângulo (Angle Jitter)",
-                            value = preset.angleJitter.toFloat(),
-                            range = 0f..360f,
-                            unit = "°",
-                            onValueChange = { updateParam(28, it.toInt()) },
-                        )
+
+                    PresetTunerTab.PHYSICS -> {
+                        item {
+                            Text(
+                                "Água acumulada no papel pode ser seca ou difundida no cel atual.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        engine.dryPaintWater()
+                                        onBrushUpdated()
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Icon(
+                                        Icons.Default.WbSunny,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(Modifier.width(5.dp))
+                                    Text("Secar água", fontSize = 12.sp)
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        engine.diffusePaintWater()
+                                        onBrushUpdated()
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Icon(
+                                        Icons.Default.WaterDrop,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(Modifier.width(5.dp))
+                                    Text("Difundir", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Carga de Água (Water Load)",
+                                value = preset.water.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(50, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Sangria & Difusão (Bleed)",
+                                value = preset.bleed.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(51, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Granulação de Pigmento",
+                                value = preset.granulation.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(52, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Coffee Ring / Borda Escura (Fringe)",
+                                value = preset.fringe.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(53, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Umidade / Wetness",
+                                value = preset.wetness.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(11, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Força de Esfregaço / Smudge",
+                                value = preset.smudge.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(10, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Desgaste de Tinta (Depletion)",
+                                value = preset.depletion.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(33, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Coleta de Cor (Color Pickup)",
+                                value = preset.colorPickup.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(34, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Relevo 3D / Espessura a Óleo (Impasto)",
+                                value = preset.impasto.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(55, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSwitchCard(
+                                label = "Mistura de Pigmento Subtrativo Físico",
+                                checked = preset.pigmentMode == 1,
+                                onCheckedChange = { updateParam(54, if (it) 1 else 0) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Taxa de Evaporação / Secagem",
+                                value = preset.dryingRate.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(56, it.toInt()) },
+                            )
+                        }
                     }
-                    item {
-                        TunerSliderCard(
-                            label = "Variação de Opacidade (Opacity Jitter)",
-                            value = preset.opacityJitter.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(29, it.toInt()) },
-                        )
-                    }
-                    item {
-                        TunerSliderCard(
-                            label = "Variação de Cor (Color Jitter)",
-                            value = preset.colorJitter.toFloat(),
-                            range = 0f..100f,
-                            unit = "%",
-                            onValueChange = { updateParam(30, it.toInt()) },
-                        )
+
+                    PresetTunerTab.JITTER -> {
+                        item {
+                            TunerSliderCard(
+                                label = "Dispersão de Dabs (Scatter)",
+                                value = preset.scatter.toFloat(),
+                                range = 0f..100f,
+                                unit = "",
+                                onValueChange = { updateParam(8, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Variação de Tamanho (Size Jitter)",
+                                value = preset.sizeJitter.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(27, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Variação de Ângulo (Angle Jitter)",
+                                value = preset.angleJitter.toFloat(),
+                                range = 0f..360f,
+                                unit = "°",
+                                onValueChange = { updateParam(28, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Variação de Opacidade (Opacity Jitter)",
+                                value = preset.opacityJitter.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(29, it.toInt()) },
+                            )
+                        }
+                        item {
+                            TunerSliderCard(
+                                label = "Variação de Cor (Color Jitter)",
+                                value = preset.colorJitter.toFloat(),
+                                range = 0f..100f,
+                                unit = "%",
+                                onValueChange = { updateParam(30, it.toInt()) },
+                            )
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CommonBrushControls(engine: EsenhoEngine, onBrushUpdated: () -> Unit) {
+    var version by remember(engine.selectedPreset?.id, engine.selectedBrush?.id) { mutableIntStateOf(0) }
+    val controls = listOf(
+        Triple(1, "Tamanho (Diâmetro)", "px"),
+        Triple(2, "Opacidade", "%"),
+        Triple(4, "Fluxo de Tinta", "%"),
+        Triple(19, "Estabilização / Suavização", "%"),
+        Triple(5, "Espaçamento entre Dabs", "%"),
+        Triple(20, "Curvatura do Traço", "%"),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        controls.forEach { (id, label, unit) ->
+            val value = remember(version, engine.getPresetParam(id)) {
+                engine.getPresetParam(id).toFloat()
+            }
+            TunerSliderCard(
+                label = label,
+                value = value,
+                range = when (id) {
+                    1 -> 1f..300f
+                    5 -> (if (engine.selectedBrush != null) 2f else 1f)..100f
+                    else -> 0f..100f
+                },
+                unit = unit,
+                onValueChange = {
+                    engine.setPresetParam(id, it.toInt())
+                    version++
+                    onBrushUpdated()
+                },
+            )
         }
     }
 }
