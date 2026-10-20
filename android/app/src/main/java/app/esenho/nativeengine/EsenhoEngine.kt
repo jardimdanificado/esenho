@@ -443,7 +443,10 @@ class EsenhoEngine(
     val recentBrushIds = mutableListOf<String>().apply {
         try {
             val saved = JSONArray(rasterUiPreferences.getString("recent_brush_ids", "[]") ?: "[]")
-            for (i in 0 until saved.length()) saved.optString(i).takeIf { it.isNotBlank() }?.let { if (it !in this) add(it) }
+            for (i in 0 until saved.length()) {
+                val id = BrushPresetAliases.canonicalToolId(saved.optString(i))
+                if (id.isNotBlank() && id !in this) add(id)
+            }
         } catch (_: Exception) { }
     }
 
@@ -911,6 +914,8 @@ class EsenhoEngine(
             if (presetsArr != null) {
                 for (i in 0 until presetsArr.length()) {
                     val p = presetsArr.getJSONObject(i)
+                    // Keep one catalog entry per brush; storage resolves legacy IDs.
+                    if (BrushPresetAliases.isAlias(p.getString("id"))) continue
                     presetCatalog.add(
                         BrushPresetModel(
                             id = p.getString("id"),

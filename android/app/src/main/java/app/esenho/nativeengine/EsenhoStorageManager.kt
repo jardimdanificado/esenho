@@ -293,7 +293,7 @@ class EsenhoStorageManager(private val context: Context) {
     fun saveSessionState(lastPresetId: String?, activePaletteId: String?, currentColor: Int?): Boolean {
         return try {
             val obj = JSONObject()
-            if (lastPresetId != null) obj.put("lastPresetId", lastPresetId)
+            if (lastPresetId != null) obj.put("lastPresetId", BrushPresetAliases.canonicalPresetId(lastPresetId))
             if (activePaletteId != null) obj.put("activePaletteId", activePaletteId)
             if (currentColor != null) obj.put("currentColor", currentColor)
             atomicWrite(sessionFile, obj.toString())
@@ -308,7 +308,7 @@ class EsenhoStorageManager(private val context: Context) {
         return try {
             val obj = JSONObject(content)
             SessionState(
-                lastPresetId = if (obj.has("lastPresetId")) obj.getString("lastPresetId") else null,
+                lastPresetId = if (obj.has("lastPresetId")) BrushPresetAliases.canonicalPresetId(obj.getString("lastPresetId")) else null,
                 activePaletteId = if (obj.has("activePaletteId")) obj.getString("activePaletteId") else null,
                 currentColor = if (obj.has("currentColor")) obj.getInt("currentColor") else null
             )
@@ -370,7 +370,7 @@ class EsenhoStorageManager(private val context: Context) {
     }
 
     fun saveFavoriteBrushes(ids: Collection<String>): Boolean = try {
-        atomicWrite(favoritesFile, JSONArray(ids.distinct()).toString())
+        atomicWrite(favoritesFile, JSONArray(ids.map(BrushPresetAliases::canonicalToolId).distinct()).toString())
     } catch (e: Exception) {
         Log.e(TAG, "Failed to save favorite brushes", e)
         false
@@ -383,7 +383,7 @@ class EsenhoStorageManager(private val context: Context) {
             buildSet {
                 for (i in 0 until arr.length()) {
                     val id = arr.optString(i)
-                    if (id.startsWith("preset:") || id.startsWith("brush:")) add(id)
+                    if (id.startsWith("preset:") || id.startsWith("brush:")) add(BrushPresetAliases.canonicalToolId(id))
                 }
             }
         } catch (e: Exception) {
@@ -393,7 +393,7 @@ class EsenhoStorageManager(private val context: Context) {
     }
 
     fun saveFavoriteToolState(id: String, state: JSONObject): Boolean = try {
-        val states = loadFavoriteToolStates().apply { put(id, state) }
+        val states = loadFavoriteToolStates().apply { put(BrushPresetAliases.canonicalToolId(id), state) }
         val root = JSONObject()
         states.forEach { (key, value) -> root.put(key, value) }
         atomicWrite(favoriteStatesFile, root.toString())
@@ -402,7 +402,7 @@ class EsenhoStorageManager(private val context: Context) {
         false
     }
 
-    fun loadFavoriteToolState(id: String): JSONObject? = loadFavoriteToolStates()[id]
+    fun loadFavoriteToolState(id: String): JSONObject? = loadFavoriteToolStates()[BrushPresetAliases.canonicalToolId(id)]
 
     private fun loadFavoriteToolStates(): MutableMap<String, JSONObject> {
         val content = safeRead(favoriteStatesFile) ?: return mutableMapOf()
@@ -412,7 +412,14 @@ class EsenhoStorageManager(private val context: Context) {
                 val keys = root.keys()
                 while (keys.hasNext()) {
                     val key = keys.next()
-                    root.optJSONObject(key)?.let { put(key, it) }
+                    val canonicalKey = BrushPresetAliases.canonicalToolId(key)
+                    root.optJSONObject(key)?.let { state ->
+                        if (canonicalKey.startsWith("preset:")) {
+                            state.optJSONObject("preset")?.put("id", canonicalKey.removePrefix("preset:"))
+                        }
+                        // Prefer the canonical saved settings if both IDs were used.
+                        if (key == canonicalKey || !containsKey(canonicalKey)) put(canonicalKey, state)
+                    }
                 }
             }.toMutableMap()
         } catch (e: Exception) {

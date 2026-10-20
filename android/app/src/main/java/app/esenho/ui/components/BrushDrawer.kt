@@ -468,8 +468,7 @@ fun BrushDrawer(
                                     engine.selectBrush(brush)
                                     catalogVersion++
                                     onBrushUpdated()
-                                    if (brush.params.isNotEmpty()) showTuner = true
-                                    else if (!embedded) onDismiss()
+                                    if (!embedded) onDismiss()
                                 },
                             )
                         }
