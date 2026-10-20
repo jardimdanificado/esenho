@@ -5,10 +5,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -28,6 +31,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -974,31 +978,32 @@ fun BrushPropertiesPanel(
             )
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Tuner Tab Row
-        ScrollableTabRow(
-            selectedTabIndex = tabs.indexOf(tunerTab).coerceAtLeast(0),
-            edgePadding = 0.dp,
-            containerColor = MaterialTheme.colorScheme.surface,
-            modifier = Modifier.fillMaxWidth(),
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             tabs.forEach { tab ->
-                Tab(
-                    selected = tunerTab == tab,
-                    onClick = { tunerTab = tab },
-                    text = {
-                        Text(
-                            tab.title,
-                            fontSize = 12.sp,
-                            fontWeight = if (tunerTab == tab) FontWeight.Bold else FontWeight.Normal,
-                        )
-                    },
-                )
+                val selected = tunerTab == tab
+                Surface(
+                    modifier = Modifier.clip(RoundedCornerShape(6.dp))
+                        .selectable(selected = selected, role = Role.Tab) { tunerTab = tab },
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (selected) MaterialTheme.colorScheme.secondaryContainer
+                        else MaterialTheme.colorScheme.surface,
+                    contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                ) {
+                    Box(Modifier.height(30.dp).padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+                        Text(tab.title, fontSize = 11.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         LazyColumn(
             modifier = Modifier.fillMaxWidth().height(420.dp),

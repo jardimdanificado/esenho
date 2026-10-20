@@ -376,7 +376,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var activeBrushName by remember { mutableStateOf(engine.activeBrushDisplayName) }
 
     var engineRevision by remember { mutableIntStateOf(0) }
-    fun refreshState() {
+    fun refreshState(persistFavoriteTool: Boolean = true) {
         engineRevision++
         canUndo = engine.canUndo
         canRedo = engine.canRedo
@@ -394,8 +394,10 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         activeTransformInterpolation =
             engine.transformState?.interpolation ?: engine.transformInterpolation
         activeBrushName = engine.activeBrushDisplayName
-        engine.snapshotSelectedFavoriteTool()?.let { (id, state) ->
-            storageManager.saveFavoriteToolState(id, state)
+        if (persistFavoriteTool) {
+            engine.snapshotSelectedFavoriteTool()?.let { (id, state) ->
+                storageManager.saveFavoriteToolState(id, state)
+            }
         }
         canvasViewRef?.invalidate()
     }
@@ -580,7 +582,9 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         engine = engine,
                         revision = engineRevision,
                         embedded = true,
-                        onFrameChanged = { canvasViewRef?.invalidate() },
+                        onFrameChanged = {
+                            refreshState(persistFavoriteTool = false)
+                        },
                         onClose = { activePanel = null },
                         modifier = Modifier.weight(1f),
                     )
@@ -1222,8 +1226,12 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             revision = engineRevision,
                             onChanged = { refreshState() },
                             onOpenCurrentBrush = {
-                                brushPropertiesRequest++
-                                activePanel = WorkspacePanel.BRUSHES
+                                if (activePanel == WorkspacePanel.BRUSHES) {
+                                    activePanel = null
+                                } else {
+                                    brushPropertiesRequest++
+                                    activePanel = WorkspacePanel.BRUSHES
+                                }
                             },
                         )
                 }

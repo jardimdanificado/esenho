@@ -22,7 +22,7 @@
             android:label="@string/app_name"
             android:icon="@mipmap/ic_launcher"
             android:roundIcon="@mipmap/ic_launcher_round"
-            android:taskAffinity="app.esenho.native"
+            android:taskAffinity="${applicationId}.native"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|uiMode|smallestScreenSize|density"
             android:exported="true"
             android:launchMode="singleTask"

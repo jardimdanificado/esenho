@@ -706,13 +706,15 @@ class EsenhoEngine(
         if (captureActive) captureCurrentFrame()
         currentAnimationTick = tick.coerceIn(0, totalAnimationTicks() - 1)
         animationTracks.values.forEach { track ->
-            var remaining = currentAnimationTick
-            var frameIndex = 0
-            while (frameIndex < track.frames.lastIndex && remaining >= track.frames[frameIndex].duration.coerceAtLeast(1)) {
-                remaining -= track.frames[frameIndex].duration.coerceAtLeast(1)
-                frameIndex++
-            }
+            val frameIndex = AnimationExposure.indexAt(
+                track.frames.map { it.duration }.toIntArray(), currentAnimationTick
+            )
             track.activeCelIndex = frameIndex
+            if (frameIndex < 0) {
+                EsenhoNativeBridge.nativeLayerClear(track.layerId)
+                EsenhoNativeBridge.nativeLayerSetVisible(track.layerId, 0)
+                return@forEach
+            }
             track.frames.getOrNull(frameIndex)?.let { cel ->
                 if (cel.bitmap.width != width || cel.bitmap.height != height) {
                     val normalized = resizeBitmapToCanvas(cel.bitmap, width, height, true)
@@ -2149,7 +2151,7 @@ class EsenhoEngine(
         if (groupId != null) rasterLayerGroups[groupId]?.let { group ->
             if (layerId in layers.map { it.id }) group.layerIds.add(layerId)
         }
-        val celVisible = animationTracks[layerId]?.let { track -> track.frames.getOrNull(track.activeCelIndex)?.visible } ?: true
+        val celVisible = animationTracks[layerId]?.let { track -> track.frames.getOrNull(track.activeCelIndex)?.visible ?: false } ?: true
         val layerVisible = layerBaseVisibility[layerId] ?: true
         EsenhoNativeBridge.nativeLayerSetVisible(
             layerId,
@@ -2195,7 +2197,7 @@ class EsenhoEngine(
 
     private fun applyRasterGroupVisibility(groupId: String) {
         rasterGroupLayerIds(groupId).forEach { layerId ->
-            val celVisible = animationTracks[layerId]?.let { track -> track.frames.getOrNull(track.activeCelIndex)?.visible } ?: true
+            val celVisible = animationTracks[layerId]?.let { track -> track.frames.getOrNull(track.activeCelIndex)?.visible ?: false } ?: true
             val layerVisible = layerBaseVisibility[layerId] ?: true
             EsenhoNativeBridge.nativeLayerSetVisible(
                 layerId,
@@ -2252,7 +2254,7 @@ class EsenhoEngine(
         group.layerIds.clear()
         ungroupedLayers.forEach { layerId ->
             val layerVisible = layerBaseVisibility[layerId] ?: true
-            val celVisible = animationTracks[layerId]?.let { track -> track.frames.getOrNull(track.activeCelIndex)?.visible } ?: true
+            val celVisible = animationTracks[layerId]?.let { track -> track.frames.getOrNull(track.activeCelIndex)?.visible ?: false } ?: true
             EsenhoNativeBridge.nativeLayerSetVisible(layerId, if (layerVisible && celVisible) 1 else 0)
         }
         syncNativeLayerOrderFromRasterGroups()
@@ -2429,7 +2431,7 @@ class EsenhoEngine(
         if ((layerBaseVisibility[idx] ?: (EsenhoNativeBridge.nativeLayerGetVisible(idx) == 1)) == visible) return
         val historyToken = beginRasterLayerEdit(idx)
         layerBaseVisibility[idx] = visible
-        val celVisible = animationTracks[idx]?.frames?.getOrNull(animationTracks[idx]?.activeCelIndex ?: -1)?.visible ?: true
+        val celVisible = animationTracks[idx]?.let { track -> track.frames.getOrNull(track.activeCelIndex)?.visible ?: false } ?: true
         EsenhoNativeBridge.nativeLayerSetVisible(
             idx,
             if (visible && isRasterLayerGroupVisible(idx) && celVisible) 1 else 0
@@ -2602,14 +2604,10 @@ class EsenhoEngine(
         source: AnimationTrack,
         sourceLayerOpacity: Int
     ): MutableList<AnimationCel>? {
-        fun celAt(track: AnimationTrack, tick: Int): AnimationCel {
-            var remaining = tick
-            var index = 0
-            while (index < track.frames.lastIndex && remaining >= track.frames[index].duration.coerceAtLeast(1)) {
-                remaining -= track.frames[index].duration.coerceAtLeast(1)
-                index++
-            }
-            return track.frames[index]
+        fun celAt(track: AnimationTrack, tick: Int): AnimationCel? {
+            return track.frames.getOrNull(AnimationExposure.indexAt(
+                track.frames.map { it.duration }.toIntArray(), tick
+            ))
         }
 
         val totalTicks = maxOf(
@@ -2620,7 +2618,7 @@ class EsenhoEngine(
         val boundaries = sortedSetOf(0, totalTicks)
         listOf(destination, source).forEach { track ->
             var boundary = 0
-            track.frames.dropLast(1).forEach { cel ->
+            track.frames.forEach { cel ->
                 boundary += cel.duration.coerceAtLeast(1)
                 if (boundary in 1 until totalTicks) boundaries.add(boundary)
             }
@@ -2633,15 +2631,17 @@ class EsenhoEngine(
                 val destinationCel = celAt(destination, start)
                 val sourceCel = celAt(source, start)
                 val bitmap = Bitmap.createBitmap(
-                    destinationCel.bitmap.width,
-                    destinationCel.bitmap.height,
+                    width,
+                    height,
                     Bitmap.Config.ARGB_8888
                 )
                 val canvas = android.graphics.Canvas(bitmap)
                 val bitmapPaint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
-                canvas.drawBitmap(destinationCel.bitmap, 0f, 0f, bitmapPaint)
-                val sourceOpacity = (sourceLayerOpacity.coerceIn(0, 255) * sourceCel.opacity.coerceIn(0, 255)) / 255
-                if (sourceOpacity > 0) {
+                if (destinationCel?.visible == true) {
+                    canvas.drawBitmap(destinationCel.bitmap, 0f, 0f, bitmapPaint)
+                }
+                val sourceOpacity = (sourceLayerOpacity.coerceIn(0, 255) * (sourceCel?.opacity ?: 0).coerceIn(0, 255)) / 255
+                if (sourceCel?.visible == true && sourceOpacity > 0) {
                     val sourcePaint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG).apply {
                         alpha = sourceOpacity
                     }
@@ -2651,8 +2651,8 @@ class EsenhoEngine(
                     id = "merge_${System.nanoTime()}_$index",
                     bitmap = bitmap,
                     duration = (end - start).coerceAtLeast(1),
-                    visible = destinationCel.visible,
-                    opacity = destinationCel.opacity
+                    visible = destinationCel?.visible == true || sourceCel?.visible == true,
+                    opacity = destinationCel?.opacity ?: 255
                 )
             }
             merged
@@ -2804,7 +2804,7 @@ class EsenhoEngine(
         captureCurrentFrame()
         val track = animationTracks[activeLayerIndex] ?: return currentFrameIndex
         val historyToken = beginAnimationStructureEdit(track)
-        val newIndex = currentFrameIndex + 1
+        val newIndex = if (currentFrameIndex in track.frames.indices) currentFrameIndex + 1 else track.frames.size
         val currentCel = animationFrames.getOrNull(currentFrameIndex)
         val newBmp = Bitmap.createBitmap(
             currentCel?.bitmap?.width ?: width,
@@ -2828,11 +2828,11 @@ class EsenhoEngine(
         if (transformState != null) cancelTransform()
         captureCurrentFrame()
         val track = animationTracks[activeLayerIndex] ?: return currentFrameIndex
+        val current = animationFrames.getOrNull(currentFrameIndex) ?: return currentFrameIndex
         val historyToken = beginAnimationStructureEdit(track)
-        val currBmp = animationFrames[currentFrameIndex].bitmap
+        val currBmp = current.bitmap
         val copyBmp = currBmp.copy(Bitmap.Config.ARGB_8888, true)
         val newIndex = currentFrameIndex + 1
-        val current = animationFrames[currentFrameIndex]
         val cel = AnimationCel("Frame ${animationFrames.size + 1}", copyBmp, current.duration, current.visible, current.opacity)
         animationFrames.add(newIndex, cel)
         currentFrameIndex = newIndex
@@ -2844,7 +2844,7 @@ class EsenhoEngine(
 
     fun deleteAnimationFrame() {
         if (transformState != null) cancelTransform()
-        if (animationFrames.size <= 1) return
+        if (animationFrames.size <= 1 || currentFrameIndex !in animationFrames.indices) return
         captureCurrentFrame()
         val track = animationTracks[activeLayerIndex] ?: return
         val historyToken = beginAnimationStructureEdit(track)
@@ -2893,6 +2893,7 @@ class EsenhoEngine(
     }
 
     fun clearCurrentAnimationFrame() {
+        if (currentFrameIndex !in animationFrames.indices) return
         if (transformState != null) cancelTransform()
         captureCurrentFrame()
         pushUndoSnapshot()
@@ -2909,7 +2910,7 @@ class EsenhoEngine(
     fun getOnionSkinPreviews(): List<OnionSkinPreview> {
         if (!onionSkinEnabled || isAnimationPlaying) return emptyList()
         val track = animationTracks[activeLayerIndex] ?: return emptyList()
-        if (track.frames.size <= 1) return emptyList()
+        if (track.frames.size <= 1 || track.activeCelIndex !in track.frames.indices) return emptyList()
         val result = mutableListOf<OnionSkinPreview>()
         for (step in onionPrevFrames.coerceIn(0, 5) downTo 1) {
             val idx = track.activeCelIndex - step
@@ -2929,7 +2930,7 @@ class EsenhoEngine(
     }
 
     fun getOnionSkinNextBitmap(): Bitmap? {
-        if (!onionSkinEnabled || currentFrameIndex >= animationFrames.size - 1) return null
+        if (!onionSkinEnabled || currentFrameIndex !in animationFrames.indices || currentFrameIndex >= animationFrames.size - 1) return null
         return animationFrames[currentFrameIndex + 1].bitmap
     }
 
@@ -3788,7 +3789,7 @@ class EsenhoEngine(
         EsenhoNativeBridge.nativeLayerSetOpacity(idx, state.opacity * (cel?.opacity ?: 255) / 255)
         EsenhoNativeBridge.nativeLayerSetVisible(
             idx,
-            if (state.visible && isRasterLayerGroupVisible(idx) && (cel?.visible ?: true)) 1 else 0
+            if (state.visible && isRasterLayerGroupVisible(idx) && (cel?.visible ?: (idx !in animationTracks))) 1 else 0
         )
         syncLayers()
         if (redo) redoRasterLayerTokens.remove(token) else redoRasterLayerTokens.add(token)

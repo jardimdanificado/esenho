@@ -263,14 +263,14 @@ fun AnimationTimelineBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "${currentIdx + 1}/$frameCount",
+                    if (currentIdx >= 0) "${currentIdx + 1}/$frameCount" else "—/$frameCount",
                     Modifier.weight(1f),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                 )
                 IconButton(
-                    onClick = { goToFrame(currentIdx - 1) },
+                    onClick = { goToFrame(if (currentIdx < 0) frameCount - 1 else currentIdx - 1) },
                     modifier = Modifier.size(36.dp),
                 ) {
                     Icon(Icons.Default.SkipPrevious, "Quadro anterior", Modifier.size(28.dp))
@@ -381,7 +381,7 @@ fun AnimationTimelineBar(
                             text = {
                                 Text("Excluir quadro…", color = MaterialTheme.colorScheme.error)
                             },
-                            enabled = frameCount > 1,
+                            enabled = frameCount > 1 && currentIdx >= 0,
                             onClick = {
                                 timelineMenu = false
                                 showDeleteFrameConfirm = true
@@ -424,6 +424,7 @@ fun AnimationTimelineBar(
                         engine.duplicateAnimationFrame()
                         syncTimeline()
                     },
+                    enabled = currentIdx >= 0,
                     modifier = Modifier.size(36.dp),
                 ) {
                     Icon(Icons.Default.ContentCopy, "Duplicar quadro", Modifier.size(17.dp))
@@ -433,6 +434,7 @@ fun AnimationTimelineBar(
                         durationInput = currentDuration.toString()
                         showDurationEditor = true
                     },
+                    enabled = currentIdx >= 0,
                     contentPadding = PaddingValues(horizontal = 6.dp),
                     modifier = Modifier.height(32.dp),
                 ) {
@@ -878,6 +880,11 @@ fun AnimationTimelineBar(
                                             }
                                 ) {
                                     track.frames.forEachIndexed { index, cel ->
+                                        // Read mutable engine data again on each timeline revision.
+                                        // Keep pointerInput keys stable while the handle is dragged.
+                                        val celDuration = remember(revision, layerRevision, cel.id) {
+                                            cel.duration.coerceAtLeast(1)
+                                        }
                                         val selected = index == track.activeCelIndex
                                         var durationDragRemainder by
                                             remember(layer.id, index) { mutableFloatStateOf(0f) }
@@ -900,7 +907,7 @@ fun AnimationTimelineBar(
                                         Box(
                                             modifier =
                                                 Modifier.width(
-                                                        (cel.duration.coerceAtLeast(1) *
+                                                        (celDuration *
                                                                 tickWidth.toFloat() - 2f)
                                                             .coerceAtLeast(22f)
                                                             .dp
@@ -1163,9 +1170,9 @@ fun AnimationTimelineBar(
                                                         else Color(0xFFEBDBB2),
                                                     maxLines = 1,
                                                 )
-                                                if (cel.duration > 1)
+                                                if (celDuration > 1)
                                                     Text(
-                                                        "${cel.duration}f",
+                                                        "${celDuration}f",
                                                         fontSize = 10.sp,
                                                         color =
                                                             if (selected) Color(0xFFFABD2F)
