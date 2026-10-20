@@ -749,10 +749,11 @@ val DAB_BLEND_NAMES =
     listOf("Normal", "Multiplicar", "Tela", "Sobrepor", "Subexposição", "Adicionar")
 
 @Composable
-private fun CompactOptionDropdown(
+internal fun CompactOptionDropdown(
     title: String,
     selectedKey: String,
     options: List<Pair<String, String>>,
+    trackingId: Int? = null,
     onSelected: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -772,6 +773,7 @@ private fun CompactOptionDropdown(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.primary,
                 )
+                TrackParameterButton(trackingId)
                 Icon(Icons.Default.ArrowDropDown, null)
             }
         }
@@ -808,7 +810,8 @@ fun BrushPropertiesPanel(
         else if (preset != null) PresetTunerTab.values().filter { it != PresetTunerTab.SPECIFIC }
         else listOf(PresetTunerTab.COMMON)
     var tunerVersion by remember(brushKey) { mutableIntStateOf(0) }
-    val specificValues = remember(brushKey, tunerVersion) { brush?.params?.map { it.currentVal }.orEmpty() }
+    val currentSpecificValues = brush?.params?.map { it.currentVal }.orEmpty()
+    val specificValues = remember(brushKey, tunerVersion, currentSpecificValues) { currentSpecificValues }
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var presetNameInput by remember { mutableStateOf("") }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -1010,6 +1013,7 @@ fun BrushPropertiesPanel(
                 items(brush.params.size, key = { "$brushKey:$it" }) { index ->
                     val param = brush.params[index]
                     TunerSliderCard(
+                        trackingId = PROCEDURAL_PARAM_BASE + index,
                         label = param.name,
                         value = specificValues[index].toFloat(),
                         range = param.min.toFloat()..param.max.toFloat(),
@@ -1027,6 +1031,7 @@ fun BrushPropertiesPanel(
                     PresetTunerTab.TIP -> {
                         item {
                             TunerSliderCard(
+                                trackingId = 3,
                                 label = "Dureza da Borda",
                                 value = preset.hardness.toFloat(),
                                 range = 0f..100f,
@@ -1036,6 +1041,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 7,
                                 label = "Arredondamento / Aspecto",
                                 value = preset.roundness.toFloat(),
                                 range = 1f..100f,
@@ -1045,6 +1051,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 6,
                                 label = "Ângulo de Rotação",
                                 value = preset.angle.toFloat(),
                                 range = 0f..360f,
@@ -1062,6 +1069,7 @@ fun BrushPropertiesPanel(
                                     }
                                 }
                             CompactOptionDropdown(
+                                trackingId = SHAPE_PARAMETER,
                                 title = "Formato da ponta",
                                 selectedKey = currentShape,
                                 options = BUILTIN_SHAPES,
@@ -1074,6 +1082,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSwitchCard(
+                                trackingId = 32,
                                 label = "Anti-Aliasing Subpixel (Precisão de Ponta)",
                                 checked = preset.subpixel == 1,
                                 onCheckedChange = { updateParam(32, if (it) 1 else 0) },
@@ -1081,6 +1090,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             CompactOptionDropdown(
+                                trackingId = 31,
                                 title = "Mesclagem dos dabs",
                                 selectedKey = preset.dabBlend.toString(),
                                 options =
@@ -1096,6 +1106,7 @@ fun BrushPropertiesPanel(
                         item { DynamicPressureControls(preset, engine, onBrushUpdated) }
                         item {
                             TunerSwitchCard(
+                                trackingId = 22,
                                 label = "Auto-Rotação na Trajetória",
                                 checked = preset.autoRotate == 1,
                                 onCheckedChange = { updateParam(22, if (it) 1 else 0) },
@@ -1103,6 +1114,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSwitchCard(
+                                trackingId = 39,
                                 label = "Pressão Controla Tamanho",
                                 checked = preset.pressureSize == 1,
                                 onCheckedChange = { updateParam(39, if (it) 1 else 0) },
@@ -1110,6 +1122,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSwitchCard(
+                                trackingId = 40,
                                 label = "Pressão Controla Fluxo / Opacidade",
                                 checked = preset.pressureFlow == 1,
                                 onCheckedChange = { updateParam(40, if (it) 1 else 0) },
@@ -1117,6 +1130,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSwitchCard(
+                                trackingId = 41,
                                 label = "Inclinação (Tilt) Controla Ângulo",
                                 checked = preset.tiltAngle == 1,
                                 onCheckedChange = { updateParam(41, if (it) 1 else 0) },
@@ -1124,6 +1138,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSwitchCard(
+                                trackingId = 42,
                                 label = "Acúmulo Contínuo (Buildup)",
                                 checked = preset.buildup == 1,
                                 onCheckedChange = { updateParam(42, if (it) 1 else 0) },
@@ -1131,6 +1146,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 23,
                                 label = "Sensibilidade à Velocidade",
                                 value = preset.velocity.toFloat(),
                                 range = 0f..100f,
@@ -1140,6 +1156,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 24,
                                 label = "Afilamento Entrada (Taper In)",
                                 value = preset.taperIn.toFloat(),
                                 range = 0f..200f,
@@ -1149,6 +1166,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 25,
                                 label = "Afilamento Saída (Taper Out)",
                                 value = preset.taperOut.toFloat(),
                                 range = 0f..200f,
@@ -1158,6 +1176,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 26,
                                 label = "Desvanecimento (Fade)",
                                 value = preset.fade.toFloat(),
                                 range = 0f..2000f,
@@ -1179,6 +1198,7 @@ fun BrushPropertiesPanel(
                             val selectedTexture =
                                 if (preset.texMode == 0) "none" else preset.texture.ifBlank { "none" }
                             CompactOptionDropdown(
+                                trackingId = TEXTURE_PARAMETER,
                                 title = "Textura",
                                 selectedKey = selectedTexture,
                                 options = BUILTIN_TEXTURES,
@@ -1191,6 +1211,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 12,
                                 label = "Intensidade do Grão",
                                 value = preset.grain.toFloat(),
                                 range = 0f..100f,
@@ -1200,6 +1221,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 17,
                                 label = "Escala da Textura",
                                 value = preset.textureScale.toFloat(),
                                 range = 10f..300f,
@@ -1209,6 +1231,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 21,
                                 label = "Contraste da Textura",
                                 value = preset.textureContrast.toFloat(),
                                 range = 0f..200f,
@@ -1218,6 +1241,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 16,
                                 label = "Ângulo da Textura",
                                 value = preset.texAngle.toFloat(),
                                 range = 0f..360f,
@@ -1227,6 +1251,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSwitchCard(
+                                trackingId = 57,
                                 label = "Escalar Textura Proporcional ao Tamanho",
                                 checked = preset.texScaleWithSize == 1,
                                 onCheckedChange = { updateParam(57, if (it) 1 else 0) },
@@ -1280,6 +1305,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 50,
                                 label = "Carga de Água (Water Load)",
                                 value = preset.water.toFloat(),
                                 range = 0f..100f,
@@ -1289,6 +1315,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 51,
                                 label = "Sangria & Difusão (Bleed)",
                                 value = preset.bleed.toFloat(),
                                 range = 0f..100f,
@@ -1298,6 +1325,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 52,
                                 label = "Granulação de Pigmento",
                                 value = preset.granulation.toFloat(),
                                 range = 0f..100f,
@@ -1307,6 +1335,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 53,
                                 label = "Coffee Ring / Borda Escura (Fringe)",
                                 value = preset.fringe.toFloat(),
                                 range = 0f..100f,
@@ -1316,6 +1345,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 11,
                                 label = "Umidade / Wetness",
                                 value = preset.wetness.toFloat(),
                                 range = 0f..100f,
@@ -1325,6 +1355,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 10,
                                 label = "Força de Esfregaço / Smudge",
                                 value = preset.smudge.toFloat(),
                                 range = 0f..100f,
@@ -1334,6 +1365,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 33,
                                 label = "Desgaste de Tinta (Depletion)",
                                 value = preset.depletion.toFloat(),
                                 range = 0f..100f,
@@ -1343,6 +1375,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 34,
                                 label = "Coleta de Cor (Color Pickup)",
                                 value = preset.colorPickup.toFloat(),
                                 range = 0f..100f,
@@ -1352,6 +1385,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 55,
                                 label = "Relevo 3D / Espessura a Óleo (Impasto)",
                                 value = preset.impasto.toFloat(),
                                 range = 0f..100f,
@@ -1361,6 +1395,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSwitchCard(
+                                trackingId = 54,
                                 label = "Mistura de Pigmento Subtrativo Físico",
                                 checked = preset.pigmentMode == 1,
                                 onCheckedChange = { updateParam(54, if (it) 1 else 0) },
@@ -1368,6 +1403,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 56,
                                 label = "Taxa de Evaporação / Secagem",
                                 value = preset.dryingRate.toFloat(),
                                 range = 0f..100f,
@@ -1380,6 +1416,7 @@ fun BrushPropertiesPanel(
                     PresetTunerTab.JITTER -> {
                         item {
                             TunerSliderCard(
+                                trackingId = 8,
                                 label = "Dispersão de Dabs (Scatter)",
                                 value = preset.scatter.toFloat(),
                                 range = 0f..100f,
@@ -1389,6 +1426,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 27,
                                 label = "Variação de Tamanho (Size Jitter)",
                                 value = preset.sizeJitter.toFloat(),
                                 range = 0f..100f,
@@ -1398,6 +1436,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 28,
                                 label = "Variação de Ângulo (Angle Jitter)",
                                 value = preset.angleJitter.toFloat(),
                                 range = 0f..360f,
@@ -1407,6 +1446,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 29,
                                 label = "Variação de Opacidade (Opacity Jitter)",
                                 value = preset.opacityJitter.toFloat(),
                                 range = 0f..100f,
@@ -1416,6 +1456,7 @@ fun BrushPropertiesPanel(
                         }
                         item {
                             TunerSliderCard(
+                                trackingId = 30,
                                 label = "Variação de Cor (Color Jitter)",
                                 value = preset.colorJitter.toFloat(),
                                 range = 0f..100f,
@@ -1447,10 +1488,11 @@ private fun CommonBrushControls(engine: EsenhoEngine, onBrushUpdated: () -> Unit
                 engine.getPresetParam(id).toFloat()
             }
             TunerSliderCard(
+                trackingId = id,
                 label = label,
                 value = value,
                 range = when (id) {
-                    1 -> 1f..300f
+                    1 -> 1f..100f
                     5 -> (if (engine.selectedBrush != null) 2f else 1f)..100f
                     else -> 0f..100f
                 },
@@ -1473,6 +1515,7 @@ fun TunerSliderCard(
     unit: String = "",
     onValueChange: (Float) -> Unit,
     onValueChangeFinished: (() -> Unit)? = null,
+    trackingId: Int? = null,
 ) {
     var localValue by remember(value) { mutableFloatStateOf(value) }
 
@@ -1488,7 +1531,8 @@ fun TunerSliderCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(label, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                Text(label, Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                TrackParameterButton(trackingId)
                 Text(
                     "${localValue.toInt()} $unit".trim(),
                     color = MaterialTheme.colorScheme.primary,
@@ -1582,10 +1626,11 @@ private fun DynamicCurveEditor(
             setting = DYNAMIC_SETTING_KEYS.indexOf(key).coerceAtLeast(0)
         }
         var baseValue by
-            remember(preset.id, setting) { mutableFloatStateOf(engine.dynamicBaseValue(setting)) }
+            remember(preset.id, setting, engine.dynamicBaseValue(setting)) { mutableFloatStateOf(engine.dynamicBaseValue(setting)) }
         DynamicBaseSlider(
             baseValue,
             baseMin..baseMax,
+            trackingId = -1000 - setting,
             onValueChange = {
                 baseValue = it
                 engine.setDynamicBase(setting, it)
@@ -1749,6 +1794,7 @@ private fun DynamicCurveEditor(
 private fun DynamicBaseSlider(
     value: Float,
     range: ClosedFloatingPointRange<Float>,
+    trackingId: Int,
     onValueChange: (Float) -> Unit,
 ) {
     var local by remember(value) { mutableFloatStateOf(value) }
@@ -1760,7 +1806,8 @@ private fun DynamicBaseSlider(
     ) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Valor base", fontSize = 13.sp)
+                Text("Valor base", Modifier.weight(1f), fontSize = 13.sp)
+                TrackParameterButton(trackingId)
                 Text(
                     "%.2f".format(local),
                     color = MaterialTheme.colorScheme.primary,
@@ -1780,10 +1827,10 @@ private fun DynamicBaseSlider(
     }
 }
 
-private fun dynamicRanges(key: String): List<Float> {
+internal fun dynamicRanges(key: String): List<Float> {
     val base =
         when (key) {
-            "radius_log",
+            "radius_log" -> -0.6931472f..3.912023f
             "smudge_radius_log",
             "smudge_length_log" -> -5f..8f
             "ellipse_angle" -> -360f..360f
@@ -1876,20 +1923,20 @@ private fun DynamicPressureControls(
             "2" to "Gamma 2",
         )
     var curve by
-        remember(preset.id) {
+        remember(preset.id, preset.dynamicConfig.optString("pressure_curve", "linear")) {
             mutableStateOf(preset.dynamicConfig.optString("pressure_curve", "linear"))
         }
     var minimum by
-        remember(preset.id) {
+        remember(preset.id, preset.dynamicConfig.optInt("pressure_min", 0)) {
             mutableFloatStateOf(preset.dynamicConfig.optInt("pressure_min", 0).toFloat())
         }
     var maximum by
-        remember(preset.id) {
+        remember(preset.id, preset.dynamicConfig.optInt("pressure_max", 100)) {
             mutableFloatStateOf(preset.dynamicConfig.optInt("pressure_max", 100).toFloat())
         }
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Text("Resposta da pressão", style = MaterialTheme.typography.titleSmall)
-        CompactOptionDropdown("Curva", curve, options) {
+        CompactOptionDropdown("Curva", curve, options, trackingId = PRESSURE_CURVE_PARAMETER) {
             curve = it
             engine.setPressureResponse(curve, minimum.toInt(), maximum.toInt())
             onBrushUpdated()
@@ -1904,6 +1951,7 @@ private fun DynamicPressureControls(
                 engine.setPressureResponse(curve, minimum.toInt(), maximum.toInt())
                 onBrushUpdated()
             },
+            trackingId = -2001,
         )
         TunerSliderCard(
             "Pressão máxima",
@@ -1915,12 +1963,13 @@ private fun DynamicPressureControls(
                 engine.setPressureResponse(curve, minimum.toInt(), maximum.toInt())
                 onBrushUpdated()
             },
+            trackingId = -2002,
         )
     }
 }
 
 @Composable
-fun TunerSwitchCard(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun TunerSwitchCard(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, trackingId: Int? = null) {
     Card(
         colors =
             CardDefaults.cardColors(
@@ -1933,7 +1982,8 @@ fun TunerSwitchCard(label: String, checked: Boolean, onCheckedChange: (Boolean) 
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(label, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+            Text(label, Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 13.sp)
+            TrackParameterButton(trackingId)
             Switch(checked = checked, onCheckedChange = onCheckedChange)
         }
     }

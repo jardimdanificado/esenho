@@ -42,7 +42,6 @@ enum class WorkspacePanel(val title: String, val icon: ImageVector) {
     LAYERS("Camadas", Icons.Default.Layers),
     ANIMATION("Animar", Icons.Default.Movie),
     EFFECTS("Efeitos", Icons.Default.AutoAwesome),
-    CONTROLS("Parâmetros", Icons.Default.Tune),
     SELECTION("Seleção", Icons.Default.CropFree),
     TRANSFORM("Transformação", Icons.Default.OpenWith),
 }
@@ -243,7 +242,7 @@ fun WorkspaceProperties(
     toolPicker: @Composable () -> Unit,
     onBrush: () -> Unit,
     onColor: () -> Unit,
-    onParameters: () -> Unit,
+    onBrushProperties: () -> Unit,
     activePanel: WorkspacePanel?,
     onLayers: () -> Unit,
     onAnimation: () -> Unit,
@@ -266,6 +265,7 @@ fun WorkspaceProperties(
                         revision,
                         quickSlidersOpen,
                         onToggleQuickSliders,
+                        onBrushProperties,
                         onParameterChanged,
                     )
                     AnchoredWorkspacePopup(
@@ -336,14 +336,6 @@ fun WorkspaceProperties(
                                 onEffects()
                             },
                             leadingIcon = { Icon(Icons.Default.AutoAwesome, null) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Parâmetros personalizados") },
-                            onClick = {
-                                more = false
-                                onParameters()
-                            },
-                            leadingIcon = { Icon(Icons.Default.Tune, null) },
                         )
                         HorizontalDivider()
                         DropdownMenuItem(

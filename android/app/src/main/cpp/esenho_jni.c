@@ -463,8 +463,8 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSetBrushParam(
 JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushSetSize(
     JNIEnv *env, jobject thiz, jfloat size) {
-    g_brush_size = size;
-    w_brush_set_param(1, (int32_t)size);
+    g_brush_size = fminf(100.0f, fmaxf(1.0f, size));
+    w_brush_set_param(1, (int32_t)g_brush_size);
 }
 
 // ── Stroke Execution (Classic + Procedural WASM/C) ──
@@ -824,6 +824,7 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerGetOrder(
 JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushSetParam(
     JNIEnv *env, jobject thiz, jint param_id, jint val) {
+    if (param_id == 1) val = val < 1 ? 1 : (val > 100 ? 100 : val);
     w_brush_set_param(param_id, val);
     if (param_id == 4) g_procedural_flow = fminf(1.0f, fmaxf(0.0f, val / 100.0f));
 }

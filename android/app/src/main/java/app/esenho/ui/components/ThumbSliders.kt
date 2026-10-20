@@ -10,21 +10,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -35,16 +28,14 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import app.esenho.nativeengine.DYNAMIC_SETTING_KEYS
 import app.esenho.nativeengine.EsenhoEngine
 import app.esenho.nativeengine.EsenhoStorageManager.SideSliderSetting
 import kotlin.math.roundToInt
+
+enum class QuickParameterKind { SLIDER, SWITCH, CHOICE }
 
 data class SliderParamConfig(
     val paramId: Int,
@@ -53,13 +44,15 @@ data class SliderParamConfig(
     val minVal: Float,
     val maxVal: Float,
     val unit: String,
+    val kind: QuickParameterKind = QuickParameterKind.SLIDER,
+    val options: List<Pair<String, String>> = emptyList(),
 )
 
 private val STANDARD_SLIDER_PARAMS =
     listOf(
-        SliderParamConfig(1, "Tamanho (Diâmetro)", "Tam", 1f, 300f, "px"),
-        SliderParamConfig(2, "Opacidade", "Opac", 1f, 100f, "%"),
-        SliderParamConfig(4, "Fluxo (Flow)", "Flux", 1f, 100f, "%"),
+        SliderParamConfig(1, "Tamanho (Diâmetro)", "Tam", 1f, 100f, "px"),
+        SliderParamConfig(2, "Opacidade", "Opac", 0f, 100f, "%"),
+        SliderParamConfig(4, "Fluxo (Flow)", "Flux", 0f, 100f, "%"),
         SliderParamConfig(3, "Dureza da Borda", "Durez", 0f, 100f, "%"),
         SliderParamConfig(19, "Suavização (Estabilizador)", "Suav", 0f, 100f, "%"),
         SliderParamConfig(5, "Espaçamento", "Esp", 1f, 100f, "%"),
@@ -79,39 +72,36 @@ private val STANDARD_SLIDER_PARAMS =
         SliderParamConfig(30, "Variação de Cor (Jitter)", "JitCor", 0f, 100f, "%"),
     )
 
+internal const val SHAPE_PARAMETER = -3001
+internal const val TEXTURE_PARAMETER = -3002
+internal const val PRESSURE_CURVE_PARAMETER = -2003
+internal val PRESSURE_CURVE_OPTIONS = listOf(
+    "linear" to "Linear", "soft" to "Suave", "hard" to "Firme", "s-curve" to "Curva S",
+    "0.5" to "Gamma 0,5", "0.75" to "Gamma 0,75", "1.25" to "Gamma 1,25",
+    "1.5" to "Gamma 1,5", "2" to "Gamma 2",
+)
+private val EXTRA_SLIDER_PARAMS = listOf(
+    Triple(16, "Ângulo da Textura", 360f), Triple(23, "Velocidade", 100f),
+    Triple(24, "Afinar Início", 100f), Triple(25, "Afinar Final", 100f), Triple(26, "Desvanecimento", 100f),
+    Triple(33, "Desgaste de Tinta", 100f), Triple(34, "Captura de Cor", 100f),
+    Triple(50, "Carga de Água", 100f), Triple(51, "Sangramento", 100f), Triple(52, "Granulação", 100f),
+    Triple(53, "Borda Escura", 100f), Triple(55, "Impasto", 100f), Triple(56, "Secagem", 100f),
+).map { (id, label, max) -> SliderParamConfig(id, label, label.take(8), 0f, max, if (id == 16) "°" else "%") }
+private val SWITCH_PARAMS = listOf(
+    22 to "Auto-Rotação", 32 to "Anti-Aliasing Subpixel", 39 to "Pressão Controla Tamanho",
+    40 to "Pressão Controla Fluxo", 41 to "Inclinação Controla Ângulo", 42 to "Acumular Tinta",
+    54 to "Mistura de Pigmentos", 57 to "Escalar Textura com o Tamanho",
+).map { (id, label) -> SliderParamConfig(id, label, label.take(8), 0f, 1f, "", QuickParameterKind.SWITCH) }
+private val CHOICE_PARAMS = listOf(
+    SliderParamConfig(31, "Mesclagem dos dabs", "Mescla", 0f, 5f, "", QuickParameterKind.CHOICE,
+        DAB_BLEND_NAMES.mapIndexed { index, name -> index.toString() to name }),
+    SliderParamConfig(SHAPE_PARAMETER, "Formato da ponta", "Ponta", 0f, 1f, "", QuickParameterKind.CHOICE, BUILTIN_SHAPES),
+    SliderParamConfig(TEXTURE_PARAMETER, "Textura", "Textura", 0f, 1f, "", QuickParameterKind.CHOICE, BUILTIN_TEXTURES),
+    SliderParamConfig(PRESSURE_CURVE_PARAMETER, "Curva da pressão", "Curva", 0f, 1f, "", QuickParameterKind.CHOICE, PRESSURE_CURVE_OPTIONS),
+)
+
 private fun dynamicBaseRange(key: String): ClosedFloatingPointRange<Float> =
-    when (key) {
-        "radius_log",
-        "smudge_radius_log",
-        "smudge_length_log" -> -5f..8f
-        "ellipse_angle" -> -360f..360f
-        "color_h" -> 0f..1f
-        "change_color_h" -> -1f..1f
-        "dabs_per_basic_radius",
-        "dabs_per_actual_radius",
-        "dabs_per_second",
-        "smudge_length",
-        "smudge_bucket",
-        "posterize_num" -> -10f..20f
-        "speed_fine_slowness",
-        "speed_coarse_slowness",
-        "offset_by_speed_slowness",
-        "lazy_tracking",
-        "stroke_duration_log",
-        "stroke_holdtime" -> -2f..2f
-        "color_s",
-        "color_v",
-        "hardness",
-        "opaque",
-        "opaque_multiply",
-        "opaque_linearize",
-        "radius_by_random",
-        "smudge",
-        "smudge_transparency",
-        "stroke_threshold",
-        "ellipse_ratio" -> -1f..2f
-        else -> -2f..2f
-    }
+    dynamicRanges(key).let { it[0]..it[1] }
 
 private val DYNAMIC_SLIDER_PARAMS =
     DYNAMIC_SETTING_KEYS.mapIndexed { index, key ->
@@ -133,14 +123,15 @@ private val PRESSURE_SLIDER_PARAMS =
         SliderParamConfig(PRESSURE_MAX_PARAM, "Pressão máxima", "PMax", 1f, 100f, "%"),
     )
 val AVAILABLE_SLIDER_PARAMS =
-    STANDARD_SLIDER_PARAMS + DYNAMIC_SLIDER_PARAMS + PRESSURE_SLIDER_PARAMS
+    STANDARD_SLIDER_PARAMS + EXTRA_SLIDER_PARAMS + SWITCH_PARAMS + CHOICE_PARAMS + DYNAMIC_SLIDER_PARAMS + PRESSURE_SLIDER_PARAMS
 
-private const val PROCEDURAL_PARAM_BASE = 10000
+internal const val PROCEDURAL_PARAM_BASE = 10000
 private val COMMON_PROCEDURAL_PARAMS = setOf(1, 2, 4, 5, 19, 20)
 
 internal fun availableSliderParameters(engine: EsenhoEngine): List<SliderParamConfig> {
     val brush = engine.selectedBrush ?: return AVAILABLE_SLIDER_PARAMS
-    return STANDARD_SLIDER_PARAMS.filter { it.paramId in COMMON_PROCEDURAL_PARAMS } +
+    return STANDARD_SLIDER_PARAMS.filter { it.paramId in COMMON_PROCEDURAL_PARAMS }
+        .map { if (it.paramId == 5) it.copy(minVal = 2f) else it } +
         brush.params.mapIndexed { index, param ->
             SliderParamConfig(PROCEDURAL_PARAM_BASE + index, param.name, param.name.take(7),
                 param.min.toFloat(), param.max.toFloat().coerceAtLeast(param.min + 1f), param.unit)
@@ -148,8 +139,13 @@ internal fun availableSliderParameters(engine: EsenhoEngine): List<SliderParamCo
 }
 
 internal fun relevantQuickSliders(engine: EsenhoEngine, settings: List<SideSliderSetting>): List<SideSliderSetting> {
-    val available = availableSliderParameters(engine).map { it.paramId }.toSet()
-    return settings.filter { it.paramId in available }
+    val available = availableSliderParameters(engine).associateBy { it.paramId }
+    return settings.filter { setting ->
+        val config = available[setting.paramId]
+        config != null && app.esenho.nativeengine.BrushParameterScope.matches(
+            setting.ownerBrushId, setting.parameterName, engine.selectedBrush?.id,
+            setting.paramId, config.name)
+    }
 }
 
 private fun dynamicSettingIndex(paramId: Int): Int? =
@@ -202,19 +198,25 @@ internal fun resolvedQuickParameter(setting: SideSliderSetting, engine: EsenhoEn
     val template =
         availableSliderParameters(engine).find { it.paramId == setting.paramId }
             ?: STANDARD_SLIDER_PARAMS.first()
-    val min = setting.minVal?.takeIf { it.isFinite() } ?: template.minVal
-    val max =
-        setting.maxVal?.takeIf { it.isFinite() && it > min }
-            ?: template.maxVal.coerceAtLeast(min + 0.01f)
-    if (dynamicSettingIndex(template.paramId) != null)
-        return template.copy(minVal = min, maxVal = max)
-    val steppedMin = min.roundToInt().toFloat()
-    val steppedMax = max.roundToInt().toFloat().coerceAtLeast(steppedMin + 1f)
-    return template.copy(minVal = steppedMin, maxVal = steppedMax)
+    return template
 }
 
-private fun finiteParameterNumber(text: String): Float? =
-    text.replace(',', '.').toFloatOrNull()?.takeIf { it.isFinite() }
+internal fun quickChoiceValue(engine: EsenhoEngine, id: Int): String = when (id) {
+    SHAPE_PARAMETER -> engine.selectedPreset?.shape?.ifBlank { "circle" } ?: "circle"
+    TEXTURE_PARAMETER -> engine.selectedPreset?.let { if (it.texMode == 0) "none" else it.texture } ?: "none"
+    PRESSURE_CURVE_PARAMETER -> engine.selectedPreset?.dynamicConfig?.optString("pressure_curve", "linear") ?: "linear"
+    else -> engine.getPresetParam(id).toString()
+}
+private fun writeQuickChoice(engine: EsenhoEngine, id: Int, key: String) {
+    when (id) {
+        SHAPE_PARAMETER -> engine.setPresetShape(key)
+        TEXTURE_PARAMETER -> engine.setPresetTexture(key)
+        PRESSURE_CURVE_PARAMETER -> engine.setPressureResponse(key,
+            engine.selectedPreset?.dynamicConfig?.optInt("pressure_min", 0) ?: 0,
+            engine.selectedPreset?.dynamicConfig?.optInt("pressure_max", 100) ?: 100)
+        else -> key.toIntOrNull()?.let { engine.setPresetParam(id, it) }
+    }
+}
 
 private fun parameterValueLabel(value: Float): String =
     java.lang.String.format(java.util.Locale.US, "%.3f", value).trimEnd('0').trimEnd('.')
@@ -283,6 +285,26 @@ private fun QuickParameterRow(
         ) {
             readSliderParameter(engine, config.paramId)
         }
+    if (config.kind == QuickParameterKind.SWITCH) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(config.name, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
+            Switch(rawValue >= .5f, onCheckedChange = {
+                writeSliderParameter(engine, config.paramId, if (it) 1f else 0f)
+                localRevision++
+                onParameterChanged(config.paramId, false)
+            })
+        }
+        return
+    }
+    if (config.kind == QuickParameterKind.CHOICE) {
+        CompactOptionDropdown(title = config.name, selectedKey = quickChoiceValue(engine, config.paramId), options = config.options,
+            onSelected = {
+                writeQuickChoice(engine, config.paramId, it)
+                localRevision++
+                onParameterChanged(config.paramId, false)
+            })
+        return
+    }
     Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -310,330 +332,6 @@ private fun QuickParameterRow(
             modifier =
                 Modifier.fillMaxWidth().height(30.dp).semantics { contentDescription = config.name },
         )
-    }
-}
-
-/** This dock configures the shared quick stack; it contains no duplicate sliders. */
-@Composable
-fun ParameterSettingsPanel(
-    engine: EsenhoEngine,
-    configuredSliders: List<SideSliderSetting>,
-    onConfiguredSlidersChange: (List<SideSliderSetting>) -> Unit,
-    onValuesChanged: () -> Unit,
-    onDismiss: () -> Unit,
-    revision: Int,
-    onMoveParameter: (String, Int) -> Unit,
-    onReorderFinished: () -> Unit,
-) {
-    val availableParameters = availableSliderParameters(engine)
-    val visibleSettings = relevantQuickSliders(engine, configuredSliders)
-    val listState = rememberLazyListState()
-    var movingId by remember { mutableStateOf<String?>(null) }
-    RevealMovingParameter(visibleSettings, movingId, listState)
-    var editingSliderId by remember { mutableStateOf<String?>(null) }
-    var editingParamId by remember { mutableIntStateOf(1) }
-    var rangeMinText by remember { mutableStateOf("1") }
-    var rangeMaxText by remember { mutableStateOf("300") }
-    var currentValueText by remember { mutableStateOf("") }
-
-    fun edit(index: Int) {
-        val config = resolvedQuickParameter(configuredSliders[index], engine)
-        editingSliderId = configuredSliders[index].id
-        editingParamId = config.paramId
-        rangeMinText = parameterValueLabel(config.minVal)
-        rangeMaxText = parameterValueLabel(config.maxVal)
-        currentValueText = parameterValueLabel(readSliderParameter(engine, config.paramId))
-    }
-    Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-        EditorPanelHeader("Configurar parâmetros rápidos", onDismiss)
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
-            items(visibleSettings, key = { it.id }) { setting ->
-                val index = configuredSliders.indexOfFirst { it.id == setting.id }
-                val config = resolvedQuickParameter(configuredSliders[index], engine)
-                val value =
-                    remember(revision, configuredSliders[index]) {
-                        readSliderParameter(engine, config.paramId)
-                    }
-                Row(
-                    Modifier.fillMaxWidth()
-                        .heightIn(min = 44.dp)
-                        .clip(RoundedCornerShape(5.dp))
-                        .clickable { edit(index) }
-                        .padding(horizontal = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ParameterDragHandle(
-                        setting.id,
-                        44f,
-                        { id, steps ->
-                            movingId = id
-                            onMoveParameter(id, steps)
-                        },
-                        {
-                            movingId = null
-                            onReorderFinished()
-                        },
-                    )
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            config.name,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            "${parameterValueLabel(config.minVal)}–${parameterValueLabel(config.maxVal)}${config.unit}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Text(
-                        "${parameterValueLabel(value)}${config.unit}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                    )
-                    Icon(
-                        Icons.Default.Tune,
-                        "Editar parâmetro, faixa e valor",
-                        Modifier.size(18.dp),
-                    )
-                }
-            }
-        }
-        TextButton(
-            onClick = {
-                val next =
-                    availableParameters.firstOrNull { option ->
-                        configuredSliders.none { it.paramId == option.paramId }
-                    } ?: availableParameters.first()
-                onConfiguredSlidersChange(configuredSliders + SideSliderSetting(next.paramId))
-            },
-            modifier = Modifier.height(32.dp),
-        ) {
-            Icon(Icons.Default.Add, null, Modifier.size(16.dp))
-            Text("Adicionar parâmetro (${visibleSettings.size})")
-        }
-    }
-
-    editingSliderId?.let { editId ->
-        val editIdx = configuredSliders.indexOfFirst { it.id == editId }
-        if (editIdx < 0) return@let
-        val selectedTemplate =
-            availableParameters.find { it.paramId == editingParamId }
-                ?: availableParameters[0]
-
-        Dialog(onDismissRequest = { editingSliderId = null }) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 6.dp,
-                modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp).padding(12.dp),
-            ) {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                text = "Configurar parâmetro #${editIdx + 1}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                text = "Escolha a propriedade do pincel a controlar",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        IconButton(onClick = { editingSliderId = null }) {
-                            Icon(Icons.Default.Close, contentDescription = "Fechar")
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Text(
-                        "Faixa de ${selectedTemplate.name}",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = rangeMinText,
-                            onValueChange = {
-                                rangeMinText =
-                                    it.filter { ch ->
-                                        ch.isDigit() || ch == '.' || ch == ',' || ch == '-'
-                                    }
-                            },
-                            label = { Text("Mínimo") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                        )
-                        OutlinedTextField(
-                            value = rangeMaxText,
-                            onValueChange = {
-                                rangeMaxText =
-                                    it.filter { ch ->
-                                        ch.isDigit() || ch == '.' || ch == ',' || ch == '-'
-                                    }
-                            },
-                            label = { Text("Máximo") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    OutlinedTextField(
-                        value = currentValueText,
-                        onValueChange = {
-                            currentValueText =
-                                it.filter { ch ->
-                                    ch.isDigit() || ch == '.' || ch == ',' || ch == '-'
-                                }
-                        },
-                        label = {
-                            Text("Valor atual (${selectedTemplate.unit.ifBlank { "sem unidade" }})")
-                        },
-                        singleLine = true,
-                        keyboardOptions =
-                            androidx.compose.foundation.text.KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal
-                            ),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text(
-                        "Unidade: ${selectedTemplate.unit.ifBlank { "sem unidade" }}",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        items(availableParameters) { opt ->
-                            val isSelected = opt.paramId == editingParamId
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color =
-                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(
-                                            alpha = 0.35f
-                                        ),
-                                modifier =
-                                    Modifier.fillMaxWidth()
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .clickable {
-                                            editingParamId = opt.paramId
-                                            rangeMinText = opt.minVal.toString().removeSuffix(".0")
-                                            rangeMaxText = opt.maxVal.toString().removeSuffix(".0")
-                                            currentValueText =
-                                                readSliderParameter(engine, opt.paramId)
-                                                    .toString()
-                                                    .removeSuffix(".0")
-                                        },
-                            ) {
-                                Row(
-                                    modifier =
-                                        Modifier.fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Column {
-                                        Text(
-                                            text = opt.name,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight =
-                                                if (isSelected) FontWeight.Bold
-                                                else FontWeight.Normal,
-                                        )
-                                        Text(
-                                            text =
-                                                "Padrão: ${opt.minVal} a ${opt.maxVal}${opt.unit}",
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    if (isSelected) {
-                                        Icon(
-                                            Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        TextButton(
-                            enabled = configuredSliders.size > 1,
-                            onClick = {
-                                val mutable = configuredSliders.toMutableList()
-                                if (editIdx < mutable.size) mutable.removeAt(editIdx)
-                                onConfiguredSlidersChange(mutable)
-                                editingSliderId = null
-                            },
-                            colors =
-                                ButtonDefaults.textButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
-                                ),
-                        ) {
-                            Text("Remover", fontSize = 12.sp)
-                        }
-                        val minValue = finiteParameterNumber(rangeMinText)
-                        val maxValue = finiteParameterNumber(rangeMaxText)
-                        val currentValue = finiteParameterNumber(currentValueText)
-                        Button(
-                            enabled =
-                                minValue != null &&
-                                    maxValue != null &&
-                                    currentValue != null &&
-                                    maxValue > minValue,
-                            onClick = {
-                                if (
-                                    minValue != null &&
-                                        maxValue != null &&
-                                        currentValue != null &&
-                                        maxValue > minValue
-                                ) {
-                                    val mutable = configuredSliders.toMutableList()
-                                    if (editIdx < mutable.size)
-                                        mutable[editIdx] =
-                                            mutable[editIdx].copy(
-                                                paramId = editingParamId,
-                                                minVal = minValue,
-                                                maxVal = maxValue,
-                                            )
-                                    onConfiguredSlidersChange(mutable)
-                                    writeSliderParameter(
-                                        engine,
-                                        editingParamId,
-                                        currentValue.coerceIn(minValue, maxValue),
-                                    )
-                                    onValuesChanged()
-                                    editingSliderId = null
-                                }
-                            },
-                        ) {
-                            Text("Aplicar")
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -710,9 +408,16 @@ fun QuickParameterTrigger(
     revision: Int,
     expanded: Boolean,
     onToggle: () -> Unit,
+    onOpenEditor: () -> Unit,
     onParameterChanged: (Int, Boolean) -> Unit,
 ) {
-    val config = resolvedQuickParameter(setting ?: SideSliderSetting(1), engine)
+    if (setting == null) {
+        Box(Modifier.fillMaxSize().clickable(onClick = onOpenEditor), contentAlignment = Alignment.Center) {
+            Text("Acompanhar parâmetros", style = MaterialTheme.typography.labelSmall)
+        }
+        return
+    }
+    val config = resolvedQuickParameter(setting, engine)
     var localRevision by remember { mutableIntStateOf(0) }
     val raw =
         remember(revision, localRevision, setting, engine.brushSize, engine.brushOpacity) {
@@ -734,7 +439,7 @@ fun QuickParameterTrigger(
                 if (expanded) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.surfaceVariant
             )
-            .pointerInput(setting?.id, config.minVal, config.maxVal) {
+            .pointerInput(setting.id, config.minVal, config.maxVal) {
                 fun setAt(x: Float) {
                     updateValue(
                         config.minVal +
@@ -743,7 +448,7 @@ fun QuickParameterTrigger(
                         true,
                     )
                 }
-                detectHorizontalDragGestures(
+                if (config.kind == QuickParameterKind.SLIDER) detectHorizontalDragGestures(
                     onDragStart = { setAt(it.x) },
                     onDragEnd = { changed(config.paramId, false) },
                     onDragCancel = { changed(config.paramId, false) },
@@ -754,16 +459,16 @@ fun QuickParameterTrigger(
             }
             .clickable(onClick = onToggle)
             .semantics {
-                contentDescription =
+                contentDescription = if (config.kind == QuickParameterKind.SLIDER)
                     "${config.name}; arraste para ajustar, toque para abrir ou fechar parâmetros"
-                progressBarRangeInfo =
-                    ProgressBarRangeInfo(
-                        raw.coerceIn(config.minVal, config.maxVal),
-                        config.minVal..config.maxVal,
-                    )
-                setProgress {
-                    updateValue(it, false)
-                    true
+                    else "${config.name}; toque para abrir os controles rápidos"
+                if (config.kind == QuickParameterKind.SLIDER) {
+                    progressBarRangeInfo = ProgressBarRangeInfo(
+                        raw.coerceIn(config.minVal, config.maxVal), config.minVal..config.maxVal)
+                    setProgress {
+                        updateValue(it, false)
+                        true
+                    }
                 }
             },
         contentAlignment = Alignment.Center,
@@ -775,7 +480,11 @@ fun QuickParameterTrigger(
             drawRect(activeColor, size = androidx.compose.ui.geometry.Size(size.width * fraction, size.height))
         }
         Text(
-            "${config.shortLabel} ${parameterValueLabel(raw)}${config.unit}",
+            when (config.kind) {
+                QuickParameterKind.SLIDER -> "${config.shortLabel} ${parameterValueLabel(raw)}${config.unit}"
+                QuickParameterKind.SWITCH -> "${config.shortLabel}: ${if (raw >= .5f) "Sim" else "Não"}"
+                QuickParameterKind.CHOICE -> "${config.shortLabel}: ${config.options.firstOrNull { it.first == quickChoiceValue(engine, config.paramId) }?.second ?: quickChoiceValue(engine, config.paramId)}"
+            },
             modifier = Modifier.align(Alignment.Center).padding(horizontal = 4.dp),
             style = MaterialTheme.typography.labelSmall,
             maxLines = 1,

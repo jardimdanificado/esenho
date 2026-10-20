@@ -323,15 +323,20 @@ class EsenhoStorageManager(private val context: Context) {
     private val sideSlidersFile: File
         get() = File(context.filesDir, "esenho_side_sliders.json")
 
-    data class SideSliderSetting(val paramId: Int, val minVal: Float? = null, val maxVal: Float? = null, val id: String = java.util.UUID.randomUUID().toString())
+    data class SideSliderSetting(
+        val paramId: Int,
+        val id: String = java.util.UUID.randomUUID().toString(),
+        val ownerBrushId: String = BrushParameterScope.owner(null, paramId),
+        val parameterName: String = "",
+    )
 
     fun saveSideSliders(settings: List<SideSliderSetting>): Boolean {
         return try {
             val arr = JSONArray()
             settings.forEach { setting ->
                 arr.put(JSONObject().put("paramId", setting.paramId).put("id", setting.id).apply {
-                    setting.minVal?.let { put("min", it) }
-                    setting.maxVal?.let { put("max", it) }
+                    put("owner", setting.ownerBrushId)
+                    put("parameterName", setting.parameterName)
                 })
             }
             atomicWrite(sideSlidersFile, arr.toString())
@@ -351,13 +356,13 @@ class EsenhoStorageManager(private val context: Context) {
                     is Number -> result.add(SideSliderSetting(item.toInt()))
                     is JSONObject -> result.add(SideSliderSetting(
                         item.optInt("paramId", 1),
-                        if (item.has("min")) item.optDouble("min").toFloat() else null,
-                        if (item.has("max")) item.optDouble("max").toFloat() else null,
-                        item.optString("id", "").ifBlank { java.util.UUID.randomUUID().toString() }
+                        item.optString("id", "").ifBlank { java.util.UUID.randomUUID().toString() },
+                        item.optString("owner", if (item.optInt("paramId") >= 10000) "legacy-unscoped" else BrushParameterScope.owner(null, item.optInt("paramId"))),
+                        item.optString("parameterName", ""),
                     ))
                 }
             }
-            if (result.isEmpty()) listOf(SideSliderSetting(1), SideSliderSetting(2)) else result
+            result
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load side sliders", e)
             listOf(SideSliderSetting(1), SideSliderSetting(2))

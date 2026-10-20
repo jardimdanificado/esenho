@@ -530,22 +530,28 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     val panelContent: @Composable () -> Unit = {
         when (activePanel) {
             WorkspacePanel.BRUSHES ->
-                BrushDrawer(
-                    engine = engine,
-                    favoriteBrushIds = favoriteBrushIds,
-                    embedded = true,
-                    presetRequest = brushPresetRequest,
-                    propertiesRequest = brushPropertiesRequest,
-                    revision = engineRevision,
-                    onToggleFavorite = { id ->
-                        val updated =
-                            favoriteBrushIds.toMutableSet().apply { if (!add(id)) remove(id) }
-                        favoriteBrushIds = updated
-                        storageManager.saveFavoriteBrushes(updated)
-                    },
-                    onBrushUpdated = { refreshState() },
-                    onDismiss = { activePanel = null },
-                )
+                CompositionLocalProvider(LocalBrushTracking provides BrushTrackingContext(engine, sideSliderSettings) { settings ->
+                    sideSliderSettings = settings
+                    storageManager.saveSideSliders(settings)
+                    engineRevision++
+                }) {
+                    BrushDrawer(
+                        engine = engine,
+                        favoriteBrushIds = favoriteBrushIds,
+                        embedded = true,
+                        presetRequest = brushPresetRequest,
+                        propertiesRequest = brushPropertiesRequest,
+                        revision = engineRevision,
+                        onToggleFavorite = { id ->
+                            val updated =
+                                favoriteBrushIds.toMutableSet().apply { if (!add(id)) remove(id) }
+                            favoriteBrushIds = updated
+                            storageManager.saveFavoriteBrushes(updated)
+                        },
+                        onBrushUpdated = { refreshState() },
+                        onDismiss = { activePanel = null },
+                    )
+                }
             WorkspacePanel.COLOR ->
                 ColorStudioModal(
                     engine = engine,
@@ -1074,20 +1080,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             }
                         }
                 }
-            WorkspacePanel.CONTROLS ->
-                ParameterSettingsPanel(
-                    engine = engine,
-                    configuredSliders = sideSliderSettings,
-                    onMoveParameter = { id, steps -> moveQuickParameter(id, steps) },
-                    onReorderFinished = { storageManager.saveSideSliders(sideSliderSettings) },
-                    revision = engineRevision,
-                    onConfiguredSlidersChange = { settings ->
-                        sideSliderSettings = settings
-                        storageManager.saveSideSliders(settings)
-                    },
-                    onValuesChanged = { refreshState() },
-                    onDismiss = { activePanel = null },
-                )
             null -> Unit
         }
     }
@@ -1201,7 +1193,10 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 if (activePanel == WorkspacePanel.COLOR) null
                                 else WorkspacePanel.COLOR
                         },
-                        onParameters = { activePanel = WorkspacePanel.CONTROLS },
+                        onBrushProperties = {
+                            brushPropertiesRequest++
+                            activePanel = WorkspacePanel.BRUSHES
+                        },
                         activePanel = activePanel,
                         onLayers = {
                             activePanel =

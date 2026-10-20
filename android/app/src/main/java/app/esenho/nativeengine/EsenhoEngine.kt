@@ -742,7 +742,7 @@ class EsenhoEngine(
     var currentTool: ToolMode = ToolMode.BRUSH
     var brushSize: Float = 14f
         set(value) {
-            field = value.coerceIn(1f, 300f)
+            field = value.coerceIn(1f, 100f)
             liveBrushSliderParams[1] = field.toInt()
             selectedPreset?.let { preset ->
                 preset.size = field.toInt()
@@ -1547,13 +1547,15 @@ class EsenhoEngine(
     fun setDynamicBase(setting: Int, value: Float) {
         val preset = selectedPreset ?: return
         val key = DYNAMIC_SETTING_KEYS.getOrNull(setting) ?: return
-        preset.dynamicConfig.put("dyn_$key", value)
+        val limitedValue = if (setting == 3) value.coerceIn(ln(.5f), ln(50f)) else value
+        if (setting == 3) brushSize = (2f * exp(limitedValue)).coerceIn(1f, 100f)
+        preset.dynamicConfig.put("dyn_$key", limitedValue)
         val wasDynamic = preset.engine.equals("dynamic", true) || preset.engine.equals("mypaint", true) || preset.dynamicConfig.optBoolean("dyn_continuous", false)
         if (!wasDynamic) {
             preset.engine = "dynamic"
             syncDynamicBrush(preset)
         } else {
-            EsenhoNativeBridge.nativeDynBrushSetBase(setting, if (setting == 0) value * preset.opacity.coerceIn(0, 100) * preset.flow.coerceIn(0, 100) / 10000f else value)
+            EsenhoNativeBridge.nativeDynBrushSetBase(setting, if (setting == 0) limitedValue * preset.opacity.coerceIn(0, 100) * preset.flow.coerceIn(0, 100) / 10000f else limitedValue)
         }
         if (preset.isCustom) storageManager.saveCustomPresets(presetCatalog.filter { it.isCustom })
     }
