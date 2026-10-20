@@ -297,6 +297,19 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     val storageManager = remember { EsenhoStorageManager(context) }
     var sideSliderSettings by remember { mutableStateOf(storageManager.loadSideSliders()) }
     var favoriteBrushIds by remember { mutableStateOf(storageManager.loadFavoriteBrushes()) }
+    fun moveQuickParameter(id: String, steps: Int) {
+        val visible = relevantQuickSliders(engine, sideSliderSettings)
+        val from = visible.indexOfFirst { it.id == id }
+        if (from < 0) return
+        val to = (from + steps).coerceIn(0, visible.lastIndex)
+        if (from == to) return
+        val sourceIndex = sideSliderSettings.indexOfFirst { it.id == id }
+        val targetIndex = sideSliderSettings.indexOfFirst { it.id == visible[to].id }
+        sideSliderSettings = sideSliderSettings.toMutableList().apply {
+            add(targetIndex, removeAt(sourceIndex))
+        }
+    }
+
     val workspacePreferences = remember {
         context.getSharedPreferences("esenho_workspace", android.content.Context.MODE_PRIVATE)
     }
@@ -307,18 +320,13 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         mutableStateOf(workspacePreferences.getBoolean("quick_shelf_recent", false))
     }
 
-    var quickShelfSeparateRows by remember {
-        mutableStateOf(workspacePreferences.getBoolean("quick_shelf_separate_rows", false))
-    }
-
-    var focusMode by remember { mutableStateOf(false) }
     var quickSlidersOpen by remember { mutableStateOf(false) }
     var activePanel by remember { mutableStateOf<WorkspacePanel?>(null) }
     var brushPresetRequest by remember { mutableIntStateOf(0) }
+    var brushPropertiesRequest by remember { mutableIntStateOf(0) }
     var showWorkspaceActions by remember { mutableStateOf(false) }
     var documentTab by remember { mutableIntStateOf(0) }
     var showAssistMenu by remember { mutableStateOf(false) }
-    BackHandler(enabled = focusMode) { focusMode = false }
 
     // UI Dialog & Drawer States
     var showExportDialog by remember { mutableStateOf(false) }
@@ -527,6 +535,8 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     favoriteBrushIds = favoriteBrushIds,
                     embedded = true,
                     presetRequest = brushPresetRequest,
+                    propertiesRequest = brushPropertiesRequest,
+                    revision = engineRevision,
                     onToggleFavorite = { id ->
                         val updated =
                             favoriteBrushIds.toMutableSet().apply { if (!add(id)) remove(id) }
@@ -1068,17 +1078,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 ParameterSettingsPanel(
                     engine = engine,
                     configuredSliders = sideSliderSettings,
-                    onMoveParameter = { id, steps ->
-                        val from = sideSliderSettings.indexOfFirst { it.id == id }
-                        if (from >= 0) {
-                            val to = (from + steps).coerceIn(0, sideSliderSettings.lastIndex)
-                            if (to != from)
-                                sideSliderSettings =
-                                    sideSliderSettings.toMutableList().apply {
-                                        add(to, removeAt(from))
-                                    }
-                        }
-                    },
+                    onMoveParameter = { id, steps -> moveQuickParameter(id, steps) },
                     onReorderFinished = { storageManager.saveSideSliders(sideSliderSettings) },
                     revision = engineRevision,
                     onConfiguredSlidersChange = { settings ->
@@ -1091,14 +1091,18 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             null -> Unit
         }
     }
-    BackHandler(enabled = activePanel != null && !focusMode) { activePanel = null }
+    BackHandler(enabled = activePanel != null) { activePanel = null }
+    LaunchedEffect(activePanel, showSelectMenu, showWorkspaceActions, brushPropertiesRequest) {
+        quickSlidersOpen = false
+        canvasViewRef?.previewBrushSize = 0f
+    }
+
 
     Scaffold(
         modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            if (!focusMode)
                 WorkspaceHeader(
                     dimensions = "${engine.width} × ${engine.height} px",
                     canUndo = canUndo,
@@ -1120,11 +1124,9 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         refreshState()
                     },
                     onDocument = { showWorkspaceActions = true },
-                    onFocus = { focusMode = true },
                 )
         },
         bottomBar = {
-            if (!focusMode)
                 Column {
                     WorkspaceProperties(
                         toolName = currentTool.displayName,
@@ -1136,14 +1138,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         },
                         quickShelfVisible = quickShelfVisible,
                         quickShelfRecent = quickShelfRecent,
-                        quickShelfSeparateRows = quickShelfSeparateRows,
-                        onQuickShelfSeparateRowsChange = { separate ->
-                            quickShelfSeparateRows = separate
-                            workspacePreferences
-                                .edit()
-                                .putBoolean("quick_shelf_separate_rows", separate)
-                                .apply()
-                        },
                         onToggleQuickShelf = {
                             quickShelfVisible = !quickShelfVisible
                             workspacePreferences
@@ -1162,20 +1156,14 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         color = currentColor,
                         engine = engine,
                         configuredSliders = sideSliderSettings,
-                        onMoveParameter = { id, steps ->
-                            val from = sideSliderSettings.indexOfFirst { it.id == id }
-                            if (from >= 0) {
-                                val to = (from + steps).coerceIn(0, sideSliderSettings.lastIndex)
-                                if (to != from)
-                                    sideSliderSettings =
-                                        sideSliderSettings.toMutableList().apply {
-                                            add(to, removeAt(from))
-                                        }
-                            }
-                        },
+                        onMoveParameter = { id, steps -> moveQuickParameter(id, steps) },
                         onReorderFinished = { storageManager.saveSideSliders(sideSliderSettings) },
                         revision = engineRevision,
                         quickSlidersOpen = quickSlidersOpen,
+                        onDismissQuickSliders = {
+                            quickSlidersOpen = false
+                            canvasViewRef?.previewBrushSize = 0f
+                        },
                         onToggleQuickSliders = {
                             quickSlidersOpen = !quickSlidersOpen
                             if (!quickSlidersOpen) canvasViewRef?.previewBrushSize = 0f
@@ -1193,12 +1181,16 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             WorkspaceToolPicker(
                                 currentTool,
                                 showSelectMenu,
-                                onOpen = { showSelectMenu = !showSelectMenu },
+                                onOpen = {
+                                    quickSlidersOpen = false
+                                    showSelectMenu = !showSelectMenu
+                                },
                                 onDismiss = { showSelectMenu = false },
                                 onTool = { chooseTool(it) },
                             )
                         },
                         onBrush = {
+                            brushPropertiesRequest = 0
                             brushPresetRequest = 0
                             activePanel =
                                 if (activePanel == WorkspacePanel.BRUSHES) null
@@ -1232,14 +1224,12 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             engine = engine,
                             favoriteBrushIds = favoriteBrushIds,
                             recent = quickShelfRecent,
-                            separateRows = quickShelfSeparateRows,
                             revision = engineRevision,
                             onChanged = { refreshState() },
-                            onOpenBrushes = {
-                                brushPresetRequest++
+                            onOpenCurrentBrush = {
+                                brushPropertiesRequest++
                                 activePanel = WorkspacePanel.BRUSHES
                             },
-                            onOpenColors = { activePanel = WorkspacePanel.COLOR },
                         )
                 }
         },
@@ -1287,45 +1277,32 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                             modifier = Modifier.fillMaxSize(),
                         )
-
-                        if (focusMode) {
-                            Surface(
-                                Modifier.align(Alignment.TopEnd).padding(12.dp),
-                                shape = RoundedCornerShape(12.dp),
-                            ) {
-                                IconButton(onClick = { focusMode = false }) {
-                                    Icon(Icons.Default.FullscreenExit, "Sair do modo de foco")
-                                }
-                            }
-                        }
                     }
-                    if (!focusMode) {
-
-                        if (!useSideInspector && activePanel != null) {
-                            WorkspaceInspector(
-                                activePanel!!,
-                                Modifier.fillMaxWidth().height(mobilePanelHeight),
-                                panelContent,
-                                onResize = { deltaPixels ->
-                                    val delta = with(dockDensity) { deltaPixels.toDp() }
-                                    bottomDockHeight =
-                                        ((bottomDockHeight ?: defaultDockHeight).coerceIn(
-                                                minDockHeight,
-                                                maxDockHeight,
-                                            ) - delta)
-                                            .coerceIn(minDockHeight, maxDockHeight)
-                                },
-                                onToggleResize = {
-                                    bottomDockHeight =
-                                        if (mobilePanelHeight > defaultDockHeight + 1.dp)
-                                            defaultDockHeight
-                                        else expandedDockHeight
-                                },
-                            )
-                        }
+                    if (!useSideInspector && activePanel != null) {
+                        WorkspaceInspector(
+                            activePanel!!,
+                            Modifier.fillMaxWidth().height(mobilePanelHeight),
+                            panelContent,
+                            onResize = { deltaPixels ->
+                                val delta = with(dockDensity) { deltaPixels.toDp() }
+                                bottomDockHeight =
+                                    ((bottomDockHeight ?: defaultDockHeight).coerceIn(
+                                            minDockHeight,
+                                            maxDockHeight,
+                                        ) - delta)
+                                        .coerceIn(minDockHeight, maxDockHeight)
+                            },
+                            onToggleResize = {
+                                bottomDockHeight =
+                                    if (mobilePanelHeight > defaultDockHeight + 1.dp)
+                                        defaultDockHeight
+                                    else expandedDockHeight
+                            },
+                        )
                     }
+
                 }
-                if (!focusMode && useSideInspector && activePanel != null) {
+                if (useSideInspector && activePanel != null) {
                     WorkspaceInspector(
                         activePanel!!,
                         Modifier.width(inspectorWidth).fillMaxHeight(),

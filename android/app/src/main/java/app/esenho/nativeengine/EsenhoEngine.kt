@@ -447,11 +447,14 @@ class EsenhoEngine(
         } catch (_: Exception) { }
     }
 
-    private fun rememberRecentBrush(id: String) {
-        recentBrushIds.remove(id)
-        recentBrushIds.add(0, id)
-        while (recentBrushIds.size > 24) recentBrushIds.removeLast()
-        rasterUiPreferences.edit().putString("recent_brush_ids", JSONArray(recentBrushIds).toString()).apply()
+    private val strokeUsageHistory = StrokeUsageHistory()
+
+    private fun commitStrokeHistory() {
+        val changed = strokeUsageHistory.commit(recentBrushIds, recentColors)
+        if (changed and StrokeUsageHistory.BRUSH_CHANGED != 0) {
+            rasterUiPreferences.edit().putString("recent_brush_ids", JSONArray(recentBrushIds).toString()).apply()
+        }
+        if (changed and StrokeUsageHistory.COLOR_CHANGED != 0) storageManager.saveRecentColors(recentColors)
     }
 
     val presetCatalog = mutableListOf<BrushPresetModel>()
@@ -791,30 +794,12 @@ class EsenhoEngine(
     var currentColor: Int = Color.rgb(24, 24, 24)
         set(value) {
             field = value
-            if (!recentColors.contains(value)) {
-                recentColors.add(0, value)
-                if (recentColors.size > 16) recentColors.removeLast()
-                try {
-                    storageManager.saveRecentColors(recentColors)
-                } catch (_: Exception) {}
-            }
             try {
                 storageManager.saveSessionState(selectedPreset?.id, activePaletteId, value)
             } catch (_: Exception) {}
         }
 
-    val recentColors = mutableListOf<Int>().apply {
-        addAll(listOf(
-            Color.rgb(20, 20, 20),
-            Color.WHITE,
-            Color.rgb(230, 57, 70),
-            Color.rgb(244, 162, 97),
-            Color.rgb(233, 196, 106),
-            Color.rgb(42, 157, 143),
-            Color.rgb(38, 70, 83),
-            Color.rgb(69, 123, 157)
-        ))
-    }
+    val recentColors = mutableListOf<Int>()
 
     var symmetryMode: SymmetryMode = SymmetryMode.OFF
         set(value) {
@@ -1325,7 +1310,6 @@ class EsenhoEngine(
 
     fun selectPreset(sourcePreset: BrushPresetModel) {
         rememberProceduralToolState()
-        rememberRecentBrush("preset:${sourcePreset.id}")
         val saved = storageManager.loadFavoriteToolState("preset:${sourcePreset.id}")
             ?.takeIf { it.optString("kind") == "preset" }
             ?.optJSONObject("preset")
@@ -1760,7 +1744,6 @@ class EsenhoEngine(
 
     fun selectBrush(brush: BrushModel?) {
         rememberProceduralToolState()
-        brush?.let { rememberRecentBrush("brush:${it.id}") }
         val saved = brush?.let { proceduralToolStates[it.id]
             ?: storageManager.loadFavoriteToolState("brush:${it.id}")?.takeIf { state -> state.optString("kind") == "brush" } }
         val values = saved?.optJSONArray("params")
@@ -2089,8 +2072,9 @@ class EsenhoEngine(
     fun setBrushCustomParam(paramIdx: Int, value: Int) {
         val b = selectedBrush ?: return
         if (paramIdx in b.params.indices) {
-            b.params[paramIdx].currentVal = value
-            EsenhoNativeBridge.nativeSetBrushParam(paramIdx, value)
+            val param = b.params[paramIdx]
+            param.currentVal = value.coerceIn(param.min, param.max)
+            EsenhoNativeBridge.nativeSetBrushParam(paramIdx, param.currentVal)
         }
     }
 
@@ -2967,6 +2951,7 @@ class EsenhoEngine(
     }
 
     fun onTouchDown(x: Float, y: Float, pressure: Float = 0.85f, tiltX: Int = 0, tiltY: Int = 0) {
+        strokeUsageHistory.cancel()
         if (currentTool == ToolMode.EYEDROPPER) {
             pickColorAt(x, y)
             return
@@ -2994,6 +2979,13 @@ class EsenhoEngine(
         }
 
         isStrokeActive = true
+        val usesBrush = currentTool in setOf(ToolMode.BRUSH, ToolMode.ERASER, ToolMode.SMUDGE, ToolMode.BLEND)
+        val usesColor = currentTool in setOf(ToolMode.BRUSH, ToolMode.BLEND, ToolMode.LINE,
+            ToolMode.RECTANGLE, ToolMode.ELLIPSE, ToolMode.LASSO_FILL)
+        strokeUsageHistory.begin(
+            if (usesBrush) selectedPreset?.let { "preset:${it.id}" } ?: selectedBrush?.let { "brush:${it.id}" } else null,
+            if (usesColor) currentColor else null,
+        )
         strokeStartX = x
         strokeStartY = y
         strokeCurrentX = x
@@ -3279,6 +3271,10 @@ class EsenhoEngine(
             }
             else -> {}
         }
+
+        if (currentTool in setOf(ToolMode.RECTANGLE, ToolMode.ELLIPSE) &&
+            (x == strokeStartX || y == strokeStartY)) strokeUsageHistory.cancel()
+        commitStrokeHistory()
 
         // Keep the active cel and its timeline thumbnail in sync with edits as
         // soon as a stroke or raster shape is committed.
@@ -4009,6 +4005,7 @@ class EsenhoEngine(
     }
 
     fun cancelActiveStroke() {
+        strokeUsageHistory.cancel()
         val hadActiveStroke = isStrokeActive
         isStrokeActive = false
         // Cancellation pops the latest native undo snapshot. Marquee and

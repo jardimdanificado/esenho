@@ -135,6 +135,23 @@ private val PRESSURE_SLIDER_PARAMS =
 val AVAILABLE_SLIDER_PARAMS =
     STANDARD_SLIDER_PARAMS + DYNAMIC_SLIDER_PARAMS + PRESSURE_SLIDER_PARAMS
 
+private const val PROCEDURAL_PARAM_BASE = 10000
+private val COMMON_PROCEDURAL_PARAMS = setOf(1, 2, 4, 5, 19, 20)
+
+internal fun availableSliderParameters(engine: EsenhoEngine): List<SliderParamConfig> {
+    val brush = engine.selectedBrush ?: return AVAILABLE_SLIDER_PARAMS
+    return STANDARD_SLIDER_PARAMS.filter { it.paramId in COMMON_PROCEDURAL_PARAMS } +
+        brush.params.mapIndexed { index, param ->
+            SliderParamConfig(PROCEDURAL_PARAM_BASE + index, param.name, param.name.take(7),
+                param.min.toFloat(), param.max.toFloat().coerceAtLeast(param.min + 1f), param.unit)
+        }
+}
+
+internal fun relevantQuickSliders(engine: EsenhoEngine, settings: List<SideSliderSetting>): List<SideSliderSetting> {
+    val available = availableSliderParameters(engine).map { it.paramId }.toSet()
+    return settings.filter { it.paramId in available }
+}
+
 private fun dynamicSettingIndex(paramId: Int): Int? =
     (-1000 - paramId).takeIf { paramId in -1047..-1000 }
 
@@ -145,6 +162,7 @@ private fun readSliderParameter(engine: EsenhoEngine, paramId: Int): Float =
     parameterStepValue(
         paramId,
         when {
+            paramId >= PROCEDURAL_PARAM_BASE -> engine.selectedBrush?.params?.getOrNull(paramId - PROCEDURAL_PARAM_BASE)?.currentVal?.toFloat() ?: 0f
             dynamicSettingIndex(paramId) != null ->
                 engine.dynamicBaseValue(dynamicSettingIndex(paramId)!!)
             paramId == PRESSURE_MIN_PARAM ->
@@ -161,6 +179,7 @@ private fun writeSliderParameter(engine: EsenhoEngine, paramId: Int, requestedVa
     val value = parameterStepValue(paramId, requestedValue)
     val dynamicIndex = dynamicSettingIndex(paramId)
     when {
+        paramId >= PROCEDURAL_PARAM_BASE -> engine.setBrushCustomParam(paramId - PROCEDURAL_PARAM_BASE, value.toInt())
         dynamicIndex != null -> engine.setDynamicBase(dynamicIndex, value)
         paramId == PRESSURE_MIN_PARAM || paramId == PRESSURE_MAX_PARAM -> {
             val config = engine.selectedPreset?.dynamicConfig
@@ -179,10 +198,10 @@ private fun writeSliderParameter(engine: EsenhoEngine, paramId: Int, requestedVa
     }
 }
 
-internal fun resolvedQuickParameter(setting: SideSliderSetting): SliderParamConfig {
+internal fun resolvedQuickParameter(setting: SideSliderSetting, engine: EsenhoEngine): SliderParamConfig {
     val template =
-        AVAILABLE_SLIDER_PARAMS.find { it.paramId == setting.paramId }
-            ?: AVAILABLE_SLIDER_PARAMS.first()
+        availableSliderParameters(engine).find { it.paramId == setting.paramId }
+            ?: STANDARD_SLIDER_PARAMS.first()
     val min = setting.minVal?.takeIf { it.isFinite() } ?: template.minVal
     val max =
         setting.maxVal?.takeIf { it.isFinite() && it > min }
@@ -209,9 +228,10 @@ fun QuickParameterSliders(
     onMoveParameter: (String, Int) -> Unit,
     onReorderFinished: () -> Unit,
 ) {
+    val visibleSettings = relevantQuickSliders(engine, settings)
     val listState = rememberLazyListState()
     var movingId by remember { mutableStateOf<String?>(null) }
-    RevealMovingParameter(settings, movingId, listState)
+    RevealMovingParameter(visibleSettings, movingId, listState)
     Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp)) {
         Text(
             "Parâmetros rápidos",
@@ -220,7 +240,7 @@ fun QuickParameterSliders(
             modifier = Modifier.padding(bottom = 4.dp),
         )
         LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false), state = listState) {
-            items(settings, key = { it.id }) { setting ->
+            items(visibleSettings, key = { it.id }) { setting ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ParameterDragHandle(
                         setting.id,
@@ -251,7 +271,7 @@ private fun QuickParameterRow(
     onParameterChanged: (Int, Boolean) -> Unit,
 ) {
     var localRevision by remember { mutableIntStateOf(0) }
-    val config = resolvedQuickParameter(setting)
+    val config = resolvedQuickParameter(setting, engine)
     val rawValue =
         remember(
             revision,
@@ -305,9 +325,11 @@ fun ParameterSettingsPanel(
     onMoveParameter: (String, Int) -> Unit,
     onReorderFinished: () -> Unit,
 ) {
+    val availableParameters = availableSliderParameters(engine)
+    val visibleSettings = relevantQuickSliders(engine, configuredSliders)
     val listState = rememberLazyListState()
     var movingId by remember { mutableStateOf<String?>(null) }
-    RevealMovingParameter(configuredSliders, movingId, listState)
+    RevealMovingParameter(visibleSettings, movingId, listState)
     var editingSliderId by remember { mutableStateOf<String?>(null) }
     var editingParamId by remember { mutableIntStateOf(1) }
     var rangeMinText by remember { mutableStateOf("1") }
@@ -315,7 +337,7 @@ fun ParameterSettingsPanel(
     var currentValueText by remember { mutableStateOf("") }
 
     fun edit(index: Int) {
-        val config = resolvedQuickParameter(configuredSliders[index])
+        val config = resolvedQuickParameter(configuredSliders[index], engine)
         editingSliderId = configuredSliders[index].id
         editingParamId = config.paramId
         rangeMinText = parameterValueLabel(config.minVal)
@@ -325,9 +347,9 @@ fun ParameterSettingsPanel(
     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         EditorPanelHeader("Configurar parâmetros rápidos", onDismiss)
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
-            items(configuredSliders, key = { it.id }) { setting ->
+            items(visibleSettings, key = { it.id }) { setting ->
                 val index = configuredSliders.indexOfFirst { it.id == setting.id }
-                val config = resolvedQuickParameter(configuredSliders[index])
+                val config = resolvedQuickParameter(configuredSliders[index], engine)
                 val value =
                     remember(revision, configuredSliders[index]) {
                         readSliderParameter(engine, config.paramId)
@@ -382,15 +404,15 @@ fun ParameterSettingsPanel(
         TextButton(
             onClick = {
                 val next =
-                    AVAILABLE_SLIDER_PARAMS.firstOrNull { option ->
+                    availableParameters.firstOrNull { option ->
                         configuredSliders.none { it.paramId == option.paramId }
-                    } ?: AVAILABLE_SLIDER_PARAMS.first()
+                    } ?: availableParameters.first()
                 onConfiguredSlidersChange(configuredSliders + SideSliderSetting(next.paramId))
             },
             modifier = Modifier.height(32.dp),
         ) {
             Icon(Icons.Default.Add, null, Modifier.size(16.dp))
-            Text("Adicionar parâmetro (${configuredSliders.size})")
+            Text("Adicionar parâmetro (${visibleSettings.size})")
         }
     }
 
@@ -398,8 +420,8 @@ fun ParameterSettingsPanel(
         val editIdx = configuredSliders.indexOfFirst { it.id == editId }
         if (editIdx < 0) return@let
         val selectedTemplate =
-            AVAILABLE_SLIDER_PARAMS.find { it.paramId == editingParamId }
-                ?: AVAILABLE_SLIDER_PARAMS[0]
+            availableParameters.find { it.paramId == editingParamId }
+                ?: availableParameters[0]
 
         Dialog(onDismissRequest = { editingSliderId = null }) {
             Surface(
@@ -493,7 +515,7 @@ fun ParameterSettingsPanel(
                         modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        items(AVAILABLE_SLIDER_PARAMS) { opt ->
+                        items(availableParameters) { opt ->
                             val isSelected = opt.paramId == editingParamId
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
@@ -690,7 +712,7 @@ fun QuickParameterTrigger(
     onToggle: () -> Unit,
     onParameterChanged: (Int, Boolean) -> Unit,
 ) {
-    val config = resolvedQuickParameter(setting ?: SideSliderSetting(1))
+    val config = resolvedQuickParameter(setting ?: SideSliderSetting(1), engine)
     var localRevision by remember { mutableIntStateOf(0) }
     val raw =
         remember(revision, localRevision, setting, engine.brushSize, engine.brushOpacity) {
@@ -746,24 +768,15 @@ fun QuickParameterTrigger(
             },
         contentAlignment = Alignment.Center,
     ) {
-        val trackColor = MaterialTheme.colorScheme.outlineVariant
-        val activeColor = MaterialTheme.colorScheme.primary
-        Canvas(
-            Modifier.align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(12.dp)
-                .padding(horizontal = 6.dp)
-        ) {
-            val start = Offset(3.dp.toPx(), size.height / 2)
-            val end = Offset(size.width - 3.dp.toPx(), size.height / 2)
-            val thumb = Offset(start.x + (end.x - start.x) * fraction, start.y)
-            drawLine(trackColor, start, end, 2.dp.toPx())
-            drawLine(activeColor, start, thumb, 2.dp.toPx())
-            drawCircle(activeColor, 3.dp.toPx(), thumb)
+        val trackColor = MaterialTheme.colorScheme.surfaceVariant
+        val activeColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+        Canvas(Modifier.matchParentSize()) {
+            drawRect(trackColor)
+            drawRect(activeColor, size = androidx.compose.ui.geometry.Size(size.width * fraction, size.height))
         }
         Text(
             "${config.shortLabel} ${parameterValueLabel(raw)}${config.unit}",
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 3.dp),
+            modifier = Modifier.align(Alignment.Center).padding(horizontal = 4.dp),
             style = MaterialTheme.typography.labelSmall,
             maxLines = 1,
         )

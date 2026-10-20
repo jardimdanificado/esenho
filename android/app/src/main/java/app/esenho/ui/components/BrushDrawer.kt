@@ -158,6 +158,8 @@ fun BrushDrawer(
     onDismiss: () -> Unit,
     embedded: Boolean = false,
     presetRequest: Int = 0,
+    propertiesRequest: Int = 0,
+    revision: Int = 0,
 ) {
     var activeTab by remember {
         mutableStateOf(
@@ -180,6 +182,14 @@ fun BrushDrawer(
             searchQuery = ""
             selectedCategory = "Todos"
         }
+    }
+
+    LaunchedEffect(propertiesRequest) {
+        if (propertiesRequest > 0) showTuner = true
+    }
+    val selectedBrushId = remember(revision, catalogVersion) {
+        engine.selectedPreset?.let { "preset:${it.id}" }
+            ?: engine.selectedBrush?.let { "brush:${it.id}" }
     }
 
     // When tab changes, reset category filter
@@ -417,7 +427,7 @@ fun BrushDrawer(
                     }
                     if (activeTab == BrushDrawerTab.PRESETS) {
                         items(filteredPresets, key = { it.id }) { preset ->
-                            val selected = engine.selectedPreset?.id == preset.id
+                            val selected = selectedBrushId == "preset:${preset.id}"
                             PresetItemCard(
                                 preset = preset,
                                 isSelected = selected,
@@ -425,12 +435,14 @@ fun BrushDrawer(
                                 onFavoriteClick = { onToggleFavorite("preset:${preset.id}") },
                                 onClick = {
                                     engine.selectPreset(preset)
+                                    catalogVersion++
                                     onBrushUpdated()
                                     if (!embedded) onDismiss()
                                 },
                                 onTuneClick = {
                                     if (!selected) {
                                         engine.selectPreset(preset)
+                                        catalogVersion++
                                         onBrushUpdated()
                                     }
                                     showTuner = true
@@ -439,7 +451,7 @@ fun BrushDrawer(
                         }
                     } else {
                         items(filteredWasmBrushes, key = { it.id }) { brush ->
-                            val selected = engine.selectedBrush?.id == brush.id
+                            val selected = selectedBrushId == "brush:${brush.id}"
                             BrushItemCard(
                                 title = brush.title,
                                 categoryTag = brush.category,
@@ -450,6 +462,7 @@ fun BrushDrawer(
                                 onFavoriteClick = { onToggleFavorite("brush:${brush.id}") },
                                 onClick = {
                                     engine.selectBrush(brush)
+                                    catalogVersion++
                                     onBrushUpdated()
                                     if (brush.params.isNotEmpty()) showTuner = true
                                     else if (!embedded) onDismiss()

@@ -64,7 +64,6 @@ fun WorkspaceHeader(
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onDocument: () -> Unit,
-    onFocus: () -> Unit,
 ) {
     CompactControls {
         Surface(color = MaterialTheme.colorScheme.background) {
@@ -99,9 +98,7 @@ fun WorkspaceHeader(
                 IconButton(onClick = onRedo, enabled = canRedo, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.AutoMirrored.Filled.Redo, "Refazer", Modifier.size(18.dp))
                 }
-                IconButton(onClick = onFocus, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Default.Fullscreen, "Modo de foco", Modifier.size(18.dp))
-                }
+
             }
         }
     }
@@ -231,8 +228,6 @@ fun WorkspaceProperties(
     brushName: String,
     quickShelfVisible: Boolean,
     quickShelfRecent: Boolean,
-    quickShelfSeparateRows: Boolean,
-    onQuickShelfSeparateRowsChange: (Boolean) -> Unit,
     onToggleQuickShelf: () -> Unit,
     onQuickShelfRecentChange: (Boolean) -> Unit,
     color: Int,
@@ -241,6 +236,7 @@ fun WorkspaceProperties(
     revision: Int,
     quickSlidersOpen: Boolean,
     onToggleQuickSliders: () -> Unit,
+    onDismissQuickSliders: () -> Unit,
     onParameterChanged: (Int, Boolean) -> Unit,
     onMoveParameter: (String, Int) -> Unit,
     onReorderFinished: () -> Unit,
@@ -254,6 +250,7 @@ fun WorkspaceProperties(
     onEffects: () -> Unit,
 ) {
     var more by remember { mutableStateOf(false) }
+    val relevantSliders = relevantQuickSliders(engine, configuredSliders)
     CompactControls {
         Surface(color = MaterialTheme.colorScheme.surface) {
             Row(
@@ -265,7 +262,7 @@ fun WorkspaceProperties(
                 Box(Modifier.weight(1f).height(36.dp)) {
                     QuickParameterTrigger(
                         engine,
-                        configuredSliders.firstOrNull(),
+                        relevantSliders.firstOrNull(),
                         revision,
                         quickSlidersOpen,
                         onToggleQuickSliders,
@@ -280,7 +277,7 @@ fun WorkspaceProperties(
                     ) {
                         QuickParameterSliders(
                             engine,
-                            configuredSliders,
+                            relevantSliders,
                             revision,
                             onParameterChanged,
                             onMoveParameter,
@@ -289,8 +286,8 @@ fun WorkspaceProperties(
                     }
                 }
                 CompactPanelButton(
-                    Icons.Default.Brush,
-                    "Pincéis: $brushName",
+                    Icons.Default.CollectionsBookmark,
+                    "Presets: $brushName",
                     activePanel == WorkspacePanel.BRUSHES,
                     onBrush,
                 )
@@ -316,7 +313,7 @@ fun WorkspaceProperties(
                     onAnimation,
                 )
                 Box {
-                    IconButton(onClick = { more = true }, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = { onDismissQuickSliders(); more = true }, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Default.MoreHoriz, "Efeitos e parâmetros", Modifier.size(19.dp))
                     }
                     AnchoredWorkspacePopup(
@@ -388,27 +385,7 @@ fun WorkspaceProperties(
                                 if (quickShelfRecent) ({ Icon(Icons.Default.Check, null) })
                                 else null,
                         )
-                        HorizontalDivider()
-                        DropdownMenuItem(
-                            text = { Text("Cores e pincéis na mesma fileira") },
-                            onClick = {
-                                onQuickShelfSeparateRowsChange(false)
-                                more = false
-                            },
-                            trailingIcon =
-                                if (!quickShelfSeparateRows) ({ Icon(Icons.Default.Check, null) })
-                                else null,
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Cores e pincéis em duas fileiras") },
-                            onClick = {
-                                onQuickShelfSeparateRowsChange(true)
-                                more = false
-                            },
-                            trailingIcon =
-                                if (quickShelfSeparateRows) ({ Icon(Icons.Default.Check, null) })
-                                else null,
-                        )
+
                     }
                 }
             }
