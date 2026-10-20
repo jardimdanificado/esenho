@@ -1,0 +1,230 @@
+[
+  {
+    "id": 58,
+    "key": "realism_flexibility",
+    "label": "Flexibilidade da ponta",
+    "shortLabel": "Flex",
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "group": "Ponta",
+    "unit": "%"
+  },
+  {
+    "id": 59,
+    "key": "realism_recovery",
+    "label": "Atraso da deformação",
+    "shortLabel": "Retorno",
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "group": "Ponta",
+    "unit": "%"
+  },
+  {
+    "id": 60,
+    "key": "realism_bristle_count",
+    "label": "Quantidade de cerdas",
+    "shortLabel": "Cerdas",
+    "min": 0,
+    "max": 48,
+    "default": 0,
+    "group": "Cerdas",
+    "unit": ""
+  },
+  {
+    "id": 61,
+    "key": "realism_bristle_spread",
+    "label": "Separação das cerdas",
+    "shortLabel": "Separ",
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "group": "Cerdas",
+    "unit": "%"
+  },
+  {
+    "id": 62,
+    "key": "realism_bristle_irregularity",
+    "label": "Irregularidade das cerdas",
+    "shortLabel": "Irreg",
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "group": "Cerdas",
+    "unit": "%"
+  },
+  {
+    "id": 63,
+    "key": "realism_size_variation",
+    "label": "Variação contínua de tamanho",
+    "shortLabel": "VarTam",
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "group": "Variação contínua",
+    "unit": "%"
+  },
+  {
+    "id": 64,
+    "key": "realism_flow_variation",
+    "label": "Variação contínua de fluxo",
+    "shortLabel": "VarFlux",
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "group": "Variação contínua",
+    "unit": "%"
+  },
+  {
+    "id": 65,
+    "key": "realism_pigment_variation",
+    "label": "Variação contínua de pigmento",
+    "shortLabel": "VarPigm",
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "group": "Variação contínua",
+    "unit": "%"
+  },
+  {
+    "id": 66,
+    "key": "realism_variation_length",
+    "label": "Comprimento da variação",
+    "shortLabel": "VarComp",
+    "min": 1,
+    "max": 200,
+    "default": 40,
+    "group": "Variação contínua",
+    "unit": "px"
+  },
+  {
+    "id": 67,
+    "key": "realism_paper_response",
+    "label": "Resposta ao relevo do papel",
+    "shortLabel": "Papel",
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "group": "Papel e atrito",
+    "unit": "%"
+  },
+  {
+    "id": 68,
+    "key": "realism_paper_depth",
+    "label": "Profundidade do papel",
+    "shortLabel": "Relevo",
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "group": "Papel e atrito",
+    "unit": "%"
+  },
+  {
+    "id": 69,
+    "key": "realism_friction",
+    "label": "Atrito e arraste",
+    "shortLabel": "Atrito",
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "group": "Papel e atrito",
+    "unit": "%"
+  },
+  {
+    "id": 70,
+    "key": "realism_deposition_profile",
+    "label": "Perfil de deposição",
+    "shortLabel": "Perfil",
+    "min": 0,
+    "max": 4,
+    "default": 0,
+    "group": "Deposição e desgaste",
+    "unit": "",
+    "options": [
+      "Uniforme",
+      "Centro carregado",
+      "Bordas carregadas",
+      "Ponta dividida",
+      "Irregular orgânico"
+    ]
+  },
+  {
+    "id": 71,
+    "key": "realism_deposition_strength",
+    "label": "Intensidade do perfil",
+    "shortLabel": "Depós",
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "group": "Deposição e desgaste",
+    "unit": "%"
+  },
+  {
+    "id": 72,
+    "key": "realism_tip_wear",
+    "label": "Desgaste da ponta",
+    "shortLabel": "Desgast",
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "group": "Deposição e desgaste",
+    "unit": "%"
+  },
+  {
+    "id": 73,
+    "key": "realism_pressure_size",
+    "label": "Curva de pressão: tamanho",
+    "shortLabel": "PTam",
+    "min": 25,
+    "max": 300,
+    "default": 100,
+    "group": "Pressão independente",
+    "unit": "%"
+  },
+  {
+    "id": 74,
+    "key": "realism_pressure_flow",
+    "label": "Curva de pressão: fluxo",
+    "shortLabel": "PFlux",
+    "min": 25,
+    "max": 300,
+    "default": 100,
+    "group": "Pressão independente",
+    "unit": "%"
+  },
+  {
+    "id": 75,
+    "key": "realism_pressure_opacity",
+    "label": "Curva de pressão: opacidade",
+    "shortLabel": "POpac",
+    "min": 25,
+    "max": 300,
+    "default": 100,
+    "group": "Pressão independente",
+    "unit": "%"
+  },
+  {
+    "id": 76,
+    "key": "realism_pressure_deformation",
+    "label": "Curva de pressão: deformação",
+    "shortLabel": "PDeform",
+    "min": 25,
+    "max": 300,
+    "default": 100,
+    "group": "Pressão independente",
+    "unit": "%"
+  },
+  {
+    "id": 77,
+    "key": "realism_pressure_opacity_enabled",
+    "label": "Pressão controla opacidade",
+    "shortLabel": "POpacOn",
+    "min": 0,
+    "max": 1,
+    "default": 0,
+    "group": "Pressão independente",
+    "unit": "",
+    "switch": true
+  }
+]

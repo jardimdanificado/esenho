@@ -47,9 +47,13 @@ bin/test_native_svg: tests/test_native_svg.c src/svg/quadro_svg.c src/svg/quadro
 	mkdir -p bin
 	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_native_svg.c src/svg/quadro_svg.c src/svg/quadro_font.c src/quadro.c -lm
 
-bin/test_brush_dynamics: tests/test_brush_dynamics.c src/quadro_brush_dynamics.c src/include/quadro_brush_dynamics.h
+bin/test_brush_dynamics: tests/test_brush_dynamics.c src/quadro_brush_dynamics.c src/include/quadro_brush_dynamics.h src/include/quadro_brush_realism.h
 	mkdir -p bin
 	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_brush_dynamics.c src/quadro_brush_dynamics.c -lm
+
+bin/test_brush_realism: tests/test_brush_realism_state.c src/include/quadro_brush_realism.h
+	mkdir -p bin
+	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_brush_realism_state.c -lm
 
 bin/test_brush_coverage: tests/test_brush_coverage.c src/include/quadro_brush_coverage.h
 	mkdir -p bin
@@ -57,9 +61,10 @@ bin/test_brush_coverage: tests/test_brush_coverage.c src/include/quadro_brush_co
 
 native: bin/quadro-svg bin/test_brush_dynamics bin/test_native_svg
 
-test-native: bin/test_brush_dynamics bin/test_brush_coverage bin/test_native_svg
+test-native: bin/test_brush_dynamics bin/test_brush_coverage bin/test_brush_realism bin/test_native_svg
 	./bin/test_brush_dynamics
 	./bin/test_brush_coverage
+	./bin/test_brush_realism
 	./bin/test_native_svg
 
 test-brush-dyn: bin/test_brush_dynamics

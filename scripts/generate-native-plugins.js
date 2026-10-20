@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
+const realismParameters = require('../src/brush_realism_params.json');
 const cppGenDir = path.resolve(rootDir, 'android/app/src/main/cpp/gen');
 
 fs.mkdirSync(path.join(cppGenDir, 'brushes'), { recursive: true });
@@ -261,6 +262,7 @@ if (fs.existsSync(presetsPath)) {
           eraser: v.eraser ? 1 : 0,
           color: v.color || '',
           engine: v.engine || 'classic',
+          ...Object.fromEntries(realismParameters.filter(param => v[param.key] != null).map(param => [param.key, v[param.key]])),
           ...Object.fromEntries(Object.entries(v).filter(([key]) => key.startsWith('dyn_') || key.startsWith('mypaint_') || key.startsWith('pressure_')))
         });
       }
@@ -400,6 +402,7 @@ fs.writeFileSync(path.join(cppGenDir, 'esenho_plugins_registry.c'), regC);
 
 // Save JSON metadata for Kotlin to load
 const metadata = {
+  realismParameters,
   presets: presetEntries,
   brushes: brushEntries,
   filters: filterEntries

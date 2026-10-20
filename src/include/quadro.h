@@ -89,7 +89,27 @@ enum {
     W_PARAM_PIGMENT_MODE   = 54, /* color mixing mode: 0=digital RGB, 1=subtractive physical pigment */
     W_PARAM_IMPASTO             = 55, /* 3D oil/acrylic paint thickness relief % (0..100) */
     W_PARAM_DRYING_RATE         = 56, /* natural water evaporation rate % (0..100, default 0=infinite wetness) */
-    W_PARAM_TEX_SCALE_WITH_SIZE = 57  /* scale texture proportionally with brush size: 0=off, 1=on */
+    W_PARAM_TEX_SCALE_WITH_SIZE = 57,  /* scale texture proportionally with brush size: 0=off, 1=on */
+    W_PARAM_REALISM_FLEXIBILITY = 58, /* realism_flexibility */
+    W_PARAM_REALISM_RECOVERY = 59, /* realism_recovery */
+    W_PARAM_REALISM_BRISTLE_COUNT = 60, /* realism_bristle_count */
+    W_PARAM_REALISM_BRISTLE_SPREAD = 61, /* realism_bristle_spread */
+    W_PARAM_REALISM_BRISTLE_IRREGULARITY = 62, /* realism_bristle_irregularity */
+    W_PARAM_REALISM_SIZE_VARIATION = 63, /* realism_size_variation */
+    W_PARAM_REALISM_FLOW_VARIATION = 64, /* realism_flow_variation */
+    W_PARAM_REALISM_PIGMENT_VARIATION = 65, /* realism_pigment_variation */
+    W_PARAM_REALISM_VARIATION_LENGTH = 66, /* realism_variation_length */
+    W_PARAM_REALISM_PAPER_RESPONSE = 67, /* realism_paper_response */
+    W_PARAM_REALISM_PAPER_DEPTH = 68, /* realism_paper_depth */
+    W_PARAM_REALISM_FRICTION = 69, /* realism_friction */
+    W_PARAM_REALISM_DEPOSITION_PROFILE = 70, /* realism_deposition_profile */
+    W_PARAM_REALISM_DEPOSITION_STRENGTH = 71, /* realism_deposition_strength */
+    W_PARAM_REALISM_TIP_WEAR = 72, /* realism_tip_wear */
+    W_PARAM_REALISM_PRESSURE_SIZE = 73, /* realism_pressure_size */
+    W_PARAM_REALISM_PRESSURE_FLOW = 74, /* realism_pressure_flow */
+    W_PARAM_REALISM_PRESSURE_OPACITY = 75, /* realism_pressure_opacity */
+    W_PARAM_REALISM_PRESSURE_DEFORMATION = 76, /* realism_pressure_deformation */
+    W_PARAM_REALISM_PRESSURE_OPACITY_ENABLED = 77 /* realism_pressure_opacity_enabled */
 };
 
 enum {

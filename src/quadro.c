@@ -1,4 +1,5 @@
 #include "quadro.h"
+#include "quadro_brush_realism.h"
 #if defined(__wasm_simd128__)
 #include <wasm_simd128.h>
 #endif
@@ -1365,7 +1366,9 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
     int r = (dab_r > 0) ? dab_r : brush_config.size;
     if (r < 1) r = 1;
     float rf = (float)r;
+    realism_dab_radius = rf;
     int roundness = brush_config.roundness > 0 ? brush_config.roundness : 100;
+    if (realism_enabled) roundness = (int)realism_clamp(roundness * realism_sample.aspect, 1, 100);
     float roundness_scale = (roundness == 100) ? 1.0f : (100.0f / (float)roundness);
     int inner_r = (r * brush_config.hardness) / 100;
     float inner_rf = (float)inner_r;
@@ -1605,6 +1608,15 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                 a = (a * (100 - g) + tex_a * g) / 100;
             }
 
+            if (realism_coverage_enabled) {
+                float moisture = brush_config.water*.01f + brush_config.wetness*.005f;
+                if (g_water_map && paint_physics_cap >= (uint32_t)(w*h)) moisture += g_water_map[row_idx+x]/255.0f;
+                a = (uint32_t)(a * realism_coverage(u/rf, v_scaled/rf, dx/rf, dy/rf, (float)x, (float)y, moisture));
+            }
+            if (realism_params[19] && (brush_config.buildup || brush_config.type == W_MODE_BLEND || brush_config.type == W_MODE_SMUDGE)) {
+                a = (uint32_t)(a * realism_sample.opacity);
+            }
+
             // Fringe / Coffee Ring Edge Darkening
             if (brush_config.fringe > 0 && r > 1 && !is_builtin_square) {
                 int norm_dist_sq = (dist_sq * 1024) / (r_sq > 0 ? r_sq : 1);
@@ -1647,7 +1659,8 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                             stroke_mask[idx] = 0;
                         }
                         uint32_t cur_m = stroke_mask[idx];
-                        uint32_t new_m = cur_m + DIV255(a * (255 - cur_m));
+                        uint32_t limit = realism_params[19] ? (uint32_t)(realism_sample.opacity*255) : 255;
+                        uint32_t new_m = cur_m + (limit > cur_m ? DIV255(a * (limit - cur_m)) : 0);
                         if (new_m > 255) new_m = 255;
                         stroke_mask[idx] = (uint8_t)new_m;
                         uint32_t eff_erase_a = DIV255(new_m * max_stroke_a);
@@ -1760,7 +1773,8 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                         stroke_mask[idx] = 0;
                     }
                     uint32_t cur_m = stroke_mask[idx];
-                    uint32_t new_m = cur_m + DIV255(a * (255 - cur_m));
+                    uint32_t limit = realism_params[19] ? (uint32_t)(realism_sample.opacity*255) : 255;
+                    uint32_t new_m = cur_m + (limit > cur_m ? DIV255(a * (limit - cur_m)) : 0);
                     if (new_m > 255) new_m = 255;
                     stroke_mask[idx] = (uint8_t)new_m;
                     uint32_t eff_stroke_a = DIV255(new_m * max_stroke_a);
@@ -1800,7 +1814,8 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                         stroke_mask[idx] = 0;
                     }
                     uint32_t cur_m = stroke_mask[idx];
-                    uint32_t new_m = cur_m + DIV255(a * (255 - cur_m));
+                    uint32_t limit = realism_params[19] ? (uint32_t)(realism_sample.opacity*255) : 255;
+                    uint32_t new_m = cur_m + (limit > cur_m ? DIV255(a * (limit - cur_m)) : 0);
                     if (new_m > 255) new_m = 255;
                     stroke_mask[idx] = (uint8_t)new_m;
                     uint32_t eff_stroke_a = DIV255(new_m * max_stroke_a);
@@ -2475,6 +2490,7 @@ W_EXPORT void w_brush_set_shape(int32_t shape) {
 }
 
 W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
+    if (realism_set(param_id, val)) return;
     switch (param_id) {
         case W_PARAM_SIZE:      if (val > 0) brush_config.size = val; break;
         case W_PARAM_OPACITY:   if (val >= 0 && val <= 100) brush_config.opacity = val; break;
@@ -2543,6 +2559,7 @@ W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
 }
 
 W_EXPORT void w_brush_reset(void) {
+    realism_reset();
     brush_config.type = W_MODE_DRAW;
     brush_config.shape = 0;
     brush_config.size = 16;
@@ -2617,6 +2634,10 @@ static uint32_t stroke_pickup_color = 0;
 static void render_stroke_dab(uint32_t *pix, int w, int h, float cx, float cy, float dx, float dy, float dist,
                               uint32_t color, int32_t eraser, int move_dx, int move_dy,
                               int cur_d, int32_t pressure, int32_t tilt_x, int32_t tilt_y) {
+    realism_update(cx, cy, pressure < 0 ? 1 : pressure * .001f,
+        (realism_abs((float)tilt_x) + realism_abs((float)tilt_y)) / 180.0f, (float)brush_config.size);
+    cx += realism_sample.offset_x;
+    cy += realism_sample.offset_y;
     // Velocity Dynamics
     int scale_factor = 100;
     if (brush_config.velocity > 0 && dist > 0.001f) {
@@ -2652,12 +2673,14 @@ static void render_stroke_dab(uint32_t *pix, int w, int h, float cx, float cy, f
     int dab_r = (brush_config.size * scale_factor) / 100;
     if (brush_config.pressure_size && pressure >= 0) {
         int p = pressure > 1000 ? 1000 : pressure;
-        dab_r = (dab_r * p) / 1000;
+        if (realism_params[15] == 100) dab_r = (dab_r * p) / 1000;
+        else dab_r = (int)(dab_r * realism_pressure(p*.001f, realism_params[15]));
     }
     if (brush_config.size_jitter > 0) {
         int sj = (int)(next_random() % (brush_config.size_jitter + 1));
         dab_r = (dab_r * (100 - sj)) / 100;
     }
+    dab_r = (int)(dab_r * realism_sample.size);
     if (dab_r < 1) dab_r = 1;
 
     // Angle with angle_jitter and stylus tilt dynamics
@@ -2675,7 +2698,8 @@ static void render_stroke_dab(uint32_t *pix, int w, int h, float cx, float cy, f
     int dab_flow_pct = scale_factor;
     if (brush_config.pressure_flow && pressure >= 0) {
         int p = pressure > 1000 ? 1000 : pressure;
-        dab_flow_pct = (dab_flow_pct * p) / 1000;
+        if (realism_params[16] == 100) dab_flow_pct = (dab_flow_pct * p) / 1000;
+        else dab_flow_pct = (int)(dab_flow_pct * realism_pressure(p*.001f, realism_params[16]));
     }
     if (brush_config.opacity_jitter > 0) {
         int oj = (int)(next_random() % (brush_config.opacity_jitter + 1));
@@ -2686,6 +2710,7 @@ static void render_stroke_dab(uint32_t *pix, int w, int h, float cx, float cy, f
         if (dep_pct > 100) dep_pct = 100;
         dab_flow_pct = (dab_flow_pct * (100 - dep_pct)) / 100;
     }
+    dab_flow_pct = (int)(dab_flow_pct * realism_sample.flow * realism_sample.pigment);
     if (dab_flow_pct <= 0) return;
 
     // Color with color_jitter and continuous color_pickup
@@ -2811,6 +2836,7 @@ W_EXPORT void w_brush_stroke_ext_f(int32_t state, float x0, float y0, float x1, 
             }
             stroke_generation = 1;
         }
+        realism_begin();
         stroke_cum_dist = 0;
         stroke_spacing_dist = 0.0f;
         stroke_pickup_color = color;
@@ -2883,7 +2909,7 @@ W_EXPORT void w_brush_stroke_ext_f(int32_t state, float x0, float y0, float x1, 
     }
 
     // 3. CONTINUOUS DAB INTERPOLATION (Draw, Smudge, Blend)
-    int d_bound = (brush_config.size * 142) / 100 + 4;
+    int d_bound = (brush_config.size * (realism_enabled ? 400 : 142)) / 100 + 4;
 
     if (state == 0) {
         // Stamp initial touch dab at (x0, y0) with subpixel precision
@@ -6304,7 +6330,23 @@ static void quadro_dyn_render_dab(void *surface_ctx, const w_dyn_dab_t *dab) {
     int w = 0, h = 0;
     uint32_t *pix = get_current_draw_target(&w, &h);
     if (!pix || w <= 0 || h <= 0) return;
-    w_dyn_surface_render_dab_stateful(pix, w, h, dab, &g_dyn_brush_state);
+    if (!realism_enabled) {
+        w_dyn_surface_render_dab_stateful(pix, w, h, dab, &g_dyn_brush_state);
+        return;
+    }
+    float p = realism_clamp(g_dyn_brush_state.pressure, 0, 1);
+    realism_update(dab->x, dab->y, p,
+        realism_abs(g_dyn_brush_state.tilt_x) + realism_abs(g_dyn_brush_state.tilt_y), dab->radius);
+    realism_base_moisture = brush_config.water*.01f + brush_config.wetness*.005f;
+    w_dyn_dab_t effective = *dab;
+    effective.x += realism_sample.offset_x;
+    effective.y += realism_sample.offset_y;
+    effective.radius *= realism_sample.size;
+    effective.aspect_ratio /= realism_sample.aspect;
+    if (p > .001f && realism_params[15] != 100) effective.radius *= realism_pressure(p, realism_params[15])/p;
+    effective.opacity *= realism_sample.flow * realism_sample.pigment * realism_sample.opacity;
+    if (p > .001f && realism_params[16] != 100) effective.opacity *= realism_pressure(p, realism_params[16])/p;
+    w_dyn_surface_render_dab_stateful(pix, w, h, &effective, &g_dyn_brush_state);
 }
 
 W_EXPORT void w_brush_dyn_init(void) {
@@ -6335,6 +6377,7 @@ W_EXPORT void w_brush_dyn_clear_curve(int32_t setting, int32_t input_idx) {
 
 W_EXPORT void w_brush_dyn_reset_state(void) {
     w_dyn_brush_state_reset(&g_dyn_brush_state);
+    realism_begin();
 }
 
 W_EXPORT void w_brush_dyn_stroke_to(float x, float y, float pressure, float tilt_x, float tilt_y, float dtime, float viewzoom) {

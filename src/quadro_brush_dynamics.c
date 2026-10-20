@@ -1,4 +1,5 @@
 #include "quadro_brush_dynamics.h"
+#include "quadro_brush_realism.h"
 
 /* =========================================================================
  * Freestanding Math Utilities (Zero external dependencies)
@@ -555,6 +556,7 @@ void w_dyn_surface_render_dab(uint32_t *pixels, int width, int height, const w_d
     if (!pixels || width <= 0 || height <= 0 || !dab || dab->radius <= 0.1f || dab->opacity <= 0.001f) return;
 
     float rad = dab->radius;
+    realism_dab_radius = rad;
     float aspect = dab->aspect_ratio;
     if (aspect < 1.0f) aspect = 1.0f;
 
@@ -598,6 +600,9 @@ void w_dyn_surface_render_dab(uint32_t *pixels, int width, int height, const w_d
             if (intensity < 0.005f) continue;
 
             float alpha = intensity * dab_op;
+            if (realism_coverage_enabled) {
+                alpha *= realism_coverage(ex/rad, ey/rad, dx/rad, dy/rad, (float)px, (float)py, realism_base_moisture);
+            }
             if (alpha > 1.0f) alpha = 1.0f;
 
             uint32_t bg_pix = row[px];

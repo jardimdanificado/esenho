@@ -694,6 +694,7 @@ enum class PresetTunerTab(val title: String) {
     DYNAMICS("Dinâmica"),
     TEXTURE("Textura"),
     PHYSICS("Física"),
+    REALISM("Realismo"),
     JITTER("Jitter"),
 }
 
@@ -1032,6 +1033,33 @@ fun BrushPropertiesPanel(
             } else if (preset != null) {
                 when (tunerTab) {
                     PresetTunerTab.COMMON, PresetTunerTab.SPECIFIC -> Unit
+                    PresetTunerTab.REALISM -> {
+                        item {
+                            Text("A pressão usa 100% como resposta linear. Valores menores tornam a resposta mais suave; maiores, mais firme. Cerdas e desgaste em zero desativam seus efeitos.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        engine.realismParameters.groupBy { it.group }.forEach { (group, parameters) ->
+                            item { Text(group, style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp)) }
+                            parameters.forEach { param ->
+                                item(key = "realism_${param.id}") {
+                                    val value = engine.getPresetParam(param.id)
+                                    when {
+                                        param.isSwitch -> TunerSwitchCard(param.label, value != 0,
+                                            { updateParam(param.id, if (it) 1 else 0) }, trackingId = param.id)
+                                        param.options.isNotEmpty() -> CompactOptionDropdown(param.label, value.toString(),
+                                            param.options.mapIndexed { index, name -> index.toString() to name }, trackingId = param.id) {
+                                                updateParam(param.id, it.toInt())
+                                            }
+                                        else -> TunerSliderCard(label = param.label, value = value.toFloat(),
+                                            range = param.min.toFloat()..param.max.toFloat(), unit = param.unit,
+                                            trackingId = param.id, onValueChange = { updateParam(param.id, it.toInt()) })
+                                    }
+                                }
+                            }
+                        }
+                    }
                     PresetTunerTab.TIP -> {
                         item {
                             TunerSliderCard(

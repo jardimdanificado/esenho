@@ -19,6 +19,10 @@ public class BrushParameterScopeTest {
             check(BrushParameterScope.matches("classic", "", null, id, ""), "Classic sliders, switches and selectors can be tracked");
             check(!BrushParameterScope.matches("classic", "", "pastel", id, ""), "Classic controls must not appear on WASM brushes");
         }
+        for (int id = 58; id <= 77; id++) {
+            check(BrushParameterScope.matches("classic", "", null, id, ""), "Every realism slider, selector and switch can be pinned");
+            check(!BrushParameterScope.matches("classic", "", "pastel", id, ""), "Realism controls must not leak into procedural kernels");
+        }
         System.out.println("Tracked parameter isolation: common controls, per-WASM identity, metadata changes, switches and selectors passed.");
     }
 }

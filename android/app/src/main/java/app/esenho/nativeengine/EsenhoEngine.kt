@@ -132,7 +132,8 @@ data class BrushPresetModel(
     var eraser: Int = 0,
     var color: String = "",
     var engine: String = "classic",
-    var dynamicConfig: JSONObject = JSONObject()
+    var dynamicConfig: JSONObject = JSONObject(),
+    var realismConfig: JSONObject = JSONObject()
 ) {
     fun toJson(): JSONObject {
         val obj = JSONObject()
@@ -193,6 +194,11 @@ data class BrushPresetModel(
         obj.put("eraser", eraser)
         obj.put("color", color)
         obj.put("engine", engine)
+        val realismKeys = realismConfig.keys()
+        while (realismKeys.hasNext()) {
+            val key = realismKeys.next()
+            obj.put(key, realismConfig.opt(key))
+        }
         val dynKeys = dynamicConfig.keys()
         while (dynKeys.hasNext()) {
             val key = dynKeys.next()
@@ -261,6 +267,7 @@ data class BrushPresetModel(
                 eraser = obj.optInt("eraser", 0),
                 color = obj.optString("color", ""),
                 engine = obj.optString("engine", "classic"),
+                realismConfig = brushRealismConfig(obj),
                 dynamicConfig = normalizeDynamicConfig(JSONObject().also { config ->
                     val keys = obj.keys()
                     while (keys.hasNext()) {
@@ -460,6 +467,7 @@ class EsenhoEngine(
         if (changed and StrokeUsageHistory.COLOR_CHANGED != 0) storageManager.saveRecentColors(recentColors)
     }
 
+    val realismParameters = mutableListOf<BrushRealismParameter>()
     val presetCatalog = mutableListOf<BrushPresetModel>()
     val brushCatalog = mutableListOf<BrushModel>()
     val filterCatalog = mutableListOf<FilterModel>()
@@ -908,6 +916,13 @@ class EsenhoEngine(
             val jsonStr = context.resources.openRawResource(resId).bufferedReader().use { it.readText() }
             val root = JSONObject(jsonStr)
 
+            realismParameters.clear()
+            root.optJSONArray("realismParameters")?.let { parameters ->
+                for (i in 0 until parameters.length()) {
+                    realismParameters.add(BrushRealismParameter.fromJson(parameters.getJSONObject(i)))
+                }
+            }
+
             // 1. Curated Presets (from src/presets_data.js)
             val presetsArr = root.optJSONArray("presets")
             presetCatalog.clear()
@@ -972,6 +987,7 @@ class EsenhoEngine(
                             eraser = p.optInt("eraser", 0),
                             color = p.optString("color", ""),
                             engine = p.optString("engine", "classic"),
+                            realismConfig = brushRealismConfig(p),
                             dynamicConfig = normalizeDynamicConfig(JSONObject().also { config ->
                                 val keys = p.keys()
                                 while (keys.hasNext()) { val key = keys.next(); if (key.startsWith("dyn_") || key.startsWith("mypaint_") || key.startsWith("pressure_")) config.put(key, p.get(key)) }
@@ -1439,6 +1455,10 @@ class EsenhoEngine(
         EsenhoNativeBridge.nativeBrushSetParam(56, preset.dryingRate)
         EsenhoNativeBridge.nativeBrushSetParam(57, preset.texScaleWithSize)
 
+        realismParameters.forEach { param ->
+            EsenhoNativeBridge.nativeBrushSetParam(param.id,
+                preset.realismConfig.optInt(param.key, param.default).coerceIn(param.min, param.max))
+        }
         syncDynamicBrush(preset)
 
         listOf(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 17, 19, 20, 21, 27, 28, 29, 30)
@@ -1579,6 +1599,14 @@ class EsenhoEngine(
 
     fun setPresetParam(paramId: Int, value: Int) {
         val p = selectedPreset
+        realismParameters.firstOrNull { it.id == paramId }?.let { param ->
+            if (selectedBrush != null) return
+            val limited = value.coerceIn(param.min, param.max)
+            p?.realismConfig?.put(param.key, limited)
+            liveBrushSliderParams[paramId] = limited
+            EsenhoNativeBridge.nativeBrushSetParam(paramId, limited)
+            return
+        }
         liveBrushSliderParams[paramId] = value
         if (p == null) {
             when (paramId) {
@@ -1653,6 +1681,10 @@ class EsenhoEngine(
     }
 
     fun getPresetParam(paramId: Int): Int {
+        realismParameters.firstOrNull { it.id == paramId }?.let { param ->
+            return selectedPreset?.realismConfig?.optInt(param.key, param.default)
+                ?: liveBrushSliderParams[paramId] ?: param.default
+        }
         val p = selectedPreset ?: return when (paramId) {
             1 -> brushSize.toInt()
             2 -> (brushOpacity * 100).roundToInt()
@@ -1880,7 +1912,8 @@ class EsenhoEngine(
             eraser = if (currentTool == ToolMode.ERASER) 1 else (base?.eraser ?: 0),
             color = String.format("#%06X", 0xFFFFFF and currentColor),
             engine = base?.engine ?: "classic",
-            dynamicConfig = JSONObject(base?.dynamicConfig?.toString() ?: "{}")
+            dynamicConfig = JSONObject(base?.dynamicConfig?.toString() ?: "{}"),
+            realismConfig = JSONObject(base?.realismConfig?.toString() ?: "{}")
         )
 
         if (existing != null) {

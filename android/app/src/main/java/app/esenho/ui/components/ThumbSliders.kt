@@ -129,7 +129,11 @@ internal const val PROCEDURAL_PARAM_BASE = 10000
 private val COMMON_PROCEDURAL_PARAMS = setOf(1, 2, 4, 5, 19, 20)
 
 internal fun availableSliderParameters(engine: EsenhoEngine): List<SliderParamConfig> {
-    val brush = engine.selectedBrush ?: return AVAILABLE_SLIDER_PARAMS
+    val brush = engine.selectedBrush ?: return AVAILABLE_SLIDER_PARAMS + engine.realismParameters.map { param ->
+        SliderParamConfig(param.id, param.label, param.shortLabel, param.min.toFloat(), param.max.toFloat(), param.unit,
+            when { param.isSwitch -> QuickParameterKind.SWITCH; param.options.isNotEmpty() -> QuickParameterKind.CHOICE; else -> QuickParameterKind.SLIDER },
+            param.options.mapIndexed { index, name -> index.toString() to name })
+    }
     return STANDARD_SLIDER_PARAMS.filter { it.paramId in COMMON_PROCEDURAL_PARAMS }
         .map { if (it.paramId == 5) it.copy(minVal = 2f) else it } +
         brush.params.mapIndexed { index, param ->
