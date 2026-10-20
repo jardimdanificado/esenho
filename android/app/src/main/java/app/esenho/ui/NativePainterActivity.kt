@@ -307,6 +307,10 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         mutableStateOf(workspacePreferences.getBoolean("quick_shelf_recent", false))
     }
 
+    var quickShelfSeparateRows by remember {
+        mutableStateOf(workspacePreferences.getBoolean("quick_shelf_separate_rows", false))
+    }
+
     var focusMode by remember { mutableStateOf(false) }
     var quickSlidersOpen by remember { mutableStateOf(false) }
     var activePanel by remember { mutableStateOf<WorkspacePanel?>(null) }
@@ -1132,6 +1136,14 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         },
                         quickShelfVisible = quickShelfVisible,
                         quickShelfRecent = quickShelfRecent,
+                        quickShelfSeparateRows = quickShelfSeparateRows,
+                        onQuickShelfSeparateRowsChange = { separate ->
+                            quickShelfSeparateRows = separate
+                            workspacePreferences
+                                .edit()
+                                .putBoolean("quick_shelf_separate_rows", separate)
+                                .apply()
+                        },
                         onToggleQuickShelf = {
                             quickShelfVisible = !quickShelfVisible
                             workspacePreferences
@@ -1220,6 +1232,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             engine = engine,
                             favoriteBrushIds = favoriteBrushIds,
                             recent = quickShelfRecent,
+                            separateRows = quickShelfSeparateRows,
                             revision = engineRevision,
                             onChanged = { refreshState() },
                             onOpenBrushes = {

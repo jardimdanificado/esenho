@@ -231,6 +231,8 @@ fun WorkspaceProperties(
     brushName: String,
     quickShelfVisible: Boolean,
     quickShelfRecent: Boolean,
+    quickShelfSeparateRows: Boolean,
+    onQuickShelfSeparateRowsChange: (Boolean) -> Unit,
     onToggleQuickShelf: () -> Unit,
     onQuickShelfRecentChange: (Boolean) -> Unit,
     color: Int,
@@ -384,6 +386,27 @@ fun WorkspaceProperties(
                             },
                             trailingIcon =
                                 if (quickShelfRecent) ({ Icon(Icons.Default.Check, null) })
+                                else null,
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text("Cores e pincéis na mesma fileira") },
+                            onClick = {
+                                onQuickShelfSeparateRowsChange(false)
+                                more = false
+                            },
+                            trailingIcon =
+                                if (!quickShelfSeparateRows) ({ Icon(Icons.Default.Check, null) })
+                                else null,
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Cores e pincéis em duas fileiras") },
+                            onClick = {
+                                onQuickShelfSeparateRowsChange(true)
+                                more = false
+                            },
+                            trailingIcon =
+                                if (quickShelfSeparateRows) ({ Icon(Icons.Default.Check, null) })
                                 else null,
                         )
                     }

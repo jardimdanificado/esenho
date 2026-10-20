@@ -1,6 +1,6 @@
 # Interface Android compacta
 
-O cabeçalho e a barra de acesso somam **80 dp**: 40 dp cada. A segunda barra opcional acrescenta **36 dp**, totalizando 116 dp quando visível. Não há faixa lateral permanente. As barras do sistema Android são adicionais.
+O cabeçalho e a barra de acesso somam **80 dp**: 40 dp cada. A barra opcional acrescenta **36 dp** em uma fileira ou **72 dp** em duas fileiras, totalizando 116 ou 152 dp quando visível. Não há faixa lateral permanente. As barras do sistema Android são adicionais.
 
 - **Ferramentas:** toque no primeiro ícone da barra inferior. A ferramenta atual aparece nesse botão; o seletor reúne pintura, seleção, formas e navegação.
 - **Documento:** toque nas dimensões da tela. Projeto reúne nova tela, abrir/salvar, importação e exportação; Tela reúne dimensões, enquadramento, espelhamento e auxiliares; Seleção reúne operações gerais da área selecionada.
@@ -10,9 +10,9 @@ Tocar novamente no atalho de um painel fecha esse painel. Seleção e transforma
 
 ## Barra de cores e pincéis
 
-A segunda barra fica abaixo dos controles principais e divide o espaço igualmente: amostras de cores à esquerda, pincéis à direita. Cada metade tem rolagem horizontal independente. O círculo com a cor atual abre o Color Studio e se diferencia das amostras quadradas. O ícone de pincel antes dos favoritos/recentes abre diretamente a aba de presets, saindo dos ajustes e dos filtros de busca.
+A barra adicional fica abaixo dos controles principais. Na mesma fileira, divide o espaço igualmente entre amostras de cores à esquerda e pincéis à direita. Em duas fileiras, as cores ficam acima dos pincéis e cada faixa ocupa toda a largura. Cada metade tem rolagem horizontal independente. O círculo com a cor atual abre o Color Studio e se diferencia das amostras quadradas. O ícone de pincel antes dos favoritos/recentes abre diretamente a aba de presets, saindo dos ajustes e dos filtros de busca.
 
-No menu de três pontos da barra principal, escolha **Paleta e pincéis favoritos** ou **Cores e pincéis recentes**. A paleta acompanha a seleção do Color Studio. Os pincéis recentes são registrados ao selecionar presets ou pincéis procedurais, inclusive pelo catálogo, e preservados entre sessões. O mesmo menu permite ocultar e mostrar a segunda barra; modo e visibilidade ficam salvos. O modo de foco também oculta as duas barras.
+No menu de três pontos da barra principal, escolha **Paleta e pincéis favoritos** ou **Cores e pincéis recentes**. A paleta acompanha a seleção do Color Studio. Os pincéis recentes são registrados ao selecionar presets ou pincéis procedurais, inclusive pelo catálogo, e preservados entre sessões. O mesmo menu permite ocultar e mostrar a barra e escolher **Cores e pincéis na mesma fileira** ou **Cores e pincéis em duas fileiras**; conteúdo, disposição e visibilidade ficam salvos. O modo de foco também oculta as duas barras.
 
 ## Parâmetros rápidos
 
@@ -21,6 +21,8 @@ O controle da barra inferior ajusta o primeiro parâmetro da lista por arrasto h
 Segure a alça e arraste para reordenar tanto na pilha quanto na janela de configuração. A ordem é salva ao soltar; o primeiro item passa a ser controlado pela barra inferior.
 
 A pilha usa os parâmetros e as faixas já salvos, sem limite de quantidade. A lista de sliders tem rolagem e cria apenas os controles visíveis. A configuração padrão inclui tamanho e opacidade. A dock **Configurar parâmetros rápidos** serve para adicionar ou remover controles, escolher a propriedade, ajustar mínimo e máximo e informar um valor numérico diretamente. Ela não duplica os sliders de uso rápido. Faixas e valores negativos são aceitos para parâmetros que os utilizam.
+
+Tamanho, opacidade, pressão e demais parâmetros inteiros são arredondados ao ajustar o valor, inclusive no controle inferior. Parâmetros dinâmicos mantêm a precisão fracionária de suas faixas.
 
 Sliders, menu inferior e seletor de ferramentas se ancoram diretamente nos botões, com intervalo de 2 dp acima deles e limites nas bordas da janela.
 

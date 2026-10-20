@@ -44,6 +44,7 @@ import androidx.compose.ui.window.Dialog
 import app.esenho.nativeengine.DYNAMIC_SETTING_KEYS
 import app.esenho.nativeengine.EsenhoEngine
 import app.esenho.nativeengine.EsenhoStorageManager.SideSliderSetting
+import kotlin.math.roundToInt
 
 data class SliderParamConfig(
     val paramId: Int,
@@ -137,20 +138,27 @@ val AVAILABLE_SLIDER_PARAMS =
 private fun dynamicSettingIndex(paramId: Int): Int? =
     (-1000 - paramId).takeIf { paramId in -1047..-1000 }
 
-private fun readSliderParameter(engine: EsenhoEngine, paramId: Int): Float =
-    when {
-        dynamicSettingIndex(paramId) != null ->
-            engine.dynamicBaseValue(dynamicSettingIndex(paramId)!!)
-        paramId == PRESSURE_MIN_PARAM ->
-            engine.selectedPreset?.dynamicConfig?.optInt("pressure_min", 0)?.toFloat() ?: 0f
-        paramId == PRESSURE_MAX_PARAM ->
-            engine.selectedPreset?.dynamicConfig?.optInt("pressure_max", 100)?.toFloat() ?: 100f
-        paramId == 1 -> engine.brushSize
-        paramId == 2 -> engine.brushOpacity * 100f
-        else -> engine.getPresetParam(paramId).toFloat()
-    }
+private fun parameterStepValue(paramId: Int, value: Float): Float =
+    if (dynamicSettingIndex(paramId) == null) value.roundToInt().toFloat() else value
 
-private fun writeSliderParameter(engine: EsenhoEngine, paramId: Int, value: Float) {
+private fun readSliderParameter(engine: EsenhoEngine, paramId: Int): Float =
+    parameterStepValue(
+        paramId,
+        when {
+            dynamicSettingIndex(paramId) != null ->
+                engine.dynamicBaseValue(dynamicSettingIndex(paramId)!!)
+            paramId == PRESSURE_MIN_PARAM ->
+                engine.selectedPreset?.dynamicConfig?.optInt("pressure_min", 0)?.toFloat() ?: 0f
+            paramId == PRESSURE_MAX_PARAM ->
+                engine.selectedPreset?.dynamicConfig?.optInt("pressure_max", 100)?.toFloat() ?: 100f
+            paramId == 1 -> engine.brushSize
+            paramId == 2 -> engine.brushOpacity * 100f
+            else -> engine.getPresetParam(paramId).toFloat()
+        },
+    )
+
+private fun writeSliderParameter(engine: EsenhoEngine, paramId: Int, requestedValue: Float) {
+    val value = parameterStepValue(paramId, requestedValue)
     val dynamicIndex = dynamicSettingIndex(paramId)
     when {
         dynamicIndex != null -> engine.setDynamicBase(dynamicIndex, value)
@@ -179,7 +187,11 @@ internal fun resolvedQuickParameter(setting: SideSliderSetting): SliderParamConf
     val max =
         setting.maxVal?.takeIf { it.isFinite() && it > min }
             ?: template.maxVal.coerceAtLeast(min + 0.01f)
-    return template.copy(minVal = min, maxVal = max)
+    if (dynamicSettingIndex(template.paramId) != null)
+        return template.copy(minVal = min, maxVal = max)
+    val steppedMin = min.roundToInt().toFloat()
+    val steppedMax = max.roundToInt().toFloat().coerceAtLeast(steppedMin + 1f)
+    return template.copy(minVal = steppedMin, maxVal = steppedMax)
 }
 
 private fun finiteParameterNumber(text: String): Float? =
