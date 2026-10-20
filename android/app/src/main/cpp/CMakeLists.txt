@@ -13,8 +13,8 @@ include_directories(
 )
 
 # Source files
-file(GLOB BRUSH_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/gen/brushes/*.c)
-file(GLOB FILTER_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/gen/filters/*.c)
+file(GLOB BRUSH_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gen/brushes/*.c)
+file(GLOB FILTER_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gen/filters/*.c)
 
 set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/esenho_jni.c

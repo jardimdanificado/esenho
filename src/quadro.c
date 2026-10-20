@@ -1,5 +1,4 @@
 #include "quadro.h"
-#include <math.h>
 #if defined(__wasm_simd128__)
 #include <wasm_simd128.h>
 #endif
@@ -95,6 +94,10 @@ static void *canvas_resize_buffer(void *ptr, uint32_t old_size, uint32_t size) {
     return realloc(ptr, size);
 }
 #endif
+
+static void canvas_clear_bytes(uint8_t *ptr, uint32_t size) {
+    for (uint32_t i = 0; i < size; ++i) ptr[i] = 0;
+}
 
 W_EXPORT void *w_canvas_alloc(uint32_t size) {
     return canvas_alloc(size);
@@ -1529,8 +1532,8 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                 }
             }
 
-            // Stochastic Grain
-            if (brush_config.grain > 0) {
+            // With a paper texture, grain is its strength (below), not fresh random holes per dab.
+            if (brush_config.grain > 0 && !has_tex) {
                 if ((next_random() % 100) < (uint32_t)brush_config.grain) continue;
             }
 
@@ -4053,8 +4056,8 @@ W_EXPORT void w_select_ellipse(int32_t cx, int32_t cy, int32_t rx, int32_t ry, i
         !ensure_wand_buffer((void**)&selection_work_b, &selection_work_b_capacity, doc_size)) return;
     uint8_t *ellipse_mask = selection_work_a;
     uint8_t *temp = selection_work_b;
-    memset(ellipse_mask, 0, doc_size);
-    memset(temp, 0, doc_size);
+    canvas_clear_bytes(ellipse_mask, doc_size);
+    canvas_clear_bytes(temp, doc_size);
 
     int64_t rx2 = (int64_t)rx * rx;
     int64_t ry2 = (int64_t)ry * ry;
@@ -4120,7 +4123,7 @@ W_EXPORT void w_select_apply_mask(const uint8_t *mask, int32_t x, int32_t y, int
     uint32_t doc_size = (uint32_t)doc_pixel_count;
     if (!ensure_wand_buffer((void**)&selection_work_b, &selection_work_b_capacity, doc_size)) return;
     uint8_t *result = selection_work_b;
-    memset(result, 0, doc_size);
+    canvas_clear_bytes(result, doc_size);
 
     if (op_mode != W_SEL_REPLACE && clip_active && clip_mask_ptr) {
         for (int sy = 0; sy < clip_h; sy++) for (int sx = 0; sx < clip_w; sx++) {
@@ -4175,7 +4178,7 @@ W_EXPORT void w_select_brush(const int32_t *points_xy, int32_t point_count, int3
     uint32_t doc_size = (uint32_t)doc_pixel_count;
     if (!ensure_wand_buffer((void**)&selection_work_a, &selection_work_a_capacity, doc_size)) return;
     uint8_t *stroke_mask = selection_work_a;
-    memset(stroke_mask, 0, doc_size);
+    canvas_clear_bytes(stroke_mask, doc_size);
 
     int r = radius < 1 ? 1 : radius;
     int max_radius = (int)(doc_width > doc_height ? doc_width : doc_height);
@@ -4188,13 +4191,13 @@ W_EXPORT void w_select_brush(const int32_t *points_xy, int32_t point_count, int3
         double x1 = point_count > 1 ? points_xy[(segment + 1) * 2] : x0;
         double y1 = point_count > 1 ? points_xy[(segment + 1) * 2 + 1] : y0;
         double dx = x1 - x0, dy = y1 - y0;
-        double length = sqrt(dx * dx + dy * dy);
-        int stamps = (int)ceil(length / (double)(r > 1 ? r : 1));
+        double length = __builtin_sqrt(dx * dx + dy * dy);
+        int stamps = (int)__builtin_ceil(length / (double)(r > 1 ? r : 1));
         if (stamps < 1) stamps = 1;
         for (int stamp = 0; stamp <= stamps; stamp++) {
             double t = (double)stamp / (double)stamps;
-            int cx = (int)llround(x0 + dx * t);
-            int cy = (int)llround(y0 + dy * t);
+            int cx = (int)((x0 + dx*t) + ((x0 + dx*t) >= 0 ? 0.5 : -0.5));
+            int cy = (int)((y0 + dy*t) + ((y0 + dy*t) >= 0 ? 0.5 : -0.5));
             int left = cx - r, right = cx + r;
             int top = cy - r, bottom = cy + r;
             if (left < 0) left = 0;

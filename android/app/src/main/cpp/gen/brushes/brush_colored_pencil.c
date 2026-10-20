@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for colored_pencil */
+#define w_brush_get_info brush_colored_pencil_get_info
+#define w_brush_get_inputs brush_colored_pencil_get_inputs
+#define w_brush_init brush_colored_pencil_init
+#define w_brush_set_param brush_colored_pencil_set_param
+#define w_brush_stroke_begin brush_colored_pencil_stroke_begin
+#define w_brush_stroke_end brush_colored_pencil_stroke_end
+#define w_brush_render_dab brush_colored_pencil_render_dab
+
+#include "colored_pencil.c"

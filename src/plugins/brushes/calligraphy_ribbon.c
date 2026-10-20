@@ -15,7 +15,7 @@
 static int g_nib_angle = 45;      // degrees
 static int g_flatness = 85;       // % aspect ratio reduction (thickness vs width)
 static int g_ink_flow = 90;       // % flow density
-static int g_tilt_tracking = 1;   // 1=follow pen tilt/angle, 0=fixed angle
+static int g_tilt_tracking = 0;   // 1=follow pen tilt/angle, 0=fixed angle
 
 W_EXPORT const char* w_brush_get_info(void) {
     return "{"
@@ -29,7 +29,7 @@ W_EXPORT const char* w_brush_get_info(void) {
             "{\"name\":\"Nib Angle\",\"min\":0,\"max\":180,\"default\":45,\"unit\":\"deg\"},"
             "{\"name\":\"Flatness\",\"min\":50,\"max\":98,\"default\":85,\"unit\":\"%\"},"
             "{\"name\":\"Ink Flow\",\"min\":20,\"max\":100,\"default\":90,\"unit\":\"%\"},"
-            "{\"name\":\"Tilt Tracking (0=off, 1=on)\",\"min\":0,\"max\":1,\"default\":1}"
+            "{\"name\":\"Follow Stroke (0=off, 1=on)\",\"min\":0,\"max\":1,\"default\":0}"
         "]"
     "}";
 }
@@ -60,9 +60,9 @@ W_EXPORT void w_brush_render_dab(
     uint32_t color,
     int32_t is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f || pressure <= 0.0f || w_color_get_a(color) == 0) return;
 
-    float eff_p = (pressure > 0.01f) ? pressure : 0.5f;
+    float eff_p = pressure > 1.0f ? 1.0f : pressure;
 
     float angle_deg_eff = (float)g_nib_angle;
     if (g_tilt_tracking && (w_sinf(angle_deg * 0.01745329f) != 0.0f || w_cosf(angle_deg * 0.01745329f) != 0.0f)) {
@@ -101,15 +101,13 @@ W_EXPORT void w_brush_render_dab(
             float edge_dist = 1.0f - ellipse_eq;
             float aa = w_smoothstep(0.0f, 0.25f, edge_dist);
 
-            uint32_t alpha_step = (uint32_t)(aa * flow_mult * 255.0f);
+            uint32_t alpha_step = (uint32_t)(aa * flow_mult * eff_p * 255.0f);
             if (alpha_step > 255) alpha_step = 255;
             if (alpha_step == 0) continue;
 
             uint32_t dst = row[x];
             if (is_eraser) {
-                uint32_t da = (dst >> 24) & 0xFF;
-                uint32_t na = (da > alpha_step) ? (da - alpha_step) : 0;
-                row[x] = (na << 24) | (dst & 0x00FFFFFF);
+                row[x] = w_brush_erase(dst, color, alpha_step);
             } else {
                 row[x] = w_brush_blend_over(color, dst, alpha_step);
             }

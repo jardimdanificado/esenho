@@ -65,9 +65,9 @@ W_EXPORT void w_brush_render_dab(
     uint32_t color,
     int32_t is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f || pressure <= 0.0f || w_color_get_a(color) == 0) return;
 
-    float eff_p = (pressure > 0.01f) ? pressure : 0.5f;
+    float eff_p = pressure > 1.0f ? 1.0f : pressure;
     float spread_mult = 1.0f + (g_bleed_radius * 0.01f);
     float r = radius * spread_mult;
     float r_sq = r * r;
@@ -83,7 +83,7 @@ W_EXPORT void w_brush_render_dab(
 
     float gran_amount = (float)g_granulation * 0.01f;
     float fringe_strength = (float)g_fringe_darken * 0.01f * 1.5f;
-    float water_flow = ((float)g_water_load * 0.01f) * 0.18f * eff_p;
+    float water_flow = (0.16f - (float)g_water_load * 0.0011f) * eff_p;
 
     for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
@@ -110,8 +110,8 @@ W_EXPORT void w_brush_render_dab(
 
             // Fast integer hash for paper granulation
             uint32_t hash = ((uint32_t)x * 73856093) ^ y_hash;
-            float noise = (float)(hash & 0xFF) * (1.0f / 255.0f);
-            float gran_factor = 1.0f + (noise - 0.5f) * gran_amount;
+            float noise = w_brush_paper(x + 0.5f, y + 0.5f, 2.7f);
+            float gran_factor = 1.0f + (noise - 0.5f) * gran_amount * 1.4f;
 
             float edge_feather = 1.0f;
             if (dist_ratio > 0.65f) {
@@ -122,7 +122,7 @@ W_EXPORT void w_brush_render_dab(
             float final_flow = wash_density * gran_factor * water_flow * edge_feather;
             if (final_flow > 1.0f) final_flow = 1.0f;
 
-            uint32_t alpha_step = (uint32_t)(final_flow * (float)base_a);
+            uint32_t alpha_step = (uint32_t)(final_flow * 255.0f);
             if (alpha_step == 0) continue;
 
             uint32_t dst = row[x];
@@ -139,9 +139,7 @@ W_EXPORT void w_brush_render_dab(
             uint32_t dab_c = w_color_pack(cur_r, cur_g, cur_b, base_a);
 
             if (is_eraser) {
-                uint32_t da = (dst >> 24) & 0xFF;
-                uint32_t na = (da > alpha_step) ? (da - alpha_step) : 0;
-                row[x] = (na << 24) | (dst & 0x00FFFFFF);
+                row[x] = w_brush_erase(dst, color, alpha_step);
             } else {
                 row[x] = w_brush_blend_over(dab_c, dst, alpha_step);
             }

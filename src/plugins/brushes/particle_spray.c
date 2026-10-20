@@ -65,9 +65,9 @@ W_EXPORT void w_brush_render_dab(
     uint32_t color,
     int32_t is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f || !(pressure > 0) || !w_color_get_a(color)) return;
 
-    float eff_p = (pressure > 0.01f) ? pressure : 0.5f;
+    float eff_p = pressure > 1.0f ? 1.0f : pressure;
 
     float speed_scatter = 1.0f + (speed * 0.04f);
     if (speed_scatter > 2.0f) speed_scatter = 2.0f;
@@ -80,7 +80,6 @@ W_EXPORT void w_brush_render_dab(
     int x0, y0, x1, y1;
     w_brush_compute_bounds((int)cx, (int)cy, max_extent, canvas_w, canvas_h, &x0, &y0, &x1, &y1);
 
-    uint32_t base_a = w_color_get_a(color);
     float base_flow = ((float)g_accumulation * 0.01f) * eff_p;
     int drop_r_sq = drop_r * drop_r;
 
@@ -112,9 +111,7 @@ W_EXPORT void w_brush_render_dab(
             uint32_t *row = &pixels[py * canvas_w];
             uint32_t dst = row[px];
             if (is_eraser) {
-                uint32_t da = (dst >> 24) & 0xFF;
-                uint32_t na = (da > alpha_step) ? (da - alpha_step) : 0;
-                row[px] = (na << 24) | (dst & 0x00FFFFFF);
+                row[px] = w_brush_erase(dst, color, alpha_step);
             } else {
                 row[px] = w_brush_blend_over(color, dst, alpha_step);
             }
@@ -133,9 +130,7 @@ W_EXPORT void w_brush_render_dab(
 
                 uint32_t dst = row[cur_x];
                 if (is_eraser) {
-                    uint32_t da = (dst >> 24) & 0xFF;
-                    uint32_t na = (da > alpha_step) ? (da - alpha_step) : 0;
-                    row[cur_x] = (na << 24) | (dst & 0x00FFFFFF);
+                    row[cur_x] = w_brush_erase(dst, color, alpha_step);
                 } else {
                     row[cur_x] = w_brush_blend_over(color, dst, alpha_step);
                 }

@@ -167,13 +167,13 @@ test('Paint Physics & Watercolor System Suite', async (t) => {
 
     host.selectBrushPreset('watercolor');
     assert.strictEqual(host.brushParams.water, 75);
-    assert.strictEqual(host.brushParams.bleed, 70);
-    assert.strictEqual(host.brushParams.fringe, 60);
-    assert.strictEqual(host.brushParams.granulation, 45);
+    assert.strictEqual(host.brushParams.bleed, 35);
+    assert.strictEqual(host.brushParams.fringe, 24);
+    assert.strictEqual(host.brushParams.granulation, 32);
     assert.strictEqual(host.brushParams.pigment_mode, 1);
 
     host.selectBrushPreset('oil_impasto');
-    assert.strictEqual(host.brushParams.impasto, 85);
+    assert.strictEqual(host.brushParams.impasto, 45);
     assert.strictEqual(host.brushParams.pigment_mode, 1);
   });
 

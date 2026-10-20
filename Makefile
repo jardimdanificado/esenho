@@ -21,7 +21,7 @@ plugins/%.wasm: src/plugins/%.c src/include/quadro.h
 	mkdir -p plugins
 	$(CLANG) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
-plugins/brushes/%.wasm: src/plugins/brushes/%.c src/include/quadro_brush_plugin.h src/include/quadro.h
+plugins/brushes/%.wasm: src/plugins/brushes/%.c $(wildcard src/include/quadro*brush*.h) src/include/quadro.h
 	mkdir -p plugins/brushes
 	$(CLANG) $(BRUSH_CFLAGS) $(BRUSH_LDFLAGS) -o $@ $<
 

@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for dry_flat_brush */
+#define w_brush_get_info brush_dry_flat_brush_get_info
+#define w_brush_get_inputs brush_dry_flat_brush_get_inputs
+#define w_brush_init brush_dry_flat_brush_init
+#define w_brush_set_param brush_dry_flat_brush_set_param
+#define w_brush_stroke_begin brush_dry_flat_brush_stroke_begin
+#define w_brush_stroke_end brush_dry_flat_brush_stroke_end
+#define w_brush_render_dab brush_dry_flat_brush_render_dab
+
+#include "dry_flat_brush.c"

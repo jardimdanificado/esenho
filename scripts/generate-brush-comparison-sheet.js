@@ -3,7 +3,7 @@
  *
  * Generates a high-resolution PNG comparison sheet comparing:
  *  - Left Column: "Original Browser Engine (JS/HTML - EsenhoScreenHost pipeline)"
- *  - Right Column: "New Native Android Engine (C Quadro Kernel / NDK pipeline)"
+ *  - Right Column: "Direct C/WASM kernel (metadata parameter mapping)"
  *
  * Renders all 66 production brush presets side-by-side.
  */
@@ -14,7 +14,7 @@ const { encodePng } = require('../src/image_io.js');
 const { EsenhoModule, EsenhoScreenHost } = require('../src/esenho.js');
 
 const rootDir = path.resolve(__dirname, '..');
-const metadataPath = path.resolve(rootDir, 'android/app/src/main/assets/esenho_native_metadata.json');
+const metadataPath = path.resolve(rootDir, 'android/app/src/main/res/raw/esenho_native_metadata.json');
 const canvasWasmPath = path.resolve(rootDir, 'plugins/canvas.wasm');
 
 if (!fs.existsSync(metadataPath)) {
@@ -210,10 +210,10 @@ function passString(wasmInst, str) {
 }
 
 /**
- * 2. Render using the New Android Native Engine (C Quadro Kernel)
- * Directly dispatches through native C kernel with bit-exact procedural textures and tip shapes
+ * 2. Render using the Direct C/WASM Engine (C Quadro Kernel)
+ * Directly dispatches through the WASM build of the C kernel; this is not an Android device capture
  */
-function renderAndroidNativeEngineTile(wasmInst, preset, tileW, tileH) {
+function renderDirectWasmEngineTile(wasmInst, preset, tileW, tileH) {
   const exports = wasmInst.exports;
   exports.w_init(tileW, tileH);
   exports.w_brush_reset();
@@ -273,7 +273,7 @@ function renderAndroidNativeEngineTile(wasmInst, preset, tileW, tileH) {
     if (i === 0) {
       exports.w_brush_stroke_ext_f(0, x, y, x, y, color, 0, pInt, 0, 0);
     } else {
-      // Direct Native C Quadro stroke execution (curX, curY, prevX, prevY)
+      // Direct C/WASM Quadro stroke execution (curX, curY, prevX, prevY)
       exports.w_brush_stroke_ext_f(1, x, y, prevX, prevY, color, 0, pInt, 0, 0);
     }
     prevX = x;
@@ -321,9 +321,9 @@ function blitTile(mainBuf, mainW, mainH, tileBuf, tileW, tileH, dstX, dstY) {
 }
 
 async function main() {
-  console.log('--- Generating Side-by-Side Comparison: Browser JS/HTML Engine vs. Android Native C Engine ---');
+  console.log('--- Generating Side-by-Side Comparison: Browser JS/HTML Engine vs. Direct C/WASM Engine ---');
 
-  const nativeModule = new EsenhoModule(canvasWasmPath);
+  const directModule = new EsenhoModule(canvasWasmPath);
 
   // Layout parameters
   const sheetW = 1600;
@@ -344,14 +344,14 @@ async function main() {
 
   // Header Typography
   drawText(sheetBuf, sheetW, sheetH, 40, 34, "ESENHO BRUSH ENGINE COMPARISON", 0xFFFFFFFF, 3);
-  drawText(sheetBuf, sheetW, sheetH, 42, 80, "Browser JS/HTML Engine (EsenhoScreenHost) vs. Android Native C Engine (Quadro)", 0xFF00ADB5, 2);
-  drawText(sheetBuf, sheetW, sheetH, 42, 114, `Direct 1:1 fidelity evaluation across all ${presets.length} production brush presets.`, 0xFF94A3B8, 1);
-  drawText(sheetBuf, sheetW, sheetH, 42, 132, "Left: Web Browser JS Host (Bézier tension, speed EMA, dispatch) | Right: Android NDK C Engine (SDF AA, Lerp, Quadro)", 0xFF64748B, 1);
+  drawText(sheetBuf, sheetW, sheetH, 42, 80, "Browser JS/HTML Engine (EsenhoScreenHost) vs. Direct C/WASM Engine (Quadro)", 0xFF00ADB5, 2);
+  drawText(sheetBuf, sheetW, sheetH, 42, 114, `Synthetic stroke samples across all ${presets.length} production brush presets.`, 0xFF94A3B8, 1);
+  drawText(sheetBuf, sheetW, sheetH, 42, 132, "Left: Web Browser JS Host (Bézier tension, speed EMA, dispatch) | Right: Direct C/WASM Engine (SDF AA, Lerp, Quadro)", 0xFF64748B, 1);
 
   // Column Headers
   const col1X = 40;   // Preset Info
   const col2X = 450;  // Browser JS/HTML Engine
-  const col3X = 1030; // Android Native C Engine
+  const col3X = 1030; // Direct C/WASM Engine
   const tileW = 530;
   const tileH = 74;
 
@@ -360,7 +360,7 @@ async function main() {
 
   drawText(sheetBuf, sheetW, sheetH, col1X, colHeaderY, "BRUSH PRESET & CONFIG", 0xFFE2E8F0, 2);
   drawText(sheetBuf, sheetW, sheetH, col2X, colHeaderY, "BROWSER ENGINE (JS / HTML HOST)", 0xFF38BDF8, 2);
-  drawText(sheetBuf, sheetW, sheetH, col3X, colHeaderY, "NATIVE ENGINE (ANDROID C / NDK)", 0xFF34D399, 2);
+  drawText(sheetBuf, sheetW, sheetH, col3X, colHeaderY, "DIRECT C / WASM KERNEL", 0xFF34D399, 2);
 
   console.log('Rendering brush comparison rows...');
   for (let idx = 0; idx < presets.length; idx++) {
@@ -389,7 +389,7 @@ async function main() {
     fillRect(sheetBuf, sheetW, sheetH, col2X, rowY + 8, tileW, 1, 0xFF1E293B);
     fillRect(sheetBuf, sheetW, sheetH, col2X, rowY + 8 + tileH - 1, tileW, 1, 0xFF1E293B);
 
-    // Card background for Right (Android Native C)
+    // Card background for Right (Direct C/WASM)
     fillRect(sheetBuf, sheetW, sheetH, col3X, rowY + 8, tileW, tileH, 0xFF0D1016);
     fillRect(sheetBuf, sheetW, sheetH, col3X, rowY + 8, tileW, 1, 0xFF132E25);
     fillRect(sheetBuf, sheetW, sheetH, col3X, rowY + 8 + tileH - 1, tileW, 1, 0xFF132E25);
@@ -398,9 +398,9 @@ async function main() {
     const browserTile = renderBrowserJsEngineTile(p, tileW, tileH);
     blitTile(sheetBuf, sheetW, sheetH, browserTile, tileW, tileH, col2X, rowY + 8);
 
-    // 2. Render using Android Native C Engine
-    const nativeTile = renderAndroidNativeEngineTile(nativeModule, p, tileW, tileH);
-    blitTile(sheetBuf, sheetW, sheetH, nativeTile, tileW, tileH, col3X, rowY + 8);
+    // 2. Render using Direct C/WASM Engine
+    const directTile = renderDirectWasmEngineTile(directModule, p, tileW, tileH);
+    blitTile(sheetBuf, sheetW, sheetH, directTile, tileW, tileH, col3X, rowY + 8);
 
     if ((idx + 1) % 10 === 0 || idx === presets.length - 1) {
       console.log(`  Rendered ${idx + 1}/${presets.length} presets...`);
@@ -410,7 +410,7 @@ async function main() {
   // Footer
   const footerY = headerH + presets.length * rowH;
   fillRect(sheetBuf, sheetW, sheetH, 0, footerY, sheetW, footerH, 0xFF0D1015);
-  drawText(sheetBuf, sheetW, sheetH, col1X, footerY + 22, "Esenho Studio • Browser JS/HTML vs. Android Native C Engine Comparison Benchmark", 0xFF64748B, 1);
+  drawText(sheetBuf, sheetW, sheetH, col1X, footerY + 22, "Esenho Studio • Browser JS/HTML vs. Direct C/WASM Engine Comparison Benchmark", 0xFF64748B, 1);
 
   // Encode PNG
   console.log('Encoding comparison sheet to PNG...');
@@ -418,16 +418,11 @@ async function main() {
   console.log(`PNG encoded successfully (${(pngBuffer.length / 1024 / 1024).toFixed(2)} MB).`);
 
   const outPath = path.resolve(rootDir, 'artifacts/brush_comparisons/brush_comparison_sheet.png');
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, pngBuffer);
   console.log(`✔ Comparison sheet saved to: ${outPath}`);
 
-  // Copy to agent conversation artifact directory
-  const brainArtifactDir = '/home/jardel/.gemini/antigravity/brain/bf95c089-eb6a-470e-a7b3-489067aba3cf';
-  if (fs.existsSync(brainArtifactDir)) {
-    const brainOutPath = path.resolve(brainArtifactDir, 'brush_comparison_sheet.png');
-    fs.copyFileSync(outPath, brainOutPath);
-    console.log(`✔ Artifact copy mirrored to: ${brainOutPath}`);
-  }
+
 }
 
 main().catch(err => {

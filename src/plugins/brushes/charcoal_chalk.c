@@ -50,11 +50,7 @@ W_EXPORT void w_brush_stroke_end(void) {}
 
 // Fast deterministic 2D paper tooth generator
 static inline float get_paper_tooth(int x, int y, int scale) {
-    int gx = x / scale;
-    int gy = y / scale;
-    uint32_t h = ((uint32_t)gx * 374761393) ^ ((uint32_t)gy * 668265263);
-    h = (h ^ (h >> 13)) * 1274126177;
-    return (float)(h & 0xFF) * (1.0f / 255.0f);
+    return w_brush_paper(x + 0.5f, y + 0.5f, (float)scale);
 }
 
 W_EXPORT void w_brush_render_dab(
@@ -69,9 +65,9 @@ W_EXPORT void w_brush_render_dab(
     uint32_t color,
     int32_t is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f || pressure <= 0.0f || w_color_get_a(color) == 0) return;
 
-    float eff_p = (pressure > 0.01f) ? pressure : 0.5f;
+    float eff_p = pressure > 1.0f ? 1.0f : pressure;
     float rad = radius * (0.8f + eff_p * 0.4f);
     float rad_sq = rad * rad;
     float inv_rad_sq = (rad_sq > 0.01f) ? (1.0f / rad_sq) : 1.0f;
@@ -111,7 +107,7 @@ W_EXPORT void w_brush_render_dab(
             }
 
             float deposit = (tooth - valley_threshold * roughness) / (1.0f - valley_threshold * roughness + 0.001f);
-            deposit *= radial_falloff * (0.5f + eff_p * 0.5f);
+            deposit *= radial_falloff * eff_p * 0.24f;
             if (deposit > 1.0f) deposit = 1.0f;
 
             uint32_t alpha_step = (uint32_t)(deposit * 255.0f);
@@ -120,9 +116,7 @@ W_EXPORT void w_brush_render_dab(
 
             uint32_t dst = row[x];
             if (is_eraser) {
-                uint32_t da = (dst >> 24) & 0xFF;
-                uint32_t na = (da > alpha_step) ? (da - alpha_step) : 0;
-                row[x] = (na << 24) | (dst & 0x00FFFFFF);
+                row[x] = w_brush_erase(dst, color, alpha_step);
             } else {
                 row[x] = w_brush_blend_over(color, dst, alpha_step);
             }

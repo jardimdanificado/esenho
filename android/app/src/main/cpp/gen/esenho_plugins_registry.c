@@ -67,6 +67,13 @@ extern void brush_chromatic_holo_warp_stroke_begin(float x, float y, float press
 extern void brush_chromatic_holo_warp_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
 extern void brush_chromatic_holo_warp_stroke_end(void);
 
+extern const char* brush_colored_pencil_get_info(void);
+extern void brush_colored_pencil_init(int32_t w, int32_t h);
+extern void brush_colored_pencil_set_param(int32_t idx, int32_t val);
+extern void brush_colored_pencil_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
+extern void brush_colored_pencil_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
+extern void brush_colored_pencil_stroke_end(void);
+
 extern const char* brush_crystal_birefringence_calcite_get_info(void);
 extern void brush_crystal_birefringence_calcite_init(int32_t w, int32_t h);
 extern void brush_crystal_birefringence_calcite_set_param(int32_t idx, int32_t val);
@@ -81,6 +88,13 @@ extern void brush_crystal_growth_dendrite_stroke_begin(float x, float y, float p
 extern void brush_crystal_growth_dendrite_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
 extern void brush_crystal_growth_dendrite_stroke_end(void);
 
+extern const char* brush_dip_pen_get_info(void);
+extern void brush_dip_pen_init(int32_t w, int32_t h);
+extern void brush_dip_pen_set_param(int32_t idx, int32_t val);
+extern void brush_dip_pen_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
+extern void brush_dip_pen_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
+extern void brush_dip_pen_stroke_end(void);
+
 extern const char* brush_dragon_scale_armor_get_info(void);
 extern void brush_dragon_scale_armor_init(int32_t w, int32_t h);
 extern void brush_dragon_scale_armor_set_param(int32_t idx, int32_t val);
@@ -88,12 +102,26 @@ extern void brush_dragon_scale_armor_stroke_begin(float x, float y, float pressu
 extern void brush_dragon_scale_armor_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
 extern void brush_dragon_scale_armor_stroke_end(void);
 
+extern const char* brush_dry_flat_brush_get_info(void);
+extern void brush_dry_flat_brush_init(int32_t w, int32_t h);
+extern void brush_dry_flat_brush_set_param(int32_t idx, int32_t val);
+extern void brush_dry_flat_brush_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
+extern void brush_dry_flat_brush_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
+extern void brush_dry_flat_brush_stroke_end(void);
+
 extern const char* brush_electric_discharge_kirlian_get_info(void);
 extern void brush_electric_discharge_kirlian_init(int32_t w, int32_t h);
 extern void brush_electric_discharge_kirlian_set_param(int32_t idx, int32_t val);
 extern void brush_electric_discharge_kirlian_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
 extern void brush_electric_discharge_kirlian_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
 extern void brush_electric_discharge_kirlian_stroke_end(void);
+
+extern const char* brush_felt_marker_get_info(void);
+extern void brush_felt_marker_init(int32_t w, int32_t h);
+extern void brush_felt_marker_set_param(int32_t idx, int32_t val);
+extern void brush_felt_marker_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
+extern void brush_felt_marker_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
+extern void brush_felt_marker_stroke_end(void);
 
 extern const char* brush_ferroelectric_domain_walls_get_info(void);
 extern void brush_ferroelectric_domain_walls_init(int32_t w, int32_t h);
@@ -136,6 +164,20 @@ extern void brush_glitch_datamosh_matrix_set_param(int32_t idx, int32_t val);
 extern void brush_glitch_datamosh_matrix_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
 extern void brush_glitch_datamosh_matrix_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
 extern void brush_glitch_datamosh_matrix_stroke_end(void);
+
+extern const char* brush_gouache_flat_get_info(void);
+extern void brush_gouache_flat_init(int32_t w, int32_t h);
+extern void brush_gouache_flat_set_param(int32_t idx, int32_t val);
+extern void brush_gouache_flat_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
+extern void brush_gouache_flat_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
+extern void brush_gouache_flat_stroke_end(void);
+
+extern const char* brush_graphite_pencil_get_info(void);
+extern void brush_graphite_pencil_init(int32_t w, int32_t h);
+extern void brush_graphite_pencil_set_param(int32_t idx, int32_t val);
+extern void brush_graphite_pencil_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
+extern void brush_graphite_pencil_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
+extern void brush_graphite_pencil_stroke_end(void);
 
 extern const char* brush_gravitational_lens_einstein_get_info(void);
 extern void brush_gravitational_lens_einstein_init(int32_t w, int32_t h);
@@ -340,6 +382,13 @@ extern void brush_smoke_ring_vortex_stroke_begin(float x, float y, float pressur
 extern void brush_smoke_ring_vortex_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
 extern void brush_smoke_ring_vortex_stroke_end(void);
 
+extern const char* brush_soft_pastel_get_info(void);
+extern void brush_soft_pastel_init(int32_t w, int32_t h);
+extern void brush_soft_pastel_set_param(int32_t idx, int32_t val);
+extern void brush_soft_pastel_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
+extern void brush_soft_pastel_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
+extern void brush_soft_pastel_stroke_end(void);
+
 extern const char* brush_solar_flare_prominence_get_info(void);
 extern void brush_solar_flare_prominence_init(int32_t w, int32_t h);
 extern void brush_solar_flare_prominence_set_param(int32_t idx, int32_t val);
@@ -402,6 +451,13 @@ extern void brush_watercolor_bleed_set_param(int32_t idx, int32_t val);
 extern void brush_watercolor_bleed_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
 extern void brush_watercolor_bleed_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
 extern void brush_watercolor_bleed_stroke_end(void);
+
+extern const char* brush_wax_crayon_get_info(void);
+extern void brush_wax_crayon_init(int32_t w, int32_t h);
+extern void brush_wax_crayon_set_param(int32_t idx, int32_t val);
+extern void brush_wax_crayon_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
+extern void brush_wax_crayon_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
+extern void brush_wax_crayon_stroke_end(void);
 
 extern const char* brush_xray_radiography_bone_get_info(void);
 extern void brush_xray_radiography_bone_init(int32_t w, int32_t h);
@@ -548,7 +604,7 @@ static const native_brush_t s_brushes[] = {
         "bristle_oil",
         "Bristle Oil Paint",
         "Paint",
-        0.0500f,
+        0.0250f,
         4.00f,
         120.00f,
         brush_bristle_oil_get_info,
@@ -629,6 +685,20 @@ static const native_brush_t s_brushes[] = {
         brush_chromatic_holo_warp_stroke_end
     },
     {
+        "colored_pencil",
+        "Layered Colored Pencil",
+        "Sketch",
+        0.0700f,
+        1.00f,
+        80.00f,
+        brush_colored_pencil_get_info,
+        brush_colored_pencil_init,
+        brush_colored_pencil_set_param,
+        brush_colored_pencil_stroke_begin,
+        brush_colored_pencil_render_dab,
+        brush_colored_pencil_stroke_end
+    },
+    {
         "crystal_birefringence_calcite",
         "Calcite Double Refraction",
         "Mineral Optics",
@@ -657,6 +727,20 @@ static const native_brush_t s_brushes[] = {
         brush_crystal_growth_dendrite_stroke_end
     },
     {
+        "dip_pen",
+        "Flexible Dip Pen",
+        "Inking",
+        0.0400f,
+        1.00f,
+        80.00f,
+        brush_dip_pen_get_info,
+        brush_dip_pen_init,
+        brush_dip_pen_set_param,
+        brush_dip_pen_stroke_begin,
+        brush_dip_pen_render_dab,
+        brush_dip_pen_stroke_end
+    },
+    {
         "dragon_scale_armor",
         "Dragon Scale Armor",
         "Creature FX",
@@ -671,6 +755,20 @@ static const native_brush_t s_brushes[] = {
         brush_dragon_scale_armor_stroke_end
     },
     {
+        "dry_flat_brush",
+        "Dry Bristle Brush",
+        "Paint",
+        0.0700f,
+        2.00f,
+        140.00f,
+        brush_dry_flat_brush_get_info,
+        brush_dry_flat_brush_init,
+        brush_dry_flat_brush_set_param,
+        brush_dry_flat_brush_stroke_begin,
+        brush_dry_flat_brush_render_dab,
+        brush_dry_flat_brush_stroke_end
+    },
+    {
         "electric_discharge_kirlian",
         "Kirlian Corona Bio-Aura",
         "Bio-Electrical",
@@ -683,6 +781,20 @@ static const native_brush_t s_brushes[] = {
         brush_electric_discharge_kirlian_stroke_begin,
         brush_electric_discharge_kirlian_render_dab,
         brush_electric_discharge_kirlian_stroke_end
+    },
+    {
+        "felt_marker",
+        "Translucent Chisel Marker",
+        "Paint",
+        0.0800f,
+        2.00f,
+        140.00f,
+        brush_felt_marker_get_info,
+        brush_felt_marker_init,
+        brush_felt_marker_set_param,
+        brush_felt_marker_stroke_begin,
+        brush_felt_marker_render_dab,
+        brush_felt_marker_stroke_end
     },
     {
         "ferroelectric_domain_walls",
@@ -767,6 +879,34 @@ static const native_brush_t s_brushes[] = {
         brush_glitch_datamosh_matrix_stroke_begin,
         brush_glitch_datamosh_matrix_render_dab,
         brush_glitch_datamosh_matrix_stroke_end
+    },
+    {
+        "gouache_flat",
+        "Gouache Flat Brush",
+        "Paint",
+        0.0700f,
+        2.00f,
+        140.00f,
+        brush_gouache_flat_get_info,
+        brush_gouache_flat_init,
+        brush_gouache_flat_set_param,
+        brush_gouache_flat_stroke_begin,
+        brush_gouache_flat_render_dab,
+        brush_gouache_flat_stroke_end
+    },
+    {
+        "graphite_pencil",
+        "Graphite Pencil HB–6B",
+        "Sketch",
+        0.0700f,
+        1.00f,
+        80.00f,
+        brush_graphite_pencil_get_info,
+        brush_graphite_pencil_init,
+        brush_graphite_pencil_set_param,
+        brush_graphite_pencil_stroke_begin,
+        brush_graphite_pencil_render_dab,
+        brush_graphite_pencil_stroke_end
     },
     {
         "gravitational_lens_einstein",
@@ -1175,6 +1315,20 @@ static const native_brush_t s_brushes[] = {
         brush_smoke_ring_vortex_stroke_end
     },
     {
+        "soft_pastel",
+        "Soft Pastel Stick",
+        "Sketch",
+        0.0800f,
+        2.00f,
+        120.00f,
+        brush_soft_pastel_get_info,
+        brush_soft_pastel_init,
+        brush_soft_pastel_set_param,
+        brush_soft_pastel_stroke_begin,
+        brush_soft_pastel_render_dab,
+        brush_soft_pastel_stroke_end
+    },
+    {
         "solar_flare_prominence",
         "Solar Coronal Prominence",
         "Heliophysics",
@@ -1299,6 +1453,20 @@ static const native_brush_t s_brushes[] = {
         brush_watercolor_bleed_stroke_begin,
         brush_watercolor_bleed_render_dab,
         brush_watercolor_bleed_stroke_end
+    },
+    {
+        "wax_crayon",
+        "Wax Crayon",
+        "Sketch",
+        0.0800f,
+        2.00f,
+        100.00f,
+        brush_wax_crayon_get_info,
+        brush_wax_crayon_init,
+        brush_wax_crayon_set_param,
+        brush_wax_crayon_stroke_begin,
+        brush_wax_crayon_render_dab,
+        brush_wax_crayon_stroke_end
     },
     {
         "xray_radiography_bone",

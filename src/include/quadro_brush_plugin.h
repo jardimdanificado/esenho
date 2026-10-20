@@ -91,6 +91,21 @@ static inline float w_floorf(float x) {
     return (x < 0.0f && x != (float)i) ? (float)(i - 1) : (float)i;
 }
 
+static float w_brush_paper_hash(int x, int y) {
+    uint32_t h = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u + 0x9E3779B9u;
+    h = (h ^ (h >> 13)) * 1274126177u;
+    return (float)((h ^ (h >> 16)) & 65535u) / 65535.0f;
+}
+static float w_brush_paper(float x, float y, float scale) {
+    float gx = x / scale, gy = y / scale;
+    int ix = (int)w_floorf(gx), iy = (int)w_floorf(gy);
+    float u = gx - ix, v = gy - iy;
+    u = u*u*(3-2*u); v = v*v*(3-2*v);
+    float a = w_brush_paper_hash(ix, iy)*(1-u) + w_brush_paper_hash(ix+1, iy)*u;
+    float b = w_brush_paper_hash(ix, iy+1)*(1-u) + w_brush_paper_hash(ix+1, iy+1)*u;
+    return 0.75f*(a*(1-v)+b*v) + 0.25f*w_brush_paper_hash((int)w_floorf(x), (int)w_floorf(y));
+}
+
 /* ── Color Component Extraction & Packing (32-bit ARGB/ABGR) ── */
 static inline uint32_t w_color_get_a(uint32_t c) { return (c >> 24) & 0xFF; }
 static inline uint32_t w_color_get_b(uint32_t c) { return (c >> 16) & 0xFF; }
@@ -125,11 +140,21 @@ static inline uint32_t w_brush_blend_over(uint32_t src, uint32_t dst, uint32_t a
     uint32_t inv_a = 255 - eff_a;
     uint32_t out_a = eff_a + DIV255(da * inv_a);
 
-    uint32_t r = DIV255(sr * eff_a + dr * inv_a);
-    uint32_t g = DIV255(sg * eff_a + dg * inv_a);
-    uint32_t b = DIV255(sb * eff_a + db * inv_a);
+    /* Pixels store straight RGBA. Normalize premultiplied contributions by
+       the exact output alpha; blending against transparent paint must not
+       introduce black fringes or lose the source hue. */
+    uint32_t alpha_numerator = eff_a * 255u + da * inv_a;
+    uint32_t r = (sr * eff_a * 255u + dr * da * inv_a + alpha_numerator / 2u) / alpha_numerator;
+    uint32_t g = (sg * eff_a * 255u + dg * da * inv_a + alpha_numerator / 2u) / alpha_numerator;
+    uint32_t b = (sb * eff_a * 255u + db * da * inv_a + alpha_numerator / 2u) / alpha_numerator;
 
     return (out_a << 24) | (b << 16) | (g << 8) | r;
+}
+
+static inline uint32_t w_brush_erase(uint32_t dst, uint32_t color, uint32_t coverage) {
+    uint32_t amount = DIV255(w_color_get_a(color) * coverage);
+    uint32_t alpha = DIV255(w_color_get_a(dst) * (255u - amount));
+    return alpha ? (alpha << 24) | (dst & 0x00FFFFFFu) : 0;
 }
 
 /**

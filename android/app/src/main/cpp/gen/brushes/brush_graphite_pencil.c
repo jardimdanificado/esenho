@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for graphite_pencil */
+#define w_brush_get_info brush_graphite_pencil_get_info
+#define w_brush_get_inputs brush_graphite_pencil_get_inputs
+#define w_brush_init brush_graphite_pencil_init
+#define w_brush_set_param brush_graphite_pencil_set_param
+#define w_brush_stroke_begin brush_graphite_pencil_stroke_begin
+#define w_brush_stroke_end brush_graphite_pencil_stroke_end
+#define w_brush_render_dab brush_graphite_pencil_render_dab
+
+#include "graphite_pencil.c"

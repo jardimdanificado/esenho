@@ -27,13 +27,14 @@ static int g_depletion_rate = 35; // % per 100px traveled
 static int g_wet_mix = 40;       // % pickup from existing canvas
 static int g_stiffness = 60;     // % resistance to spreading
 static float g_paint_charge = 1.0f;
+static float g_last_x, g_last_y;
 
 W_EXPORT const char* w_brush_get_info(void) {
     return "{"
         "\"name\":\"bristle_oil\","
         "\"title\":\"Bristle Oil Paint\","
         "\"category\":\"Paint\","
-        "\"spacing\":0.05,"
+        "\"spacing\":0.025,"
         "\"minRadius\":4,"
         "\"maxRadius\":120,"
         "\"inputs\":[\"size\",\"pressure\",\"speed\",\"color\",\"spacing\",\"params\"],"
@@ -86,6 +87,7 @@ W_EXPORT void w_brush_set_param(int32_t param_idx, int32_t value) {
 
 W_EXPORT void w_brush_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser) {
     g_paint_charge = 1.0f;
+    g_last_x = x; g_last_y = y;
     w_brush_srand((uint32_t)(x * 1000.0f + y * 7.0f));
 }
 
@@ -103,13 +105,16 @@ W_EXPORT void w_brush_render_dab(
     uint32_t color,
     int32_t is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f || pressure <= 0.0f || w_color_get_a(color) == 0) return;
 
-    float depletion_factor = (g_depletion_rate / 100.0f) * 0.003f;
+    float dx_step = cx - g_last_x, dy_step = cy - g_last_y;
+    float distance = w_sqrtf(dx_step * dx_step + dy_step * dy_step);
+    g_last_x = cx; g_last_y = cy;
+    float depletion_factor = (g_depletion_rate / 100.0f) * distance / (radius * 30.0f + 1.0f);
     g_paint_charge -= depletion_factor;
     if (g_paint_charge < 0.08f) g_paint_charge = 0.08f;
 
-    float eff_p = (pressure > 0.01f) ? pressure : 0.5f;
+    float eff_p = pressure > 1.0f ? 1.0f : pressure;
     float spread_factor = 1.0f + (100 - g_stiffness) * 0.01f * eff_p;
     float rad = radius * spread_factor;
 
@@ -124,7 +129,7 @@ W_EXPORT void w_brush_render_dab(
         float bx = cx + b->offset_x * rad;
         float by = cy + b->offset_y * rad;
 
-        float b_rad = b->thickness * (0.8f + eff_p * 1.0f);
+        float b_rad = b->thickness * (0.55f + eff_p) * (0.6f + radius * 0.07f);
         int bx0 = (int)(bx - b_rad);
         int by0 = (int)(by - b_rad);
         int bx1 = (int)(bx + b_rad + 1.0f);
@@ -159,13 +164,11 @@ W_EXPORT void w_brush_render_dab(
                 uint32_t final_c = color;
 
                 if (g_wet_mix > 0 && ((dst >> 24) & 0xFF) > 10) {
-                    final_c = w_brush_blend_pigment(color, dst, 100 - (g_wet_mix / 2));
+                    final_c = (w_brush_blend_pigment(color, dst, 100 - (g_wet_mix / 2)) & 0x00FFFFFFu) | (color & 0xFF000000u);
                 }
 
                 if (is_eraser) {
-                    uint32_t da = (dst >> 24) & 0xFF;
-                    uint32_t na = (da > alpha_step) ? (da - alpha_step) : 0;
-                    row[px] = (na << 24) | (dst & 0x00FFFFFF);
+                    row[px] = w_brush_erase(dst, color, alpha_step);
                 } else {
                     row[px] = w_brush_blend_over(final_c, dst, alpha_step);
                 }
