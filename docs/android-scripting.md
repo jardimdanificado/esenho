@@ -1,8 +1,15 @@
 # Scripting nativo do Android
 
-Abra **Documento → Projeto → Scripts JavaScript**. O editor guarda o rascunho
-automaticamente e permite abrir e salvar arquivos `.js`. Os exemplos Radial,
-Espiral e Tela já podem ser executados.
+Toque no botão **Scripts JavaScript** (ícone de código) da barra inferior.
+O editor abre no dock redimensionável, mantendo o canvas visível, e guarda o
+rascunho automaticamente. O dropdown reúne os exemplos Radial, Espiral e Tela
+com os presets pessoais salvos no aparelho. Selecione um preset para abri-lo;
+um asterisco indica alterações ainda não salvas.
+
+Use o botão **Salvar preset** para guardar o código com um nome. Ao abrir um
+preset pessoal, **Salvar** o atualiza e **Salvar cópia** cria outro preset.
+**Novo script**, no dropdown, começa um rascunho vazio. O menu de ações permite
+abrir e exportar arquivos `.js`, marcar pivots na arte ou na tela e limpar pivots.
 
 O interpretador é QuickJS 2026-06-04, compilado pelo NDK e incluído no APK.
 Não há WebView, dependência da internet ou carregamento do scripting do browser.
@@ -48,7 +55,7 @@ O espaço é capturado no início de cada traço. Transformações do espaço mu
 o caminho e a geometria das formas; tamanho do pincel continua sendo uma
 configuração em pixels do documento. Para escalá-lo, ajuste `brush.set({size})`.
 
-Crie referências pelos botões **Pivot na arte** / **Pivot na tela**, ou pelo script:
+Crie referências pelo menu de ações (**Marcar pivot na arte** / **Marcar pivot na tela**), ou pelo script:
 
 ```js
 const centro = esenho.pickPivot({
@@ -138,7 +145,7 @@ Cores aceitam `#RRGGBB`, `#AARRGGBB` ou números ARGB.
 `view.set()` define valores absolutos: zoom padrão 1, rotação padrão 0 e ponto
 do documento `(x,y)` centralizado na área visível (centro da arte por padrão).
 `ui.openPanel()` aceita `brushes`, `color`, `layers`, `animation`, `effects`,
-`selection` e `transform`. Abrir um painel ou diálogo solicita sua exibição;
+`selection`, `transform` e `scripts`. Abrir um painel ou diálogo solicita sua exibição;
 isso não espera o fechamento. A API opera os componentes existentes.
 
 Confirme ou cancele uma transformação antes de editar outro recurso. Ao terminar

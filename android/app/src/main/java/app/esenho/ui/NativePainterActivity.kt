@@ -45,6 +45,8 @@ import app.esenho.nativeengine.*
 import app.esenho.ui.components.*
 import app.esenho.scripting.NativeScriptApi
 import app.esenho.scripting.ScriptSession
+import app.esenho.scripting.NativeScriptPresets
+import app.esenho.scripting.NativeScriptPreset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.lifecycle.Lifecycle
@@ -337,9 +339,18 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
 
     // UI Dialog & Drawer States
     var showExportDialog by remember { mutableStateOf(false) }
-    var showScriptEditor by remember { mutableStateOf(false) }
     val scriptPreferences = remember { context.getSharedPreferences("esenho_native_scripts", android.content.Context.MODE_PRIVATE) }
     var scriptSource by remember { mutableStateOf(scriptPreferences.getString("draft", NativeScriptExamples.radial) ?: NativeScriptExamples.radial) }
+    val scriptPresetStore = remember { NativeScriptPresets(scriptPreferences) }
+    var savedScriptPresets by remember { mutableStateOf(scriptPresetStore.load()) }
+    var selectedScriptPresetId by remember { mutableStateOf(scriptPreferences.getString("selected_preset", "example:radial")?.takeIf { it.isNotEmpty() }) }
+    val bundledScriptPresets = remember {
+        listOf(
+            NativeScriptPreset("example:radial", "Radial", NativeScriptExamples.radial),
+            NativeScriptPreset("example:spiral", "Espiral", NativeScriptExamples.spiral),
+            NativeScriptPreset("example:view", "Tela", NativeScriptExamples.view),
+        )
+    }
     var scriptSession by remember { mutableStateOf<ScriptSession?>(null) }
     var markingScriptPivot by remember { mutableStateOf(false) }
     var scriptStatus by remember { mutableStateOf<String?>(null) }
@@ -449,6 +460,20 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         scriptPreferences.edit().putString("draft", source).apply()
     }
 
+    fun selectScriptPreset(preset: NativeScriptPreset?) {
+        selectedScriptPresetId = preset?.id
+        scriptPreferences.edit().putString("selected_preset", preset?.id.orEmpty()).apply()
+        updateScriptSource(preset?.source.orEmpty())
+    }
+
+    fun saveScriptPreset(name: String, asCopy: Boolean) {
+        val id = selectedScriptPresetId?.takeIf { selected -> !asCopy && savedScriptPresets.any { it.id == selected } }
+        val (updated, saved) = scriptPresetStore.save(savedScriptPresets, id, name, scriptSource)
+        savedScriptPresets = updated
+        selectedScriptPresetId = saved.id
+        scriptPreferences.edit().putString("selected_preset", saved.id).apply()
+    }
+
     val importScriptLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) runCatching {
             context.contentResolver.openInputStream(uri)?.use { input ->
@@ -460,6 +485,8 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     size += count
                 }
                 require(size <= 1024 * 1024) { "O script deve ter no máximo 1 MB" }
+                selectedScriptPresetId = null
+                scriptPreferences.edit().putString("selected_preset", "").apply()
                 updateScriptSource(String(bytes, 0, size, Charsets.UTF_8).removePrefix("\uFEFF"))
             } ?: error("Não foi possível abrir o script")
         }.onFailure { scriptOutput = listOf(it.message ?: "Falha ao abrir script") }
@@ -474,7 +501,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     fun runScript() {
         val canvas = canvasViewRef ?: return
         if (scriptSession != null) return
-        showScriptEditor = false
         scriptOutput = emptyList()
         val api = NativeScriptApi(engine, canvas, { refreshState(persistFavoriteTool = false) }, ::chooseTool) { operation, args ->
             if (operation == "ui.export") showExportDialog = true
@@ -491,7 +517,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 scriptSession = null
                 scriptStatus = error ?: "Script concluído"
                 scriptOutput = (scriptOutput + (error ?: "Script concluído")).takeLast(100)
-                if (error != null) showScriptEditor = true
+                if (error != null) activePanel = WorkspacePanel.SCRIPTS
             },
         )
         scriptSession = session
@@ -516,7 +542,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             canvasViewRef?.scripting?.cancelPick()
             markingScriptPivot = false
             scriptStatus = null
-            showScriptEditor = true
+            activePanel = WorkspacePanel.SCRIPTS
         }
     }
 
@@ -621,6 +647,36 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
 
     val panelContent: @Composable () -> Unit = {
         when (activePanel) {
+            WorkspacePanel.SCRIPTS ->
+                NativeScriptEditor(
+                    source = scriptSource,
+                    onSourceChange = ::updateScriptSource,
+                    presets = bundledScriptPresets + savedScriptPresets,
+                    selectedPresetId = selectedScriptPresetId,
+                    onSelectPreset = ::selectScriptPreset,
+                    onSavePreset = ::saveScriptPreset,
+                    output = scriptOutput,
+                    onRun = ::runScript,
+                    onImport = { importScriptLauncher.launch(arrayOf("text/*", "application/javascript", "application/octet-stream")) },
+                    onExport = { exportScriptLauncher.launch("script.js") },
+                    pivotNames = canvasViewRef?.scripting?.pivots?.keys?.toList().orEmpty(),
+                    onPickPivot = { anchor ->
+                        canvasViewRef?.let { canvas ->
+                            engine.cancelActiveStroke()
+                            engine.isAnimationPlaying = false
+                            markingScriptPivot = true
+                            scriptStatus = "Toque e arraste para orientar o pivot"
+                            canvas.scripting.pick(org.json.JSONObject().put("anchor", anchor)) { pivot ->
+                                markingScriptPivot = false
+                                scriptStatus = null
+                                scriptOutput = (scriptOutput + "Pivot: ${pivot.getString("name")}").takeLast(100)
+                                activePanel = WorkspacePanel.SCRIPTS
+                            }
+                        }
+                    },
+                    onClearPivots = { canvasViewRef?.scripting?.pivots?.clear(); refreshState() },
+                    onDismiss = { activePanel = null },
+                )
             WorkspacePanel.BRUSHES ->
                 CompositionLocalProvider(LocalBrushTracking provides BrushTrackingContext(engine, sideSliderSettings, onBrushUpdated = { refreshState() }) { settings ->
                     sideSliderSettings = settings
@@ -1185,7 +1241,8 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
 
 
     Scaffold(
-        modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
+        modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
+            .then(if (activePanel == WorkspacePanel.SCRIPTS) Modifier.imePadding() else Modifier),
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
@@ -1304,6 +1361,9 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 if (activePanel == WorkspacePanel.ANIMATION) null
                                 else WorkspacePanel.ANIMATION
                         },
+                        onScripts = {
+                            activePanel = if (activePanel == WorkspacePanel.SCRIPTS) null else WorkspacePanel.SCRIPTS
+                        },
                         onEffects = {
                             activePanel =
                                 if (activePanel == WorkspacePanel.EFFECTS) null
@@ -1338,16 +1398,20 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             var sideDockWidth by remember { mutableStateOf<Dp?>(null) }
             val maxDockHeight =
                 (maxHeight - 96.dp.coerceAtMost(maxHeight * 0.35f)).coerceAtLeast(0.dp)
-            val minDockHeight = 128.dp.coerceAtMost(maxDockHeight)
+            val minDockHeight = (if (activePanel == WorkspacePanel.SCRIPTS) 240.dp else 128.dp).coerceAtMost(maxDockHeight)
             val defaultDockHeight =
-                (maxHeight * 0.32f).coerceAtMost(240.dp).coerceIn(minDockHeight, maxDockHeight)
+                if (activePanel == WorkspacePanel.SCRIPTS)
+                    (maxHeight * 0.55f).coerceAtMost(480.dp).coerceIn(minDockHeight, maxDockHeight)
+                else (maxHeight * 0.32f).coerceAtMost(240.dp).coerceIn(minDockHeight, maxDockHeight)
             val mobilePanelHeight =
                 (bottomDockHeight ?: defaultDockHeight).coerceIn(minDockHeight, maxDockHeight)
             val expandedDockHeight = (maxHeight * 0.62f).coerceIn(minDockHeight, maxDockHeight)
             val minDockWidth = 220.dp
             val maxDockWidth = (maxWidth - 240.dp).coerceAtLeast(minDockWidth)
             val defaultDockWidth =
-                (maxWidth * 0.32f).coerceIn(260.dp, 300.dp).coerceIn(minDockWidth, maxDockWidth)
+                if (activePanel == WorkspacePanel.SCRIPTS)
+                    (maxWidth * 0.42f).coerceIn(300.dp, 440.dp).coerceIn(minDockWidth, maxDockWidth)
+                else (maxWidth * 0.32f).coerceIn(260.dp, 300.dp).coerceIn(minDockWidth, maxDockWidth)
             val inspectorWidth =
                 (sideDockWidth ?: defaultDockWidth).coerceIn(minDockWidth, maxDockWidth)
             Row(Modifier.fillMaxSize()) {
@@ -1387,11 +1451,11 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                                 canvasViewRef?.scripting?.cancelPick()
                                                 markingScriptPivot = false
                                                 scriptStatus = null
-                                                showScriptEditor = true
+                                                activePanel = WorkspacePanel.SCRIPTS
                                             }
                                         }) { Text("Parar") }
                                     } else {
-                                        TextButton(onClick = { scriptStatus = null; showScriptEditor = true }) { Text("Editor") }
+                                        TextButton(onClick = { scriptStatus = null; activePanel = WorkspacePanel.SCRIPTS }) { Text("Editor") }
                                         IconButton(onClick = { scriptStatus = null }) { Icon(Icons.Default.Close, "Fechar") }
                                     }
                                 }
@@ -1470,11 +1534,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     )
                     when (documentTab) {
                         0 -> {
-                            DropdownMenuItem(
-                                text = { Text("Scripts JavaScript") },
-                                leadingIcon = { Icon(Icons.Default.Code, null) },
-                                onClick = { showWorkspaceActions = false; showScriptEditor = true },
-                            )
                             DropdownMenuItem(
                                 text = { Text("Nova tela") },
                                 leadingIcon = { Icon(Icons.Default.AddBox, null) },
@@ -2193,34 +2252,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             )
         }
 
-        if (showScriptEditor) {
-            NativeScriptEditor(
-                source = scriptSource,
-                onSourceChange = ::updateScriptSource,
-                output = scriptOutput,
-                onRun = ::runScript,
-                onImport = { importScriptLauncher.launch(arrayOf("text/*", "application/javascript", "application/octet-stream")) },
-                onExport = { exportScriptLauncher.launch("script.js") },
-                pivotNames = canvasViewRef?.scripting?.pivots?.keys?.toList().orEmpty(),
-                onPickPivot = { anchor ->
-                    canvasViewRef?.let { canvas ->
-                        engine.cancelActiveStroke()
-                        engine.isAnimationPlaying = false
-                        showScriptEditor = false
-                        markingScriptPivot = true
-                        scriptStatus = "Toque e arraste para orientar o pivot"
-                        canvas.scripting.pick(org.json.JSONObject().put("anchor", anchor)) { pivot ->
-                            markingScriptPivot = false
-                            scriptStatus = null
-                            scriptOutput = (scriptOutput + "Pivot: ${pivot.getString("name")}").takeLast(100)
-                            showScriptEditor = true
-                        }
-                    }
-                },
-                onClearPivots = { canvasViewRef?.scripting?.pivots?.clear(); refreshState() },
-                onDismiss = { showScriptEditor = false },
-            )
-        }
 
         if (showExportDialog) {
             NativeExportDialog(

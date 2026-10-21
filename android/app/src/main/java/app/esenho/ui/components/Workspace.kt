@@ -44,6 +44,7 @@ enum class WorkspacePanel(val title: String, val icon: ImageVector) {
     EFFECTS("Efeitos", Icons.Default.AutoAwesome),
     SELECTION("Seleção", Icons.Default.CropFree),
     TRANSFORM("Transformação", Icons.Default.OpenWith),
+    SCRIPTS("Scripts", Icons.Default.Code),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -247,6 +248,7 @@ fun WorkspaceProperties(
     onLayers: () -> Unit,
     onAnimation: () -> Unit,
     onEffects: () -> Unit,
+    onScripts: () -> Unit,
 ) {
     var more by remember { mutableStateOf(false) }
     val relevantSliders = relevantQuickSliders(engine, configuredSliders)
@@ -311,6 +313,12 @@ fun WorkspaceProperties(
                     "Animação",
                     activePanel == WorkspacePanel.ANIMATION,
                     onAnimation,
+                )
+                CompactPanelButton(
+                    Icons.Default.Code,
+                    "Scripts JavaScript",
+                    activePanel == WorkspacePanel.SCRIPTS,
+                    onScripts,
                 )
                 Box {
                     IconButton(onClick = { onDismissQuickSliders(); more = true }, modifier = Modifier.size(36.dp)) {

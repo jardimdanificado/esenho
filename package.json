@@ -1,6 +1,6 @@
 {
   "name": "esenho",
-  "version": "0.15.1",
+  "version": "0.15.2",
   "main": "index.js",
   "scripts": {
     "test": "node tests/test_text_protocol.js && node tests/test_vector.js && node tests/test_animation.js && node tests/test_animator_runtime.js && node tests/test_dopesheet_parameters.mjs && node tests/test_universal_scripting_api.js && node tests/test_native_core.js && node tests/test_color_studio.js && node tests/test_svg_rigging.js && node tests/test_background_materials.js && node tests/test_resource_registry.js && node tests/test_unified_data.js && node tests/test_asset_bundle.js && node tests/test_brush_fill.js && node tests/test_brush_dynamics_full_stack.mjs && node tests/test_custom_textures_and_tips.js && node tests/test_material_grain.js && node tests/test_unstamped_brushes.js && node tests/test_brush_realism.js && node tests/test_saved_brush_curves.js && node tests/test_svg_editor.js && node tests/test_native_expanded_core.js && node tests/test_vector_painter.js && node --test tests/test_raster_animator.js && node tests/test_color_and_brush_history.js && node --test tests/test_brush_presets_saving.js && node --test tests/test_paint_physics.js && node --test tests/test_wasm_brushes.js && node tests/test_stroke_precision.js && node --test tests/test_e2e_opaque_box.js",

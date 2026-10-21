@@ -8,8 +8,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextOverflow
+import app.esenho.scripting.NativeScriptPreset
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 
 object NativeScriptExamples {
     val radial = """
@@ -65,6 +70,10 @@ object NativeScriptExamples {
 fun NativeScriptEditor(
     source: String,
     onSourceChange: (String) -> Unit,
+    presets: List<NativeScriptPreset>,
+    selectedPresetId: String?,
+    onSelectPreset: (NativeScriptPreset?) -> Unit,
+    onSavePreset: (String, Boolean) -> Unit,
     output: List<String>,
     onRun: () -> Unit,
     onImport: () -> Unit,
@@ -74,45 +83,89 @@ fun NativeScriptEditor(
     onClearPivots: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-            Column(Modifier.fillMaxSize().imePadding().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                EditorPanelHeader("Scripts JavaScript", onDismiss)
-                Text("Sem await: o script espera o toque e cada operação. Toque e arraste para orientar pivots.", style = MaterialTheme.typography.bodySmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = { onSourceChange(NativeScriptExamples.radial) }) { Text("Radial") }
-                    TextButton(onClick = { onSourceChange(NativeScriptExamples.spiral) }) { Text("Espiral") }
-                    TextButton(onClick = { onSourceChange(NativeScriptExamples.view) }) { Text("Tela") }
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    fun releaseEditorFocus() {
+        focusManager.clearFocus()
+        keyboard?.hide()
+    }
+    var scriptsExpanded by remember { mutableStateOf(false) }
+    var actionsExpanded by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    var presetName by remember { mutableStateOf("") }
+    val selected = presets.firstOrNull { it.id == selectedPresetId }
+    val modified = selected != null && source != selected.source
+    Column(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        EditorPanelHeader("Scripts JavaScript", { releaseEditorFocus(); onDismiss() })
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                OutlinedButton(onClick = { scriptsExpanded = true }, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    Text((selected?.name ?: "Rascunho") + if (modified) " *" else "", Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Default.ArrowDropDown, "Escolher script")
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = { onPickPivot("document") }) { Text("Pivot na arte") }
-                    TextButton(onClick = { onPickPivot("screen") }) { Text("Pivot na tela") }
-                    if (pivotNames.isNotEmpty()) TextButton(onClick = onClearPivots) { Text("Limpar") }
+                DropdownMenu(expanded = scriptsExpanded, onDismissRequest = { scriptsExpanded = false }) {
+                    DropdownMenuItem(text = { Text("Novo script") }, onClick = {
+                        scriptsExpanded = false
+                        onSelectPreset(null)
+                    })
+                    var lastGroup: Boolean? = null
+                    presets.forEach { preset ->
+                        val example = preset.id.startsWith("example:")
+                        if (lastGroup != example) {
+                            HorizontalDivider()
+                            Text(if (example) "Exemplos" else "Meus presets", Modifier.padding(horizontal = 12.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall)
+                            lastGroup = example
+                        }
+                        DropdownMenuItem(
+                            text = { Text(preset.name) },
+                            trailingIcon = { if (preset.id == selectedPresetId) Icon(Icons.Default.Check, null) },
+                            onClick = { scriptsExpanded = false; onSelectPreset(preset) },
+                        )
+                    }
                 }
-                if (pivotNames.isNotEmpty()) Text(
-                    "Pivots: ${pivotNames.joinToString()} · use esenho.pivots.get(\"nome\")",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                OutlinedTextField(
-                    value = source, onValueChange = onSourceChange,
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    label = { Text("JavaScript") },
-                )
-                if (output.isNotEmpty()) {
-                    Text(
-                        output.joinToString("\n"),
-                        Modifier.fillMaxWidth().heightIn(max = 140.dp).verticalScroll(rememberScrollState()),
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    )
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = onImport) { Text("Abrir .js") }
-                    TextButton(onClick = onExport) { Text("Salvar .js") }
-                    Spacer(Modifier.weight(1f))
-                    Button(onClick = onRun, enabled = source.isNotBlank()) { Text("Executar") }
+            }
+            IconButton(onClick = { presetName = selected?.name.orEmpty(); saving = true }) {
+                Icon(Icons.Default.Save, "Salvar preset")
+            }
+            IconButton(onClick = { releaseEditorFocus(); onRun() }, enabled = source.isNotBlank()) { Icon(Icons.Default.PlayArrow, "Executar script") }
+            Box {
+                IconButton(onClick = { actionsExpanded = true }) { Icon(Icons.Default.MoreVert, "Ações de scripts") }
+                DropdownMenu(expanded = actionsExpanded, onDismissRequest = { actionsExpanded = false }) {
+                    DropdownMenuItem(text = { Text("Abrir arquivo .js") }, onClick = { actionsExpanded = false; onImport() })
+                    DropdownMenuItem(text = { Text("Exportar arquivo .js") }, onClick = { actionsExpanded = false; onExport() })
+                    HorizontalDivider()
+                    DropdownMenuItem(text = { Text("Marcar pivot na arte") }, onClick = { actionsExpanded = false; releaseEditorFocus(); onPickPivot("document") })
+                    DropdownMenuItem(text = { Text("Marcar pivot na tela") }, onClick = { actionsExpanded = false; releaseEditorFocus(); onPickPivot("screen") })
+                    DropdownMenuItem(text = { Text("Limpar pivots") }, enabled = pivotNames.isNotEmpty(), onClick = { actionsExpanded = false; onClearPivots() })
                 }
             }
         }
+        OutlinedTextField(
+            value = source, onValueChange = onSourceChange,
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            label = { Text("JavaScript") },
+        )
+        if (pivotNames.isNotEmpty()) Text("Pivots: ${pivotNames.joinToString()}", style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (output.isNotEmpty()) Text(
+            output.joinToString("\n"),
+            Modifier.fillMaxWidth().heightIn(max = 64.dp).verticalScroll(rememberScrollState()),
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+        )
     }
+    if (saving) AlertDialog(
+        onDismissRequest = { saving = false },
+        title = { Text("Salvar preset de script") },
+        text = { OutlinedTextField(value = presetName, onValueChange = { presetName = it }, singleLine = true, label = { Text("Nome") }) },
+        confirmButton = {
+            Row {
+                if (selected != null && !selected.id.startsWith("example:")) TextButton(
+                    enabled = presetName.isNotBlank(),
+                    onClick = { onSavePreset(presetName.trim(), true); saving = false },
+                ) { Text("Salvar cópia") }
+                TextButton(enabled = presetName.isNotBlank(), onClick = { onSavePreset(presetName.trim(), false); saving = false }) { Text("Salvar") }
+            }
+        },
+        dismissButton = { TextButton(onClick = { saving = false }) { Text("Cancelar") } },
+    )
 }
