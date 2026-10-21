@@ -109,6 +109,13 @@ extern void brush_dry_flat_brush_stroke_begin(float x, float y, float pressure, 
 extern void brush_dry_flat_brush_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
 extern void brush_dry_flat_brush_stroke_end(void);
 
+extern const char* brush_drying_pigment_get_info(void);
+extern void brush_drying_pigment_init(int32_t w, int32_t h);
+extern void brush_drying_pigment_set_param(int32_t idx, int32_t val);
+extern void brush_drying_pigment_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
+extern void brush_drying_pigment_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
+extern void brush_drying_pigment_stroke_end(void);
+
 extern const char* brush_electric_discharge_kirlian_get_info(void);
 extern void brush_electric_discharge_kirlian_init(int32_t w, int32_t h);
 extern void brush_electric_discharge_kirlian_set_param(int32_t idx, int32_t val);
@@ -185,6 +192,20 @@ extern void brush_gravitational_lens_einstein_set_param(int32_t idx, int32_t val
 extern void brush_gravitational_lens_einstein_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
 extern void brush_gravitational_lens_einstein_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
 extern void brush_gravitational_lens_einstein_stroke_end(void);
+
+extern const char* brush_gravity_drip_get_info(void);
+extern void brush_gravity_drip_init(int32_t w, int32_t h);
+extern void brush_gravity_drip_set_param(int32_t idx, int32_t val);
+extern void brush_gravity_drip_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
+extern void brush_gravity_drip_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
+extern void brush_gravity_drip_stroke_end(void);
+
+extern const char* brush_height_relief_get_info(void);
+extern void brush_height_relief_init(int32_t w, int32_t h);
+extern void brush_height_relief_set_param(int32_t idx, int32_t val);
+extern void brush_height_relief_stroke_begin(float x, float y, float pressure, float tilt_x, float tilt_y, uint32_t color, int32_t is_eraser);
+extern void brush_height_relief_render_dab(uint32_t *pixels, int32_t cw, int32_t ch, float cx, float cy, float radius, float pressure, float angle_deg, float speed, uint32_t color, int32_t is_eraser);
+extern void brush_height_relief_stroke_end(void);
 
 extern const char* brush_holographic_interference_get_info(void);
 extern void brush_holographic_interference_init(int32_t w, int32_t h);
@@ -769,6 +790,20 @@ static const native_brush_t s_brushes[] = {
         brush_dry_flat_brush_stroke_end
     },
     {
+        "drying_pigment",
+        "Drying Pigment",
+        "Paint Physics",
+        0.0500f,
+        2.00f,
+        120.00f,
+        brush_drying_pigment_get_info,
+        brush_drying_pigment_init,
+        brush_drying_pigment_set_param,
+        brush_drying_pigment_stroke_begin,
+        brush_drying_pigment_render_dab,
+        brush_drying_pigment_stroke_end
+    },
+    {
         "electric_discharge_kirlian",
         "Kirlian Corona Bio-Aura",
         "Bio-Electrical",
@@ -921,6 +956,34 @@ static const native_brush_t s_brushes[] = {
         brush_gravitational_lens_einstein_stroke_begin,
         brush_gravitational_lens_einstein_render_dab,
         brush_gravitational_lens_einstein_stroke_end
+    },
+    {
+        "gravity_drip",
+        "Gravity Drip Paint",
+        "Paint Physics",
+        0.0400f,
+        3.00f,
+        100.00f,
+        brush_gravity_drip_get_info,
+        brush_gravity_drip_init,
+        brush_gravity_drip_set_param,
+        brush_gravity_drip_stroke_begin,
+        brush_gravity_drip_render_dab,
+        brush_gravity_drip_stroke_end
+    },
+    {
+        "height_relief",
+        "Accumulating Height Relief",
+        "Impasto",
+        0.0400f,
+        2.00f,
+        120.00f,
+        brush_height_relief_get_info,
+        brush_height_relief_init,
+        brush_height_relief_set_param,
+        brush_height_relief_stroke_begin,
+        brush_height_relief_render_dab,
+        brush_height_relief_stroke_end
     },
     {
         "holographic_interference",

@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for height_relief */
+#define w_brush_get_info brush_height_relief_get_info
+#define w_brush_get_inputs brush_height_relief_get_inputs
+#define w_brush_init brush_height_relief_init
+#define w_brush_set_param brush_height_relief_set_param
+#define w_brush_stroke_begin brush_height_relief_stroke_begin
+#define w_brush_stroke_end brush_height_relief_stroke_end
+#define w_brush_render_dab brush_height_relief_render_dab
+
+#include "height_relief.c"

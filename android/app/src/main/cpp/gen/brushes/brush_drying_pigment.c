@@ -1,0 +1,10 @@
+/* Auto-generated wrapper for drying_pigment */
+#define w_brush_get_info brush_drying_pigment_get_info
+#define w_brush_get_inputs brush_drying_pigment_get_inputs
+#define w_brush_init brush_drying_pigment_init
+#define w_brush_set_param brush_drying_pigment_set_param
+#define w_brush_stroke_begin brush_drying_pigment_stroke_begin
+#define w_brush_stroke_end brush_drying_pigment_stroke_end
+#define w_brush_render_dab brush_drying_pigment_render_dab
+
+#include "drying_pigment.c"

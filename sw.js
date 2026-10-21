@@ -1,4 +1,4 @@
-const CACHE_NAME = 'esenho-v0.14.98';
+const CACHE_NAME = 'esenho-v0.14.99';
 
 const PRECACHE_ASSETS = [
   './',
@@ -70,7 +70,11 @@ const PRECACHE_ASSETS = [
   './plugins/thermal.wasm',
   './plugins/threshold.wasm',
   './plugins/vignette.wasm',
-  './plugins/water_foam.wasm'
+  './plugins/water_foam.wasm',
+  './plugins/brushes/manifest.json',
+  './plugins/brushes/gravity_drip.wasm',
+  './plugins/brushes/drying_pigment.wasm',
+  './plugins/brushes/height_relief.wasm'
 ];
 
 self.addEventListener('install', (event) => {

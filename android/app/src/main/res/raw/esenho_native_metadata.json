@@ -5713,6 +5713,45 @@
       ]
     },
     {
+      "id": "drying_pigment",
+      "cId": "drying_pigment",
+      "title": "Drying Pigment",
+      "category": "Paint Physics",
+      "spacing": 0.05,
+      "minRadius": 2,
+      "maxRadius": 120,
+      "params": [
+        {
+          "name": "Drying Texture",
+          "min": 0,
+          "max": 100,
+          "default": 65,
+          "unit": "%"
+        },
+        {
+          "name": "Edge Deposit",
+          "min": 0,
+          "max": 100,
+          "default": 72,
+          "unit": "%"
+        },
+        {
+          "name": "Paper Grain",
+          "min": 0,
+          "max": 100,
+          "default": 42,
+          "unit": "%"
+        },
+        {
+          "name": "Pigment Load",
+          "min": 10,
+          "max": 100,
+          "default": 78,
+          "unit": "%"
+        }
+      ]
+    },
+    {
       "id": "electric_discharge_kirlian",
       "cId": "electric_discharge_kirlian",
       "title": "Kirlian Corona Bio-Aura",
@@ -6137,6 +6176,84 @@
           "min": 0,
           "max": 100,
           "default": 65,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "gravity_drip",
+      "cId": "gravity_drip",
+      "title": "Gravity Drip Paint",
+      "category": "Paint Physics",
+      "spacing": 0.04,
+      "minRadius": 3,
+      "maxRadius": 100,
+      "params": [
+        {
+          "name": "Drip Length",
+          "min": 4,
+          "max": 100,
+          "default": 36,
+          "unit": "px"
+        },
+        {
+          "name": "Gravity",
+          "min": 0,
+          "max": 100,
+          "default": 85,
+          "unit": "%"
+        },
+        {
+          "name": "Paint Load",
+          "min": 10,
+          "max": 100,
+          "default": 72,
+          "unit": "%"
+        },
+        {
+          "name": "Drip Spread",
+          "min": 0,
+          "max": 100,
+          "default": 35,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "height_relief",
+      "cId": "height_relief",
+      "title": "Accumulating Height Relief",
+      "category": "Impasto",
+      "spacing": 0.04,
+      "minRadius": 2,
+      "maxRadius": 120,
+      "params": [
+        {
+          "name": "Relief Depth",
+          "min": 1,
+          "max": 100,
+          "default": 65,
+          "unit": "%"
+        },
+        {
+          "name": "Sculpt Softness",
+          "min": 0,
+          "max": 100,
+          "default": 48,
+          "unit": "%"
+        },
+        {
+          "name": "Light Direction",
+          "min": 0,
+          "max": 359,
+          "default": 315,
+          "unit": "deg"
+        },
+        {
+          "name": "Surface Grain",
+          "min": 0,
+          "max": 100,
+          "default": 20,
           "unit": "%"
         }
       ]
