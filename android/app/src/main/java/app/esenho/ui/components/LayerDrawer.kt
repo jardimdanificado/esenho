@@ -57,15 +57,21 @@ fun LayerDrawer(
         layersList = engine.layers.toList().reversed()
         activeLayerId = engine.activeLayerIndex
     }
+    var movingLayer by remember { mutableStateOf<Int?>(null) }
+    val treeRows = layerTree(engine,layersList)
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     var layerMenuId by remember { mutableStateOf<Int?>(null) }
     var showRename by remember { mutableStateOf(false) }
     var renameText by remember { mutableStateOf("") }
     val rowPixels = with(androidx.compose.ui.platform.LocalDensity.current) { 40.dp.toPx() }
     LaunchedEffect(activeLayerId, layersList.map { it.id }) {
-        val index = layersList.indexOfFirst { it.id == activeLayerId }
+        val index = treeRows.indexOfFirst { it.layer?.id == activeLayerId }
         if (index >= 0 && listState.layoutInfo.visibleItemsInfo.none { it.index == index })
             listState.animateScrollToItem(index)
+    }
+
+    movingLayer?.let { id ->
+        LayerGroupPicker(engine,"Mover camada",onDismiss={movingLayer=null}) { group -> engine.editRasterGroups { engine.moveLayerToRasterGroup(id,group) };refresh() }
     }
 
     Surface(
@@ -91,6 +97,9 @@ fun LayerDrawer(
                 ) {
                     Icon(Icons.Default.Add, "Adicionar camada", Modifier.size(19.dp))
                 }
+                IconButton(onClick = { engine.editRasterGroups { engine.createRasterLayerGroup() }; refresh() }, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.CreateNewFolder,"Novo grupo",Modifier.size(19.dp))
+                }
                 IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.Close, "Fechar camadas", Modifier.size(17.dp))
                 }
@@ -100,12 +109,16 @@ fun LayerDrawer(
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 contentPadding = PaddingValues(horizontal = 4.dp),
             ) {
-                items(layersList, key = { it.id }) { layer ->
+                items(treeRows, key = { it.key }) { entry ->
+                    if (entry.group != null) {
+                        LayerGroupRow(engine,entry.group,entry.depth,::refresh)
+                    } else {
+                    val layer = entry.layer!!
                     val selected = layer.id == activeLayerId
                     var dragRemainder by remember(layer.id) { mutableFloatStateOf(0f) }
                     var reorderToken by remember(layer.id) { mutableLongStateOf(0L) }
                     Row(
-                        Modifier.fillMaxWidth()
+                        Modifier.fillMaxWidth().padding(start = (entry.depth * 12).dp)
                             .height(40.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .background(
@@ -220,6 +233,10 @@ fun LayerDrawer(
                                 onDismissRequest = { layerMenuId = null },
                             ) {
                                 DropdownMenuItem(
+                                    text = { Text("Mover para grupo…") },
+                                    onClick = { layerMenuId = null; movingLayer = layer.id },
+                                )
+                                DropdownMenuItem(
                                     text = { Text("Renomear") },
                                     onClick = {
                                         layerMenuId = null
@@ -333,6 +350,7 @@ fun LayerDrawer(
                         }
                     }
                 }
+            }
             }
             if (activeLayer != null) {
                 var localOpacity by

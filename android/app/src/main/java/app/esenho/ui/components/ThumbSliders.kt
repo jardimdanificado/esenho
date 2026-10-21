@@ -158,7 +158,7 @@ private fun dynamicSettingIndex(paramId: Int): Int? =
 private fun parameterStepValue(paramId: Int, value: Float): Float =
     if (dynamicSettingIndex(paramId) == null) value.roundToInt().toFloat() else value
 
-private fun readSliderParameter(engine: EsenhoEngine, paramId: Int): Float =
+internal fun readSliderParameter(engine: EsenhoEngine, paramId: Int): Float =
     parameterStepValue(
         paramId,
         when {
@@ -175,7 +175,7 @@ private fun readSliderParameter(engine: EsenhoEngine, paramId: Int): Float =
         },
     )
 
-private fun writeSliderParameter(engine: EsenhoEngine, paramId: Int, requestedValue: Float) {
+internal fun writeSliderParameter(engine: EsenhoEngine, paramId: Int, requestedValue: Float) {
     val value = parameterStepValue(paramId, requestedValue)
     val dynamicIndex = dynamicSettingIndex(paramId)
     when {
@@ -211,7 +211,7 @@ internal fun quickChoiceValue(engine: EsenhoEngine, id: Int): String = when (id)
     PRESSURE_CURVE_PARAMETER -> engine.selectedPreset?.dynamicConfig?.optString("pressure_curve", "linear") ?: "linear"
     else -> engine.getPresetParam(id).toString()
 }
-private fun writeQuickChoice(engine: EsenhoEngine, id: Int, key: String) {
+internal fun writeQuickChoice(engine: EsenhoEngine, id: Int, key: String) {
     when (id) {
         SHAPE_PARAMETER -> engine.setPresetShape(key)
         TEXTURE_PARAMETER -> engine.setPresetTexture(key)
@@ -233,7 +233,11 @@ fun QuickParameterSliders(
     onParameterChanged: (Int, Boolean) -> Unit,
     onMoveParameter: (String, Int) -> Unit,
     onReorderFinished: () -> Unit,
+    quickScripts: List<app.esenho.scripting.NativeScriptPreset> = emptyList(),
+    onRunScript: (app.esenho.scripting.NativeScriptPreset) -> Unit = {},
+    onOpenScripts: () -> Unit = {},
 ) {
+    var quickTab by remember { mutableIntStateOf(0) }
     val visibleSettings = relevantQuickSliders(engine, settings)
     val listState = rememberLazyListState()
     var movingId by remember { mutableStateOf<String?>(null) }
@@ -245,7 +249,16 @@ fun QuickParameterSliders(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 4.dp),
         )
-        LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false), state = listState) {
+        WorkspaceSectionTabs(listOf("Parâmetros", "Scripts"),quickTab,{quickTab=it})
+        if(quickTab == 1) {
+            TextButton(onClick=onOpenScripts) { Text("Abrir editor de scripts") }
+            if(quickScripts.isEmpty()) Text("Salve presets no dock de scripts para executá-los aqui.",style=MaterialTheme.typography.bodySmall)
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max=320.dp)) {
+                items(quickScripts,key={it.id}) { script ->
+                    TextButton(onClick={onRunScript(script)},modifier=Modifier.fillMaxWidth()) { Text("▶ ${script.name}") }
+                }
+            }
+        } else LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false), state = listState) {
             items(visibleSettings, key = { it.id }) { setting ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ParameterDragHandle(

@@ -79,7 +79,7 @@
   }
   const layerId = layer => typeof layer === "object" ? layer.id : layer;
   const esenho = {
-    apiVersion: 1,
+    apiVersion: 2,
     spaces: {
       document: new Space(),
       view: { snapshot: (options = {}) => space(call("spaces.view", options)) },
@@ -175,6 +175,110 @@
     "select_brush_mask", "select_wand", "eyedropper", "erase_rectangle", "erase_ellipse"]) {
     esenho.tools[tool] = { stroke: options => stroke(options, tool) };
   }
+  // Extended native API. Plain values are serialized; editor objects use IDs.
+  const idOf = value => value && typeof value === "object" ? value.id : value;
+  Object.assign(esenho.document, {
+    create: options => call("document.new", options),
+    resize: (width, height, resample = true) => call("document.resize", {width, height, resample}),
+    cropToSelection: () => call("document.crop"), clear: () => call("document.clear"),
+    flipH: () => call("document.flipH"), flipV: () => call("document.flipV")
+  });
+  esenho.files = {
+    pick: (options = {}) => { const path=call("files.pick",options); if(!path)throw new Error("Seleção de arquivo cancelada"); return path; },
+    readText: path => call("files.readText", {path}),
+    writeText: (path, text) => call("files.writeText", {path, text}),
+    list: (path = ".") => call("files.list", {path}),
+    remove: path => call("files.remove", {path})
+  };
+  esenho.project = {
+    open: path => call("project.open", {path: path ?? esenho.files.pick({mode:"open"})}),
+    save: path => call("project.save", {path: path ?? esenho.files.pick({mode:"save", name:"projeto.esenho"})})
+  };
+  esenho.image = { import: (path, options = {}) => call("image.import", {...options, path: path ?? esenho.files.pick({mime:"image/*"})}) };
+  esenho.export = {
+    image: (options = {}) => call("export.image", {...options, path: options.path ?? esenho.files.pick({mode:"save",name:`imagem.${options.format ?? "png"}`})}),
+    animation: (options = {}) => call("export.animation", {...options, path: options.path ?? esenho.files.pick({mode:"save",name:`animacao.${options.format ?? "gif"}`})})
+  };
+  Object.assign(esenho.layers, {
+    move: (layer, delta) => call("layers.move", {id: layerId(layer), delta}),
+    mergeDown: layer => call("layers.mergeDown", {id:layerId(layer)}),
+    flipH: layer => call("layers.flipH", {id:layerId(layer)}), flipV: layer => call("layers.flipV", {id:layerId(layer)})
+  });
+  esenho.groups = {
+    list: () => call("groups.list"), create: (name, parent) => call("groups.create", {name,parentId:idOf(parent)}),
+    set: (group, options) => call("groups.set", {...options,id:idOf(group), ...(options.parentId !== undefined ? {parentId:idOf(options.parentId)} : {})}),
+    assign: (layer, group = null) => call("groups.assign", {id:layerId(layer),groupId:idOf(group)}),
+    remove: group => call("groups.remove", {id:idOf(group)}), move: (group,delta) => call("groups.move",{id:idOf(group),delta})
+  };
+  Object.assign(esenho.brush, {
+    select: preset => call("brush.select",{id:idOf(preset)}),
+    state: () => call("brush.state"), parameters: () => call("brush.parameters"),
+    getParam: id => call("brush.getParameter", {id}),
+    setParam: (id,value) => call("brush.setParameter", {id,value}),
+    shape: name => call("brush.shape", {name}), texture: name => call("brush.texture", {name}),
+    reset: () => call("brush.reset"), save: (name,category) => call("brush.save", {name,category}),
+    remove: id => call("brush.remove", {id:idOf(id)}),
+    pressure: options => call("brush.pressure",options),
+    createAsset: options => call("brush.asset",options),
+    dynamicSettings: () => call("brush.dynamicSettings"), dynamicInputs: () => call("brush.dynamicInputs"),
+    dynamicBase: (setting,value) => call("brush.dynamicBase",{setting,value}),
+    dynamicCurve: (setting,input,points) => call("brush.dynamicCurve",{setting,input,points})
+  });
+  esenho.curves = {
+    list: () => call("curves.list"), inputs: () => call("curves.inputs"), targets: () => call("curves.targets"), bindings: () => call("curves.bindings"),
+    save: options => call("curves.save",options),
+    bind: (parameter,curve,options = {}) => call("curves.bind",{...options,parameter,curveId:idOf(curve)}),
+    unbind: parameter => call("curves.unbind",{parameter}), reset: () => call("curves.reset"),
+    remove: curve => call("curves.remove",{id:idOf(curve)}), evaluate: (curve,value) => call("curves.evaluate",{id:idOf(curve),value})
+  };
+  esenho.palettes = {
+    list: () => call("palettes.list"), create: name => call("palettes.create",{name}),
+    select: palette => call("palettes.select",{id:idOf(palette)}), remove: palette => call("palettes.remove",{id:idOf(palette)}),
+    addColor: (palette,color) => call("palettes.addColor",{id:idOf(palette),color}),
+    removeColor: (palette,index) => call("palettes.removeColor",{id:idOf(palette),index})
+  };
+  esenho.color = {
+    set: color => call("color.set",{color}), sample: (x,y,space) => call("color.sample",{x,y,space}),
+    adjust: options => call("color.adjust",options)
+  };
+  Object.assign(esenho.selection, {
+    state: () => call("selection.state"), configure: options => call("selection.configure",options),
+    mask: () => call("selection.mask"), setMask: mask => call("selection.setMask", mask)
+  });
+  esenho.guides = {
+    list: () => call("guides.list"), create: options => call("guides.create",options),
+    remove: id => call("guides.remove",{id}), clear: () => call("guides.clear")
+  };
+  esenho.assist = {state: () => call("assist.state"),set: options => call("assist.set",options)};
+  esenho.paint = {dry: () => call("paint.dry"), diffuse: (steps=1) => call("paint.diffuse",{steps})};
+  Object.assign(esenho.animation, {
+    configure: options => call("animation.configure",options), play: () => call("animation.play"),pause: () => call("animation.pause"),stop: () => call("animation.stop"),
+    seek: tick => call("animation.seek",{tick}),moveFrame: (from,to) => call("animation.move",{from,to}),clearFrame: () => call("animation.clear"),
+    setCel: options => call("animation.cel",options),onion: (options={}) => call("animation.onion",options)
+  });
+  Object.assign(esenho.transform, {
+    configure: options => call("transform.configure",options), corners: (points,space) => call("transform.corners",{points,space})
+  });
+  Object.assign(esenho.pivots, {
+    create: options => space(call("pivots.create",options)), update: (name,options) => space(call("pivots.update",{...options,name})),
+    rename: (name,newName) => space(call("pivots.update",{name,newName}))
+  });
+  esenho.preferences = {get: () => call("preferences.get"),set: options => call("preferences.set",options)};
+  esenho.storage = {
+    get: (key,fallback=null) => { const value=call("storage.get",{key}); return value == null ? fallback : JSON.parse(value); },
+    set: (key,value) => call("storage.set",{key,value:JSON.stringify(value)}),remove: key => call("storage.remove",{key})
+  };
+  Object.assign(esenho.ui, {prompt: options => call("ui.prompt",options),configure: options => call("ui.configure",options)});
+  esenho.wait = ms => call("wait",{ms:finite(ms,"ms")});
+  let lastStrokePoint;
+  Object.assign(esenho.tools, {
+    begin: (point, options={}) => { call("stroke.begin",{point,tool:options.tool,space:options.space ?? esenho.spaces.document}); lastStrokePoint=point; },
+    move: point => { call("stroke.move",{points:[point]}); lastStrokePoint=point; },
+    end: (point=lastStrokePoint) => { call("stroke.end",{point}); lastStrokePoint=undefined; },
+    cancel: () => { call("stroke.cancel");lastStrokePoint=undefined; }
+  });
+  esenho.scripts = {list: () => call("scripts.list"),save: options => call("scripts.save",options),remove: script => call("scripts.remove",{id:idOf(script)})};
+  esenho.help = () => Object.fromEntries(Object.entries(esenho).filter(([,v]) => v && typeof v === "object").map(([k,v]) => [k,Object.getOwnPropertyNames(v)]));
   const print = (...args) => call("log", { message: args.map(value =>
     typeof value === "string" ? value : JSON.stringify(value) ?? String(value)).join(" ") });
   globalThis.console = { log: print, info: print, warn: print, error: print };

@@ -29,6 +29,7 @@ class ScriptSession(
     private val onStatus: (String) -> Unit,
     private val onLog: (String) -> Unit,
     private val onFinished: (String?) -> Unit,
+    private val onRequest: (String, JSONObject, (Any?) -> Unit) -> Unit = { _, _, _ -> error("Interação não disponível") },
 ) {
     private val main = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor { task -> Thread(task, "Esenho-JavaScript") }
@@ -72,6 +73,28 @@ class ScriptSession(
                     null
                 }
                 "pivots.pick" -> pick(args)
+                "files.pick", "ui.prompt" -> {
+                    val future = CompletableFuture<Any?>()
+                    pending.add(future)
+                    try {
+                        onUi { onRequest(operation, args) { future.complete(it) } }
+                        await(future)
+                    } finally { pending.remove(future) }
+                }
+                "wait" -> {
+                    val ms = args.getDouble("ms")
+                    require(ms.isFinite() && ms in 0.0..3_600_000.0)
+                    val until = android.os.SystemClock.elapsedRealtime() + ms.toLong()
+                    while (android.os.SystemClock.elapsedRealtime() < until) {
+                        checkRunning()
+                        Thread.sleep(minOf(50L, (until-android.os.SystemClock.elapsedRealtime()).coerceAtLeast(1)))
+                    }
+                    null
+                }
+                "project.save", "export.image", "export.animation", "files.readText", "files.writeText", "files.list", "files.remove" -> {
+                    val job = onUi { api.prepareIo(operation,args) }
+                    job.execute()
+                }
                 else -> onUi { api.invoke(operation, args) }
             }
             JSONObject().put("value", result ?: JSONObject.NULL)

@@ -657,6 +657,7 @@ class EsenhoEngine(
     )
     private val layerAddHistory = linkedMapOf<Long, LayerAddHistory>()
     private val redoLayerAddTokens = mutableSetOf<Long>()
+    private val groupEdits = linkedMapOf<Long, GroupEdit>()
     private var undoSnapshotSerial = 0L
 
     private fun activeAnimationTrack(): AnimationTrack {
@@ -1203,6 +1204,7 @@ class EsenhoEngine(
         layerBaseOpacities.clear()
         layerBaseVisibility.clear()
         rasterLayerGroups.clear()
+        groupEdits.clear()
         rasterGroupOrder.clear()
         canvasGuides.clear()
         snapGuideIndices.clear()
@@ -1236,6 +1238,20 @@ class EsenhoEngine(
         // syncLayers creates one first cel for each drawable layer.
         currentFrameIndex = 0
         selectedPreset?.let { selectPreset(it) }
+    }
+
+    fun createDocument(w: Int, h: Int, background: Int = Color.WHITE) {
+        initEngine(w,h)
+        if(background != Color.WHITE) {
+            val drawing = activeLayerIndex
+            val base = layers.firstOrNull()?.id ?: drawing
+            selectLayer(base)
+            EsenhoNativeBridge.nativeLayerClear(base)
+            if(background != Color.TRANSPARENT) EsenhoNativeBridge.nativeDrawRect(0,0,w,h,toNativeColor(background))
+            captureCurrentFrame(base)
+            selectLayer(drawing)
+            getRenderBitmap()
+        }
     }
 
     fun resize(w: Int, h: Int) {
@@ -2218,6 +2234,45 @@ class EsenhoEngine(
         syncAnimationTracks()
     }
 
+    private data class GroupState(val groups: List<RasterLayerGroup>, val order: List<String>, val layers: List<Int>)
+    private data class GroupEdit(val before: GroupState, val after: GroupState, val serial: Long)
+    private fun groupState() = GroupState(rasterLayerGroups.values.map { it.copy(layerIds=it.layerIds.toMutableList(),childGroupIds=it.childGroupIds.toMutableList()) },rasterGroupOrder.toList(),layers.map { it.id })
+
+    /** One user group operation, including membership/order/visibility metadata. */
+    fun <T> editRasterGroups(action: () -> T): T {
+        val before = groupState()
+        val token = pushUndoSnapshot()
+        val result = try { action() } catch (failure: Throwable) {
+            if(token != 0L) EsenhoNativeBridge.nativeCancelStroke()
+            applyGroupState(before)
+            throw failure
+        }
+        val after = groupState()
+        if(token != 0L) groupEdits[token] = GroupEdit(before,after,undoSnapshotSerial)
+        return result
+    }
+
+    private fun restoreGroupEdit(token: Long, redo: Boolean): Boolean {
+        val edit = groupEdits[token] ?: return false
+        val state = if(redo) edit.after else edit.before
+        applyGroupState(state)
+        return true
+    }
+
+    private fun applyGroupState(state: GroupState) {
+        rasterLayerGroups.clear()
+        state.groups.forEach { rasterLayerGroups[it.id] = it.copy(layerIds=it.layerIds.toMutableList(),childGroupIds=it.childGroupIds.toMutableList()) }
+        rasterGroupOrder.clear(); rasterGroupOrder.addAll(state.order)
+        syncLayers()
+        for ((position,id) in state.layers.withIndex()) {
+            var current = (0 until EsenhoNativeBridge.nativeLayerGetCount()).firstOrNull { EsenhoNativeBridge.nativeLayerGetOrder(it) == id } ?: -1
+            while(current > position) { EsenhoNativeBridge.nativeLayerMoveDown(id); current-- }
+            while(current in 0 until position) { EsenhoNativeBridge.nativeLayerMoveUp(id); current++ }
+        }
+        syncLayers()
+        applyAnimationTick(currentAnimationTick,captureActive=false)
+    }
+
     fun createRasterLayerGroup(name: String? = null): RasterLayerGroup {
         while ("raster_group_$nextRasterGroupId" in rasterLayerGroups) nextRasterGroupId++
         val id = "raster_group_${nextRasterGroupId++}"
@@ -2228,6 +2283,15 @@ class EsenhoEngine(
     fun renameRasterLayerGroup(id: String, name: String) {
         val normalized = name.trim()
         if (normalized.isNotEmpty()) rasterLayerGroups[id]?.name = normalized
+    }
+
+    fun moveRasterLayerGroup(id: String, delta: Int) {
+        val group = rasterLayerGroups[id] ?: return
+        val order = group.parentId?.let { rasterLayerGroups[it]?.childGroupIds } ?: rasterGroupOrder
+        val from = order.indexOf(id)
+        if (from < 0) return
+        val to = (from + delta).coerceIn(0,order.lastIndex)
+        if (from != to) { order.removeAt(from); order.add(to,id); syncNativeLayerOrderFromRasterGroups() }
     }
 
     fun moveLayerToRasterGroup(layerId: Int, groupId: String?) {
@@ -2587,6 +2651,9 @@ class EsenhoEngine(
         }
         if (moved) {
             syncLayers()
+            val positions = layers.mapIndexed { index, layer -> layer.id to index }.toMap()
+            rasterLayerGroups.values.forEach { group -> group.layerIds.sortBy { positions[it] ?: Int.MAX_VALUE } }
+            if (rasterLayerGroups.isNotEmpty()) syncNativeLayerOrderFromRasterGroups()
             if (token != 0L) layerOrderHistory[token]?.after = layers.map { it.id }
         } else if (captureUndo && token != 0L) {
             layerOrderHistory.remove(token)
@@ -3038,6 +3105,7 @@ class EsenhoEngine(
     }
 
     fun onTouchDown(x: Float, y: Float, pressure: Float = 0.85f, tiltX: Int = 0, tiltY: Int = 0) {
+        isAnimationPlaying = false
         endCurveStroke()
         strokeUsageHistory.cancel()
         if (currentTool == ToolMode.EYEDROPPER) {
@@ -3422,6 +3490,7 @@ class EsenhoEngine(
 
     /** Filled shape expressed in an affine document reference, with normal editor history. */
     fun drawAffineShape(x0: Float, y0: Float, x1: Float, y1: Float, matrix: Matrix, ellipse: Boolean, erase: Boolean) {
+        isAnimationPlaying = false
         if (x0 == x1 || y0 == y1) return
         check(transformState == null && !isStrokeActive)
         val values = FloatArray(9)
@@ -3830,6 +3899,7 @@ class EsenhoEngine(
         redoLayerDeleteTokens.toList().forEach(::releaseLayerDeleteHistory)
         redoLayerAddTokens.toList().forEach(::releaseLayerAddHistory)
         undoSnapshotSerial++
+        groupEdits.entries.removeAll { undoSnapshotSerial - it.value.serial >= maxUndoSteps }
         layerResizeHistory.filterValues { undoSnapshotSerial - it.snapshotSerial >= maxUndoSteps }
             .keys.toList().forEach(::releaseResizeHistory)
         layerOrderHistory.filterValues { undoSnapshotSerial - it.snapshotSerial >= maxUndoSteps }
@@ -3879,6 +3949,8 @@ class EsenhoEngine(
         }
         syncLayers()
         if (redo) redoLayerOrderTokens.remove(token) else redoLayerOrderTokens.add(token)
+        val positions = layers.mapIndexed { index, layer -> layer.id to index }.toMap()
+        rasterLayerGroups.values.forEach { group -> group.layerIds.sortBy { positions[it] ?: Int.MAX_VALUE } }
         getRenderBitmap()
         return true
     }
@@ -4151,7 +4223,7 @@ class EsenhoEngine(
             !restoreLayerDeleteUndoSlot(pendingDelete)) return false
         val token = EsenhoNativeBridge.nativeUndo()
         if (token != 0L) {
-            if (!restoreLayerMergeHistory(token, redo = false) &&
+            if (!restoreGroupEdit(token, redo = false) && !restoreLayerMergeHistory(token, redo = false) &&
                 !restoreLayerDeleteHistory(token, redo = false) &&
                 !restoreLayerAddHistory(token, redo = false) &&
                 !restoreLayerResizeHistory(token, redo = false) &&
@@ -4182,7 +4254,7 @@ class EsenhoEngine(
             !restoreLayerAddRedoSlot(pendingAdd)) return false
         val token = EsenhoNativeBridge.nativeRedo()
         if (token != 0L) {
-            if (!restoreLayerMergeHistory(token, redo = true) &&
+            if (!restoreGroupEdit(token, redo = true) && !restoreLayerMergeHistory(token, redo = true) &&
                 !restoreLayerDeleteHistory(token, redo = true) &&
                 !restoreLayerAddHistory(token, redo = true) &&
                 !restoreLayerResizeHistory(token, redo = true) &&

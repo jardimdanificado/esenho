@@ -39,7 +39,7 @@ private val CURVE_INPUTS = listOf(
 )
 private val CURVE_INTERPOLATIONS = listOf("smooth" to "Suave", "linear" to "Linear", "steps" to "Patamares")
 
-private fun curveTarget(engine: EsenhoEngine, config: SliderParamConfig): BrushCurveTarget {
+internal fun curveTarget(engine: EsenhoEngine, config: SliderParamConfig): BrushCurveTarget {
     val choice = config.kind == QuickParameterKind.CHOICE
     val minimum = if (choice) 0f else if (config.paramId == -1003) ln(.5f) else config.minVal
     val maximum = if (choice) config.options.lastIndex.toFloat().coerceAtLeast(1f) else if (config.paramId == -1003) ln(50f) else config.maxVal

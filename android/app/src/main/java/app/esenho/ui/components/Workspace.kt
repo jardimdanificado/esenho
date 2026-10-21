@@ -249,6 +249,9 @@ fun WorkspaceProperties(
     onAnimation: () -> Unit,
     onEffects: () -> Unit,
     onScripts: () -> Unit,
+    quickScripts: List<app.esenho.scripting.NativeScriptPreset> = emptyList(),
+    onRunQuickScript: (app.esenho.scripting.NativeScriptPreset) -> Unit = {},
+    onOpenScripts: () -> Unit = onScripts,
 ) {
     var more by remember { mutableStateOf(false) }
     val relevantSliders = relevantQuickSliders(engine, configuredSliders)
@@ -284,6 +287,9 @@ fun WorkspaceProperties(
                             onParameterChanged,
                             onMoveParameter,
                             onReorderFinished,
+                            quickScripts,
+                            onRunQuickScript,
+                            onOpenScripts,
                         )
                     }
                 }

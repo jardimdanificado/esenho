@@ -497,7 +497,7 @@ fun PresetItemCard(
                     width = 1.dp,
                     color =
                         if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(4.dp),
                 ),
         color =
             if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
@@ -594,7 +594,7 @@ fun BrushItemCard(
                     width = 1.dp,
                     color =
                         if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(4.dp),
                 ),
         color =
             if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
@@ -765,7 +765,7 @@ internal fun CompactOptionDropdown(
     Box(modifier = Modifier.fillMaxWidth()) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(4.dp),
             modifier = Modifier.fillMaxWidth().clickable { expanded = true },
         ) {
             Row(

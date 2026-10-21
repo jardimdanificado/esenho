@@ -81,6 +81,10 @@ fun NativeScriptEditor(
     pivotNames: List<String>,
     onPickPivot: (String) -> Unit,
     onClearPivots: () -> Unit,
+    pivots: List<org.json.JSONObject>,
+    onUpdatePivot: (String,org.json.JSONObject) -> Unit,
+    onMovePivot: (String) -> Unit,
+    onRemovePivot: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
@@ -89,6 +93,8 @@ fun NativeScriptEditor(
         focusManager.clearFocus()
         keyboard?.hide()
     }
+    var tab by remember { mutableIntStateOf(0) }
+    val highlight = remember { JavaScriptHighlight() }
     var scriptsExpanded by remember { mutableStateOf(false) }
     var actionsExpanded by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
@@ -97,9 +103,13 @@ fun NativeScriptEditor(
     val modified = selected != null && source != selected.source
     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         EditorPanelHeader("Scripts JavaScript", { releaseEditorFocus(); onDismiss() })
+        WorkspaceSectionTabs(listOf("Código", "API", "Pivots"),tab,{ tab=it })
+        if (tab == 1) ScriptReferencePanel(Modifier.weight(1f))
+        else if (tab == 2) Box(Modifier.weight(1f)) { ScriptPivotsPanel(pivots,onPickPivot,onUpdatePivot,onMovePivot,onRemovePivot) }
+        else {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
-                OutlinedButton(onClick = { scriptsExpanded = true }, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                OutlinedButton(onClick = { scriptsExpanded = true }, shape=androidx.compose.foundation.shape.RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 8.dp)) {
                     Text((selected?.name ?: "Rascunho") + if (modified) " *" else "", Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Icon(Icons.Default.ArrowDropDown, "Escolher script")
                 }
@@ -142,6 +152,9 @@ fun NativeScriptEditor(
         }
         OutlinedTextField(
             value = source, onValueChange = onSourceChange,
+            visualTransformation = highlight,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                autoCorrect = false, capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None),
             modifier = Modifier.fillMaxWidth().weight(1f),
             textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
             label = { Text("JavaScript") },
@@ -152,6 +165,7 @@ fun NativeScriptEditor(
             Modifier.fillMaxWidth().heightIn(max = 64.dp).verticalScroll(rememberScrollState()),
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
         )
+    }
     }
     if (saving) AlertDialog(
         onDismissRequest = { saving = false },

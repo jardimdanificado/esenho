@@ -157,26 +157,6 @@ fun AnimationTimelineBar(
         }
     }
 
-    DisposableEffect(Unit) { onDispose { engine.isAnimationPlaying = false } }
-
-    LaunchedEffect(isPlaying, fps) {
-        if (isPlaying) {
-            while (isActive && isPlaying) {
-                delay((1000L / fps.coerceIn(1, 60)).coerceAtLeast(16L))
-                if (engine.animationTracks.isNotEmpty()) {
-                    engine.advanceAnimationTick()
-                    if (!engine.isAnimationPlaying) {
-                        isPlaying = false
-                    }
-                    currentIdx = engine.currentFrameIndex
-                    currentTick = engine.currentAnimationTick
-                    currentDuration = engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1
-                    onFrameChanged()
-                }
-            }
-        }
-    }
-
     fun syncTimeline() {
         currentIdx = engine.currentFrameIndex
         currentTick = engine.currentAnimationTick

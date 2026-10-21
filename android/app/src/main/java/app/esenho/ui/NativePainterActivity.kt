@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -301,6 +303,8 @@ fun EsenhoNativeTheme(content: @Composable () -> Unit) {
 @Composable
 fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     val context = LocalContext.current
+    val scriptFocusManager = LocalFocusManager.current
+    val scriptKeyboard = LocalSoftwareKeyboardController.current
     var canvasViewRef by remember { mutableStateOf<EsenhoCanvasView?>(null) }
     val engine = remember { EsenhoEngine(context, 1080, 1920) }
     val storageManager = remember { EsenhoStorageManager(context) }
@@ -344,15 +348,11 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     val scriptPresetStore = remember { NativeScriptPresets(scriptPreferences) }
     var savedScriptPresets by remember { mutableStateOf(scriptPresetStore.load()) }
     var selectedScriptPresetId by remember { mutableStateOf(scriptPreferences.getString("selected_preset", "example:radial")?.takeIf { it.isNotEmpty() }) }
-    val bundledScriptPresets = remember {
-        listOf(
-            NativeScriptPreset("example:radial", "Radial", NativeScriptExamples.radial),
-            NativeScriptPreset("example:spiral", "Espiral", NativeScriptExamples.spiral),
-            NativeScriptPreset("example:view", "Tela", NativeScriptExamples.view),
-        )
-    }
+    val bundledScriptPresets = remember { NativeScriptCatalog.all }
     var scriptSession by remember { mutableStateOf<ScriptSession?>(null) }
     var markingScriptPivot by remember { mutableStateOf(false) }
+    var scriptRequest by remember { mutableStateOf<app.esenho.scripting.ScriptUiRequest?>(null) }
+    var scriptFileCallback by remember { mutableStateOf<((Any?) -> Unit)?>(null) }
     var scriptStatus by remember { mutableStateOf<String?>(null) }
     var scriptOutput by remember { mutableStateOf<List<String>>(emptyList()) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
@@ -498,13 +498,33 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         }.onFailure { scriptOutput = listOf(it.message ?: "Falha ao salvar script") }
     }
 
-    fun runScript() {
+    val scriptOpenFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { selected ->
+            runCatching { context.contentResolver.takePersistableUriPermission(selected, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+                .recoverCatching { context.contentResolver.takePersistableUriPermission(selected, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        }
+        val callback = scriptFileCallback; scriptFileCallback = null
+        callback?.invoke(uri?.toString())
+    }
+    val scriptSaveFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        val callback = scriptFileCallback; scriptFileCallback = null
+        callback?.invoke(uri?.toString())
+    }
+
+    fun runScript(source: String = scriptSource) {
         val canvas = canvasViewRef ?: return
         if (scriptSession != null) return
+        scriptFocusManager.clearFocus()
+        scriptKeyboard?.hide()
         scriptOutput = emptyList()
         val api = NativeScriptApi(engine, canvas, { refreshState(persistFavoriteTool = false) }, ::chooseTool) { operation, args ->
             if (operation == "ui.export") showExportDialog = true
-            else {
+            else if (operation == "ui.configure") {
+                if (args.has("quickShelfVisible")) quickShelfVisible = args.getBoolean("quickShelfVisible")
+                if (args.has("quickShelfRecent")) quickShelfRecent = args.getBoolean("quickShelfRecent")
+                if (args.has("quickParameters")) quickSlidersOpen = args.getBoolean("quickParameters")
+                workspacePreferences.edit().putBoolean("quick_shelf_visible",quickShelfVisible).putBoolean("quick_shelf_recent",quickShelfRecent).apply()
+            } else {
                 activePanel = if (args.isNull("name")) null else WorkspacePanel.values().firstOrNull {
                     it.name.equals(args.getString("name"), ignoreCase = true)
                 } ?: error("Painel desconhecido: ${args.optString("name")}")
@@ -515,20 +535,34 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             onLog = { scriptOutput = (scriptOutput + it).takeLast(100) },
             onFinished = { error ->
                 scriptSession = null
+                savedScriptPresets = scriptPresetStore.load()
+                favoriteBrushIds = storageManager.loadFavoriteBrushes()
+                sideSliderSettings = storageManager.loadSideSliders()
+                scriptRequest = null
+                scriptFileCallback = null
                 scriptStatus = error ?: "Script concluído"
                 scriptOutput = (scriptOutput + (error ?: "Script concluído")).takeLast(100)
                 if (error != null) activePanel = WorkspacePanel.SCRIPTS
             },
+            onRequest = { operation, args, complete ->
+                if (operation == "files.pick") {
+                    scriptFileCallback = complete
+                    if (args.optString("mode","open") == "save") scriptSaveFileLauncher.launch(args.optString("name","arquivo"))
+                    else scriptOpenFileLauncher.launch(arrayOf(args.optString("mime","*/*")))
+                } else scriptRequest = app.esenho.scripting.ScriptUiRequest(args,complete)
+            },
         )
         scriptSession = session
-        session.run(scriptSource)
+        session.run(source)
     }
 
     val currentScriptSession by rememberUpdatedState(scriptSession)
+    val awaitingScriptFile by rememberUpdatedState(scriptFileCallback != null)
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) currentScriptSession?.cancel()
+            if (event == Lifecycle.Event.ON_STOP) engine.isAnimationPlaying = false
+            if (event == Lifecycle.Event.ON_STOP && !awaitingScriptFile) currentScriptSession?.cancel()
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
@@ -591,6 +625,17 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     }
         }
 
+    // Playback belongs to the editor, independently of the visible dock.
+    LaunchedEffect(engine) {
+        while (true) {
+            delay(if (engine.isAnimationPlaying) (1000L / engine.animationFps.coerceIn(1, 60)).coerceAtLeast(16) else 100L)
+            if (engine.isAnimationPlaying) {
+                engine.advanceAnimationTick()
+                refreshState(persistFavoriteTool = false)
+            }
+        }
+    }
+
     // Keep an editable layered recovery copy in private app storage.
     LaunchedEffect(engine) {
         while (true) {
@@ -645,6 +690,23 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             }
         }
 
+    fun markScriptPivot(anchor: String, name: String? = null) {
+        scriptFocusManager.clearFocus()
+        scriptKeyboard?.hide()
+        canvasViewRef?.let { canvas ->
+            engine.cancelActiveStroke(); engine.isAnimationPlaying = false
+            markingScriptPivot = true
+            scriptStatus = "Toque e arraste para posicionar e orientar o pivot"
+            val options = org.json.JSONObject().put("anchor",anchor)
+            if (name != null) options.put("name",name)
+            canvas.scripting.pick(options) {
+                markingScriptPivot = false; scriptStatus = null
+                activePanel = WorkspacePanel.SCRIPTS
+                refreshState(persistFavoriteTool=false)
+            }
+        }
+    }
+
     val panelContent: @Composable () -> Unit = {
         when (activePanel) {
             WorkspacePanel.SCRIPTS ->
@@ -656,24 +718,15 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     onSelectPreset = ::selectScriptPreset,
                     onSavePreset = ::saveScriptPreset,
                     output = scriptOutput,
-                    onRun = ::runScript,
+                    onRun = { runScript() },
                     onImport = { importScriptLauncher.launch(arrayOf("text/*", "application/javascript", "application/octet-stream")) },
                     onExport = { exportScriptLauncher.launch("script.js") },
                     pivotNames = canvasViewRef?.scripting?.pivots?.keys?.toList().orEmpty(),
-                    onPickPivot = { anchor ->
-                        canvasViewRef?.let { canvas ->
-                            engine.cancelActiveStroke()
-                            engine.isAnimationPlaying = false
-                            markingScriptPivot = true
-                            scriptStatus = "Toque e arraste para orientar o pivot"
-                            canvas.scripting.pick(org.json.JSONObject().put("anchor", anchor)) { pivot ->
-                                markingScriptPivot = false
-                                scriptStatus = null
-                                scriptOutput = (scriptOutput + "Pivot: ${pivot.getString("name")}").takeLast(100)
-                                activePanel = WorkspacePanel.SCRIPTS
-                            }
-                        }
-                    },
+                    onPickPivot = { anchor -> markScriptPivot(anchor) },
+                    pivots = canvasViewRef?.scripting?.pivots?.values?.toList().orEmpty(),
+                    onUpdatePivot = { name, options -> canvasViewRef?.scripting?.update(options.put("name",name)); refreshState(false) },
+                    onMovePivot = { name -> canvasViewRef?.scripting?.pivots?.get(name)?.let { markScriptPivot(it.getString("kind"),name) } },
+                    onRemovePivot = { name -> canvasViewRef?.scripting?.pivots?.remove(name); refreshState(false) },
                     onClearPivots = { canvasViewRef?.scripting?.pivots?.clear(); refreshState() },
                     onDismiss = { activePanel = null },
                 )
@@ -1276,7 +1329,10 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     WorkspaceProperties(
                         toolName = currentTool.displayName,
                         onToolOptions = {
-                            if (isTransformActive) activePanel = WorkspacePanel.TRANSFORM
+                            if (currentTool == ToolMode.BRUSH) {
+                                brushPropertiesRequest++
+                                activePanel = WorkspacePanel.BRUSHES
+                            } else if (isTransformActive) activePanel = WorkspacePanel.TRANSFORM
                             else if (selectionActive || currentTool.name.startsWith("SELECT_"))
                                 activePanel = WorkspacePanel.SELECTION
                             else showSelectMenu = true
@@ -1361,6 +1417,9 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 if (activePanel == WorkspacePanel.ANIMATION) null
                                 else WorkspacePanel.ANIMATION
                         },
+                        quickScripts = savedScriptPresets,
+                        onOpenScripts = { quickSlidersOpen = false; activePanel = WorkspacePanel.SCRIPTS },
+                        onRunQuickScript = { preset -> quickSlidersOpen = false; runScript(preset.source) },
                         onScripts = {
                             activePanel = if (activePanel == WorkspacePanel.SCRIPTS) null else WorkspacePanel.SCRIPTS
                         },
@@ -2237,14 +2296,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 currentH = engine.height,
                 onConfirm = { w, h, bg ->
                     showNewProjectDialog = false
-                    engine.initEngine(w, h)
-                    if (bg != 0xFFFFFFFF.toInt()) {
-                        engine.clearActiveLayer()
-                        if (bg != 0) {
-                            EsenhoNativeBridge.nativeDrawRect(0, 0, w, h, bg)
-                            engine.captureCurrentFrame()
-                        }
-                    }
+                    engine.createDocument(w,h,bg)
                     canvasViewRef?.centerCanvas()
                     refreshState()
                 },
@@ -2252,6 +2304,10 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             )
         }
 
+
+        scriptRequest?.let { request ->
+            ScriptPromptDialog(request) { result -> scriptRequest = null; request.complete(result) }
+        }
 
         if (showExportDialog) {
             NativeExportDialog(

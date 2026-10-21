@@ -19,6 +19,7 @@ class NativeScriptApi(
     private var strokeMatrix: Matrix? = null
     private var previousTool: ToolMode? = null
     private var ownTransform = false
+    private val extended = NativeScriptExtendedApi(engine, canvas)
 
     private fun JSONObject.number(key: String, default: Double? = null): Float {
         val value = if (has(key)) getDouble(key) else default ?: error("Argumento obrigatório: $key")
@@ -42,8 +43,19 @@ class NativeScriptApi(
     }
 
     fun invoke(operation: String, args: JSONObject): Any? {
+        val editing = operation.startsWith("document.") && operation != "document.state" ||
+            operation.startsWith("layers.") && operation != "layers.list" ||
+            operation.startsWith("groups.") && operation != "groups.list" ||
+            operation.startsWith("transform.") || operation.startsWith("paint.") ||
+            operation in listOf("project.open","image.import","filters.apply","color.adjust","selection.fill","selection.erase","selection.cut","selection.paste") ||
+            operation.startsWith("animation.") && operation !in listOf("animation.state","animation.play","animation.configure","animation.onion")
+        if (editing) engine.isAnimationPlaying = false
+        if (strokeMatrix != null && !operation.startsWith("stroke.") &&
+            !operation.endsWith(".state") && !operation.endsWith(".list") && operation !in listOf("state","spaces.resolve")) {
+            error("Termine ou cancele o traço antes de alterar outro recurso")
+        }
         // Prevent document operations from invalidating a floating transform.
-        if (ownTransform && !(operation.startsWith("transform.") || operation in listOf("state", "view.state", "spaces.resolve"))) {
+        if (ownTransform && !(operation.startsWith("transform.") || operation.startsWith("pivots.") || operation.startsWith("spaces.") || operation in listOf("state", "view.state"))) {
             error("Confirme ou cancele a transformação antes de outra operação")
         }
         val result: Any? = when (operation) {
@@ -90,13 +102,14 @@ class NativeScriptApi(
                 engine.brushCatalog.map { JSONObject().put("id", "brush:${it.id}").put("name", it.title) })
             "brush.select" -> {
                 val id = args.getString("id")
-                val preset = engine.presetCatalog.firstOrNull { "preset:${it.id}" == id }
-                val brush = engine.brushCatalog.firstOrNull { "brush:${it.id}" == id }
+                val preset = engine.presetCatalog.firstOrNull { "preset:${it.id}" == id || it.id == id }
+                val brush = engine.brushCatalog.firstOrNull { "brush:${it.id}" == id || it.id == id }
                 when { preset != null -> engine.selectPreset(preset); brush != null -> engine.selectBrush(brush); else -> error("Pincel não encontrado: $id") }
                 null
             }
             "brush.param" -> { engine.setPresetParam(args.getInt("id"), args.getInt("value")); null }
             "stroke.begin" -> { beginStroke(args); null }
+            "stroke.cancel" -> { engine.cancelActiveStroke(); restoreStrokeTool(); null }
             "shape" -> { shape(args); null }
             "stroke.move" -> {
                 check(strokeMatrix != null) { "Nenhum traço em andamento" }
@@ -146,7 +159,7 @@ class NativeScriptApi(
                 .put("params", JSONArray(filter.params.mapIndexed { index, param -> JSONObject().put("id", index).put("name", param.name).put("min", param.min).put("max", param.max).put("value", param.currentVal) })) })
             "filters.apply" -> engine.applyFilter(engine.filterCatalog.firstOrNull { it.id == args.getString("id") }
                 ?: error("Filtro não encontrado"), args.optInt("p1"), args.optInt("p2"))
-            "animation.state" -> JSONObject().put("frame", engine.currentFrameIndex).put("count", engine.animationFrames.size).put("fps", engine.animationFps)
+            "animation.state" -> extended.invoke(operation, args)
             "animation.add" -> engine.addAnimationFrame()
             "animation.duplicate" -> engine.duplicateAnimationFrame()
             "animation.remove" -> { engine.deleteAnimationFrame(); null }
@@ -189,11 +202,17 @@ class NativeScriptApi(
             "transform.cancel" -> { engine.cancelTransform(); ownTransform = false; null }
             "view.reset" -> { canvas.resetView(); null }
             "view.set" -> { setView(args); null }
-            "view.state" -> JSONObject().put("matrix", canvas.scripting.affine(canvas.transformMatrix)).put("width", canvas.width).put("height", canvas.height)
-            "ui.panel", "ui.export" -> { ui(operation, args); null }
+            "view.state" -> {
+                val values=FloatArray(9).also { canvas.transformMatrix.getValues(it) }
+                val center=floatArrayOf(canvas.width/2f,canvas.height/2f).also { canvas.scripting.inverseView().mapPoints(it) }
+                JSONObject().put("matrix", canvas.scripting.affine(canvas.transformMatrix)).put("width", canvas.width).put("height", canvas.height)
+                    .put("zoom",hypot(values[0],values[3])).put("rotation",Math.toDegrees(atan2(values[3],values[0]).toDouble())).put("x",center[0]).put("y",center[1])
+            }
+            "ui.panel", "ui.export", "ui.configure" -> { ui(operation, args); null }
             "undo" -> engine.undo()
             "redo" -> engine.redo()
-            else -> error("Comando desconhecido: $operation")
+            else -> if(operation.startsWith("groups.") && operation != "groups.list") engine.editRasterGroups { extended.invoke(operation,args) }
+                else extended.invoke(operation, args)
         }
         refresh()
         return result
@@ -263,10 +282,12 @@ class NativeScriptApi(
 
     private fun setView(args: JSONObject) {
         // Absolute scale and rotation, with a document point centered in the view.
-        val zoom = args.number("zoom", 1.0).coerceIn(0.05f, 64f)
-        val rotation = args.number("rotation", 0.0)
-        val x = args.number("x", engine.width / 2.0)
-        val y = args.number("y", engine.height / 2.0)
+        val current = FloatArray(9).also { canvas.transformMatrix.getValues(it) }
+        val center = floatArrayOf(canvas.width / 2f, canvas.height / 2f).also { canvas.scripting.inverseView().mapPoints(it) }
+        val zoom = args.number("zoom", hypot(current[0], current[3]).toDouble()).coerceIn(0.05f, 64f)
+        val rotation = args.number("rotation", Math.toDegrees(atan2(current[3], current[0]).toDouble()))
+        val x = args.number("x", center[0].toDouble())
+        val y = args.number("y", center[1].toDouble())
         canvas.transformMatrix.apply {
             reset(); postTranslate(-x, -y); postScale(zoom, zoom); postRotate(rotation)
             postTranslate(canvas.width / 2f, canvas.height / 2f)
@@ -274,7 +295,15 @@ class NativeScriptApi(
         canvas.invalidate()
     }
 
+    fun prepareIo(operation: String, args: JSONObject): ScriptIoJob {
+        if(operation == "project.save" || operation.startsWith("export.")) {
+            check(strokeMatrix == null && engine.transformState == null) { "Termine o traço ou a transformação antes de salvar/exportar" }
+        }
+        return extended.prepareIo(operation,args)
+    }
+
     fun finish() {
+        extended.finish()
         if (strokeMatrix != null) engine.cancelActiveStroke()
         restoreStrokeTool()
         if (ownTransform) engine.cancelTransform()

@@ -54,6 +54,38 @@ class ScriptCanvasInteraction(private val view: EsenhoCanvasView) {
             if (name != null) put("name", name)
         }
 
+    fun update(options: JSONObject, create: Boolean = false): JSONObject {
+        val oldName = options.getString("name")
+        val old = pivots[oldName]
+        require(create || old != null) { "Pivot inexistente" }
+        require(!create || old == null) { "Nome de pivot já usado" }
+        require(old != null || pivots.size < 128) { "Máximo de 128 pivots" }
+        val name = options.optString("newName", oldName).trim()
+        require(name.isNotEmpty() && name.length <= 100 && (name == oldName || name !in pivots)) { "Nome de pivot inválido ou já usado" }
+        val kind = options.optString("anchor", old?.optString("kind") ?: "document")
+        require(kind in listOf("document", "screen"))
+        val matrix = if (old == null) Matrix() else {
+            val doc = resolve(old)
+            if (kind == "screen") Matrix().apply { setConcat(view.transformMatrix, doc) } else doc
+        }
+        val values = FloatArray(9).also { matrix.getValues(it) }
+        if (options.has("rotation")) {
+            val angle = options.getDouble("rotation"); require(angle.isFinite())
+            val scale = hypot(values[0], values[3]).coerceAtLeast(0.0001f)
+            matrix.setRotate(angle.toFloat()); matrix.postScale(scale, scale)
+            val next = FloatArray(9).also { matrix.getValues(it) }; next[2] = values[2]; next[5] = values[5]; matrix.setValues(next)
+        }
+        matrix.getValues(values)
+        if (options.has("x")) values[2] = options.getDouble("x").toFloat()
+        if (options.has("y")) values[5] = options.getDouble("y").toFloat()
+        require(values.all { it.isFinite() })
+        matrix.setValues(values)
+        val result = reference(matrix, kind, name)
+        pivots.remove(oldName); pivots[name] = result
+        view.invalidate()
+        return result
+    }
+
     fun pick(options: JSONObject, onPicked: (JSONObject) -> Unit) {
         check(completion == null) { "Já existe uma marcação pendente" }
         request = options
