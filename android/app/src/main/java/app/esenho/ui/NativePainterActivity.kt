@@ -43,6 +43,13 @@ import androidx.core.view.WindowCompat
 import app.esenho.R
 import app.esenho.nativeengine.*
 import app.esenho.ui.components.*
+import app.esenho.scripting.NativeScriptApi
+import app.esenho.scripting.ScriptSession
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import java.io.OutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -330,6 +337,13 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
 
     // UI Dialog & Drawer States
     var showExportDialog by remember { mutableStateOf(false) }
+    var showScriptEditor by remember { mutableStateOf(false) }
+    val scriptPreferences = remember { context.getSharedPreferences("esenho_native_scripts", android.content.Context.MODE_PRIVATE) }
+    var scriptSource by remember { mutableStateOf(scriptPreferences.getString("draft", NativeScriptExamples.radial) ?: NativeScriptExamples.radial) }
+    var scriptSession by remember { mutableStateOf<ScriptSession?>(null) }
+    var markingScriptPivot by remember { mutableStateOf(false) }
+    var scriptStatus by remember { mutableStateOf<String?>(null) }
+    var scriptOutput by remember { mutableStateOf<List<String>>(emptyList()) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
     var showProjectManager by remember { mutableStateOf(false) }
     var showClearLayerConfirm by remember { mutableStateOf(false) }
@@ -428,6 +442,82 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             engine.currentTool = mode
         }
         refreshState()
+    }
+
+    fun updateScriptSource(source: String) {
+        scriptSource = source
+        scriptPreferences.edit().putString("draft", source).apply()
+    }
+
+    val importScriptLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                val bytes = ByteArray(1024 * 1024 + 1)
+                var size = 0
+                while (size < bytes.size) {
+                    val count = input.read(bytes, size, bytes.size - size)
+                    if (count < 0) break
+                    size += count
+                }
+                require(size <= 1024 * 1024) { "O script deve ter no máximo 1 MB" }
+                updateScriptSource(String(bytes, 0, size, Charsets.UTF_8).removePrefix("\uFEFF"))
+            } ?: error("Não foi possível abrir o script")
+        }.onFailure { scriptOutput = listOf(it.message ?: "Falha ao abrir script") }
+    }
+    val exportScriptLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/javascript")) { uri ->
+        if (uri != null) runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { it.write(scriptSource.toByteArray(Charsets.UTF_8)) }
+                ?: error("Não foi possível salvar o script")
+        }.onFailure { scriptOutput = listOf(it.message ?: "Falha ao salvar script") }
+    }
+
+    fun runScript() {
+        val canvas = canvasViewRef ?: return
+        if (scriptSession != null) return
+        showScriptEditor = false
+        scriptOutput = emptyList()
+        val api = NativeScriptApi(engine, canvas, { refreshState(persistFavoriteTool = false) }, ::chooseTool) { operation, args ->
+            if (operation == "ui.export") showExportDialog = true
+            else {
+                activePanel = if (args.isNull("name")) null else WorkspacePanel.values().firstOrNull {
+                    it.name.equals(args.getString("name"), ignoreCase = true)
+                } ?: error("Painel desconhecido: ${args.optString("name")}")
+            }
+        }
+        val session = ScriptSession(context, api,
+            onStatus = { scriptStatus = it },
+            onLog = { scriptOutput = (scriptOutput + it).takeLast(100) },
+            onFinished = { error ->
+                scriptSession = null
+                scriptStatus = error ?: "Script concluído"
+                scriptOutput = (scriptOutput + (error ?: "Script concluído")).takeLast(100)
+                if (error != null) showScriptEditor = true
+            },
+        )
+        scriptSession = session
+        session.run(scriptSource)
+    }
+
+    val currentScriptSession by rememberUpdatedState(scriptSession)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) currentScriptSession?.cancel()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            currentScriptSession?.close()
+        }
+    }
+    BackHandler(enabled = scriptSession != null || markingScriptPivot) {
+        scriptSession?.cancel()
+        if (markingScriptPivot) {
+            canvasViewRef?.scripting?.cancelPick()
+            markingScriptPivot = false
+            scriptStatus = null
+            showScriptEditor = true
+        }
     }
 
     val saveProjectLauncher =
@@ -1087,7 +1177,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             null -> Unit
         }
     }
-    BackHandler(enabled = activePanel != null) { activePanel = null }
+    BackHandler(enabled = activePanel != null && scriptSession == null && !markingScriptPivot) { activePanel = null }
     LaunchedEffect(activePanel, showSelectMenu, showWorkspaceActions, brushPropertiesRequest) {
         quickSlidersOpen = false
         canvasViewRef?.previewBrushSize = 0f
@@ -1099,6 +1189,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
+            Box(Modifier.blockScriptTouches(scriptSession != null || markingScriptPivot)) {
                 WorkspaceHeader(
                     dimensions = "${engine.width} × ${engine.height} px",
                     canUndo = canUndo,
@@ -1121,9 +1212,10 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     },
                     onDocument = { showWorkspaceActions = true },
                 )
+            }
         },
         bottomBar = {
-                Column {
+                Column(Modifier.blockScriptTouches(scriptSession != null || markingScriptPivot)) {
                     WorkspaceProperties(
                         toolName = currentTool.displayName,
                         onToolOptions = {
@@ -1280,11 +1372,36 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                             modifier = Modifier.fillMaxSize(),
                         )
+                        if (scriptStatus != null) {
+                            Surface(
+                                Modifier.align(Alignment.TopCenter).padding(8.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                            ) {
+                                Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(scriptStatus!!, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 3)
+                                    if (scriptSession != null || markingScriptPivot) {
+                                        TextButton(onClick = {
+                                            scriptSession?.cancel()
+                                            if (markingScriptPivot) {
+                                                canvasViewRef?.scripting?.cancelPick()
+                                                markingScriptPivot = false
+                                                scriptStatus = null
+                                                showScriptEditor = true
+                                            }
+                                        }) { Text("Parar") }
+                                    } else {
+                                        TextButton(onClick = { scriptStatus = null; showScriptEditor = true }) { Text("Editor") }
+                                        IconButton(onClick = { scriptStatus = null }) { Icon(Icons.Default.Close, "Fechar") }
+                                    }
+                                }
+                            }
+                        }
                     }
                     if (!useSideInspector && activePanel != null) {
                         WorkspaceInspector(
                             activePanel!!,
-                            Modifier.fillMaxWidth().height(mobilePanelHeight),
+                            Modifier.fillMaxWidth().height(mobilePanelHeight).blockScriptTouches(scriptSession != null || markingScriptPivot),
                             panelContent,
                             onResize = { deltaPixels ->
                                 val delta = with(dockDensity) { deltaPixels.toDp() }
@@ -1308,7 +1425,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 if (useSideInspector && activePanel != null) {
                     WorkspaceInspector(
                         activePanel!!,
-                        Modifier.width(inspectorWidth).fillMaxHeight(),
+                        Modifier.width(inspectorWidth).fillMaxHeight().blockScriptTouches(scriptSession != null || markingScriptPivot),
                         panelContent,
                         sideDock = true,
                         onResize = { deltaPixels ->
@@ -1353,6 +1470,11 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     )
                     when (documentTab) {
                         0 -> {
+                            DropdownMenuItem(
+                                text = { Text("Scripts JavaScript") },
+                                leadingIcon = { Icon(Icons.Default.Code, null) },
+                                onClick = { showWorkspaceActions = false; showScriptEditor = true },
+                            )
                             DropdownMenuItem(
                                 text = { Text("Nova tela") },
                                 leadingIcon = { Icon(Icons.Default.AddBox, null) },
@@ -2071,6 +2193,35 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             )
         }
 
+        if (showScriptEditor) {
+            NativeScriptEditor(
+                source = scriptSource,
+                onSourceChange = ::updateScriptSource,
+                output = scriptOutput,
+                onRun = ::runScript,
+                onImport = { importScriptLauncher.launch(arrayOf("text/*", "application/javascript", "application/octet-stream")) },
+                onExport = { exportScriptLauncher.launch("script.js") },
+                pivotNames = canvasViewRef?.scripting?.pivots?.keys?.toList().orEmpty(),
+                onPickPivot = { anchor ->
+                    canvasViewRef?.let { canvas ->
+                        engine.cancelActiveStroke()
+                        engine.isAnimationPlaying = false
+                        showScriptEditor = false
+                        markingScriptPivot = true
+                        scriptStatus = "Toque e arraste para orientar o pivot"
+                        canvas.scripting.pick(org.json.JSONObject().put("anchor", anchor)) { pivot ->
+                            markingScriptPivot = false
+                            scriptStatus = null
+                            scriptOutput = (scriptOutput + "Pivot: ${pivot.getString("name")}").takeLast(100)
+                            showScriptEditor = true
+                        }
+                    }
+                },
+                onClearPivots = { canvasViewRef?.scripting?.pivots?.clear(); refreshState() },
+                onDismiss = { showScriptEditor = false },
+            )
+        }
+
         if (showExportDialog) {
             NativeExportDialog(
                 engine = engine,
@@ -2078,6 +2229,12 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 onDismiss = { showExportDialog = false },
             )
         }
+    }
+}
+
+private fun Modifier.blockScriptTouches(blocked: Boolean): Modifier = pointerInput(blocked) {
+    if (blocked) awaitPointerEventScope {
+        while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
     }
 }
 

@@ -166,6 +166,8 @@ extern int32_t w_layer_get_blend_mode(int32_t idx);
 extern uint32_t w_pick_color(int32_t x, int32_t y, int32_t sample_composite);
 extern void w_draw_line(int x0, int y0, int x1, int y1, uint32_t color);
 extern void w_draw_rect(int x, int y, int w, int h, uint32_t color);
+extern void w_draw_affine_shape(float x0, float y0, float x1, float y1,
+    const float *matrix, int ellipse, int erase, uint32_t color);
 extern void w_draw_circle(int cx, int cy, int r, uint32_t color);
 extern void w_draw_ellipse(int cx, int cy, int rx, int ry, uint32_t color);
 extern void w_erase_rect(int x, int y, int w, int h);
@@ -999,6 +1001,16 @@ JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDrawCircle(
     JNIEnv *env, jobject thiz, jint cx, jint cy, jint r, jint color) {
     w_draw_circle(cx, cy, r, (uint32_t)color);
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeDrawAffineShape(
+    JNIEnv *env, jobject thiz, jfloat x0, jfloat y0, jfloat x1, jfloat y1,
+    jfloatArray matrix, jboolean ellipse, jboolean erase, jint color) {
+    if (!matrix || (*env)->GetArrayLength(env, matrix) != 6) return;
+    float values[6];
+    (*env)->GetFloatArrayRegion(env, matrix, 0, 6, values);
+    w_draw_affine_shape(x0, y0, x1, y1, values, ellipse, erase, (uint32_t)color);
 }
 
 JNIEXPORT void JNICALL

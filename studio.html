@@ -4344,7 +4344,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.14.99)</span>
+    <span id="wstatus" class="ip-top-status-text">esenho studio (v0.15.1)</span>
   </header>
 
   <!-- VS Code Custom Titlebar & Menu System (Hidden fallback) -->
@@ -4549,6 +4549,7 @@
                 <option value="blend">Paint Blender</option>
                 <option value="rake_blend">Bristle Smear</option>
               </optgroup>
+              <optgroup id="grp-wasm-brush-presets" label="WASM Brush Presets"></optgroup>
               <optgroup id="grp-custom-brush-presets" label="Custom Presets"></optgroup>
             </select>
             <button id="btn-save-brush-preset" title="Save current brush settings as shared preset" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-sub); color: var(--text); border-radius: 3px;">+ Save</button>
@@ -7849,6 +7850,23 @@
         inverted_negative: { mode: 47, scale: 120, angle: 0, contrast: 150, grain: 20, hardness: 90, hardnessIntensity: 50, warpStrength: 30, warpFreq: 25, noiseDistort: 10, pinchSwirl: 25, posterize: 0, invert: true }
       };
 
+      function refreshStudioWasmBrushPresets() {
+        const group = document.getElementById('grp-wasm-brush-presets');
+        if (!group || typeof BRUSH_PRESETS === 'undefined') return;
+        const prevVal = document.getElementById('prop-brush-preset')?.value;
+        group.innerHTML = '';
+        for (const [key, preset] of Object.entries(BRUSH_PRESETS)) {
+          if (!preset?.name || !preset.wasmBrush || !preset.wasmParams) continue;
+          const option = document.createElement('option');
+          option.value = key;
+          option.textContent = preset.name;
+          group.appendChild(option);
+        }
+        const select = document.getElementById('prop-brush-preset');
+        if (select && prevVal && Array.from(group.options).some(option => option.value === prevVal)) select.value = prevVal;
+      }
+      refreshStudioWasmBrushPresets();
+
       function refreshStudioCustomBrushPresets() {
         const grpCustomBrushes = document.getElementById('grp-custom-brush-presets');
         if (grpCustomBrushes && typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) {
@@ -8224,6 +8242,7 @@
           grpRecentBrushes.style.display = (grpRecentBrushes.children.length > 0) ? '' : 'none';
         }
 
+        refreshStudioWasmBrushPresets();
         refreshStudioCustomBrushPresets();
 
         const bc = obj.brushConfig || {};
@@ -12749,7 +12768,7 @@
       // Brush Preset Binding
       document.getElementById('prop-brush-preset')?.addEventListener('change', (e) => {
         const val = e.target.value;
-        let preset = BRUSH_PRESET_CONFIGS[val];
+        let preset = BRUSH_PRESET_CONFIGS[val] || BRUSH_PRESETS[val];
         if (!preset && typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) {
           const custom = EsenhoStore.getCustomBrushPresets();
           preset = custom[val];

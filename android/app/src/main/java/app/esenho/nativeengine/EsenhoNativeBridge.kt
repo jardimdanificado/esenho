@@ -102,6 +102,8 @@ object EsenhoNativeBridge {
     external fun nativeLayerGetBitmap(layerIdx: Int, bitmap: Bitmap): Boolean
     external fun nativeDrawLine(x0: Int, y0: Int, x1: Int, y1: Int, color: Int)
     external fun nativeDrawRect(x: Int, y: Int, w: Int, h: Int, color: Int)
+    external fun nativeDrawAffineShape(x0: Float, y0: Float, x1: Float, y1: Float,
+        matrix: FloatArray, ellipse: Boolean, erase: Boolean, color: Int)
     external fun nativeDrawCircle(cx: Int, cy: Int, r: Int, color: Int)
     external fun nativeDrawEllipse(cx: Int, cy: Int, rx: Int, ry: Int, color: Int)
     external fun nativeEraseRect(x: Int, y: Int, w: Int, h: Int)

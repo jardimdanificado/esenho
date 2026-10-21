@@ -2382,6 +2382,49 @@ W_EXPORT void w_draw_rect(int x, int y, int w, int h, uint32_t color) {
     force_composite();
 }
 
+/* Rasterize in local coordinates so rotated/scaled scripting references also
+ * apply to filled shapes. Iterate only over the clipped destination bounds. */
+W_EXPORT void w_draw_affine_shape(float x0, float y0, float x1, float y1,
+        const float *m, int ellipse, int erase, uint32_t color) {
+    if (!m || !__builtin_isfinite(x0) || !__builtin_isfinite(y0) || !__builtin_isfinite(x1) || !__builtin_isfinite(y1)) return;
+    for (int i = 0; i < 6; i++) if (!__builtin_isfinite(m[i])) return;
+    double determinant = (double)m[0]*m[3] - (double)m[1]*m[2];
+    if (__builtin_fabs(determinant) < 1e-12) return;
+    double left = __builtin_fmin(x0, x1), right = __builtin_fmax(x0, x1);
+    double top = __builtin_fmin(y0, y1), bottom = __builtin_fmax(y0, y1);
+    if (left == right || top == bottom) return;
+    init_surface_if_needed();
+    int width = 0, height = 0;
+    uint32_t *pixels = get_current_draw_target(&width, &height);
+    if (!pixels || width <= 0 || height <= 0) return;
+    double min_x = __builtin_inf(), min_y = __builtin_inf(), max_x = -__builtin_inf(), max_y = -__builtin_inf();
+    for (int i = 0; i < 4; i++) {
+        double x = (i & 1) ? right : left, y = (i & 2) ? bottom : top;
+        double dx = m[0]*x + m[2]*y + m[4], dy = m[1]*x + m[3]*y + m[5];
+        min_x = __builtin_fmin(min_x, dx); max_x = __builtin_fmax(max_x, dx);
+        min_y = __builtin_fmin(min_y, dy); max_y = __builtin_fmax(max_y, dy);
+    }
+    int begin_x = (int)__builtin_fmax(0, __builtin_fmin(width, __builtin_floor(min_x)));
+    int begin_y = (int)__builtin_fmax(0, __builtin_fmin(height, __builtin_floor(min_y)));
+    int end_x = (int)__builtin_fmax(0, __builtin_fmin(width, __builtin_ceil(max_x)));
+    int end_y = (int)__builtin_fmax(0, __builtin_fmin(height, __builtin_ceil(max_y)));
+    for (int y = begin_y; y < end_y; y++) for (int x = begin_x; x < end_x; x++) {
+        double dx = x + 0.5 - m[4], dy = y + 0.5 - m[5];
+        double local_x = (m[3]*dx - m[2]*dy) / determinant;
+        double local_y = (m[0]*dy - m[1]*dx) / determinant;
+        if (local_x < left || local_x >= right || local_y < top || local_y >= bottom) continue;
+        if (ellipse) {
+            double nx = (2*local_x-left-right)/(right-left);
+            double ny = (2*local_y-top-bottom)/(bottom-top);
+            if (nx*nx + ny*ny > 1) continue;
+        }
+        if (is_pixel_clipped(x, y)) continue;
+        if (erase) pixels[y*width+x] = 0;
+        else set_pixel_blended(pixels, y*width+x, color);
+    }
+    force_composite();
+}
+
 W_EXPORT void w_draw_circle(int cx, int cy, int r, uint32_t color) {
     init_surface_if_needed();
     draw_circle(cx, cy, r, color);

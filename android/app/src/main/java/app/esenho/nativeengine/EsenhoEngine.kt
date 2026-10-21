@@ -3420,6 +3420,24 @@ class EsenhoEngine(
         return outline
     }
 
+    /** Filled shape expressed in an affine document reference, with normal editor history. */
+    fun drawAffineShape(x0: Float, y0: Float, x1: Float, y1: Float, matrix: Matrix, ellipse: Boolean, erase: Boolean) {
+        if (x0 == x1 || y0 == y1) return
+        check(transformState == null && !isStrokeActive)
+        val values = FloatArray(9)
+        matrix.getValues(values)
+        pushUndoSnapshot()
+        EsenhoNativeBridge.nativeDrawAffineShape(x0, y0, x1, y1,
+            floatArrayOf(values[0], values[3], values[1], values[4], values[2], values[5]),
+            ellipse, erase, toNativeColor(currentColor))
+        if (!erase) {
+            strokeUsageHistory.begin(null, currentColor)
+            commitStrokeHistory()
+        }
+        captureCurrentFrame()
+        getRenderBitmap()
+    }
+
     fun selectRect(x: Int, y: Int, w: Int, h: Int, op: SelectionOp = selectionOp) {
         selectionPath = null
         EsenhoNativeBridge.nativeSelectRect(x, y, w, h, op.id)

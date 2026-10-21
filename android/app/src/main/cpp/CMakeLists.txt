@@ -3,6 +3,20 @@ project("esenho_core")
 
 set(CMAKE_C_STANDARD 11)
 
+# Independent JS runtime for the native editor. No WebView or browser assets.
+add_library(esenho_script SHARED
+    esenho_script_jni.c
+    vendor/quickjs/quickjs.c
+    vendor/quickjs/dtoa.c
+    vendor/quickjs/libregexp.c
+    vendor/quickjs/libunicode.c
+    vendor/quickjs/cutils.c
+)
+target_include_directories(esenho_script PRIVATE vendor/quickjs)
+target_compile_definitions(esenho_script PRIVATE _GNU_SOURCE CONFIG_VERSION="2026-06-04")
+target_compile_options(esenho_script PRIVATE -O2)
+target_link_libraries(esenho_script m)
+
 # Include directories
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}

@@ -26,6 +26,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
     var onStateChanged: (() -> Unit)? = null
     var onColorPicked: ((Int) -> Unit)? = null
+    val scripting = app.esenho.scripting.ScriptCanvasInteraction(this)
 
     // Transform Matrix for Pan, Zoom & Rotate
     val transformMatrix = Matrix()
@@ -251,6 +252,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
     }
 
     private fun mapToCanvas(screenX: Float, screenY: Float): Pair<Float, Float> {
+        transformMatrix.invert(inverseMatrix)
         val pts = floatArrayOf(screenX, screenY)
         inverseMatrix.mapPoints(pts)
         return Pair(pts[0], pts[1])
@@ -364,6 +366,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (scripting.onTouch(event)) return true
         val pointerCount = event.pointerCount
 
         when (event.actionMasked) {
@@ -968,6 +971,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
         canvas.restore()
 
         // 4. Eyedropper Magnifying Loupe
+        scripting.draw(canvas)
         if (isEyedropperActive) {
             val loupeRadius = 55f
             val offsetY = -100f

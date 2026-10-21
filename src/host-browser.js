@@ -4663,10 +4663,24 @@ async function main() {
         });
       }
     }
+    const namedWasmPresets = Object.entries(BRUSH_PRESETS)
+      .filter(([k, p]) => p.name && p.wasmBrush && p.wasmParams)
+      .map(([k, p]) => ({ key: k, name: p.name, kernel: p.wasmBrush }));
+    for (const preset of namedWasmPresets) {
+      wasmItems.push({
+        type: 'item',
+        label: (host.activeBrush === preset.key ? '✓ ' : '') + preset.name,
+        action: () => {
+          host.selectBrushPreset(preset.key);
+          syncUiFromHost();
+          populateBrushPresetsUI();
+        }
+      });
+    }
     if (wasmItems.length > 0) {
       brushLibraryItems.push({
         type: 'submenu',
-        label: 'WASM Brushes',
+        label: 'WASM Brushes & Presets',
         items: wasmItems
       });
     }
@@ -6947,14 +6961,18 @@ async function main() {
             .filter(([k, p]) => k.startsWith('wasm_') || p.category === 'wasm')
             .map(([k, p]) => ({ key: k, title: p.name || k, rawKey: k.replace(/^wasm[:_]/i, '') }));
 
-      if (wasmEntries.length > 0) {
+      const namedWasmPresets = Object.entries(BRUSH_PRESETS)
+        .filter(([k, p]) => p.name && p.wasmBrush && p.wasmParams)
+        .map(([k, p]) => ({ key: k, title: p.name, rawKey: p.wasmBrush }));
+      const allWasmEntries = [...wasmEntries, ...namedWasmPresets];
+      if (allWasmEntries.length > 0) {
         const grpWasm = document.createElement('optgroup');
-        grpWasm.label = 'WASM Brushes (Zero-Copy)';
-        for (const item of wasmEntries) {
+        grpWasm.label = 'WASM Brushes & Presets';
+        for (const item of allWasmEntries) {
           const opt = document.createElement('option');
           opt.value = item.key;
           opt.textContent = item.title;
-          if (host.activeBrush === item.key || (host.activeWasmBrush && host.activeWasmBrush.name === item.rawKey)) opt.selected = true;
+          if (host.activeBrush === item.key || (item.key === `wasm_${item.rawKey}` && host.activeWasmBrush && host.activeWasmBrush.name === item.rawKey)) opt.selected = true;
           grpWasm.appendChild(opt);
         }
         sel.appendChild(grpWasm);
@@ -9333,10 +9351,14 @@ async function main() {
                     .filter(([k, p]) => k.startsWith('wasm_') || p.category === 'wasm')
                     .map(([k, p]) => ({ key: k, title: p.name || k }));
 
-              if (wasmEntries.length > 0) {
+              const namedWasmPresets = Object.entries(BRUSH_PRESETS)
+                .filter(([k, p]) => p.name && p.wasmBrush && p.wasmParams)
+                .map(([k, p]) => ({ key: k, title: p.name }));
+              const allWasmEntries = [...wasmEntries, ...namedWasmPresets];
+              if (allWasmEntries.length > 0) {
                 const grpWasm = document.createElement('optgroup');
-                grpWasm.label = 'WASM Brushes (Zero-Copy)';
-                for (const item of wasmEntries) {
+                grpWasm.label = 'WASM Brushes & Presets';
+                for (const item of allWasmEntries) {
                   const opt = document.createElement('option');
                   opt.value = item.key;
                   opt.textContent = item.title;
@@ -9574,10 +9596,14 @@ async function main() {
                 .filter(([k, p]) => k.startsWith('wasm_') || p.category === 'wasm')
                 .map(([k, p]) => ({ key: k, title: p.name || k }));
 
-          if (wasmEntries.length > 0) {
+          const namedWasmPresets = Object.entries(BRUSH_PRESETS)
+            .filter(([k, p]) => p.name && p.wasmBrush && p.wasmParams)
+            .map(([k, p]) => ({ key: k, title: p.name }));
+          const allWasmEntries = [...wasmEntries, ...namedWasmPresets];
+          if (allWasmEntries.length > 0) {
             const grpWasm = document.createElement('optgroup');
-            grpWasm.label = 'WASM Brushes (Zero-Copy)';
-            for (const item of wasmEntries) {
+            grpWasm.label = 'WASM Brushes & Presets';
+            for (const item of allWasmEntries) {
               const opt = document.createElement('option');
               opt.value = item.key;
               opt.textContent = item.title;
