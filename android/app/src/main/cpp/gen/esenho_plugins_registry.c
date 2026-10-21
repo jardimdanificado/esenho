@@ -490,6 +490,15 @@ extern void brush_xray_radiography_bone_stroke_end(void);
 
 // Forward declarations for filters
 
+extern const char* filter_bilateral_get_info(void);
+extern void filter_bilateral_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_black_point_get_info(void);
+extern void filter_black_point_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_bleach_bypass_get_info(void);
+extern void filter_bleach_bypass_apply(int32_t p1, int32_t p2);
+
 extern const char* filter_bloom_get_info(void);
 extern void filter_bloom_apply(int32_t p1, int32_t p2);
 
@@ -499,11 +508,26 @@ extern void filter_blur_apply(int32_t p1, int32_t p2);
 extern const char* filter_brightness_get_info(void);
 extern void filter_brightness_apply(int32_t p1, int32_t p2);
 
+extern const char* filter_channel_mixer_get_info(void);
+extern void filter_channel_mixer_apply(int32_t p1, int32_t p2);
+
 extern const char* filter_chromatic_get_info(void);
 extern void filter_chromatic_apply(int32_t p1, int32_t p2);
 
+extern const char* filter_color_balance_get_info(void);
+extern void filter_color_balance_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_colorize_get_info(void);
+extern void filter_colorize_apply(int32_t p1, int32_t p2);
+
 extern const char* filter_contrast_get_info(void);
 extern void filter_contrast_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_cross_process_get_info(void);
+extern void filter_cross_process_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_crosshatch_get_info(void);
+extern void filter_crosshatch_apply(int32_t p1, int32_t p2);
 
 extern const char* filter_dither_get_info(void);
 extern void filter_dither_apply(int32_t p1, int32_t p2);
@@ -517,11 +541,23 @@ extern void filter_edge_apply(int32_t p1, int32_t p2);
 extern const char* filter_emboss_get_info(void);
 extern void filter_emboss_apply(int32_t p1, int32_t p2);
 
+extern const char* filter_engraving_get_info(void);
+extern void filter_engraving_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_exposure_get_info(void);
+extern void filter_exposure_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_fade_get_info(void);
+extern void filter_fade_apply(int32_t p1, int32_t p2);
+
 extern const char* filter_fisheye_get_info(void);
 extern void filter_fisheye_apply(int32_t p1, int32_t p2);
 
 extern const char* filter_frosted_glass_get_info(void);
 extern void filter_frosted_glass_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_gamma_get_info(void);
+extern void filter_gamma_apply(int32_t p1, int32_t p2);
 
 extern const char* filter_glitch_get_info(void);
 extern void filter_glitch_apply(int32_t p1, int32_t p2);
@@ -532,6 +568,12 @@ extern void filter_grayscale_apply(int32_t p1, int32_t p2);
 extern const char* filter_halftone_dot_get_info(void);
 extern void filter_halftone_dot_apply(int32_t p1, int32_t p2);
 
+extern const char* filter_high_pass_get_info(void);
+extern void filter_high_pass_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_highlights_get_info(void);
+extern void filter_highlights_apply(int32_t p1, int32_t p2);
+
 extern const char* filter_invert_get_info(void);
 extern void filter_invert_apply(int32_t p1, int32_t p2);
 
@@ -541,14 +583,47 @@ extern void filter_kaleidoscope_apply(int32_t p1, int32_t p2);
 extern const char* filter_kuwahara_get_info(void);
 extern void filter_kuwahara_apply(int32_t p1, int32_t p2);
 
+extern const char* filter_maximum_get_info(void);
+extern void filter_maximum_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_median_get_info(void);
+extern void filter_median_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_minimum_get_info(void);
+extern void filter_minimum_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_mirror_get_info(void);
+extern void filter_mirror_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_motion_blur_get_info(void);
+extern void filter_motion_blur_apply(int32_t p1, int32_t p2);
+
 extern const char* filter_noise_get_info(void);
 extern void filter_noise_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_oil_paint_get_info(void);
+extern void filter_oil_paint_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_pencil_get_info(void);
+extern void filter_pencil_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_pinch_get_info(void);
+extern void filter_pinch_apply(int32_t p1, int32_t p2);
 
 extern const char* filter_pixelate_get_info(void);
 extern void filter_pixelate_apply(int32_t p1, int32_t p2);
 
+extern const char* filter_posterize_get_info(void);
+extern void filter_posterize_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_radial_blur_get_info(void);
+extern void filter_radial_blur_apply(int32_t p1, int32_t p2);
+
 extern const char* filter_ripple_get_info(void);
 extern void filter_ripple_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_saturation_get_info(void);
+extern void filter_saturation_apply(int32_t p1, int32_t p2);
 
 extern const char* filter_scanline_get_info(void);
 extern void filter_scanline_apply(int32_t p1, int32_t p2);
@@ -556,14 +631,23 @@ extern void filter_scanline_apply(int32_t p1, int32_t p2);
 extern const char* filter_sepia_get_info(void);
 extern void filter_sepia_apply(int32_t p1, int32_t p2);
 
+extern const char* filter_shadows_get_info(void);
+extern void filter_shadows_apply(int32_t p1, int32_t p2);
+
 extern const char* filter_sharpen_get_info(void);
 extern void filter_sharpen_apply(int32_t p1, int32_t p2);
 
 extern const char* filter_solarize_get_info(void);
 extern void filter_solarize_apply(int32_t p1, int32_t p2);
 
+extern const char* filter_split_tone_get_info(void);
+extern void filter_split_tone_apply(int32_t p1, int32_t p2);
+
 extern const char* filter_swirl_get_info(void);
 extern void filter_swirl_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_temperature_get_info(void);
+extern void filter_temperature_apply(int32_t p1, int32_t p2);
 
 extern const char* filter_thermal_get_info(void);
 extern void filter_thermal_apply(int32_t p1, int32_t p2);
@@ -571,11 +655,35 @@ extern void filter_thermal_apply(int32_t p1, int32_t p2);
 extern const char* filter_threshold_get_info(void);
 extern void filter_threshold_apply(int32_t p1, int32_t p2);
 
+extern const char* filter_tilt_shift_get_info(void);
+extern void filter_tilt_shift_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_tint_get_info(void);
+extern void filter_tint_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_unsharp_mask_get_info(void);
+extern void filter_unsharp_mask_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_vibrance_get_info(void);
+extern void filter_vibrance_apply(int32_t p1, int32_t p2);
+
 extern const char* filter_vignette_get_info(void);
 extern void filter_vignette_apply(int32_t p1, int32_t p2);
 
 extern const char* filter_water_foam_get_info(void);
 extern void filter_water_foam_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_wave_get_info(void);
+extern void filter_wave_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_weave_get_info(void);
+extern void filter_weave_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_white_point_get_info(void);
+extern void filter_white_point_apply(int32_t p1, int32_t p2);
+
+extern const char* filter_zoom_blur_get_info(void);
+extern void filter_zoom_blur_apply(int32_t p1, int32_t p2);
 
 
 static const native_brush_t s_brushes[] = {
@@ -1549,6 +1657,24 @@ static const native_brush_t s_brushes[] = {
 
 static const native_filter_t s_filters[] = {
     {
+        "bilateral",
+        "Suavização bilateral",
+        filter_bilateral_get_info,
+        filter_bilateral_apply
+    },
+    {
+        "black_point",
+        "Ponto preto",
+        filter_black_point_get_info,
+        filter_black_point_apply
+    },
+    {
+        "bleach_bypass",
+        "Bleach bypass",
+        filter_bleach_bypass_get_info,
+        filter_bleach_bypass_apply
+    },
+    {
         "bloom",
         "Bloom Glow",
         filter_bloom_get_info,
@@ -1567,16 +1693,46 @@ static const native_filter_t s_filters[] = {
         filter_brightness_apply
     },
     {
+        "channel_mixer",
+        "Misturar canais",
+        filter_channel_mixer_get_info,
+        filter_channel_mixer_apply
+    },
+    {
         "chromatic",
         "Chromatic Aberration",
         filter_chromatic_get_info,
         filter_chromatic_apply
     },
     {
+        "color_balance",
+        "Balanço de cores",
+        filter_color_balance_get_info,
+        filter_color_balance_apply
+    },
+    {
+        "colorize",
+        "Colorizar",
+        filter_colorize_get_info,
+        filter_colorize_apply
+    },
+    {
         "contrast",
         "Contrast",
         filter_contrast_get_info,
         filter_contrast_apply
+    },
+    {
+        "cross_process",
+        "Processo cruzado",
+        filter_cross_process_get_info,
+        filter_cross_process_apply
+    },
+    {
+        "crosshatch",
+        "Hachura cruzada",
+        filter_crosshatch_get_info,
+        filter_crosshatch_apply
     },
     {
         "dither",
@@ -1603,6 +1759,24 @@ static const native_filter_t s_filters[] = {
         filter_emboss_apply
     },
     {
+        "engraving",
+        "Gravura",
+        filter_engraving_get_info,
+        filter_engraving_apply
+    },
+    {
+        "exposure",
+        "Exposição",
+        filter_exposure_get_info,
+        filter_exposure_apply
+    },
+    {
+        "fade",
+        "Desbotar",
+        filter_fade_get_info,
+        filter_fade_apply
+    },
+    {
         "fisheye",
         "Fisheye Lens",
         filter_fisheye_get_info,
@@ -1613,6 +1787,12 @@ static const native_filter_t s_filters[] = {
         "Frosted Glass",
         filter_frosted_glass_get_info,
         filter_frosted_glass_apply
+    },
+    {
+        "gamma",
+        "Gama",
+        filter_gamma_get_info,
+        filter_gamma_apply
     },
     {
         "glitch",
@@ -1633,6 +1813,18 @@ static const native_filter_t s_filters[] = {
         filter_halftone_dot_apply
     },
     {
+        "high_pass",
+        "Passa-altas",
+        filter_high_pass_get_info,
+        filter_high_pass_apply
+    },
+    {
+        "highlights",
+        "Altas luzes",
+        filter_highlights_get_info,
+        filter_highlights_apply
+    },
+    {
         "invert",
         "Invert",
         filter_invert_get_info,
@@ -1651,10 +1843,58 @@ static const native_filter_t s_filters[] = {
         filter_kuwahara_apply
     },
     {
+        "maximum",
+        "Máximo (clarear)",
+        filter_maximum_get_info,
+        filter_maximum_apply
+    },
+    {
+        "median",
+        "Mediana",
+        filter_median_get_info,
+        filter_median_apply
+    },
+    {
+        "minimum",
+        "Mínimo (escurecer)",
+        filter_minimum_get_info,
+        filter_minimum_apply
+    },
+    {
+        "mirror",
+        "Espelho simétrico",
+        filter_mirror_get_info,
+        filter_mirror_apply
+    },
+    {
+        "motion_blur",
+        "Desfoque de movimento",
+        filter_motion_blur_get_info,
+        filter_motion_blur_apply
+    },
+    {
         "noise",
         "Noise",
         filter_noise_get_info,
         filter_noise_apply
+    },
+    {
+        "oil_paint",
+        "Pintura a óleo",
+        filter_oil_paint_get_info,
+        filter_oil_paint_apply
+    },
+    {
+        "pencil",
+        "Desenho a lápis",
+        filter_pencil_get_info,
+        filter_pencil_apply
+    },
+    {
+        "pinch",
+        "Pinçar / inflar",
+        filter_pinch_get_info,
+        filter_pinch_apply
     },
     {
         "pixelate",
@@ -1663,10 +1903,28 @@ static const native_filter_t s_filters[] = {
         filter_pixelate_apply
     },
     {
+        "posterize",
+        "Posterizar",
+        filter_posterize_get_info,
+        filter_posterize_apply
+    },
+    {
+        "radial_blur",
+        "Desfoque de rotação",
+        filter_radial_blur_get_info,
+        filter_radial_blur_apply
+    },
+    {
         "ripple",
         "Water Ripple Lens",
         filter_ripple_get_info,
         filter_ripple_apply
+    },
+    {
+        "saturation",
+        "Saturação",
+        filter_saturation_get_info,
+        filter_saturation_apply
     },
     {
         "scanline",
@@ -1681,6 +1939,12 @@ static const native_filter_t s_filters[] = {
         filter_sepia_apply
     },
     {
+        "shadows",
+        "Sombras",
+        filter_shadows_get_info,
+        filter_shadows_apply
+    },
+    {
         "sharpen",
         "Sharpen (Unsharp Mask)",
         filter_sharpen_get_info,
@@ -1693,10 +1957,22 @@ static const native_filter_t s_filters[] = {
         filter_solarize_apply
     },
     {
+        "split_tone",
+        "Tonalização dividida",
+        filter_split_tone_get_info,
+        filter_split_tone_apply
+    },
+    {
         "swirl",
         "Swirl Vortex",
         filter_swirl_get_info,
         filter_swirl_apply
+    },
+    {
+        "temperature",
+        "Temperatura",
+        filter_temperature_get_info,
+        filter_temperature_apply
     },
     {
         "thermal",
@@ -1711,6 +1987,30 @@ static const native_filter_t s_filters[] = {
         filter_threshold_apply
     },
     {
+        "tilt_shift",
+        "Miniatura (tilt-shift)",
+        filter_tilt_shift_get_info,
+        filter_tilt_shift_apply
+    },
+    {
+        "tint",
+        "Matiz verde/magenta",
+        filter_tint_get_info,
+        filter_tint_apply
+    },
+    {
+        "unsharp_mask",
+        "Máscara de nitidez",
+        filter_unsharp_mask_get_info,
+        filter_unsharp_mask_apply
+    },
+    {
+        "vibrance",
+        "Vibração",
+        filter_vibrance_get_info,
+        filter_vibrance_apply
+    },
+    {
         "vignette",
         "Vignette Lens",
         filter_vignette_get_info,
@@ -1721,6 +2021,30 @@ static const native_filter_t s_filters[] = {
         "Water & Shore Foam",
         filter_water_foam_get_info,
         filter_water_foam_apply
+    },
+    {
+        "wave",
+        "Ondas XY",
+        filter_wave_get_info,
+        filter_wave_apply
+    },
+    {
+        "weave",
+        "Trama de tecido",
+        filter_weave_get_info,
+        filter_weave_apply
+    },
+    {
+        "white_point",
+        "Ponto branco",
+        filter_white_point_get_info,
+        filter_white_point_apply
+    },
+    {
+        "zoom_blur",
+        "Desfoque de zoom",
+        filter_zoom_blur_get_info,
+        filter_zoom_blur_apply
     },
 };
 

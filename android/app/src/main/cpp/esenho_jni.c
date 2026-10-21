@@ -612,7 +612,7 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
     w_brush_stroke_ext_f(state, x0, y0, x1, y1, (uint32_t)color, eraser, stroke_pressure, tilt_x, tilt_y);
 }
 
-// ── Filters Suite (All 29 Filters) ──
+// ── Filters Suite ──
 
 JNIEXPORT jint JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeGetFilterCount(
@@ -645,8 +645,20 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeApplyFilter(
 
     if (!pix || w <= 0 || h <= 0) return JNI_FALSE;
 
-    w_set_layer(pix, w, h);
+    // Plugin ABI reserves scratch images immediately after the input image.
+    // Engine layers only own their exact pixel allocation; never expose the
+    // following layer/heap memory as scratch to a neighborhood filter.
+    size_t workspace_images = strcmp(filter->id, "bloom") == 0 ? 3 : 2;
+    if ((size_t)w > SIZE_MAX / (size_t)h / (workspace_images * sizeof(uint32_t))) return JNI_FALSE;
+    size_t bytes = (size_t)w * (size_t)h * sizeof(uint32_t);
+    uint32_t *workspace = (uint32_t*)malloc(bytes * workspace_images);
+    if (!workspace) return JNI_FALSE;
+    memcpy(workspace, pix, bytes);
+    w_set_layer(workspace, w, h);
     filter->apply(p1, p2);
+    memcpy(pix, workspace, bytes);
+    w_set_layer(pix, w, h);
+    free(workspace);
     force_composite();
     w_invalidate_layers();
     return JNI_TRUE;

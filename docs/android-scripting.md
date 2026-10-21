@@ -443,3 +443,41 @@ entre execuções e reinicializações. `scripts.list()` consulta exemplos e pre
 pessoais; `scripts.save({id?,name,source})` cria/atualiza um preset pessoal e
 `scripts.remove(preset)` remove um preset pessoal. Exemplos de fábrica são
 somente leitura. `esenho.help()` lista os membros públicos por namespace.
+
+## Filtros: cor, detalhe, desenho e distorção
+
+O painel Filtros possui 65 efeitos e busca por nome ou ID. Todos também estão
+em `esenho.filters.list()`, com `id`, `name` e `params`. Cada parâmetro informa
+`min`, `max`, `default`, `unit` e `value`. `apply(id)` usa os padrões do catálogo;
+`apply(id, p1, p2)` permite valores explícitos, inclusive zero.
+
+Os 36 novos IDs são:
+
+- Cor: `exposure`, `gamma`, `saturation`, `vibrance`, `temperature`, `tint`,
+  `shadows`, `highlights`, `black_point`, `white_point`, `fade`, `split_tone`,
+  `channel_mixer`, `color_balance`, `posterize`, `colorize`, `bleach_bypass`,
+  `cross_process`.
+- Detalhe e desfoque: `median`, `minimum`, `maximum`, `high_pass`,
+  `unsharp_mask`, `motion_blur`, `zoom_blur`, `radial_blur`, `bilateral`, `tilt_shift`.
+- Desenho e distorção: `oil_paint`, `pencil`, `crosshatch`, `engraving`,
+  `wave`, `pinch`, `mirror`, `weave`.
+
+```js
+// Cor e nitidez na camada ativa.
+esenho.filters.apply("exposure", 50); // +0,5 EV; 100 = +1 EV
+esenho.filters.apply("vibrance", 35);
+esenho.filters.apply("split_tone", 220, 40); // matiz de sombras e luzes
+esenho.filters.apply("unsharp_mask", 3, 120); // raio e intensidade
+```
+
+```js
+// Acabamento de desenho; desfazer continua disponível por operação.
+esenho.filters.apply("bilateral"); // raio e tolerância padrão
+esenho.filters.apply("posterize", 5);
+esenho.filters.apply("crosshatch", 7, 45); // espaçamento e mistura
+```
+
+Desfoques e efeitos de detalhe preservam a silhueta da camada e ponderam as
+médias pelo alfa. `wave`, `pinch` e `mirror` deslocam cor e alfa juntos, com
+vizinho mais próximo e coordenadas limitadas à borda. Zoom, rotação e pinçar
+usam o centro da camada. A aplicação atua no quadro atual e gera histórico.

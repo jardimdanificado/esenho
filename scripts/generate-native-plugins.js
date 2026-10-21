@@ -1,7 +1,7 @@
 /**
  * scripts/generate-native-plugins.js
  * Generates native C wrappers, dispatch registry, and metadata
- * for all 58 brushes and 29 filters in Esenho.
+ * for all brushes and filters discovered in Esenho's plugin sources.
  */
 
 const fs = require('fs');

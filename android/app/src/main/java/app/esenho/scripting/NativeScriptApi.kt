@@ -156,9 +156,14 @@ class NativeScriptApi(
             "selection.paste" -> engine.pasteSelectionClipboard()
             "selection.operation" -> { engine.selectionOp = SelectionOp.valueOf(args.getString("name").uppercase()); null }
             "filters.list" -> JSONArray(engine.filterCatalog.map { filter -> JSONObject().put("id", filter.id).put("name", filter.title)
-                .put("params", JSONArray(filter.params.mapIndexed { index, param -> JSONObject().put("id", index).put("name", param.name).put("min", param.min).put("max", param.max).put("value", param.currentVal) })) })
-            "filters.apply" -> engine.applyFilter(engine.filterCatalog.firstOrNull { it.id == args.getString("id") }
-                ?: error("Filtro não encontrado"), args.optInt("p1"), args.optInt("p2"))
+                .put("params", JSONArray(filter.params.mapIndexed { index, param -> JSONObject().put("id", index).put("name", param.name).put("min", param.min).put("max", param.max).put("default", param.defaultVal).put("unit", param.unit).put("value", param.currentVal) })) })
+            "filters.apply" -> {
+                val filter = engine.filterCatalog.firstOrNull { it.id == args.getString("id") }
+                    ?: error("Filtro não encontrado")
+                engine.applyFilter(filter,
+                    args.optInt("p1", filter.params.getOrNull(0)?.defaultVal ?: 0),
+                    args.optInt("p2", filter.params.getOrNull(1)?.defaultVal ?: 0))
+            }
             "animation.state" -> extended.invoke(operation, args)
             "animation.add" -> engine.addAnimationFrame()
             "animation.duplicate" -> engine.duplicateAnimationFrame()

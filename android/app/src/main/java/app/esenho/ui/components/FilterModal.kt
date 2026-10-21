@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import app.esenho.nativeengine.EsenhoEngine
 import app.esenho.nativeengine.FilterModel
 
@@ -36,6 +37,10 @@ fun FilterModal(
     var param1 by remember { mutableFloatStateOf(10f) }
     var param2 by remember { mutableFloatStateOf(1f) }
     var showHsvAdjustment by remember { mutableStateOf(false) }
+    var search by remember { mutableStateOf("") }
+    val visibleFilters = engine.filterCatalog.filter {
+        it.title.contains(search.trim(), ignoreCase = true) || it.id.contains(search.trim(), ignoreCase = true)
+    }
     var hue by remember { mutableFloatStateOf(0f) }
     var saturation by remember { mutableFloatStateOf(0f) }
     var value by remember { mutableFloatStateOf(0f) }
@@ -155,8 +160,23 @@ fun FilterModal(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // Grid of 29 Filters
             if (!showHsvAdjustment) {
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = { search = it },
+                    label = { Text("Buscar filtro por nome ou ID") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    "${visibleFilters.size} de ${engine.filterCatalog.size} filtros · camada ativa",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                if (visibleFilters.isEmpty()) {
+                    Text("Nenhum filtro encontrado.", style = MaterialTheme.typography.bodySmall)
+                }
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 96.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -165,13 +185,13 @@ fun FilterModal(
                         .fillMaxWidth()
                         .height(320.dp)
                 ) {
-                    items(engine.filterCatalog) { filter ->
+                    items(visibleFilters, key = { it.id }) { filter ->
                         val isSelected = selectedFilter?.id == filter.id
 
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(60.dp)
+                            .height(78.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .clickable {
                                 selectedFilter = filter
@@ -201,7 +221,8 @@ fun FilterModal(
                                 text = filter.title,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontSize = 11.sp,
-                                maxLines = 1,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
                                 color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                             )
                         }

@@ -133,7 +133,7 @@
     },
     filters: {
       list: () => call("filters.list"),
-      apply: (id, p1 = 0, p2 = 0) => call("filters.apply", { id, p1, p2 })
+      apply: (id, p1, p2) => call("filters.apply", { id, p1, p2 })
     },
     animation: {
       state: () => call("animation.state"),

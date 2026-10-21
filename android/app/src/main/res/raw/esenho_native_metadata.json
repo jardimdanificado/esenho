@@ -7818,6 +7818,59 @@
   ],
   "filters": [
     {
+      "id": "bilateral",
+      "title": "Suavização bilateral",
+      "params": [
+        {
+          "name": "Raio",
+          "min": 1,
+          "max": 4,
+          "default": 3,
+          "unit": "px"
+        },
+        {
+          "name": "Tolerância de cor",
+          "min": 1,
+          "max": 100,
+          "default": 25,
+          "unit": ""
+        }
+      ]
+    },
+    {
+      "id": "black_point",
+      "title": "Ponto preto",
+      "params": [
+        {
+          "name": "Ponto preto",
+          "min": 0,
+          "max": 200,
+          "default": 25,
+          "unit": ""
+        }
+      ]
+    },
+    {
+      "id": "bleach_bypass",
+      "title": "Bleach bypass",
+      "params": [
+        {
+          "name": "Contraste",
+          "min": 0,
+          "max": 100,
+          "default": 50,
+          "unit": "%"
+        },
+        {
+          "name": "Dessaturação",
+          "min": 0,
+          "max": 100,
+          "default": 65,
+          "unit": "%"
+        }
+      ]
+    },
+    {
       "id": "bloom",
       "title": "Bloom Glow",
       "params": [
@@ -7868,6 +7921,26 @@
       ]
     },
     {
+      "id": "channel_mixer",
+      "title": "Misturar canais",
+      "params": [
+        {
+          "name": "Rotação RGB",
+          "min": 0,
+          "max": 100,
+          "default": 50,
+          "unit": "%"
+        },
+        {
+          "name": "Monocromático",
+          "min": 0,
+          "max": 100,
+          "default": 0,
+          "unit": "%"
+        }
+      ]
+    },
+    {
       "id": "chromatic",
       "title": "Chromatic Aberration",
       "params": [
@@ -7887,6 +7960,46 @@
       ]
     },
     {
+      "id": "color_balance",
+      "title": "Balanço de cores",
+      "params": [
+        {
+          "name": "Vermelho / ciano",
+          "min": -100,
+          "max": 100,
+          "default": 20,
+          "unit": ""
+        },
+        {
+          "name": "Azul / amarelo",
+          "min": -100,
+          "max": 100,
+          "default": -15,
+          "unit": ""
+        }
+      ]
+    },
+    {
+      "id": "colorize",
+      "title": "Colorizar",
+      "params": [
+        {
+          "name": "Matiz",
+          "min": 0,
+          "max": 359,
+          "default": 200,
+          "unit": "°"
+        },
+        {
+          "name": "Saturação",
+          "min": 0,
+          "max": 100,
+          "default": 65,
+          "unit": "%"
+        }
+      ]
+    },
+    {
       "id": "contrast",
       "title": "Contrast",
       "params": [
@@ -7895,6 +8008,46 @@
           "min": -80,
           "max": 80,
           "default": 30
+        }
+      ]
+    },
+    {
+      "id": "cross_process",
+      "title": "Processo cruzado",
+      "params": [
+        {
+          "name": "Intensidade",
+          "min": 0,
+          "max": 100,
+          "default": 75,
+          "unit": "%"
+        },
+        {
+          "name": "Calor",
+          "min": -50,
+          "max": 50,
+          "default": 10,
+          "unit": ""
+        }
+      ]
+    },
+    {
+      "id": "crosshatch",
+      "title": "Hachura cruzada",
+      "params": [
+        {
+          "name": "Espaçamento",
+          "min": 3,
+          "max": 24,
+          "default": 7,
+          "unit": "px"
+        },
+        {
+          "name": "Mistura",
+          "min": 0,
+          "max": 100,
+          "default": 100,
+          "unit": "%"
         }
       ]
     },
@@ -7971,6 +8124,52 @@
       ]
     },
     {
+      "id": "engraving",
+      "title": "Gravura",
+      "params": [
+        {
+          "name": "Espaçamento",
+          "min": 2,
+          "max": 24,
+          "default": 6,
+          "unit": "px"
+        },
+        {
+          "name": "Mistura",
+          "min": 0,
+          "max": 100,
+          "default": 100,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "exposure",
+      "title": "Exposição",
+      "params": [
+        {
+          "name": "Exposição",
+          "min": -300,
+          "max": 300,
+          "default": 50,
+          "unit": "EV × 100"
+        }
+      ]
+    },
+    {
+      "id": "fade",
+      "title": "Desbotar",
+      "params": [
+        {
+          "name": "Intensidade",
+          "min": 0,
+          "max": 100,
+          "default": 35,
+          "unit": "%"
+        }
+      ]
+    },
+    {
       "id": "fisheye",
       "title": "Fisheye Lens",
       "params": [
@@ -8004,6 +8203,19 @@
           "min": 1,
           "max": 5,
           "default": 2
+        }
+      ]
+    },
+    {
+      "id": "gamma",
+      "title": "Gama",
+      "params": [
+        {
+          "name": "Gama",
+          "min": 20,
+          "max": 300,
+          "default": 130,
+          "unit": "%"
         }
       ]
     },
@@ -8065,6 +8277,39 @@
       ]
     },
     {
+      "id": "high_pass",
+      "title": "Passa-altas",
+      "params": [
+        {
+          "name": "Raio",
+          "min": 1,
+          "max": 16,
+          "default": 4,
+          "unit": "px"
+        },
+        {
+          "name": "Ganho",
+          "min": 0,
+          "max": 300,
+          "default": 100,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "highlights",
+      "title": "Altas luzes",
+      "params": [
+        {
+          "name": "Ajuste",
+          "min": -100,
+          "max": 100,
+          "default": -30,
+          "unit": "%"
+        }
+      ]
+    },
+    {
       "id": "invert",
       "title": "Invert",
       "params": [
@@ -8121,6 +8366,85 @@
       ]
     },
     {
+      "id": "maximum",
+      "title": "Máximo (clarear)",
+      "params": [
+        {
+          "name": "Raio",
+          "min": 1,
+          "max": 5,
+          "default": 2,
+          "unit": "px"
+        }
+      ]
+    },
+    {
+      "id": "median",
+      "title": "Mediana",
+      "params": [
+        {
+          "name": "Raio",
+          "min": 1,
+          "max": 2,
+          "default": 1,
+          "unit": "px"
+        }
+      ]
+    },
+    {
+      "id": "minimum",
+      "title": "Mínimo (escurecer)",
+      "params": [
+        {
+          "name": "Raio",
+          "min": 1,
+          "max": 5,
+          "default": 2,
+          "unit": "px"
+        }
+      ]
+    },
+    {
+      "id": "mirror",
+      "title": "Espelho simétrico",
+      "params": [
+        {
+          "name": "Eixo: 0=X, 1=Y, 2=XY",
+          "min": 0,
+          "max": 2,
+          "default": 0,
+          "unit": ""
+        },
+        {
+          "name": "Origem: 0=início, 1=fim",
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "unit": ""
+        }
+      ]
+    },
+    {
+      "id": "motion_blur",
+      "title": "Desfoque de movimento",
+      "params": [
+        {
+          "name": "Distância",
+          "min": 0,
+          "max": 100,
+          "default": 20,
+          "unit": "px"
+        },
+        {
+          "name": "Ângulo",
+          "min": 0,
+          "max": 359,
+          "default": 0,
+          "unit": "°"
+        }
+      ]
+    },
+    {
       "id": "noise",
       "title": "Noise",
       "params": [
@@ -8139,6 +8463,66 @@
       ]
     },
     {
+      "id": "oil_paint",
+      "title": "Pintura a óleo",
+      "params": [
+        {
+          "name": "Raio",
+          "min": 1,
+          "max": 4,
+          "default": 3,
+          "unit": "px"
+        },
+        {
+          "name": "Faixas tonais",
+          "min": 2,
+          "max": 8,
+          "default": 6,
+          "unit": ""
+        }
+      ]
+    },
+    {
+      "id": "pencil",
+      "title": "Desenho a lápis",
+      "params": [
+        {
+          "name": "Raio",
+          "min": 1,
+          "max": 16,
+          "default": 4,
+          "unit": "px"
+        },
+        {
+          "name": "Traço",
+          "min": 25,
+          "max": 300,
+          "default": 140,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "pinch",
+      "title": "Pinçar / inflar",
+      "params": [
+        {
+          "name": "Força",
+          "min": -100,
+          "max": 100,
+          "default": 60,
+          "unit": "%"
+        },
+        {
+          "name": "Área",
+          "min": 10,
+          "max": 100,
+          "default": 90,
+          "unit": "%"
+        }
+      ]
+    },
+    {
       "id": "pixelate",
       "title": "Pixelate",
       "params": [
@@ -8148,6 +8532,39 @@
           "max": 64,
           "default": 8,
           "unit": "px"
+        }
+      ]
+    },
+    {
+      "id": "posterize",
+      "title": "Posterizar",
+      "params": [
+        {
+          "name": "Níveis por canal",
+          "min": 2,
+          "max": 32,
+          "default": 5,
+          "unit": ""
+        }
+      ]
+    },
+    {
+      "id": "radial_blur",
+      "title": "Desfoque de rotação",
+      "params": [
+        {
+          "name": "Ângulo",
+          "min": 0,
+          "max": 45,
+          "default": 12,
+          "unit": "°"
+        },
+        {
+          "name": "Mistura",
+          "min": 0,
+          "max": 100,
+          "default": 100,
+          "unit": "%"
         }
       ]
     },
@@ -8167,6 +8584,19 @@
           "max": 30,
           "default": 8,
           "unit": "px"
+        }
+      ]
+    },
+    {
+      "id": "saturation",
+      "title": "Saturação",
+      "params": [
+        {
+          "name": "Saturação",
+          "min": -100,
+          "max": 100,
+          "default": 30,
+          "unit": "%"
         }
       ]
     },
@@ -8197,6 +8627,19 @@
           "min": 0,
           "max": 100,
           "default": 100,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "shadows",
+      "title": "Sombras",
+      "params": [
+        {
+          "name": "Ajuste",
+          "min": -100,
+          "max": 100,
+          "default": 40,
           "unit": "%"
         }
       ]
@@ -8238,6 +8681,26 @@
       ]
     },
     {
+      "id": "split_tone",
+      "title": "Tonalização dividida",
+      "params": [
+        {
+          "name": "Matiz das sombras",
+          "min": 0,
+          "max": 359,
+          "default": 220,
+          "unit": "°"
+        },
+        {
+          "name": "Matiz das luzes",
+          "min": 0,
+          "max": 359,
+          "default": 40,
+          "unit": "°"
+        }
+      ]
+    },
+    {
       "id": "swirl",
       "title": "Swirl Vortex",
       "params": [
@@ -8252,6 +8715,19 @@
           "min": 10,
           "max": 100,
           "default": 80
+        }
+      ]
+    },
+    {
+      "id": "temperature",
+      "title": "Temperatura",
+      "params": [
+        {
+          "name": "Calor",
+          "min": -100,
+          "max": 100,
+          "default": 25,
+          "unit": "%"
         }
       ]
     },
@@ -8292,6 +8768,72 @@
       ]
     },
     {
+      "id": "tilt_shift",
+      "title": "Miniatura (tilt-shift)",
+      "params": [
+        {
+          "name": "Raio",
+          "min": 1,
+          "max": 24,
+          "default": 10,
+          "unit": "px"
+        },
+        {
+          "name": "Faixa em foco",
+          "min": 0,
+          "max": 90,
+          "default": 25,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "tint",
+      "title": "Matiz verde/magenta",
+      "params": [
+        {
+          "name": "Magenta",
+          "min": -100,
+          "max": 100,
+          "default": 20,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "unsharp_mask",
+      "title": "Máscara de nitidez",
+      "params": [
+        {
+          "name": "Raio",
+          "min": 1,
+          "max": 16,
+          "default": 3,
+          "unit": "px"
+        },
+        {
+          "name": "Intensidade",
+          "min": 0,
+          "max": 300,
+          "default": 120,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "vibrance",
+      "title": "Vibração",
+      "params": [
+        {
+          "name": "Vibração",
+          "min": -100,
+          "max": 100,
+          "default": 40,
+          "unit": "%"
+        }
+      ]
+    },
+    {
       "id": "vignette",
       "title": "Vignette Lens",
       "params": [
@@ -8326,6 +8868,79 @@
           "max": 30,
           "default": 12,
           "unit": "px"
+        }
+      ]
+    },
+    {
+      "id": "wave",
+      "title": "Ondas XY",
+      "params": [
+        {
+          "name": "Amplitude",
+          "min": 0,
+          "max": 80,
+          "default": 12,
+          "unit": "px"
+        },
+        {
+          "name": "Comprimento",
+          "min": 8,
+          "max": 300,
+          "default": 80,
+          "unit": "px"
+        }
+      ]
+    },
+    {
+      "id": "weave",
+      "title": "Trama de tecido",
+      "params": [
+        {
+          "name": "Tamanho",
+          "min": 2,
+          "max": 32,
+          "default": 6,
+          "unit": "px"
+        },
+        {
+          "name": "Relevo",
+          "min": 0,
+          "max": 80,
+          "default": 25,
+          "unit": ""
+        }
+      ]
+    },
+    {
+      "id": "white_point",
+      "title": "Ponto branco",
+      "params": [
+        {
+          "name": "Ponto branco",
+          "min": 55,
+          "max": 255,
+          "default": 225,
+          "unit": ""
+        }
+      ]
+    },
+    {
+      "id": "zoom_blur",
+      "title": "Desfoque de zoom",
+      "params": [
+        {
+          "name": "Distância",
+          "min": 0,
+          "max": 80,
+          "default": 20,
+          "unit": "%"
+        },
+        {
+          "name": "Mistura",
+          "min": 0,
+          "max": 100,
+          "default": 100,
+          "unit": "%"
         }
       ]
     }

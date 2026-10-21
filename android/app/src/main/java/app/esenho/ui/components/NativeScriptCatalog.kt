@@ -100,6 +100,22 @@ object NativeScriptCatalog {
             const filter = filters.find(f=>f.id.includes("grayscale"));
             if(filter)esenho.filters.apply(filter.id);
         """),
+        example("filter-grade","Filtros · Cor e nitidez", """
+            esenho.filters.apply("exposure",50); // +0,5 EV
+            esenho.filters.apply("vibrance",35);
+            esenho.filters.apply("split_tone",220,40);
+            esenho.filters.apply("unsharp_mask",3,120);
+        """),
+        example("filter-drawing","Filtros · Ilustração com hachura", """
+            esenho.filters.apply("bilateral"); // usa os padrões do catálogo
+            esenho.filters.apply("posterize",5);
+            esenho.filters.apply("crosshatch",7,45);
+        """),
+        example("filter-motion","Filtros · Movimento e ondas", """
+            esenho.filters.apply("wave",12,100);
+            esenho.filters.apply("motion_blur",24,45);
+            console.log(esenho.filters.list().find(f=>f.id==="motion_blur"));
+        """),
         example("selection-mask","Seleção · Máscara gradual", """
             const width=64,height=64;
             const data=Array.from({length:width*height},(_,i)=>Math.round(255*(i%width)/(width-1)));
