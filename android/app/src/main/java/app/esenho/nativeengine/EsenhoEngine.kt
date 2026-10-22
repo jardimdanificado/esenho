@@ -682,14 +682,14 @@ class EsenhoEngine(
         }
     }
 
-    fun syncAnimationTracks() {
+    fun syncAnimationTracks(blankLayerId: Int? = null) {
         val drawingLayerIds = layers.map { it.id }.filter { it >= 3 }.toSet()
         drawingLayerIds.forEach { layerId ->
             if (layerId !in animationTracks) {
                 val layerWidth = EsenhoNativeBridge.nativeLayerGetWidth(layerId).takeIf { it > 0 } ?: width
                 val layerHeight = EsenhoNativeBridge.nativeLayerGetHeight(layerId).takeIf { it > 0 } ?: height
                 val bitmap = Bitmap.createBitmap(layerWidth, layerHeight, Bitmap.Config.ARGB_8888)
-                EsenhoNativeBridge.nativeLayerGetBitmap(layerId, bitmap)
+                if (layerId != blankLayerId) EsenhoNativeBridge.nativeLayerGetBitmap(layerId, bitmap)
                 animationTracks[layerId] = AnimationTrack(layerId, mutableListOf(AnimationCel(
                     // Layer visibility and opacity are stored separately as base state.
                     // Keep a new cel neutral so applyAnimationTick doesn't apply them twice.
@@ -738,40 +738,52 @@ class EsenhoEngine(
         return frames
     }
 
+    /** Keep multi-layer edits atomic for compositing, including early returns. */
+    private inline fun <T> withNativeLayerUpdate(action: () -> T): T {
+        EsenhoNativeBridge.nativeBeginLayerUpdate()
+        try {
+            return action()
+        } finally {
+            EsenhoNativeBridge.nativeEndLayerUpdate()
+        }
+    }
+
     fun applyAnimationTick(tick: Int, captureActive: Boolean = true) {
         if (transformState != null) cancelTransform()
         if (captureActive) captureCurrentFrame()
         currentAnimationTick = tick.coerceIn(0, totalAnimationTicks() - 1)
-        animationTracks.values.forEach { track ->
-            val frameIndex = AnimationExposure.indexAt(
-                track.frames.map { it.duration }.toIntArray(), currentAnimationTick
-            )
-            track.activeCelIndex = frameIndex
-            if (frameIndex < 0) {
-                EsenhoNativeBridge.nativeLayerClear(track.layerId)
-                EsenhoNativeBridge.nativeLayerSetVisible(track.layerId, 0)
-                return@forEach
-            }
-            track.frames.getOrNull(frameIndex)?.let { cel ->
-                if (cel.bitmap.width != width || cel.bitmap.height != height) {
-                    val normalized = resizeBitmapToCanvas(cel.bitmap, width, height, true)
-                    if (!cel.bitmap.isRecycled) cel.bitmap.recycle()
-                    cel.bitmap = normalized
-                }
-                val layerWidth = EsenhoNativeBridge.nativeLayerGetWidth(track.layerId)
-                val layerHeight = EsenhoNativeBridge.nativeLayerGetHeight(track.layerId)
-                if (layerWidth != width || layerHeight != height) {
-                    EsenhoNativeBridge.nativeLayerResize(track.layerId, width, height, 0)
-                }
-                EsenhoNativeBridge.nativeLayerClear(track.layerId)
-                EsenhoNativeBridge.nativeLayerDrawBitmap(track.layerId, cel.bitmap, 0, 0, width, height)
-                val baseVisible = layerBaseVisibility[track.layerId] ?: true
-                val baseOpacity = layerBaseOpacities[track.layerId] ?: 255
-                EsenhoNativeBridge.nativeLayerSetVisible(
-                    track.layerId,
-                    if (baseVisible && isRasterLayerGroupVisible(track.layerId) && cel.visible) 1 else 0
+        withNativeLayerUpdate {
+            animationTracks.values.forEach { track ->
+                val frameIndex = AnimationExposure.indexAt(
+                    track.frames.map { it.duration }.toIntArray(), currentAnimationTick
                 )
-                EsenhoNativeBridge.nativeLayerSetOpacity(track.layerId, (baseOpacity * cel.opacity.coerceIn(0, 255)) / 255)
+                track.activeCelIndex = frameIndex
+                if (frameIndex < 0) {
+                    EsenhoNativeBridge.nativeLayerClear(track.layerId)
+                    EsenhoNativeBridge.nativeLayerSetVisible(track.layerId, 0)
+                    return@forEach
+                }
+                track.frames.getOrNull(frameIndex)?.let { cel ->
+                    if (cel.bitmap.width != width || cel.bitmap.height != height) {
+                        val normalized = resizeBitmapToCanvas(cel.bitmap, width, height, true)
+                        if (!cel.bitmap.isRecycled) cel.bitmap.recycle()
+                        cel.bitmap = normalized
+                    }
+                    val layerWidth = EsenhoNativeBridge.nativeLayerGetWidth(track.layerId)
+                    val layerHeight = EsenhoNativeBridge.nativeLayerGetHeight(track.layerId)
+                    if (layerWidth != width || layerHeight != height) {
+                        EsenhoNativeBridge.nativeLayerResize(track.layerId, width, height, 0)
+                    }
+                    EsenhoNativeBridge.nativeLayerClear(track.layerId)
+                    EsenhoNativeBridge.nativeLayerDrawBitmap(track.layerId, cel.bitmap, 0, 0, width, height)
+                    val baseVisible = layerBaseVisibility[track.layerId] ?: true
+                    val baseOpacity = layerBaseOpacities[track.layerId] ?: 255
+                    EsenhoNativeBridge.nativeLayerSetVisible(
+                        track.layerId,
+                        if (baseVisible && isRasterLayerGroupVisible(track.layerId) && cel.visible) 1 else 0
+                    )
+                    EsenhoNativeBridge.nativeLayerSetOpacity(track.layerId, (baseOpacity * cel.opacity.coerceIn(0, 255)) / 255)
+                }
             }
         }
         getRenderBitmap()
@@ -2206,7 +2218,7 @@ class EsenhoEngine(
 
     // ── Layer Operations ──
 
-    fun syncLayers() {
+    fun syncLayers(blankLayerId: Int? = null) {
         layers.clear()
         val count = EsenhoNativeBridge.nativeLayerGetCount()
         activeLayerIndex = EsenhoNativeBridge.nativeLayerGetActive()
@@ -2231,7 +2243,7 @@ class EsenhoEngine(
         rasterLayerGroups.values.forEach { group -> group.layerIds.retainAll(validLayerIds) }
         rasterGroupOrder.retainAll(rasterLayerGroups.keys)
         rasterLayerGroups.values.forEach { group -> group.childGroupIds.retainAll(rasterLayerGroups.keys) }
-        syncAnimationTracks()
+        syncAnimationTracks(blankLayerId)
     }
 
     private data class GroupState(val groups: List<RasterLayerGroup>, val order: List<String>, val layers: List<Int>)
@@ -2421,20 +2433,36 @@ class EsenhoEngine(
 
     fun addLayer(): Int {
         if (transformState != null) cancelTransform()
-        captureAllCurrentFrames()
+        // Only the active cel can have uncaptured edits. Existing native layers
+        // already represent the shared tick; creating an empty layer must not
+        // copy every cel and replay the entire timeline.
+        captureCurrentFrame()
         val previousActive = activeLayerIndex
         val previousTick = currentAnimationTick
         val groupsBefore = rasterGroupMembershipSnapshot()
         val token = pushUndoSnapshot()
-        val idx = EsenhoNativeBridge.nativeLayerAdd()
-        if (idx < 0) {
-            if (token != 0L) EsenhoNativeBridge.nativeCancelStroke()
-            EsenhoNativeBridge.nativeLayerSelect(previousActive)
-            return idx
+        val idx = withNativeLayerUpdate {
+            val added = EsenhoNativeBridge.nativeLayerAdd()
+            if (added < 0) {
+                if (token != 0L) EsenhoNativeBridge.nativeCancelStroke()
+                EsenhoNativeBridge.nativeLayerSelect(previousActive)
+                return@withNativeLayerUpdate added
+            }
+            syncLayers(blankLayerId = added)
+            animationTracks[added]?.let { track ->
+                // Exposures remain half-open: a new one-tick cel may not be
+                // exposed at the existing global tick. Update only this layer.
+                track.activeCelIndex = AnimationExposure.indexAt(
+                    track.frames.map { it.duration }.toIntArray(), previousTick
+                )
+                if (track.activeCelIndex < 0) {
+                    EsenhoNativeBridge.nativeLayerSetVisible(added, 0)
+                }
+            }
+            if (token != 0L) recordLayerAddHistory(token, added, previousActive, previousTick, groupsBefore)
+            added
         }
-        syncLayers()
-        if (token != 0L) recordLayerAddHistory(token, idx, previousActive, previousTick, groupsBefore)
-        applyAnimationTick(previousTick, captureActive = false)
+        if (idx >= 0) getRenderBitmap()
         return idx
     }
 
@@ -2493,6 +2521,9 @@ class EsenhoEngine(
 
     fun selectLayer(idx: Int) {
         if (transformState != null) cancelTransform()
+        // Creation already selects and synchronizes the new layer. In
+        // particular, scripting must not replay all tracks a second time.
+        if (idx == activeLayerIndex) return
         val preservedTick = currentAnimationTick
         captureCurrentFrame()
         EsenhoNativeBridge.nativeLayerSelect(idx)

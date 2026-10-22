@@ -640,7 +640,27 @@ static void composite_surface(void) {
     composited_epoch = layer_epoch;
 }
 
+static int layer_update_depth = 0;
+static int layer_update_pending = 0;
+
+W_EXPORT void w_begin_layer_update(void) {
+    layer_update_depth++;
+}
+
+W_EXPORT void w_end_layer_update(void) {
+    if (layer_update_depth <= 0) return;
+    layer_update_depth--;
+    if (layer_update_depth == 0 && layer_update_pending) {
+        layer_update_pending = 0;
+        composite_surface();
+    }
+}
+
 void force_composite(void) {
+    if (layer_update_depth > 0) {
+        layer_update_pending = 1;
+        return;
+    }
     composite_surface();
 }
 

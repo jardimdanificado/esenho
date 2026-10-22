@@ -692,6 +692,18 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerAdd(
     return w_layer_add();
 }
 
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBeginLayerUpdate(
+    JNIEnv *env, jobject thiz) {
+    w_begin_layer_update();
+}
+
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeEndLayerUpdate(
+    JNIEnv *env, jobject thiz) {
+    w_end_layer_update();
+}
+
 JNIEXPORT jint JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerRestoreSlot(
     JNIEnv *env, jobject thiz, jint idx, jint width, jint height, jint visible, jint order_position) {

@@ -12,6 +12,8 @@ object EsenhoNativeBridge {
 
     external fun nativeInit(width: Int, height: Int)
     external fun nativeResize(width: Int, height: Int)
+    external fun nativeBeginLayerUpdate()
+    external fun nativeEndLayerUpdate()
     external fun nativeStrokeExt(
         state: Int,
         x0: Float,
