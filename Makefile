@@ -17,7 +17,7 @@ plugins/canvas.wasm: src/quadro.c $(wildcard src/include/*.h)
 	mkdir -p plugins
 	$(CLANG) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
-plugins/%.wasm: src/plugins/%.c src/include/quadro.h src/include/quadro_filter_suite.h
+plugins/%.wasm: src/plugins/%.c src/include/quadro.h src/include/quadro_filter_suite.h src/include/quadro_filter_creative.h
 	mkdir -p plugins
 	$(CLANG) $(CFLAGS) $(LDFLAGS) -o $@ $<
 

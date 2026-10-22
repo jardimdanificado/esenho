@@ -2,8 +2,8 @@
 
 Toque no botão **Scripts JavaScript** (ícone de código) da barra inferior.
 O editor abre no dock redimensionável, mantendo o canvas visível, e guarda o
-rascunho automaticamente. O dropdown reúne os exemplos Radial, Espiral e Tela
-com os presets pessoais salvos no aparelho. Selecione um preset para abri-lo;
+rascunho automaticamente. O dropdown reúne os exemplos de desenhos e ferramentas
+com os presets pessoais salvos no aparelho e permite buscar pelo nome. Selecione um preset para abri-lo;
 um asterisco indica alterações ainda não salvas.
 
 Use o botão **Salvar preset** para guardar o código com um nome. Ao abrir um
@@ -16,6 +16,34 @@ Não há WebView, dependência da internet ou carregamento do scripting do brows
 Cada execução recebe uma VM nova. As APIs padrão de JavaScript, como Math, JSON,
 Array, Map, Set e typed arrays, estão disponíveis. APIs de browser e Node,
 incluindo DOM, Canvas, fetch, require e módulos de arquivos, não são fornecidas.
+
+## Primeiro desenho: execute este script
+
+Na aba **Código**, abra o dropdown e busque um exemplo pelo nome. Toque em
+**Executar**, depois marque a origem no canvas; arrastar também define a
+orientação. Edite os números e execute de novo para comparar o resultado.
+
+Este exemplo é completo e cria uma camada própria:
+
+```js
+const p = esenho.pickPivot("Marque o centro da flor");
+esenho.selection.clear();
+esenho.layers.create("Minha primeira flor JS");
+esenho.brush.select("preset:studio_inker");
+esenho.brush.set({size:4,opacity:1,color:"#458588",smoothing:0});
+for (let i=0;i<8;i++) {
+  esenho.brush.stroke({
+    space:p.rotate(i*45),
+    points:[{x:12,y:0,pressure:.2},{x:70,y:0,pressure:1},{x:110,y:0,pressure:.1}]
+  });
+}
+```
+
+A aba **API** permite escolher um assunto ou buscar comandos. Os exemplos de
+código têm botão **Copiar**; volte a **Código** para colar e executar. O código
+pode rolar horizontalmente. Tabelas aparecem como fichas com os nomes dos campos,
+para caberem no dock. A busca mantém o assunto inteiro, incluindo explicações e
+código, para preservar o contexto.
 
 ## Execução
 
@@ -102,8 +130,9 @@ Pressão padrão: 0,85. O motor aplica suas regras normais de suavização e pre
 Também é possível executar uma ferramenta temporariamente sem mudar a seleção:
 
 ```js
-esenho.tools.eraser.stroke({space: centro, points: caminho});
-esenho.tools.select_lasso.stroke({space: centro, points: poligono});
+const centro = esenho.pickPivot("Origem das formas");
+esenho.layers.create("Formas JS");
+esenho.color.set("#458588");
 esenho.tools.rectangle.stroke({
   space: centro.rotate(30),
   points: [{x: 0, y: 0}, {x: 100, y: 50}]
@@ -153,6 +182,55 @@ o script, uma transformação ainda não confirmada é cancelada.
 Rotação e escala usam o centro do conteúdo por padrão ou a origem do pivot
 informado; os eixos da escala são os do documento. Deslocamentos podem usar os
 eixos e unidades de qualquer referência.
+
+## Exemplos de desenhos e ferramentas
+
+O dropdown de scripts tem busca por nome. Os 20 exemplos novos abaixo são
+completos: pedem uma origem por touch, criam uma camada, selecionam Studio Inker
+e definem tamanho, opacidade e suavização. Não substituem o documento. A paisagem
+cria um grupo com camadas adicionais. A maioria ocupa cerca de 320 × 260 pixels:
+marque a origem longe das bordas. Girar a referência gira todo o desenho.
+
+| Exemplo no dropdown | O que demonstra |
+| --- | --- |
+| Desenho · Mandala de pétalas | Repetição radial, pressão e elipse |
+| Desenho · Rosácea matemática | Curva polar em um único traço |
+| Desenho · Espirógrafo de duas cores | Parametrização e rotação de referência |
+| Desenho · Árvore recursiva | Recursão limitada, galhos relativos e espessura |
+| Desenho · Paisagem em camadas | Laço preenchido, grupos e profundidade |
+| Desenho · Linhas topográficas | Contornos fechados e funções trigonométricas |
+| Desenho · Mar com ondas | Fileiras de traços com pressão variável |
+| Desenho · Fitas de Bézier | Curva cúbica, cores e espessura pela pressão |
+| Desenho · Cubo isométrico | Polígonos preenchidos com cores por face |
+| Desenho · Engrenagem recortada | Polígono procedural e apagar elipse |
+| Desenho · Flor com laço preenchido | Pétalas rotacionadas e seleção preenchida |
+| Desenho · Azulejos rotacionados | Grade, deslocamentos locais e formas |
+| Ferramentas · Pressão, tamanho e opacidade | Comparação de cinco traços com parâmetros diferentes |
+| Ferramentas · Folha com seleção por laço | Pintura e nervuras limitadas pela seleção |
+| Ferramentas · Estêncil com borracha | Traços apagados e retângulo de apagar orientado |
+| Ferramentas · Arrastar e mesclar pigmento | Uso de smudge e blend sobre duas cores |
+| Ferramentas · Balde em contorno fechado | Contorno de pincel e preenchimento por um clique |
+| Ferramentas · Seleção suave e recorte | Feather e recorte transparente |
+| Ferramentas · Onda com begin, move e end | Controle explícito do traço e do tempo entre pontos |
+| Ferramentas · Amostrar cor e desenhar | Conta-gotas e reutilização da cor amostrada |
+
+Os exemplos limpam a seleção anterior e desativam simetria, snap e grade para
+que essas configurações não alterem a demonstração. Esses ajustes, a cor e o
+pincel permanecem depois da execução; você pode mudá-los normalmente no editor.
+Cada operação usa o histórico existente. Use **Parar** para interromper a geração.
+
+### Como adaptar um exemplo
+
+- Mude os valores de tamanho e opacidade em `brush.set()`.
+- Troque as cores hexadecimais em `color.set()`.
+- Modifique o número de repetições nos laços `for`.
+- Use `p.rotate(graus)` e `p.translate(x,y)` para orientar e posicionar elementos.
+- Para aumentar as coordenadas do desenho, use `space:p.scale(1.5)` nos traços.
+  A escala da referência não aumenta o diâmetro do pincel; ajuste `size` também.
+- Uma ferramenta `line` usa os extremos do gesto. Para uma polilinha com curvas
+  ou cantos intermediários, use `brush.stroke()`.
+- `rectangle` e `ellipse` criam formas preenchidas. Para contornos, desenhe um
+  caminho fechado com `brush.stroke()`; o exemplo do balde mostra como fazer.
 
 ## Implementação
 
@@ -443,3 +521,158 @@ entre execuções e reinicializações. `scripts.list()` consulta exemplos e pre
 pessoais; `scripts.save({id?,name,source})` cria/atualiza um preset pessoal e
 `scripts.remove(preset)` remove um preset pessoal. Exemplos de fábrica são
 somente leitura. `esenho.help()` lista os membros públicos por namespace.
+
+## Filtros: cor, detalhe, desenho e distorção
+
+O painel Filtros possui 97 efeitos e busca por nome ou ID. Todos também estão
+em `esenho.filters.list()`, com `id`, `name` e `params`. Cada parâmetro informa
+`min`, `max`, `default`, `unit` e `value`. `apply(id)` usa os padrões do catálogo;
+`apply(id, p1, p2)` permite valores explícitos, inclusive zero.
+
+Os 36 novos IDs são:
+
+- Cor: `exposure`, `gamma`, `saturation`, `vibrance`, `temperature`, `tint`,
+  `shadows`, `highlights`, `black_point`, `white_point`, `fade`, `split_tone`,
+  `channel_mixer`, `color_balance`, `posterize`, `colorize`, `bleach_bypass`,
+  `cross_process`.
+- Detalhe e desfoque: `median`, `minimum`, `maximum`, `high_pass`,
+  `unsharp_mask`, `motion_blur`, `zoom_blur`, `radial_blur`, `bilateral`, `tilt_shift`.
+- Desenho e distorção: `oil_paint`, `pencil`, `crosshatch`, `engraving`,
+  `wave`, `pinch`, `mirror`, `weave`.
+
+```js
+// Cor e nitidez na camada ativa.
+esenho.filters.apply("exposure", 50); // +0,5 EV; 100 = +1 EV
+esenho.filters.apply("vibrance", 35);
+esenho.filters.apply("split_tone", 220, 40); // matiz de sombras e luzes
+esenho.filters.apply("unsharp_mask", 3, 120); // raio e intensidade
+```
+
+```js
+// Acabamento de desenho; desfazer continua disponível por operação.
+esenho.filters.apply("bilateral"); // raio e tolerância padrão
+esenho.filters.apply("posterize", 5);
+esenho.filters.apply("crosshatch", 7, 45); // espaçamento e mistura
+```
+
+Desfoques e efeitos de detalhe preservam a silhueta da camada e ponderam as
+médias pelo alfa. `wave`, `pinch` e `mirror` deslocam cor e alfa juntos, com
+vizinho mais próximo e coordenadas limitadas à borda. Zoom, rotação e pinçar
+usam o centro da camada. A aplicação atua no quadro atual e gera histórico.
+
+## Filtros criativos: fotografia, impressão e materiais
+
+O catálogo tem 97 efeitos. Esta expansão acrescenta 32 filtros. Todos estão no
+painel Filtros e em `esenho.filters.list()`, com limites e padrões dos parâmetros.
+`esenho.filters.apply(id)` usa os valores padrão; argumentos explícitos definem
+p1 e p2. As texturas são determinísticas e usam coordenadas da camada.
+
+São aproximações artísticas: névoa não detecta profundidade; materiais não têm
+simulação química; refração e flare não reproduzem uma lente física completa.
+
+### Filtros de fotografia
+
+| ID e efeito | p1 e p2 | Como funciona |
+| --- | --- | --- |
+| `film_grain` — Grão de película | p1: Intensidade, 0 a 100, padrão 24 %; p2: Tamanho do grão, 1 a 6, padrão 1 px | Grão determinístico mais perceptível nas sombras, com leve diferença entre os canais. |
+| `light_leak` — Vazamento de luz | p1: Intensidade, 0 a 100, padrão 65 %; p2: Borda: 0=esq, 1=dir, 2=cima, 3=baixo, 0 a 3, padrão 0 | Véu quente e irregular entrando por uma borda, como uma câmera com vedação danificada. |
+| `night_vision` — Visão noturna | p1: Ganho, 50 a 500, padrão 220 %; p2: Ruído, 0 a 100, padrão 25 % | Converte a luminosidade em verde, com ganho, ruído e escurecimento periférico. |
+
+### Filtros de óptica
+
+| ID e efeito | p1 e p2 | Como funciona |
+| --- | --- | --- |
+| `halation` — Halation de filme | p1: Raio, 1 a 48, padrão 12 px; p2: Intensidade, 0 a 200, padrão 100 % | Difunde as altas luzes em um halo vermelho e âmbar, inspirado em película. |
+| `lens_flare` — Flare com fantasmas | p1: Intensidade, 0 a 150, padrão 70 %; p2: Raio dos fantasmas, 1 a 30, padrão 10 % | Localiza o pixel pintado mais luminoso e alinha cinco reflexos coloridos com o centro da camada. |
+| `anamorphic` — Flare anamórfico | p1: Comprimento, 4 a 240, padrão 90 px; p2: Limiar de luz, 80 a 250, padrão 180 | Espalha as altas luzes em faixas horizontais azuladas. |
+| `diffraction_star` — Estrelas de difração | p1: Comprimento, 4 a 160, padrão 48 px; p2: Limiar de luz, 80 a 250, padrão 185 | Cria raios horizontais, verticais e diagonais a partir das altas luzes. |
+| `prism` — Refração prismática | p1: Dispersão, 0 a 60, padrão 12 px; p2: Direção, 0 a 359, padrão 30 ° | Desloca os canais em sentidos diferentes, com refração variável pela luminosidade local. |
+| `rain_glass` — Vidro com gotas | p1: Distância entre gotas, 12 a 120, padrão 42 px; p2: Refração, 0 a 100, padrão 40 % | Distribui gotas elípticas com refração local, bordas sombreadas e reflexos de luz. |
+
+### Filtros de ambiente
+
+| ID e efeito | p1 e p2 | Como funciona |
+| --- | --- | --- |
+| `fog` — Névoa atmosférica | p1: Densidade, 0 a 100, padrão 45 %; p2: Atmosfera: 0=fria, 1=quente, 0 a 1, padrão 0 | Sobrepõe névoa irregular, mais densa no topo; usa a altura como aproximação de distância. |
+| `underwater` — Submerso | p1: Profundidade, 0 a 100, padrão 70 %; p2: Luz cáustica, 0 a 100, padrão 45 % | Atenua vermelho e adiciona luz cáustica procedural, sugerindo uma cena debaixo d’água. |
+
+### Filtros de impressão
+
+| ID e efeito | p1 e p2 | Como funciona |
+| --- | --- | --- |
+| `cyanotype` — Cianotipia | p1: Contraste, 0 a 150, padrão 40 %; p2: Textura do papel, 0 a 60, padrão 15 % | Mapeia os tons entre azul profundo e papel claro, com granulação fina. |
+| `lith_print` — Revelação lith | p1: Grão nas sombras, 0 a 100, padrão 35 %; p2: Calor, 0 a 100, padrão 55 % | Sombras densas e granuladas com altas luzes quentes, inspiradas na impressão lith. |
+| `risograph` — Risografia de duas tintas | p1: Retícula, 2 a 18, padrão 6 px; p2: Desregistro, 0 a 16, padrão 3 px | Separa tintas azul e coral, com retículas inclinadas, falhas de tinta e desregistro. |
+| `cmyk_print` — Impressão CMYK | p1: Retícula, 2 a 20, padrão 7 px; p2: Desregistro, 0 a 12, padrão 1 px | Separa ciano, magenta, amarelo e preto em retículas de ângulos diferentes. |
+| `photocopy` — Fotocópia de toner | p1: Limiar, 20 a 240, padrão 145; p2: Falhas de toner, 0 a 100, padrão 35 % | Limiar adaptado à vizinhança e irregularidade do toner sobre papel levemente quente. |
+
+### Filtros de pigmento
+
+| ID e efeito | p1 e p2 | Como funciona |
+| --- | --- | --- |
+| `ink_bleed` — Tinta que sangra | p1: Raio, 1 a 12, padrão 4 px; p2: Mistura, 0 a 100, padrão 65 % | Difunde principalmente as cores escuras, sugerindo absorção de tinta pelo papel. |
+| `watercolor_paper` — Papel aquarela | p1: Textura, 0 a 100, padrão 55 %; p2: Escala das fibras, 2 a 30, padrão 8 px | Fibras direcionais, relevo fino do papel e pigmento acumulado nas transições de tom. |
+| `pigment_granulation` — Granulação de pigmento | p1: Intensidade, 0 a 150, padrão 85 %; p2: Escala, 2 a 40, padrão 8 px | Agrupa pigmento em manchas de várias escalas, com deposição diferente por canal. |
+
+### Filtros de material
+
+| ID e efeito | p1 e p2 | Como funciona |
+| --- | --- | --- |
+| `impasto_lighting` — Luz sobre impasto | p1: Relevo, 0 a 200, padrão 100 %; p2: Direção da luz, 0 a 359, padrão 315 ° | Interpreta a luminância como altura da tinta e aplica iluminação direcional ao relevo. |
+| `brushed_metal` — Metal escovado | p1: Escovação, 0 a 100, padrão 70 %; p2: Direção, 0 a 179, padrão 0 ° | Converte os tons para metal frio com fibras alongadas e faixas de brilho. |
+| `oxidized_copper` — Cobre oxidado | p1: Pátina, 0 a 100, padrão 65 %; p2: Escala das manchas, 8 a 160, padrão 45 px | Mistura cobre escurecido e manchas de pátina verde-azulada, mantendo as variações tonais. |
+| `rust` — Ferrugem | p1: Cobertura, 0 a 100, padrão 65 %; p2: Escala da corrosão, 8 a 160, padrão 50 px | Aplica corrosão irregular em tons de óxido de ferro, com porosidade fina. |
+| `crackle` — Craquelado | p1: Tamanho das células, 8 a 120, padrão 38 px; p2: Profundidade das fissuras, 0 a 100, padrão 65 % | Escurece as fronteiras de células irregulares para sugerir tinta ou verniz rachado. |
+| `stained_glass` — Vitral de vidro | p1: Tamanho das peças, 8 a 100, padrão 30 px; p2: Largura do chumbo, 1 a 8, padrão 2 px | Recompõe as cores em peças irregulares de vidro separadas por juntas escuras. |
+| `marble` — Veios de mármore | p1: Mistura, 0 a 100, padrão 75 %; p2: Escala dos veios, 8 a 140, padrão 50 px | Gera veios turbulentos sobre uma base mineral clara e mistura com a imagem. |
+| `iridescence` — Filme iridescente | p1: Mistura, 0 a 100, padrão 60 %; p2: Deslocamento de cor, 0 a 359, padrão 30 ° | Usa luminância e direção das bordas para sugerir película fina, óleo ou superfície nacarada. |
+
+### Filtros de experimental
+
+| ID e efeito | p1 e p2 | Como funciona |
+| --- | --- | --- |
+| `contour_map` — Mapa de altitude | p1: Faixas de altitude, 3 a 32, padrão 12; p2: Largura tonal das curvas, 1 a 100, padrão 35 | Interpreta a luminosidade como altitude, com cores de terreno e curvas de nível. |
+| `lenticular` — Lente lenticular | p1: Largura das tiras, 2 a 40, padrão 8 px; p2: Deslocamento, 0 a 100, padrão 18 px | Intercala tiras da imagem e de sua versão espelhada, lembrando uma lâmina lenticular. |
+| `pixel_sort` — Pixel sorting | p1: Comprimento dos trechos, 4 a 128, padrão 48 px; p2: Limiar de luminosidade, 0 a 250, padrão 80 | Ordena pixels por luminância em trechos horizontais; regiões escuras e transparentes separam os trechos. |
+| `moire` — Interferência moiré | p1: Período das grades, 2 a 40, padrão 8 px; p2: Ângulo entre grades, 1 a 89, padrão 8 ° | Sobrepõe duas grades próximas para produzir grandes bandas de interferência colorida. |
+| `slit_scan` — Slit-scan em faixas | p1: Deslocamento, 0 a 140, padrão 40 px; p2: Altura das faixas, 1 a 32, padrão 4 px | Remonta a imagem em faixas horizontais deslocadas, sugerindo captura temporal por fenda. |
+
+### Receitas: película, tinta e vidro
+
+Os exemplos **Filtros · Película com halation**, **Impressão risográfica**,
+**Metal antigo com relevo**, **Cena atrás de vidro molhado**, **Luzes anamórficas**
+e **Interferência digital** estão no dropdown. Eles processam a camada ativa;
+não criam conteúdo se a camada estiver vazia.
+
+```js
+// Película: halo quente nas altas luzes e grão fino.
+esenho.filters.apply("halation",12,90);
+esenho.filters.apply("film_grain",20,1);
+```
+
+```js
+// Tinta sobre papel com deposição irregular.
+esenho.filters.apply("pigment_granulation",75,8);
+esenho.filters.apply("watercolor_paper",40,8);
+esenho.filters.apply("impasto_lighting",80,315);
+```
+
+```js
+// Impressão de quatro cores com retícula e leve desregistro.
+esenho.filters.apply("cmyk_print",7,1);
+```
+
+### Preparação e transparência
+
+- Para halation, flare, anamórfico e difração, use uma imagem com luzes claras
+  sobre fundo escuro. Halation usa limiar interno 175 e flare busca uma fonte
+  acima de 170. Anamórfico e difração expõem o limiar no segundo parâmetro.
+- A névoa é mais densa no topo. A altura substitui um mapa de profundidade.
+- Impasto e iridescência usam a luminosidade e as diferenças entre vizinhos
+  para sugerir relevo. Não usam dados tridimensionais do desenho.
+- Lenticular, slit-scan e pixel sorting transportam RGBA junto com os pixels.
+  Os demais efeitos novos preservam o alfa original e a silhueta pintada.
+- Os brilhos ópticos não crescem sobre áreas transparentes. Para esse resultado,
+  use uma camada com fundo opaco. Prisma e gotas preservam o alfa do destino.
+- Pixel sorting deixa pixels escuros ou transparentes como separadores e limita
+  a ordenação a trechos curtos para controlar o custo em dispositivos móveis.

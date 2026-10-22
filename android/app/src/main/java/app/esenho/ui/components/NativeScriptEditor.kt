@@ -96,6 +96,7 @@ fun NativeScriptEditor(
     var tab by remember { mutableIntStateOf(0) }
     val highlight = remember { JavaScriptHighlight() }
     var scriptsExpanded by remember { mutableStateOf(false) }
+    var presetQuery by remember { mutableStateOf("") }
     var actionsExpanded by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var presetName by remember { mutableStateOf("") }
@@ -114,12 +115,24 @@ fun NativeScriptEditor(
                     Icon(Icons.Default.ArrowDropDown, "Escolher script")
                 }
                 DropdownMenu(expanded = scriptsExpanded, onDismissRequest = { scriptsExpanded = false }) {
+                    OutlinedTextField(
+                        value = presetQuery,
+                        onValueChange = { presetQuery = it },
+                        label = { Text("Buscar exemplo ou preset") },
+                        singleLine = true,
+                        modifier = Modifier.width(280.dp).padding(horizontal = 8.dp, vertical = 4.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                    )
                     DropdownMenuItem(text = { Text("Novo script") }, onClick = {
                         scriptsExpanded = false
                         onSelectPreset(null)
                     })
                     var lastGroup: Boolean? = null
-                    presets.forEach { preset ->
+                    val matchingPresets = presets.filter { presetQuery.isBlank() || it.name.contains(presetQuery.trim(), ignoreCase = true) }
+                    if (matchingPresets.isEmpty()) {
+                        Text("Nenhum script encontrado", Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
+                    }
+                    matchingPresets.forEach { preset ->
                         val example = preset.id.startsWith("example:")
                         if (lastGroup != example) {
                             HorizontalDivider()

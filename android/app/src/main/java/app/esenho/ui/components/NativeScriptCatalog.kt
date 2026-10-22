@@ -116,6 +116,39 @@ object NativeScriptCatalog {
             esenho.filters.apply("motion_blur",24,45);
             console.log(esenho.filters.list().find(f=>f.id==="motion_blur"));
         """),
+        example("filter-film-stock","Filtros · Película com halation", """
+            // Aplique sobre uma imagem com altas luzes e fundo opaco.
+            // Cada aplicação permanece disponível no histórico de desfazer.
+            esenho.filters.apply("halation",12,90);
+            esenho.filters.apply("light_leak",35,0);
+            esenho.filters.apply("film_grain",20,1);
+        """),
+        example("filter-riso-print","Filtros · Impressão risográfica", """
+            // As duas tintas e seu desregistro são gerados pela imagem.
+            esenho.filters.apply("risograph",6,3);
+            esenho.filters.apply("watercolor_paper",25,8);
+        """),
+        example("filter-weathered-metal","Filtros · Metal antigo com relevo", """
+            // A luminosidade original serve de relevo para a luz final.
+            esenho.filters.apply("oxidized_copper",65,45);
+            esenho.filters.apply("crackle",38,35);
+            esenho.filters.apply("impasto_lighting",80,315);
+        """),
+        example("filter-rain-window","Filtros · Cena atrás de vidro molhado", """
+            // Use uma imagem opaca; o filtro preserva a silhueta da camada.
+            esenho.filters.apply("fog",20,0);
+            esenho.filters.apply("rain_glass",42,40);
+        """),
+        example("filter-light-effects","Filtros · Luzes anamórficas", """
+            // Precisa de regiões acima do limiar de luminosidade informado.
+            esenho.filters.apply("anamorphic",90,180);
+            esenho.filters.apply("lens_flare",70,10);
+        """),
+        example("filter-experimental","Filtros · Interferência digital", """
+            esenho.filters.apply("pixel_sort",48,80);
+            esenho.filters.apply("iridescence",45,30);
+            esenho.filters.apply("slit_scan",30,4);
+        """),
         example("selection-mask","Seleção · Máscara gradual", """
             const width=64,height=64;
             const data=Array.from({length:width*height},(_,i)=>Math.round(255*(i%width)/(width-1)));
@@ -241,5 +274,5 @@ object NativeScriptCatalog {
             esenho.ui.openPanel("brushes");
             console.log(esenho.help());
         """),
-    )
+    ) + DrawingScriptExamples.all
 }

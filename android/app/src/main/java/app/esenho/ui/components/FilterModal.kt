@@ -119,8 +119,11 @@ fun FilterModal(
                         ) {
                             Text(
                                 "Ajustes: ${f.title}",
+                                modifier = Modifier.weight(1f).padding(end = 8.dp),
                                 style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Button(
                                 onClick = {

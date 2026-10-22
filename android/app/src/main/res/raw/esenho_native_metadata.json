@@ -7818,6 +7818,26 @@
   ],
   "filters": [
     {
+      "id": "anamorphic",
+      "title": "Flare anamórfico",
+      "params": [
+        {
+          "name": "Comprimento",
+          "min": 4,
+          "max": 240,
+          "default": 90,
+          "unit": "px"
+        },
+        {
+          "name": "Limiar de luz",
+          "min": 80,
+          "max": 250,
+          "default": 180,
+          "unit": ""
+        }
+      ]
+    },
+    {
       "id": "bilateral",
       "title": "Suavização bilateral",
       "params": [
@@ -7921,6 +7941,26 @@
       ]
     },
     {
+      "id": "brushed_metal",
+      "title": "Metal escovado",
+      "params": [
+        {
+          "name": "Escovação",
+          "min": 0,
+          "max": 100,
+          "default": 70,
+          "unit": "%"
+        },
+        {
+          "name": "Direção",
+          "min": 0,
+          "max": 179,
+          "default": 0,
+          "unit": "°"
+        }
+      ]
+    },
+    {
       "id": "channel_mixer",
       "title": "Misturar canais",
       "params": [
@@ -7956,6 +7996,26 @@
           "min": 0,
           "max": 1,
           "default": 0
+        }
+      ]
+    },
+    {
+      "id": "cmyk_print",
+      "title": "Impressão CMYK",
+      "params": [
+        {
+          "name": "Retícula",
+          "min": 2,
+          "max": 20,
+          "default": 7,
+          "unit": "px"
+        },
+        {
+          "name": "Desregistro",
+          "min": 0,
+          "max": 12,
+          "default": 1,
+          "unit": "px"
         }
       ]
     },
@@ -8000,6 +8060,26 @@
       ]
     },
     {
+      "id": "contour_map",
+      "title": "Mapa de altitude",
+      "params": [
+        {
+          "name": "Faixas de altitude",
+          "min": 3,
+          "max": 32,
+          "default": 12,
+          "unit": ""
+        },
+        {
+          "name": "Largura tonal das curvas",
+          "min": 1,
+          "max": 100,
+          "default": 35,
+          "unit": ""
+        }
+      ]
+    },
+    {
       "id": "contrast",
       "title": "Contrast",
       "params": [
@@ -8008,6 +8088,26 @@
           "min": -80,
           "max": 80,
           "default": 30
+        }
+      ]
+    },
+    {
+      "id": "crackle",
+      "title": "Craquelado",
+      "params": [
+        {
+          "name": "Tamanho das células",
+          "min": 8,
+          "max": 120,
+          "default": 38,
+          "unit": "px"
+        },
+        {
+          "name": "Profundidade das fissuras",
+          "min": 0,
+          "max": 100,
+          "default": 65,
+          "unit": "%"
         }
       ]
     },
@@ -8048,6 +8148,46 @@
           "max": 100,
           "default": 100,
           "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "cyanotype",
+      "title": "Cianotipia",
+      "params": [
+        {
+          "name": "Contraste",
+          "min": 0,
+          "max": 150,
+          "default": 40,
+          "unit": "%"
+        },
+        {
+          "name": "Textura do papel",
+          "min": 0,
+          "max": 60,
+          "default": 15,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "diffraction_star",
+      "title": "Estrelas de difração",
+      "params": [
+        {
+          "name": "Comprimento",
+          "min": 4,
+          "max": 160,
+          "default": 48,
+          "unit": "px"
+        },
+        {
+          "name": "Limiar de luz",
+          "min": 80,
+          "max": 250,
+          "default": 185,
+          "unit": ""
         }
       ]
     },
@@ -8170,6 +8310,26 @@
       ]
     },
     {
+      "id": "film_grain",
+      "title": "Grão de película",
+      "params": [
+        {
+          "name": "Intensidade",
+          "min": 0,
+          "max": 100,
+          "default": 24,
+          "unit": "%"
+        },
+        {
+          "name": "Tamanho do grão",
+          "min": 1,
+          "max": 6,
+          "default": 1,
+          "unit": "px"
+        }
+      ]
+    },
+    {
       "id": "fisheye",
       "title": "Fisheye Lens",
       "params": [
@@ -8184,6 +8344,26 @@
           "min": 50,
           "max": 200,
           "default": 100
+        }
+      ]
+    },
+    {
+      "id": "fog",
+      "title": "Névoa atmosférica",
+      "params": [
+        {
+          "name": "Densidade",
+          "min": 0,
+          "max": 100,
+          "default": 45,
+          "unit": "%"
+        },
+        {
+          "name": "Atmosfera: 0=fria, 1=quente",
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "unit": ""
         }
       ]
     },
@@ -8258,6 +8438,26 @@
       ]
     },
     {
+      "id": "halation",
+      "title": "Halation de filme",
+      "params": [
+        {
+          "name": "Raio",
+          "min": 1,
+          "max": 48,
+          "default": 12,
+          "unit": "px"
+        },
+        {
+          "name": "Intensidade",
+          "min": 0,
+          "max": 200,
+          "default": 100,
+          "unit": "%"
+        }
+      ]
+    },
+    {
       "id": "halftone_dot",
       "title": "Halftone Screen Dots",
       "params": [
@@ -8310,6 +8510,46 @@
       ]
     },
     {
+      "id": "impasto_lighting",
+      "title": "Luz sobre impasto",
+      "params": [
+        {
+          "name": "Relevo",
+          "min": 0,
+          "max": 200,
+          "default": 100,
+          "unit": "%"
+        },
+        {
+          "name": "Direção da luz",
+          "min": 0,
+          "max": 359,
+          "default": 315,
+          "unit": "°"
+        }
+      ]
+    },
+    {
+      "id": "ink_bleed",
+      "title": "Tinta que sangra",
+      "params": [
+        {
+          "name": "Raio",
+          "min": 1,
+          "max": 12,
+          "default": 4,
+          "unit": "px"
+        },
+        {
+          "name": "Mistura",
+          "min": 0,
+          "max": 100,
+          "default": 65,
+          "unit": "%"
+        }
+      ]
+    },
+    {
       "id": "invert",
       "title": "Invert",
       "params": [
@@ -8325,6 +8565,26 @@
           "min": 0,
           "max": 3,
           "default": 0
+        }
+      ]
+    },
+    {
+      "id": "iridescence",
+      "title": "Filme iridescente",
+      "params": [
+        {
+          "name": "Mistura",
+          "min": 0,
+          "max": 100,
+          "default": 60,
+          "unit": "%"
+        },
+        {
+          "name": "Deslocamento de cor",
+          "min": 0,
+          "max": 359,
+          "default": 30,
+          "unit": "°"
         }
       ]
     },
@@ -8362,6 +8622,106 @@
           "min": 0,
           "max": 10,
           "default": 0
+        }
+      ]
+    },
+    {
+      "id": "lens_flare",
+      "title": "Flare com fantasmas",
+      "params": [
+        {
+          "name": "Intensidade",
+          "min": 0,
+          "max": 150,
+          "default": 70,
+          "unit": "%"
+        },
+        {
+          "name": "Raio dos fantasmas",
+          "min": 1,
+          "max": 30,
+          "default": 10,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "lenticular",
+      "title": "Lente lenticular",
+      "params": [
+        {
+          "name": "Largura das tiras",
+          "min": 2,
+          "max": 40,
+          "default": 8,
+          "unit": "px"
+        },
+        {
+          "name": "Deslocamento",
+          "min": 0,
+          "max": 100,
+          "default": 18,
+          "unit": "px"
+        }
+      ]
+    },
+    {
+      "id": "light_leak",
+      "title": "Vazamento de luz",
+      "params": [
+        {
+          "name": "Intensidade",
+          "min": 0,
+          "max": 100,
+          "default": 65,
+          "unit": "%"
+        },
+        {
+          "name": "Borda: 0=esq, 1=dir, 2=cima, 3=baixo",
+          "min": 0,
+          "max": 3,
+          "default": 0,
+          "unit": ""
+        }
+      ]
+    },
+    {
+      "id": "lith_print",
+      "title": "Revelação lith",
+      "params": [
+        {
+          "name": "Grão nas sombras",
+          "min": 0,
+          "max": 100,
+          "default": 35,
+          "unit": "%"
+        },
+        {
+          "name": "Calor",
+          "min": 0,
+          "max": 100,
+          "default": 55,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "marble",
+      "title": "Veios de mármore",
+      "params": [
+        {
+          "name": "Mistura",
+          "min": 0,
+          "max": 100,
+          "default": 75,
+          "unit": "%"
+        },
+        {
+          "name": "Escala dos veios",
+          "min": 8,
+          "max": 140,
+          "default": 50,
+          "unit": "px"
         }
       ]
     },
@@ -8425,6 +8785,26 @@
       ]
     },
     {
+      "id": "moire",
+      "title": "Interferência moiré",
+      "params": [
+        {
+          "name": "Período das grades",
+          "min": 2,
+          "max": 40,
+          "default": 8,
+          "unit": "px"
+        },
+        {
+          "name": "Ângulo entre grades",
+          "min": 1,
+          "max": 89,
+          "default": 8,
+          "unit": "°"
+        }
+      ]
+    },
+    {
       "id": "motion_blur",
       "title": "Desfoque de movimento",
       "params": [
@@ -8441,6 +8821,26 @@
           "max": 359,
           "default": 0,
           "unit": "°"
+        }
+      ]
+    },
+    {
+      "id": "night_vision",
+      "title": "Visão noturna",
+      "params": [
+        {
+          "name": "Ganho",
+          "min": 50,
+          "max": 500,
+          "default": 220,
+          "unit": "%"
+        },
+        {
+          "name": "Ruído",
+          "min": 0,
+          "max": 100,
+          "default": 25,
+          "unit": "%"
         }
       ]
     },
@@ -8483,6 +8883,26 @@
       ]
     },
     {
+      "id": "oxidized_copper",
+      "title": "Cobre oxidado",
+      "params": [
+        {
+          "name": "Pátina",
+          "min": 0,
+          "max": 100,
+          "default": 65,
+          "unit": "%"
+        },
+        {
+          "name": "Escala das manchas",
+          "min": 8,
+          "max": 160,
+          "default": 45,
+          "unit": "px"
+        }
+      ]
+    },
+    {
       "id": "pencil",
       "title": "Desenho a lápis",
       "params": [
@@ -8503,6 +8923,46 @@
       ]
     },
     {
+      "id": "photocopy",
+      "title": "Fotocópia de toner",
+      "params": [
+        {
+          "name": "Limiar",
+          "min": 20,
+          "max": 240,
+          "default": 145,
+          "unit": ""
+        },
+        {
+          "name": "Falhas de toner",
+          "min": 0,
+          "max": 100,
+          "default": 35,
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "pigment_granulation",
+      "title": "Granulação de pigmento",
+      "params": [
+        {
+          "name": "Intensidade",
+          "min": 0,
+          "max": 150,
+          "default": 85,
+          "unit": "%"
+        },
+        {
+          "name": "Escala",
+          "min": 2,
+          "max": 40,
+          "default": 8,
+          "unit": "px"
+        }
+      ]
+    },
+    {
       "id": "pinch",
       "title": "Pinçar / inflar",
       "params": [
@@ -8519,6 +8979,26 @@
           "max": 100,
           "default": 90,
           "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "pixel_sort",
+      "title": "Pixel sorting",
+      "params": [
+        {
+          "name": "Comprimento dos trechos",
+          "min": 4,
+          "max": 128,
+          "default": 48,
+          "unit": "px"
+        },
+        {
+          "name": "Limiar de luminosidade",
+          "min": 0,
+          "max": 250,
+          "default": 80,
+          "unit": ""
         }
       ]
     },
@@ -8549,6 +9029,26 @@
       ]
     },
     {
+      "id": "prism",
+      "title": "Refração prismática",
+      "params": [
+        {
+          "name": "Dispersão",
+          "min": 0,
+          "max": 60,
+          "default": 12,
+          "unit": "px"
+        },
+        {
+          "name": "Direção",
+          "min": 0,
+          "max": 359,
+          "default": 30,
+          "unit": "°"
+        }
+      ]
+    },
+    {
       "id": "radial_blur",
       "title": "Desfoque de rotação",
       "params": [
@@ -8569,6 +9069,26 @@
       ]
     },
     {
+      "id": "rain_glass",
+      "title": "Vidro com gotas",
+      "params": [
+        {
+          "name": "Distância entre gotas",
+          "min": 12,
+          "max": 120,
+          "default": 42,
+          "unit": "px"
+        },
+        {
+          "name": "Refração",
+          "min": 0,
+          "max": 100,
+          "default": 40,
+          "unit": "%"
+        }
+      ]
+    },
+    {
       "id": "ripple",
       "title": "Water Ripple Lens",
       "params": [
@@ -8583,6 +9103,46 @@
           "min": 1,
           "max": 30,
           "default": 8,
+          "unit": "px"
+        }
+      ]
+    },
+    {
+      "id": "risograph",
+      "title": "Risografia de duas tintas",
+      "params": [
+        {
+          "name": "Retícula",
+          "min": 2,
+          "max": 18,
+          "default": 6,
+          "unit": "px"
+        },
+        {
+          "name": "Desregistro",
+          "min": 0,
+          "max": 16,
+          "default": 3,
+          "unit": "px"
+        }
+      ]
+    },
+    {
+      "id": "rust",
+      "title": "Ferrugem",
+      "params": [
+        {
+          "name": "Cobertura",
+          "min": 0,
+          "max": 100,
+          "default": 65,
+          "unit": "%"
+        },
+        {
+          "name": "Escala da corrosão",
+          "min": 8,
+          "max": 160,
+          "default": 50,
           "unit": "px"
         }
       ]
@@ -8663,6 +9223,26 @@
       ]
     },
     {
+      "id": "slit_scan",
+      "title": "Slit-scan em faixas",
+      "params": [
+        {
+          "name": "Deslocamento",
+          "min": 0,
+          "max": 140,
+          "default": 40,
+          "unit": "px"
+        },
+        {
+          "name": "Altura das faixas",
+          "min": 1,
+          "max": 32,
+          "default": 4,
+          "unit": "px"
+        }
+      ]
+    },
+    {
       "id": "solarize",
       "title": "Solarize (Sabattier)",
       "params": [
@@ -8697,6 +9277,26 @@
           "max": 359,
           "default": 40,
           "unit": "°"
+        }
+      ]
+    },
+    {
+      "id": "stained_glass",
+      "title": "Vitral de vidro",
+      "params": [
+        {
+          "name": "Tamanho das peças",
+          "min": 8,
+          "max": 100,
+          "default": 30,
+          "unit": "px"
+        },
+        {
+          "name": "Largura do chumbo",
+          "min": 1,
+          "max": 8,
+          "default": 2,
+          "unit": "px"
         }
       ]
     },
@@ -8801,6 +9401,26 @@
       ]
     },
     {
+      "id": "underwater",
+      "title": "Submerso",
+      "params": [
+        {
+          "name": "Profundidade",
+          "min": 0,
+          "max": 100,
+          "default": 70,
+          "unit": "%"
+        },
+        {
+          "name": "Luz cáustica",
+          "min": 0,
+          "max": 100,
+          "default": 45,
+          "unit": "%"
+        }
+      ]
+    },
+    {
       "id": "unsharp_mask",
       "title": "Máscara de nitidez",
       "params": [
@@ -8867,6 +9487,26 @@
           "min": 1,
           "max": 30,
           "default": 12,
+          "unit": "px"
+        }
+      ]
+    },
+    {
+      "id": "watercolor_paper",
+      "title": "Papel aquarela",
+      "params": [
+        {
+          "name": "Textura",
+          "min": 0,
+          "max": 100,
+          "default": 55,
+          "unit": "%"
+        },
+        {
+          "name": "Escala das fibras",
+          "min": 2,
+          "max": 30,
+          "default": 8,
           "unit": "px"
         }
       ]
