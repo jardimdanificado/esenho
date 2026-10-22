@@ -274,5 +274,5 @@ object NativeScriptCatalog {
             esenho.ui.openPanel("brushes");
             console.log(esenho.help());
         """),
-    ) + DrawingScriptExamples.all
+    ) + DrawingScriptExamples.all + CreativeScriptExamples.all
 }
