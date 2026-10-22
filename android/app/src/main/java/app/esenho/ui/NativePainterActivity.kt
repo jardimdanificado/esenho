@@ -699,7 +699,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             scriptStatus = "Toque e arraste para posicionar e orientar o pivot"
             val options = org.json.JSONObject().put("anchor",anchor)
             if (name != null) options.put("name",name)
-            canvas.scripting.pick(options) {
+            canvas.scripting.pick(options, persistent = true) {
                 markingScriptPivot = false; scriptStatus = null
                 activePanel = WorkspacePanel.SCRIPTS
                 refreshState(persistFavoriteTool=false)

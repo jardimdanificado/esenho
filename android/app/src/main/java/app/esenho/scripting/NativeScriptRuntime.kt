@@ -111,7 +111,7 @@ class ScriptSession(
         try {
             onUi {
                 onStatus(args.optString("message", "Toque e arraste para orientar o pivot"))
-                api.canvas.scripting.pick(args) { future.complete(it) }
+                api.canvas.scripting.pick(args, persistent = false) { future.complete(it) }
             }
             return await(future).also { onUi { onStatus("Executando script…") } }
         } finally { pending.remove(future) }

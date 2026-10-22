@@ -83,7 +83,7 @@ O espaço é capturado no início de cada traço. Transformações do espaço mu
 o caminho e a geometria das formas; tamanho do pincel continua sendo uma
 configuração em pixels do documento. Para escalá-lo, ajuste `brush.set({size})`.
 
-Crie referências pelo menu de ações (**Marcar pivot na arte** / **Marcar pivot na tela**), ou pelo script:
+Use `pickPivot()` para obter uma referência temporária durante o script:
 
 ```js
 const centro = esenho.pickPivot({
@@ -103,11 +103,20 @@ esenho.brush.stroke({
 ```
 
 Tocar define a posição; arrastar define a direção do eixo X. Um toque sem arraste
-usa a direção horizontal da visualização. Pivots recebem nomes como `pivot1` se
-nenhum nome for informado e continuam disponíveis entre execuções enquanto o
-canvas existir. Não são salvos no projeto ou após recriar a Activity.
+usa a direção horizontal da visualização. `pickPivot()` e `pivots.pick()` retornam
+referências temporárias: não criam marcadores na tela nem entradas na aba Pivots.
+Informar `name` apenas dá um nome à referência retornada; não a torna permanente
+e não substitui um pivot existente. A variável pode ser usada ao longo da execução.
+
+Para criar pivots permanentes, use **Novo na arte** / **Novo na tela** na aba
+Pivots, **Marcar pivot** no menu de ações, ou `esenho.pivots.create()`. Somente
+esses pivots aparecem em `pivots.list()` e podem ser obtidos por `pivots.get()`.
+Recebem nomes como `pivot1` quando criados pela interface sem nome informado e
+continuam disponíveis entre execuções enquanto o canvas existir. Não são salvos
+no projeto ou após recriar a Activity.
 
 ```js
+// Primeiro crie "centro" pela aba Pivots ou por pivots.create().
 const centro = esenho.pivots.get("centro");
 const ponto = esenho.pickPoint("Marque a direção"); // {x,y} no documento
 const referencia = centro.orientTowards(ponto);
@@ -676,3 +685,86 @@ esenho.filters.apply("cmyk_print",7,1);
   use uma camada com fundo opaco. Prisma e gotas preservam o alfa do destino.
 - Pixel sorting deixa pixels escuros ou transparentes como separadores e limita
   a ordenação a trechos curtos para controlar o custo em dispositivos móveis.
+
+## Coleção criativa: 37 scripts novos
+
+Busque pelos nomes abaixo no dropdown da aba **Código**. Cada exemplo é um
+programa completo: seus helpers `path`, `polygon`, `oval` e `rand` aparecem no
+próprio código e continuam disponíveis ao salvar ou exportar o preset.
+
+Marque o centro em uma região com cerca de 320 × 320 pixels livres. Arrastar
+orienta o pivot. Os desenhos criam uma camada própria e não substituem o
+documento. A costura usa a origem como primeira ponta e pede um segundo ponto.
+O mosaico precisa de uma imagem já existente sob a nova camada para amostrar
+suas cores; ele coleta todas as cores antes de pintar.
+
+| Exemplo no dropdown | O que faz |
+| --- | --- |
+| Natureza · Água-viva bioluminescente | Cúpula, tentáculos e pressão para afinar pontas. |
+| Natureza · Concha de náutilo | Espiral logarítmica com divisórias de concha. |
+| Natureza · Pena em duas tonalidades | Ramificações espelhadas e pressão decrescente. |
+| Natureza · Samambaia geométrica | Folhas poligonais repetidas nos dois lados do caule. |
+| Natureza · Borboleta de vitral | Asas poligonais, nervuras e simetria construída pelo código. |
+| Natureza · Libélula técnica | Referências locais rotacionadas para asas e segmentos. |
+| Natureza · Dente-de-leão ao vento | Sementes radiais e variação determinística de distância. |
+| Natureza · Carpa em curva | Corpo, manchas, barbatanas e detalhes de uma carpa. |
+| Natureza · Coral de ramos arredondados | Recursão limitada, galhos e espessuras variáveis. |
+| Arte · Circuito de uma cidade imaginária | Trilhas de circuito com mudanças de direção e terminais. |
+| Arte · Cartografia de constelações | Conecta estrelas ao vizinho anterior mais próximo. |
+| Arte · Cidade neon na chuva | Edifícios e luzes com vidro molhado e flare anamórfico. |
+| Arte · Dunas ao pôr do sol | Dunas sobrepostas, sol e grão de película. |
+| Arte · Eclipse com coroa solar | Coroa solar procedural e halation sobre fundo escuro. |
+| Arte · Aurora sobre montanhas | Fitas com pressão variável e silhueta de montanhas. |
+| Arte · Chuva de meteoros | Traços afilados, pontos de luz e filtro de difração. |
+| Arte · Cerâmica kintsugi | Forma de cerâmica com reparos dourados desenhados. |
+| Arte · Geodo de ágata | Polígonos concêntricos irregulares com paleta mineral. |
+| Arte · Gato olhando a lua | Silhueta feita de formas, cauda de pincel e lua. |
+| Arte · Onda com espuma | Polígono de onda, espuma e fileiras de água. |
+| Geometria · Flor da vida | Circunferências sobrepostas em uma grade hexagonal. |
+| Geometria · Mosaico triangular | Mosaico de polígonos com alternância de cores. |
+| Geometria · Labirinto de Truchet | Módulos de arcos com rotação aleatória reproduzível. |
+| Geometria · Nó de três laços | Curva paramétrica com contornos sobrepostos de espessuras diferentes. |
+| Geometria · Bairro isométrico | Edifícios de três faces e alturas determinísticas. |
+| Geometria · Atlas de órbitas | Órbitas elípticas, planetas e referências rotacionadas. |
+| Procedural · Harmonógrafo amortecido | Oscilações amortecidas em três passagens de cor. |
+| Procedural · Campo de correntes | Traços que seguem um campo de direções calculado. |
+| Procedural · Atrator de Clifford | Atrator de Clifford visualizado como caminho conectado. |
+| Procedural · Radar de expedição | Anéis, eixos, setor de varredura e pontos detectados. |
+| Ferramentas · Costura entre dois pontos | A origem é a primeira ponta; um segundo touch define o fim da costura. |
+| Ferramentas · Incrustação com seleção vazada | Subtrai uma elipse de outra e limita a pintura à faixa selecionada. |
+| Ferramentas · Mosaico da imagem existente | Amostra 100 cores do documento antes de pintar um mosaico de discos. |
+| Animação · Pulso de coração | Cria 12 quadros de um coração com espessura pulsante. |
+| Animação · Flor respirando | Cria oito quadros de uma flor que expande e contrai. |
+| Ferramentas · Selo espectral com máscara | Constrói uma máscara radial de 96 × 96 pixels e aplica iridescência. |
+| Interação · Roseta com formulário | Formulário para escolher número de pétalas e cor de uma curva polar. |
+
+### Alterar o resultado
+
+- `path(pontos, cor, tamanho, espaço)` desenha um caminho de pincel. Pontos podem
+  ser objetos ou listas `[x,y,pressão]`; a pressão padrão desse helper é 1.
+- `polygon(pontos, cor, espaço)` fecha e preenche um polígono usando laço.
+- `oval(x,y,raioX,raioY,cor,espaço)` desenha uma elipse preenchida.
+- Os espaços opcionais usam `p` por padrão. Use `p.translate(x,y).rotate(graus)`
+  para posicionar elementos sem recalcular os pontos.
+- Mude `seed=2026` para variar circuitos, meteoros e outras composições com
+  sorteio. A mesma semente repete o resultado; não há dependência da internet.
+- Cidade neon, deserto, eclipse e meteoros demonstram filtros sobre arte criada
+  pelo próprio script. Edite os parâmetros das chamadas `filters.apply()`.
+
+### Animações e configurações
+
+**Pulso de coração** cria 12 quadros e define 12 FPS. **Flor respirando** cria
+8 quadros e define 10 FPS. Ambas usam a camada recém-criada, repetem a animação
+e iniciam a reprodução ao terminar. FPS e repetição são configurações globais
+do documento; outras camadas continuam usando suas tracks. Pause pelo painel
+de animação para inspecionar cada quadro.
+
+Os exemplos pausam a reprodução anterior, limpam a seleção, desativam simetria,
+snap e grade e preparam o preset Studio Inker com seus padrões. Essas mudanças
+de configuração permanecem depois da execução. O histórico é por operação;
+**Parar** interrompe a geração, mantendo as operações já concluídas.
+
+O selo espectral usa uma máscara em coordenadas globais do documento, sem a
+rotação do pivot. O caminho do atrator liga os pontos sucessivos; não é uma
+nuvem de partículas independentes. O nó é uma curva decorativa de contornos
+sobrepostos, sem simulação tridimensional de entrelaçamento.

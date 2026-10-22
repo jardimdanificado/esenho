@@ -18,7 +18,7 @@ fun ScriptPivotsPanel(pivots:List<JSONObject>,onPick:(String)->Unit,onUpdate:(St
     var editing by remember { mutableStateOf<JSONObject?>(null) }
     Column(Modifier.fillMaxSize()) {
         Row { TextButton(onClick={onPick("document")}){Text("Novo na arte")};TextButton(onClick={onPick("screen")}){Text("Novo na tela")} }
-        if(pivots.isEmpty())Text("Marque um pivot por touch ou use esenho.pickPivot().",style=MaterialTheme.typography.bodySmall)
+        if(pivots.isEmpty())Text("Crie um pivot pelos botões acima ou por esenho.pivots.create(). pickPivot() retorna uma referência temporária.",style=MaterialTheme.typography.bodySmall)
         LazyColumn(Modifier.weight(1f)) {
             items(pivots,key={it.getString("name")}) { pivot ->
                 val name=pivot.getString("name")

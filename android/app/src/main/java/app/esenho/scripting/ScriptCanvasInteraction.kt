@@ -15,6 +15,7 @@ class ScriptCanvasInteraction(private val view: EsenhoCanvasView) {
     var running = false
     val pivots = linkedMapOf<String, JSONObject>()
     private var request: JSONObject? = null
+    private var persistPickedPivot = false
     private var completion: ((JSONObject) -> Unit)? = null
     private var start: Pair<Float, Float>? = null
     private var end: Pair<Float, Float>? = null
@@ -86,9 +87,10 @@ class ScriptCanvasInteraction(private val view: EsenhoCanvasView) {
         return result
     }
 
-    fun pick(options: JSONObject, onPicked: (JSONObject) -> Unit) {
+    fun pick(options: JSONObject, persistent: Boolean = false, onPicked: (JSONObject) -> Unit) {
         check(completion == null) { "Já existe uma marcação pendente" }
         request = options
+        persistPickedPivot = persistent
         completion = onPicked
         start = null
         end = null
@@ -97,6 +99,7 @@ class ScriptCanvasInteraction(private val view: EsenhoCanvasView) {
 
     fun cancelPick() {
         request = null
+        persistPickedPivot = false
         completion = null
         start = null
         end = null
@@ -137,10 +140,17 @@ class ScriptCanvasInteraction(private val view: EsenhoCanvasView) {
                     setRotate(angle)
                     postTranslate(if (screenLocked) origin.first else point[0], if (screenLocked) origin.second else point[1])
                 }
-                while (pivots.containsKey("pivot$nextPivotId")) nextPivotId++
-                val name = options.optString("name").ifBlank { "pivot${nextPivotId++}" }.take(100)
+                val name = if (persistPickedPivot) {
+                    while (pivots.containsKey("pivot$nextPivotId")) nextPivotId++
+                    options.optString("name").ifBlank { "pivot${nextPivotId++}" }.take(100)
+                } else {
+                    // Script picks are values, not entries in the marker manager.
+                    // An optional name labels the value without reserving a name
+                    // or overwriting an existing persistent reference.
+                    options.optString("name").trim().take(100).ifEmpty { null }
+                }
                 val pivot = reference(matrix, if (screenLocked) "screen" else "document", name)
-                pivots[name] = pivot
+                if (persistPickedPivot) pivots[checkNotNull(name)] = pivot
                 finish(pivot)
                 return true
             }
