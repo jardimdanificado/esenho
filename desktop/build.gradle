@@ -1,0 +1,8 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.9.24'
+    id 'application'
+}
+repositories { mavenCentral() }
+sourceSets.main.kotlin.srcDirs = ['.']
+sourceSets.main.kotlin.include 'EsenhoDesktop.kt'
+application { mainClass = 'EsenhoDesktop' }

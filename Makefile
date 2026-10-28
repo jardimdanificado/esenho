@@ -61,7 +61,12 @@ bin/test_brush_coverage: tests/test_brush_coverage.c src/include/quadro_brush_co
 
 native: bin/quadro-svg bin/test_brush_dynamics bin/test_native_svg
 
-test-native: bin/test_brush_dynamics bin/test_brush_coverage bin/test_brush_realism bin/test_native_svg
+bin/test_dynamic_dirty: tests/test_dynamic_dirty.c src/quadro.c $(wildcard src/include/*.h)
+	mkdir -p bin
+	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_dynamic_dirty.c src/quadro.c -lm
+
+test-native: bin/test_dynamic_dirty bin/test_brush_dynamics bin/test_brush_coverage bin/test_brush_realism bin/test_native_svg
+	./bin/test_dynamic_dirty
 	./bin/test_brush_dynamics
 	./bin/test_brush_coverage
 	./bin/test_brush_realism

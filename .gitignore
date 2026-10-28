@@ -26,3 +26,5 @@ android/.idea/
 # Packages
 *.apk
 *.aab
+# Desktop build
+desktop/build/

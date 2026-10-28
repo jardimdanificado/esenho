@@ -6393,23 +6393,29 @@ static void quadro_dyn_render_dab(void *surface_ctx, const w_dyn_dab_t *dab) {
     int w = 0, h = 0;
     uint32_t *pix = get_current_draw_target(&w, &h);
     if (!pix || w <= 0 || h <= 0) return;
-    if (!realism_enabled) {
-        w_dyn_surface_render_dab_stateful(pix, w, h, dab, &g_dyn_brush_state);
-        return;
-    }
-    float p = realism_clamp(g_dyn_brush_state.pressure, 0, 1);
-    realism_update(dab->x, dab->y, p,
-        realism_abs(g_dyn_brush_state.tilt_x) + realism_abs(g_dyn_brush_state.tilt_y), dab->radius);
-    realism_base_moisture = brush_config.water*.01f + brush_config.wetness*.005f;
     w_dyn_dab_t effective = *dab;
-    effective.x += realism_sample.offset_x;
-    effective.y += realism_sample.offset_y;
-    effective.radius *= realism_sample.size;
-    effective.aspect_ratio /= realism_sample.aspect;
-    if (p > .001f && realism_params[15] != 100) effective.radius *= realism_pressure(p, realism_params[15])/p;
-    effective.opacity *= realism_sample.flow * realism_sample.pigment * realism_sample.opacity;
-    if (p > .001f && realism_params[16] != 100) effective.opacity *= realism_pressure(p, realism_params[16])/p;
+    if (realism_enabled) {
+        float p = realism_clamp(g_dyn_brush_state.pressure, 0, 1);
+        realism_update(dab->x, dab->y, p,
+            realism_abs(g_dyn_brush_state.tilt_x) + realism_abs(g_dyn_brush_state.tilt_y), dab->radius);
+        realism_base_moisture = brush_config.water*.01f + brush_config.wetness*.005f;
+        effective.x += realism_sample.offset_x;
+        effective.y += realism_sample.offset_y;
+        effective.radius *= realism_sample.size;
+        effective.aspect_ratio /= realism_sample.aspect;
+        if (p > .001f && realism_params[15] != 100) effective.radius *= realism_pressure(p, realism_params[15])/p;
+        effective.opacity *= realism_sample.flow * realism_sample.pigment * realism_sample.opacity;
+        if (p > .001f && realism_params[16] != 100) effective.opacity *= realism_pressure(p, realism_params[16])/p;
+    }
     w_dyn_surface_render_dab_stateful(pix, w, h, &effective, &g_dyn_brush_state);
+    // Match the rasterizer's conservative bounds, including ellipse and realism.
+    if (effective.radius > 0.1f && effective.opacity > 0.001f) {
+        float aspect = effective.aspect_ratio < 1.0f ? 1.0f : effective.aspect_ratio;
+        float extent = effective.radius * aspect * 1.5f + 2.0f;
+        int ox = layers[active_layer].x, oy = layers[active_layer].y;
+        mark_dirty_rect((int)(effective.x - extent) + ox, (int)(effective.y - extent) + oy,
+                        (int)(effective.x + extent) + ox, (int)(effective.y + extent) + oy);
+    }
 }
 
 W_EXPORT void w_brush_dyn_init(void) {

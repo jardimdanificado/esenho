@@ -101,6 +101,7 @@ object EsenhoNativeBridge {
 
     // Shapes & Buffers
     external fun nativeRenderToBitmap(bitmap: Bitmap): Boolean
+    external fun nativeRenderDisplayBitmap(bitmap: Bitmap): Boolean
     external fun nativeLayerGetBitmap(layerIdx: Int, bitmap: Bitmap): Boolean
     external fun nativeDrawLine(x0: Int, y0: Int, x1: Int, y1: Int, color: Int)
     external fun nativeDrawRect(x: Int, y: Int, w: Int, h: Int, color: Int)

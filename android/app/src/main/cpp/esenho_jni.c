@@ -174,6 +174,10 @@ extern void w_erase_rect(int x, int y, int w, int h);
 extern void w_erase_ellipse(int cx, int cy, int rx, int ry);
 extern void w_draw_grid(int step, uint32_t color);
 extern int32_t w_has_dirty_rect(void);
+extern int32_t w_get_dirty_x0(void);
+extern int32_t w_get_dirty_y0(void);
+extern int32_t w_get_dirty_x1(void);
+extern int32_t w_get_dirty_y1(void);
 extern void w_clear_dirty_bounds(void);
 extern void w_mark_dirty_rect(int32_t x0, int32_t y0, int32_t x1, int32_t y1);
 
@@ -499,10 +503,6 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
         w_brush_dyn_set_base(19, h); w_brush_dyn_set_base(20, s); w_brush_dyn_set_base(21, maxc);
         w_brush_dyn_set_base(32, eraser ? 1.0f : 0.0f);
         w_brush_dyn_stroke_to(x1, y1, p, (float)tilt_x / 90.0f, (float)tilt_y / 90.0f, dt, 1.0f);
-        int pad = (int)fmaxf(g_brush_size * 4.0f, 64.0f);
-        w_mark_dirty_rect((int)x1 - pad, (int)y1 - pad, (int)x1 + pad, (int)y1 + pad);
-        force_composite();
-        w_invalidate_layers();
         if (state == 2) g_dynamic_last_stroke_ns = 0;
         return;
     }
@@ -973,6 +973,54 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeRenderToBitmap(
     }
 
     AndroidBitmap_unlockPixels(env, bitmap);
+    return JNI_TRUE;
+}
+
+// The display bitmap is persistent. Keep its identity weakly so replacing a
+// document or bitmap always triggers a full initial copy without retaining it.
+static jweak g_display_bitmap = NULL;
+
+JNIEXPORT jboolean JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeRenderDisplayBitmap(
+    JNIEnv *env, jobject thiz, jobject bitmap) {
+    AndroidBitmapInfo info;
+    void *pixels = NULL;
+    if (AndroidBitmap_getInfo(env, bitmap, &info) < 0 ||
+        info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return JNI_FALSE;
+    if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return JNI_FALSE;
+
+    int same = g_display_bitmap && (*env)->IsSameObject(env, g_display_bitmap, bitmap);
+    uint32_t *src = w_render();
+    if (!src || !pixels) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return JNI_FALSE;
+    }
+    int width = get_width(), height = get_height();
+    int x0 = 0, y0 = 0;
+    int x1 = (int)info.width < width ? (int)info.width - 1 : width - 1;
+    int y1 = (int)info.height < height ? (int)info.height - 1 : height - 1;
+    if (same) {
+        if (!w_has_dirty_rect()) {
+            AndroidBitmap_unlockPixels(env, bitmap);
+            return JNI_TRUE;
+        }
+        x0 = w_get_dirty_x0(); y0 = w_get_dirty_y0();
+        if (w_get_dirty_x1() < x1) x1 = w_get_dirty_x1();
+        if (w_get_dirty_y1() < y1) y1 = w_get_dirty_y1();
+    }
+    if (x0 <= x1 && y0 <= y1) {
+        size_t bytes = (size_t)(x1 - x0 + 1) * sizeof(uint32_t);
+        for (int y = y0; y <= y1; ++y) {
+            memcpy((char *)pixels + (size_t)y * info.stride + (size_t)x0 * 4,
+                   src + (size_t)y * width + x0, bytes);
+        }
+    }
+    AndroidBitmap_unlockPixels(env, bitmap);
+    if (!same) {
+        if (g_display_bitmap) (*env)->DeleteWeakGlobalRef(env, g_display_bitmap);
+        g_display_bitmap = (*env)->NewWeakGlobalRef(env, bitmap);
+    }
+    w_clear_dirty_bounds();
     return JNI_TRUE;
 }
 

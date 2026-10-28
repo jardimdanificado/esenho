@@ -4315,7 +4315,7 @@ class EsenhoEngine(
 
     fun getRenderBitmap(): Bitmap? {
         renderBitmap?.let { bmp ->
-            EsenhoNativeBridge.nativeRenderToBitmap(bmp)
+            EsenhoNativeBridge.nativeRenderDisplayBitmap(bmp)
         }
         return renderBitmap
     }
