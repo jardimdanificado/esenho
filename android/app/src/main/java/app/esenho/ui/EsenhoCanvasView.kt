@@ -771,7 +771,15 @@ class EsenhoCanvasView @JvmOverloads constructor(
         // Solid document paper background (white)
         canvas.drawRect(0f, 0f, eng.width.toFloat(), eng.height.toFloat(), paperPaint)
 
-        // 2. Onion skin shows configurable neighboring cels in the active layer.
+        // 2. Document flattened composite, including its opaque background.
+        val bmp = eng.getRenderBitmap()
+        if (bmp != null) {
+            canvas.drawBitmap(bmp, 0f, 0f, null)
+        }
+
+        // 3. Onion skin must be drawn over the flattened composite: that
+        // bitmap includes the opaque background layer and would hide ghosts
+        // drawn underneath it.
         eng.getOnionSkinPreviews().forEach { preview ->
             val paint = if (preview.isPrevious) onionPrevPaint else onionNextPaint
             paint.alpha = preview.alpha
@@ -782,12 +790,6 @@ class EsenhoCanvasView @JvmOverloads constructor(
         onionNextPaint.alpha = 90
         onionPrevPaint.colorFilter = PorterDuffColorFilter(0xFFFF3C3C.toInt(), PorterDuff.Mode.SRC_IN)
         onionNextPaint.colorFilter = PorterDuffColorFilter(0xFF3C8CFF.toInt(), PorterDuff.Mode.SRC_IN)
-
-        // 3. Document Flattened Composite Bitmap
-        val bmp = eng.getRenderBitmap()
-        if (bmp != null) {
-            canvas.drawBitmap(bmp, 0f, 0f, null)
-        }
 
         // 4. Pixel Art Grid Overlay
         transformMatrix.getValues(matrixValues)
