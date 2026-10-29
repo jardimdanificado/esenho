@@ -258,6 +258,19 @@ class EsenhoCanvasView @JvmOverloads constructor(
         return Pair(pts[0], pts[1])
     }
 
+    private fun processHistoricalStrokeSamples(event: MotionEvent) {
+        val eng = engine ?: return
+        for (h in 0 until event.historySize) {
+            val raw = mapToCanvas(event.getHistoricalX(0, h), event.getHistoricalY(0, h))
+            val (cx, cy) = constrainToGuide(raw.first, raw.second)
+            val historicalPressure = event.getHistoricalPressure(0, h)
+            val pressure = if (historicalPressure > 0.01f) historicalPressure else 0.85f
+            val tiltRadians = event.getHistoricalAxisValue(MotionEvent.AXIS_TILT, 0, h)
+            val tilt = (tiltRadians * 180f / Math.PI).toInt()
+            eng.onTouchMove(cx, cy, pressure, tilt, 0)
+        }
+    }
+
     private fun ellipsePath(bounds: Pair<GuidePoint, GuidePoint>, rxFactor: Float = 1f, ryFactor: Float = 1f): List<GuidePoint> {
         val (a, b) = bounds
         val cx = (a.x + b.x) / 2f
@@ -615,13 +628,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
                         engine?.onTouchDown(pending.x, pending.y, pending.pressure, pending.tilt, 0)
                     }
 
-                    val historySize = event.historySize
-                    for (h in 0 until historySize) {
-                        val raw = mapToCanvas(event.getHistoricalX(h), event.getHistoricalY(h))
-                        val (hcx, hcy) = constrainToGuide(raw.first, raw.second)
-                        val hp = event.getHistoricalPressure(h)
-                        engine?.onTouchMove(hcx, hcy, if (hp > 0.01f) hp else 0.85f)
-                    }
+                    processHistoricalStrokeSamples(event)
 
                     val raw = mapToCanvas(event.x, event.y)
                     val (cx, cy) = constrainToGuide(raw.first, raw.second)
@@ -719,6 +726,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     pendingCanvasDown = null
                     engine?.onTouchDown(pending.x, pending.y, pending.pressure, pending.tilt, 0)
                 }
+                processHistoricalStrokeSamples(event)
                 engine?.onTouchUp(cx, cy, pressure)
                 restoreStylusEraserTool()
                 onStateChanged?.invoke()
