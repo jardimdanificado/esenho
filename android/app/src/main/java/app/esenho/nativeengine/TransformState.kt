@@ -215,7 +215,7 @@ class TransformState(
         dx: Float,
         dy: Float,
         origin: FloatArray = dstPts.copyOf(),
-        lockAspect: Boolean = false,
+        lockAspect: Boolean = true,
         forceFreeCorner: Boolean = false
     ) {
         if (origin.size < 8) return

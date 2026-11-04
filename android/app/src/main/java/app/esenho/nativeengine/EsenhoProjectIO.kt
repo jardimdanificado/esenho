@@ -321,7 +321,7 @@ object EsenhoProjectIO {
         engine.transformModePreference = runCatching {
             TransformState.Mode.valueOf(json.optString("transformMode", "SCALE"))
         }.getOrDefault(TransformState.Mode.SCALE)
-        engine.transformLockAspect = json.optBoolean("transformLockAspect", false)
+        engine.transformLockAspect = json.optBoolean("transformLockAspect", true)
         while (engine.layers.size > savedLayers.length() && engine.layers.size > 1) {
             EsenhoNativeBridge.nativeLayerDelete(engine.layers.last().id)
             engine.syncLayers()

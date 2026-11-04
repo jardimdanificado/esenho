@@ -4324,7 +4324,7 @@ class EsenhoEngine(
 
     var transformState: TransformState? = null
     var transformInterpolation: TransformState.Interpolation = TransformState.Interpolation.NEAREST
-    var transformLockAspect: Boolean = rasterUiPreferences.getBoolean("transform_lock_aspect", false)
+    var transformLockAspect: Boolean = rasterUiPreferences.getBoolean("transform_lock_aspect", true)
         set(value) {
             field = value
             rasterUiPreferences.edit().putBoolean("transform_lock_aspect", value).apply()
