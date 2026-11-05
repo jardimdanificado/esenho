@@ -530,7 +530,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
                                 cx - transformDragStartX,
                                 cy - transformDragStartY,
                                 transformDragOrigin,
-                                engine?.transformLockAspect == true ||
+                                tState.lockAspect ||
                                     (event.metaState and android.view.KeyEvent.META_SHIFT_ON) != 0,
                                 (event.metaState and (android.view.KeyEvent.META_CTRL_ON or android.view.KeyEvent.META_META_ON)) != 0
                             )

@@ -67,7 +67,7 @@ internal object WebRasterProjectIO {
             }
             engine.transformInterpolation = if (settings.optString("transformInterpolation", "nearest").equals("bilinear", true))
                 TransformState.Interpolation.BILINEAR else TransformState.Interpolation.NEAREST
-            engine.transformLockAspect = jsonBool(settings.opt("transformLockAspect"), true)
+            engine.transformLockAspect = jsonBool(settings.opt("transformLockAspect"), false)
             engine.wandTolerance = settings.optInt("wandTolerance", engine.wandTolerance).coerceIn(0, 255)
             engine.wandContiguous = jsonBool(settings.opt("wandAdjacent"), true)
             engine.selectionOp = when (settings.optString("selectionMode", "replace").lowercase()) {

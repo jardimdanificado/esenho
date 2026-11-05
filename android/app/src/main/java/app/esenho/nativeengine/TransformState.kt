@@ -60,6 +60,7 @@ class TransformState(
 
     var mode: Mode = Mode.SCALE
     var interpolation: Interpolation = Interpolation.NEAREST
+    var lockAspect: Boolean = isSelectionOnly
 
     // Current transformation matrix in canvas coordinates
     val matrix = Matrix()
@@ -215,7 +216,7 @@ class TransformState(
         dx: Float,
         dy: Float,
         origin: FloatArray = dstPts.copyOf(),
-        lockAspect: Boolean = true,
+        lockAspect: Boolean = false,
         forceFreeCorner: Boolean = false
     ) {
         if (origin.size < 8) return

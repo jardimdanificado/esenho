@@ -443,6 +443,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         } else if (mode == ToolMode.TRANSFORM) {
             if (engine.beginTransform(selectionOnly = engine.selectionActive)) {
                 isTransformActive = true
+                transformLockAspect = engine.transformState?.lockAspect ?: false
                 activePanel = WorkspacePanel.TRANSFORM
                 currentTool = mode
             }
@@ -673,6 +674,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         engine.clearSelection()
                         val transforming = engine.beginTransform()
                         isTransformActive = transforming
+                        if (transforming) transformLockAspect = engine.transformState?.lockAspect ?: false
                         if (transforming) currentTool = ToolMode.TRANSFORM
                         refreshState()
                         Toast.makeText(
@@ -1028,6 +1030,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 val ok = engine.beginTransform(selectionOnly = true)
                                 if (ok) {
                                     isTransformActive = true
+                                    transformLockAspect = engine.transformState?.lockAspect ?: true
                                     activePanel = WorkspacePanel.TRANSFORM
                                     currentTool = ToolMode.TRANSFORM
                                     refreshState()
@@ -1106,6 +1109,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 onClick = {
                                     transformLockAspect = !transformLockAspect
                                     engine.transformLockAspect = transformLockAspect
+                                    engine.transformState?.lockAspect = transformLockAspect
                                     canvasViewRef?.invalidate()
                                 },
                                 description =
