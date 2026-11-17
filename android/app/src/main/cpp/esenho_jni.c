@@ -519,7 +519,7 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
         if (pNorm < 0.0f) pNorm = 0.0f;
         if (pNorm > 1.0f) pNorm = 1.0f;
         float radius = g_brush_size * 0.5f;
-        if (radius < 1.0f) radius = 1.0f;
+        if (radius < 0.5f) radius = 0.5f;
         uint32_t procedural_color = (uint32_t)color;
         uint32_t coverage = (uint32_t)(g_procedural_opacity * g_procedural_flow * 255.0f + 0.5f);
         size_t pixel_count = (size_t)cw * (size_t)ch;
@@ -539,7 +539,7 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
         float spacing = g_procedural_spacing >= 0.0f ? g_procedural_spacing : g_current_brush->default_spacing;
         if (spacing < 0.02f) spacing = 0.05f;
         float step = radius * 2.0f * spacing;
-        if (step < 1.0f) step = 1.0f;
+        if (step < 0.25f) step = 0.25f;
 
         if (state == 0) { // Touch down / start
             g_procedural_last_pressure = stroke_pressure;

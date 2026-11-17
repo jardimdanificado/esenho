@@ -1,8 +1,43 @@
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.9.24'
+    id 'org.jetbrains.compose' version '1.6.11'
     id 'application'
 }
-repositories { mavenCentral() }
-sourceSets.main.kotlin.srcDirs = ['.']
-sourceSets.main.kotlin.include 'EsenhoDesktop.kt'
-application { mainClass = 'EsenhoDesktop' }
+repositories { google(); mavenCentral() }
+java { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { kotlinOptions.jvmTarget = '17' }
+sourceSets.main.kotlin.srcDirs = ['src/main/kotlin', 'build/generated/editor']
+sourceSets.main.java.srcDirs = ['build/generated/editor']
+sourceSets.main.resources.srcDirs = ['../android/app/src/main/res/raw']
+dependencies {
+    implementation compose.desktop.currentOs
+    implementation compose.material3
+    implementation compose.materialIconsExtended
+    implementation 'org.json:json:20240303'
+    implementation 'com.twelvemonkeys.imageio:imageio-webp:3.12.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1'
+}
+application { mainClass = 'app.esenho.desktop.MainKt' }
+tasks.register('prepareEditor', Exec) {
+    workingDir projectDir.parentFile
+    commandLine 'python3', 'desktop/prepare-sources.py'
+    inputs.dir '../android/app/src/main/java'
+    inputs.file 'prepare-sources.py'
+    inputs.file 'EsenhoDesktop.kt'
+    inputs.file '../package.json'
+    outputs.dir 'build/generated/editor'
+}
+tasks.named('compileKotlin') { dependsOn 'prepareEditor' }
+tasks.register('buildNative', Exec) {
+    workingDir projectDir.parentFile
+    commandLine 'bash', 'desktop/build-native.sh'
+    inputs.files fileTree('../src') { include '**/*.c', '**/*.h' }
+    inputs.files fileTree('../android/app/src/main/cpp') { include '**/*.c', '**/*.h' }
+    inputs.files '../scripts/generate-native-plugins.js', '../data.json'
+    inputs.files 'CMakeLists.txt', 'build-native.sh', 'native/bitmap_compat.h', 'native/tablet_input.c'
+    outputs.files 'build/native/libesenho_core.so', 'build/native/libesenho_script.so'
+}
+tasks.named('processResources') {
+    dependsOn 'buildNative'
+    from('build/native') { include 'libesenho_core.so', 'libesenho_script.so', 'libesenho_input.so'; into 'native' }
+}

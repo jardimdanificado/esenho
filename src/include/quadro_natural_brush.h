@@ -50,7 +50,7 @@ static void n_render(int kind, const int *params, uint32_t *pixels, int w, int h
             }
         }
     }
-    rx = rx < 0.45f ? 0.45f : rx; ry = ry < 0.4f ? 0.4f : ry;
+    rx = rx < 0.01f ? 0.01f : rx; ry = ry < 0.01f ? 0.01f : ry;
     float cs = w_cosf(rad), sn = w_sinf(rad);
     float bound = w_sqrtf(rx*rx + ry*ry) + 1;
     int x0,y0,x1,y1;
@@ -61,6 +61,20 @@ static void n_render(int kind, const int *params, uint32_t *pixels, int w, int h
         float qx = n_abs(ux)/rx, qy = n_abs(uy)/ry;
         float q = (kind == N_MARKER || kind >= N_GOUACHE) ? (qx > qy ? qx : qy) : w_sqrtf(qx*qx + qy*qy);
         float edge = n_clamp((1-q)*(ry < rx ? ry : rx)+0.5f, 0, 1);
+        /* Integrate the actual footprint at fine sizes. A center sample loses
+           thin nibs between pixels; minimum radii erase their aspect ratio. */
+        if (rx < 3.0f || ry < 3.0f) {
+            edge = 0;
+            for (int sy = 0; sy < 4; ++sy) for (int sx = 0; sx < 4; ++sx) {
+                float ox = x + (sx + 0.5f)*0.25f - cx;
+                float oy = y + (sy + 0.5f)*0.25f - cy;
+                float ax = n_abs(ox*cs + oy*sn)/rx;
+                float ay = n_abs(-ox*sn + oy*cs)/ry;
+                int inside = (kind == N_MARKER || kind >= N_GOUACHE)
+                    ? (ax <= 1 && ay <= 1) : (ax*ax + ay*ay <= 1);
+                edge += inside * 0.0625f;
+            }
+        }
         if (edge <= 0) continue;
         float coverage;
         uint32_t paint = color;

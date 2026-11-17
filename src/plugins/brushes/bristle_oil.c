@@ -130,10 +130,13 @@ W_EXPORT void w_brush_render_dab(
         float by = cy + b->offset_y * rad;
 
         float b_rad = b->thickness * (0.55f + eff_p) * (0.6f + radius * 0.07f);
-        int bx0 = (int)(bx - b_rad);
-        int by0 = (int)(by - b_rad);
-        int bx1 = (int)(bx + b_rad + 1.0f);
-        int by1 = (int)(by + b_rad + 1.0f);
+        /* Scale fibers with a fine tip instead of piling eighteen fixed-size
+           marks onto a one-pixel stroke. Keep broad brushes unchanged. */
+        if (radius < 4.0f) b_rad *= radius / 4.0f;
+        int bx0 = (int)(bx - b_rad - 1.0f);
+        int by0 = (int)(by - b_rad - 1.0f);
+        int bx1 = (int)(bx + b_rad + 2.0f);
+        int by1 = (int)(by + b_rad + 2.0f);
 
         if (bx0 < x0) bx0 = x0;
         if (by0 < y0) by0 = y0;
@@ -152,9 +155,9 @@ W_EXPORT void w_brush_render_dab(
             for (int px = bx0; px < bx1; px++) {
                 float dx = (float)px - bx;
                 float dist_sq = dx * dx + dy_sq;
-                if (dist_sq > b_rad_sq) continue;
+                if (b_rad >= 3.0f && dist_sq > b_rad_sq) continue;
 
-                float falloff = w_brush_falloff_smooth(dist_sq, inv_b_rad_sq);
+                float falloff = w_brush_fine_falloff(dx, dy, b_rad);
                 float bristle_flow = falloff * g_paint_charge * b->wetness * eff_p;
                 uint32_t alpha_step = (uint32_t)(bristle_flow * 255.0f);
                 if (alpha_step > 255) alpha_step = 255;

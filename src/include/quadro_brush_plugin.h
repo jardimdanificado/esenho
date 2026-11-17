@@ -222,6 +222,20 @@ static inline float w_smoothstep(float edge0, float edge1, float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
+/* Pixel-area integration for fine soft tips; preserve the established
+ * center-sampled profile at larger sizes. Coordinates use pixel centers. */
+static inline float w_brush_fine_falloff(float dx, float dy, float radius) {
+    float inv = 1.0f / (radius * radius);
+    if (radius >= 3.0f) return w_brush_falloff_smooth(dx*dx + dy*dy, inv);
+    float sum = 0;
+    for (int y = 0; y < 4; ++y) for (int x = 0; x < 4; ++x) {
+        float sx = dx + (x + 0.5f)*0.25f - 0.5f;
+        float sy = dy + (y + 0.5f)*0.25f - 0.5f;
+        sum += w_brush_falloff_smooth(sx*sx + sy*sy, inv);
+    }
+    return sum * 0.0625f;
+}
+
 /**
  * Bounds clamping for dab bounding-box calculations.
  */

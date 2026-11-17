@@ -10556,11 +10556,11 @@ class EsenhoScreenHost {
         if (!pixPtr || cw <= 0 || ch <= 0) return;
 
         const baseSize = (this.brushParams && this.brushParams.size) ? this.brushParams.size : 16;
-        const radius = Math.max(1.0, baseSize / 2.0);
+        const radius = Math.max(0.5, baseSize / 2.0);
         const info = b.getInfo ? b.getInfo() : b.info;
         const spacingParam = (this.brushParams && typeof this.brushParams.spacing === 'number') ? (this.brushParams.spacing / 100.0) : null;
         const spacingPct = spacingParam ?? ((info && typeof info.spacing === 'number') ? info.spacing : 0.05);
-        const stepSize = Math.max(0.75, radius * 2.0 * Math.max(0.02, Math.min(0.25, spacingPct)));
+        const stepSize = Math.max(0.25, radius * 2.0 * Math.max(0.02, Math.min(0.25, spacingPct)));
         const sym = this.brushParams?.symmetry || 0;
 
         let effCol = col >>> 0;

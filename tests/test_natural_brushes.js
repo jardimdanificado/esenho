@@ -69,3 +69,35 @@ test('natural preset calibrations preserve intentional technical and FX behavior
   assert.equal(presets.studio_inker.dynamics.velocityScaling,presets.studio_inker.velocity);
   assert.equal(presets.wet_acrylic.wet.wetness,presets.wet_acrylic.wetness);
 });
+
+for (const name of NATURAL_BRUSHES.slice(0, 10)) test(`${name}: fine tips retain coverage and respond to size`, () => {
+  let previous = 0;
+  for (const radius of [0.5, 1, 2, 4]) {
+    const b = loadBrush(name);
+    b.stroke({ radius, y: 50.37 });
+    const mass = alphaMass(b.pixels);
+    assert.ok(mass > previous, `${name}: radius ${radius} must increase pigment coverage`);
+    previous = mass;
+    b.pixels.fill(0);
+    b.stroke({ radius, pressure: 0, y: 50.37 });
+    assert.equal(alphaMass(b.pixels), 0);
+  }
+});
+
+test('fine oil fibers stay within the small tip footprint', () => {
+  const b = loadBrush('bristle_oil');
+  b.stroke({ radius: 0.5, y: 50.37 });
+  const rows = new Set();
+  b.pixels.forEach((p, i) => { if (p >>> 24) rows.add(Math.floor(i / b.width)); });
+  assert.ok(rows.size > 0 && rows.size <= 3, `one-pixel oil tip painted ${rows.size} rows`);
+});
+
+test('fine dry materials keep distinct pigment deposition', () => {
+  const hashes = new Set();
+  for (const name of NATURAL_BRUSHES.slice(0, 4)) {
+    const b = loadBrush(name);
+    b.stroke({ radius: 0.5, y: 50.37 });
+    hashes.add(require('node:crypto').createHash('sha256').update(Buffer.from(b.pixels.buffer, b.pixels.byteOffset, b.pixels.byteLength)).digest('hex'));
+  }
+  assert.equal(hashes.size, 4);
+});

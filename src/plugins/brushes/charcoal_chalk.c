@@ -89,10 +89,10 @@ W_EXPORT void w_brush_render_dab(
         for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy_sq;
-            if (dist_sq > rad_sq) continue;
+            if (rad >= 3.0f && dist_sq > rad_sq) continue;
 
             float dist_ratio = dist_sq * inv_rad_sq; // 0.0 to 1.0
-            float radial_falloff = w_brush_falloff_smooth(dist_sq, inv_rad_sq);
+            float radial_falloff = w_brush_fine_falloff(dx, dy, rad);
 
             float tooth = get_paper_tooth(x, y, scale);
 
