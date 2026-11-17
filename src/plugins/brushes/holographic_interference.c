@@ -89,14 +89,14 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     int x0, y0, x1, y1;
     w_brush_compute_bounds((int)cx, (int)cy, (int)(radius + 2.0f), canvas_w, canvas_h, &x0, &y0, &x1, &y1);
 
     float inv_r_sq = 1.0f / (radius * radius);
-    float grating_scale = 0.08f + ((float)_param_grating_freq * 0.002f);
+    float grating_scale = (0.08f + ((float)_param_grating_freq * 0.002f)) / w_brush_detail_scale(radius);
     float film_d = (float)_param_film_thick * 0.04f;
     float sat = (float)_param_iridescence * 0.01f;
     float foil = (float)_param_metallic_foil * 0.01f;
@@ -105,14 +105,14 @@ void w_brush_render_dab(
     float cos_a = w_cosf(rad_ang);
     float sin_a = w_sinf(rad_ang);
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
             /* Continuous space coordinates for micro-grating */
             float proj_t = (float)x * cos_a + (float)y * sin_a;
@@ -124,7 +124,7 @@ void w_brush_render_dab(
             uint32_t r, g, b;
             spectral_rainbow(opt_phase, sat, foil, &r, &g, &b);
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, radius);
             float intensity = falloff * eff_p;
             if (intensity <= 0.01f) continue;
 

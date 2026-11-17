@@ -74,13 +74,13 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
-    float curtain_h = (float)_param_curtain_height * eff_p;
+    float curtain_h = (float)_param_curtain_height * eff_p * (radius < 4.0f ? radius*0.25f : 1.0f);
     float flutter = (float)_param_wave_speed * 0.015f;
     float violet_mix = (float)_param_violet_tint * 0.01f;
-    float ray_freq = 0.15f + ((float)_param_ray_density * 0.003f);
+    float ray_freq = (0.15f + ((float)_param_ray_density * 0.003f)) / w_brush_detail_scale(radius);
 
     _phase += 0.08f * (1.0f + speed * 0.02f);
 
@@ -97,14 +97,14 @@ void w_brush_render_dab(
     float norm_x = -sin_a;
     float norm_y = cos_a;
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > reach_r * reach_r) continue;
+            if (reach_r >= 3.0f && dist_sq > reach_r * reach_r) continue;
 
             /* Project onto stroke tangent and normal directions */
             float proj_tang = dx * cos_a + dy * sin_a;
@@ -129,7 +129,7 @@ void w_brush_render_dab(
             float ray = 0.7f + 0.3f * w_sinf((proj_tang + (float)x * 0.3f) * ray_freq);
 
             /* Cubic Hermite falloff at boundary */
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, reach_r);
             float intensity = rib_factor * ray * falloff * eff_p;
             if (intensity <= 0.01f) continue;
 

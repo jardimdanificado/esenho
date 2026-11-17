@@ -60,7 +60,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     float rad = radius * (0.85f + eff_p * 0.35f);
@@ -79,18 +79,18 @@ void w_brush_render_dab(
     float ly = -0.577f;
     float lz = 0.577f;
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > rad * rad) continue;
+            if (rad >= 3.0f && dist_sq > rad * rad) continue;
 
             float dist_ratio = dist_sq * inv_r_sq;
             /* Hemisphere 3D normal vector */
-            float nz = w_sqrtf(1.0f - dist_ratio);
+            float nz = w_sqrtf(dist_ratio < 1.0f ? 1.0f - dist_ratio : 0.0f);
             float nx = dx * inv_r;
             float ny = dy * inv_r;
 
@@ -113,7 +113,7 @@ void w_brush_render_dab(
             /* Combine chrome metallic response */
             float chrome = (horizon * 0.5f + fresnel_factor * 0.4f + spec * 0.9f) * refl;
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, rad);
             if (falloff <= 0.01f) continue;
 
             uint32_t val = (uint32_t)(chrome * 255.0f);

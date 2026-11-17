@@ -63,7 +63,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     float loop_h = (float)_param_loop_height * (0.6f + eff_p * 0.7f);
@@ -82,11 +82,11 @@ void w_brush_render_dab(
     float norm_x = -sin_a;
     float norm_y = cos_a;
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
             if (dist_sq > reach_r * reach_r) continue;

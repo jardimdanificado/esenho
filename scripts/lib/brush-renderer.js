@@ -10,7 +10,7 @@ function loadBrush(name, width = 320, height = 100) {
     __table_base: new WebAssembly.Global({ value: 'i32', mutable: false }, 1),
     sinf: Math.sin, cosf: Math.cos, sqrtf: Math.sqrt, atan2f: Math.atan2, powf: Math.pow,
   } });
-  const api = instance.exports, ptr = 1024 * 1024;
+  const api = instance.exports, ptr = 8 * 1024 * 1024; // Keep the canvas beyond simulation grids and the 1 MiB relief map.
   const bytes = new Uint8Array(memory.buffer);
   let start = api.w_brush_get_info(), end = start;
   while (bytes[end]) end++;

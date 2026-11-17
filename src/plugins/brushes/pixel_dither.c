@@ -83,10 +83,11 @@ W_EXPORT void w_brush_render_dab(
     uint32_t color,
     int32_t is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     int grid = g_grid_size;
     int rad = (int)radius;
+    if (rad < 1) rad = 1; /* Pixel art retains a discrete one-pixel footprint. */
     int snap_cx = ((int)cx / grid) * grid;
     int snap_cy = ((int)cy / grid) * grid;
 

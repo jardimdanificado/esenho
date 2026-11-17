@@ -103,7 +103,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (radius < 2.0f) radius = 2.0f;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || !(radius > 0.0f)) return;
 
     float sensor_dist = radius * 0.55f;
     float sensor_angle = 0.45f; /* ~26 degrees */

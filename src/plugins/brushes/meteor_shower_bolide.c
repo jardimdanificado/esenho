@@ -63,10 +63,10 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
-    float trail_len = (float)_param_trail_length * (0.8f + eff_p * 0.6f);
+    float trail_len = (float)_param_trail_length * (0.8f + eff_p * 0.6f) * (radius < 4.0f ? radius*0.25f : 1.0f);
     float heat = (float)_param_fireball_heat * 0.01f;
     float cone_w = (float)_param_shock_cone * 0.008f;
 
@@ -79,11 +79,11 @@ void w_brush_render_dab(
     float sin_a = w_sinf(rad_ang);
 
     /* 1. Supersonic Shock Cone & Ionized Wake */
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
 

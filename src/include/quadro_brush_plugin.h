@@ -222,6 +222,11 @@ static inline float w_smoothstep(float edge0, float edge1, float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
+/* Keep fixed-size effect details proportional to a fine tip. */
+static inline float w_brush_detail_scale(float radius) {
+    return radius < 4.0f ? radius*0.25f : 1.0f;
+}
+
 /* Pixel-area integration for fine soft tips; preserve the established
  * center-sampled profile at larger sizes. Coordinates use pixel centers. */
 static inline float w_brush_fine_falloff(float dx, float dy, float radius) {

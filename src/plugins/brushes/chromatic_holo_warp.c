@@ -89,7 +89,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (radius < 2.0f) radius = 2.0f;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || !(radius > 0.0f)) return;
 
     float dx = cx - _last_x;
     float dy = cy - _last_y;
@@ -129,9 +129,9 @@ void w_brush_render_dab(
         for (int x = x0; x <= x1; x++) {
             float fdx = (float)x - cx;
             float dist_sq = fdx * fdx + dy_sq;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, radius);
             float weight = falloff * pressure;
 
             /* Sobel luminance normal extraction */

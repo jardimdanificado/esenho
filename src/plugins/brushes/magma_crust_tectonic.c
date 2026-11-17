@@ -63,7 +63,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     int x0, y0, x1, y1;
@@ -73,14 +73,14 @@ void w_brush_render_dab(
     float fissure_k = ((float)_param_fissure_width * 0.01f) * eff_p;
     float heat = (float)_param_magma_heat * 0.01f;
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
             /* Continuous space procedural crack cellular network */
             float sx = (float)x * 0.12f;
@@ -91,7 +91,7 @@ void w_brush_render_dab(
             float crack = c1 * c2;
             if (crack < 0.0f) crack = -crack;
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, radius);
             if (falloff <= 0.01f) continue;
 
             /* Crack threshold: inside fissure vs on cooling crust plate */

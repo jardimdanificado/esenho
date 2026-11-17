@@ -64,12 +64,12 @@ W_EXPORT void w_brush_render_dab(
     uint32_t color,
     int32_t is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.01f) ? pressure : 0.5f;
     int count = (int)((float)g_grain_density * eff_p * 2.0f);
 
-    float grav = (float)g_gravity_fall * (0.5f + eff_p * 0.5f);
+    float grav = (float)g_gravity_fall * (0.5f + eff_p * 0.5f) * (radius < 4.0f ? radius*0.25f : 1.0f);
     float spread_factor = (float)g_tumble_spread / 100.0f;
     float jitter = (float)g_shade_jitter / 100.0f;
 

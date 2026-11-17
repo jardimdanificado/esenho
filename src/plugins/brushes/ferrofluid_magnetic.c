@@ -66,7 +66,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (radius < 2.0f) radius = 2.0f;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || !(radius > 0.0f)) return;
 
     float b_strength = ((float)_param_mag_field / 100.0f) * pressure * 1.5f;
     float sharpness = 1.0f + ((float)_param_sharpness / 100.0f) * 4.0f;
@@ -114,9 +114,9 @@ void w_brush_render_dab(
         for (int x = x0; x <= x1; x++) {
             float fdx = (float)x - cx;
             float dist_sq = fdx * fdx + dy_sq;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(fdx, fdy, radius);
             if (falloff <= 0.0f) continue;
 
             /* 1. Hexagonal standing wave pattern (Rosensweig peaks) */

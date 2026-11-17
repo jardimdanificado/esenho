@@ -73,7 +73,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (radius < 4.0f) radius = 4.0f;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || !(radius > 0.0f)) return;
 
     int density = _param_density;
     if (density < 6) density = 6;
@@ -84,12 +84,13 @@ void w_brush_render_dab(
     uint32_t tint_b = (color >> 16) & 0xFF;
 
     float cell_size = radius * (20.0f / (float)density);
-    if (cell_size < 10.0f) cell_size = 10.0f;
+    float min_cell=10.0f*w_brush_detail_scale(radius);
+    if (cell_size < min_cell) cell_size = min_cell;
 
-    int x0 = (int)(cx - radius); if (x0 < 0) x0 = 0;
-    int y0 = (int)(cy - radius); if (y0 < 0) y0 = 0;
-    int x1 = (int)(cx + radius); if (x1 >= canvas_w) x1 = canvas_w - 1;
-    int y1 = (int)(cy + radius); if (y1 >= canvas_h) y1 = canvas_h - 1;
+    int x0 = (int)(cx - radius - 1); if (x0 < 0) x0 = 0;
+    int y0 = (int)(cy - radius - 1); if (y0 < 0) y0 = 0;
+    int x1 = (int)(cx + radius + 1); if (x1 >= canvas_w) x1 = canvas_w - 1;
+    int y1 = (int)(cy + radius + 1); if (y1 >= canvas_h) y1 = canvas_h - 1;
 
     /* Continuous spatial grid seed generation ensuring seamless stroke overlap */
     int gx0 = (int)w_floorf((float)x0 / cell_size) - 1;
@@ -132,7 +133,7 @@ void w_brush_render_dab(
     }
 
     float inv_r_sq = 1.0f / (radius * radius);
-    float border_th = (float)_param_border_th;
+    float border_th = (float)_param_border_th*w_brush_detail_scale(radius);
     float bevel_strength = ((float)_param_bevel / 100.0f);
 
     for (int y = y0; y <= y1; y++) {
@@ -143,9 +144,9 @@ void w_brush_render_dab(
         for (int x = x0; x <= x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy_sq;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, radius);
             float weight = falloff * pressure;
 
             /* Compute two closest Voronoi seeds (F1 and F2) */

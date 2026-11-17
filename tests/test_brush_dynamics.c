@@ -164,6 +164,28 @@ static void test_area_smudge_and_decay() {
     free(pixels);
 }
 
+static void test_fine_nib_subpixel_coverage(void) {
+    printf("[TEST] Fine Gaussian Nib Pixel-Area Coverage... ");
+    uint32_t pixels[16*16];
+    int min_mass=1000000, max_mass=0;
+    w_dyn_dab_t dab;
+    memset(&dab,0,sizeof(dab));
+    dab.radius=0.5f; dab.opacity=1; dab.hardness=0.8f;
+    dab.aspect_ratio=3; dab.r=1; dab.a=1;
+    for (int phase=0; phase<4; ++phase) {
+        memset(pixels,0,sizeof(pixels));
+        dab.x=8+phase*0.25f; dab.y=8+phase*0.25f;
+        w_dyn_surface_render_dab(pixels,16,16,&dab);
+        int mass=0;
+        for (int i=0; i<16*16; ++i) mass+=pixels[i]>>24;
+        if (mass<min_mass) min_mass=mass;
+        if (mass>max_mass) max_mass=mass;
+    }
+    assert(min_mass>0);
+    assert(max_mass<min_mass*1.5f);
+    printf("OK (coverage %d..%d)\n",min_mass,max_mass);
+}
+
 int main(int argc, char **argv) {
     (void)argc; (void)argv;
     printf("===================================================\n");
@@ -175,6 +197,7 @@ int main(int argc, char **argv) {
     test_speed_ema_filters();
     test_tilt_polar_decomposition();
     test_gaussian_and_ellipse_rasterizer();
+    test_fine_nib_subpixel_coverage();
     test_area_smudge_and_decay();
 
     printf("===================================================\n");

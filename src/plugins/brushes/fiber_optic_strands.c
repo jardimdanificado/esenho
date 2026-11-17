@@ -83,7 +83,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     float spread_k = ((float)_param_spread * 0.01f) * (0.8f + eff_p * 0.5f);
@@ -109,7 +109,7 @@ void w_brush_render_dab(
         float fy = cy + (fib->offset_x * sin_a + fib->offset_y * cos_a) * radius * spread_k - sin_a * lag;
 
         /* Fiber tip luminous core */
-        float tip_r = 1.5f + eff_p * 1.5f;
+        float tip_r = (1.5f + eff_p * 1.5f) * (radius < 4.0f ? radius*0.25f : 1.0f);
         int bx0 = (int)(fx - tip_r - 1.0f);
         int by0 = (int)(fy - tip_r - 1.0f);
         int bx1 = (int)(fx + tip_r + 2.0f);
@@ -140,9 +140,9 @@ void w_brush_render_dab(
             for (int px = bx0; px <= bx1; px++) {
                 float dx = (float)px - fx;
                 float d_sq = dx * dx + dy * dy;
-                if (d_sq > tip_r * tip_r) continue;
+                if (tip_r >= 3.0f && d_sq > tip_r * tip_r) continue;
 
-                float falloff = w_brush_falloff_smooth(d_sq, inv_tip_sq);
+                float falloff = w_brush_fine_falloff(dx, dy, tip_r);
                 uint32_t alpha = (uint32_t)(falloff * 240.0f * glow_k * eff_p);
                 if (alpha > 255) alpha = 255;
 

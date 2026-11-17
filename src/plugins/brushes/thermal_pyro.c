@@ -119,7 +119,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (radius < 2.0f) radius = 2.0f;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || !(radius > 0.0f)) return;
 
     float heat_injection = ((float)_param_heat / 100.0f) * pressure * 1.4f;
     float alpha_diff = ((float)_param_diffusion / 100.0f) * 0.22f;
@@ -181,7 +181,7 @@ void w_brush_render_dab(
         for (int x = x0; x <= x1; x++) {
             float fdx = (float)x - cx;
             float dist_sq = fdx * fdx + dy_sq;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
             float gx = (fdx + r_bound) * inv_rad_scale + 1.0f;
             int gi = (int)gx;
@@ -190,7 +190,7 @@ void w_brush_render_dab(
             float t = _temp[T_IX(gi, gj)];
             if (t < 0.02f) continue;
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff((float)x-cx, (float)y-cy, radius);
             uint32_t py_color = blackbody_color(t, (uint32_t)(char_amount * 100.0f));
 
             uint32_t alpha = (uint32_t)(t * falloff * pressure * 255.0f);

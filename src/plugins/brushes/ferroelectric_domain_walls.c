@@ -63,13 +63,13 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     int x0, y0, x1, y1;
     w_brush_compute_bounds((int)cx, (int)cy, (int)(radius + 2.0f), canvas_w, canvas_h, &x0, &y0, &x1, &y1);
 
-    float pitch = (float)_param_domain_scale;
+    float pitch = ((float)_param_domain_scale) * w_brush_detail_scale(radius);
     float inv_pitch = 1.0f / pitch;
     float jitter = ((float)_param_barkhausen * 0.01f) * eff_p;
     float contrast = (float)_param_contrast * 0.01f;
@@ -83,14 +83,14 @@ void w_brush_render_dab(
     uint32_t cg = w_color_get_g(color);
     uint32_t cb = w_color_get_b(color);
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
             /* Continuous space crystal domain coordinates */
             float u = (float)x * cos_a + (float)y * sin_a;
@@ -112,7 +112,7 @@ void w_brush_render_dab(
             float wall_factor = 1.0f - (dist_to_wall * 8.0f);
             if (wall_factor < 0.0f) wall_factor = 0.0f;
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, radius);
             if (falloff <= 0.01f) continue;
 
             /* Shading based on electric polarization orientation */

@@ -63,7 +63,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     int x0, y0, x1, y1;
@@ -71,7 +71,7 @@ void w_brush_render_dab(
 
     float interval = (float)_param_contour_interval;
     float inv_interval = 1.0f / interval;
-    float freq = 0.015f + ((float)_param_terrain_rough * 0.0005f);
+    float freq = (0.015f + ((float)_param_terrain_rough * 0.0005f)) / w_brush_detail_scale(radius);
     float sharp = (float)_param_line_sharpness * 0.01f;
     float hillshade = (float)_param_slope_shading * 0.01f;
     float inv_r_sq = 1.0f / (radius * radius);
@@ -80,14 +80,14 @@ void w_brush_render_dab(
     uint32_t cg = w_color_get_g(color);
     uint32_t cb = w_color_get_b(color);
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
             /* Continuous elevation scalar in world coordinates */
             float wx = (float)x * freq;
@@ -125,7 +125,7 @@ void w_brush_render_dab(
                 slope_light = 0.85f + (dhx - dhy) * 8.0f * hillshade;
             }
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, radius);
             if (falloff <= 0.01f) continue;
 
             float total_alpha = (line_factor * 0.85f + (1.0f - line_factor) * hillshade * 0.25f) * falloff * eff_p;

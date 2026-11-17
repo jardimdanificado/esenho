@@ -1,5 +1,20 @@
 #include "quadro.h"
 #include "quadro_brush_realism.h"
+#include "quadro_brush_footprint.h"
+/* Clang may lower the affine bounds intrinsics to libc calls. Keep the
+ * freestanding WASM module self-contained, including NaN and signed zero. */
+#if defined(__wasm__)
+double fmin(double a, double b) {
+    if (a != a) return b;
+    if (b != b) return a;
+    return a == b ? (__builtin_signbit(a) ? a : b) : (a < b ? a : b);
+}
+double fmax(double a, double b) {
+    if (a != a) return b;
+    if (b != b) return a;
+    return a == b ? (__builtin_signbit(a) ? b : a) : (a > b ? a : b);
+}
+#endif
 #if defined(__wasm_simd128__)
 #include <wasm_simd128.h>
 #endif
@@ -1381,17 +1396,17 @@ static int32_t last_trajectory_angle = 0;
  * Renders a single parametric dab at (cx, cy) onto active layer pixels.
  * Samples shape texture alpha channel for arbitrary tip geometry.
  */
-static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float cy, uint32_t color, int eraser, int move_dx, int move_dy, int dab_r, int dab_angle, int dab_flow_pct, int cur_d) {
+static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float cy, uint32_t color, int eraser, int move_dx, int move_dy, float dab_r, int dab_angle, int dab_flow_pct, int cur_d) {
     int is_alpha_locked = (active_layer >= 0 && active_layer < layer_count && layers[active_layer].alpha_lock);
-    int r = (dab_r > 0) ? dab_r : brush_config.size;
-    if (r < 1) r = 1;
-    float rf = (float)r;
+    float rf = dab_r > 0 ? dab_r : (float)brush_config.size;
+    if (rf < 0.05f) rf = 0.05f;
+    int r = (int)__builtin_ceilf(rf);
     realism_dab_radius = rf;
     int roundness = brush_config.roundness > 0 ? brush_config.roundness : 100;
     if (realism_enabled) roundness = (int)realism_clamp(roundness * realism_sample.aspect, 1, 100);
     float roundness_scale = (roundness == 100) ? 1.0f : (100.0f / (float)roundness);
     int inner_r = (r * brush_config.hardness) / 100;
-    float inner_rf = (float)inner_r;
+    float inner_rf = rf * brush_config.hardness * 0.01f;
     float r_sq = rf * rf;
     float inner_r_sq = inner_rf * inner_rf;
     int bound_r = (r * 142) / 100 + 2;
@@ -1483,6 +1498,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
     int has_tex = (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0));
 
     update_hardness_lut(brush_config.hardness);
+    int fine_tip = brush_config.subpixel && rf < 4.0f;
 
     for (int y = min_y; y <= max_y; y++) {
         float dy = (float)y - cy;
@@ -1496,7 +1512,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
         float v_scaled = dy * roundness_scale;
         float v_scaled_sq = v_scaled * v_scaled;
 
-        if (is_unrotated) {
+        if (is_unrotated && !fine_tip) {
             if (is_builtin_circle && v_scaled_sq > r_sq + (brush_config.subpixel ? (2.0f * rf + 1.0f) : 0.0f)) continue;
             else if (!is_builtin_circle && (dy < -rf || dy > rf)) continue;
         }
@@ -1515,22 +1531,22 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                 v = -dx * sin_f + row_v;
                 v_scaled = v * roundness_scale;
                 float abs_u = u < 0.0f ? -u : u;
-                if (abs_u > rf + 1.0f) continue;
+                if (!fine_tip && abs_u > rf + 1.0f) continue;
                 float abs_v = v_scaled < 0.0f ? -v_scaled : v_scaled;
-                if (abs_v > rf + 1.0f) continue;
+                if (!fine_tip && abs_v > rf + 1.0f) continue;
                 dist_sq = u * u + v_scaled * v_scaled;
             }
 
-            if (is_builtin_circle) {
+            if (!fine_tip && is_builtin_circle) {
                 if (dist_sq > r_sq + (brush_config.subpixel ? (2.0f * rf + 1.0f) : 0.0f)) continue;
-            } else {
+            } else if (!fine_tip) {
                 float abs_u = u < 0.0f ? -u : u;
                 float abs_v = v_scaled < 0.0f ? -v_scaled : v_scaled;
                 if (abs_u > rf || abs_v > rf) continue;
             }
 
             uint32_t shape_a = 255;
-            if (!is_builtin_circle && !is_builtin_square) {
+            if (!fine_tip && !is_builtin_circle && !is_builtin_square) {
                 if (stex->pixels && stex->width > 0 && stex->height > 0) {
                     if (brush_config.subpixel && stex->width > 1 && stex->height > 1 && r > 0) {
                         float fx = ((u + rf) * (float)(stex->width - 1)) / (2.0f * rf);
@@ -1566,6 +1582,39 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                     }
                 }
             }
+            /* Resolve fine tips over pixel area before compositing. Sample
+               custom tips too: their interior detail otherwise collapses to
+               one texel as pressure reduces the footprint. */
+            if (fine_tip) {
+                float sum = 0;
+                for (int sy = 0; sy < 8; ++sy) for (int sx = 0; sx < 8; ++sx) {
+                    float ox = dx + (sx + 0.5f)*0.125f - 0.5f;
+                    float oy = dy + (sy + 0.5f)*0.125f - 0.5f;
+                    float su = ox*cos_f + oy*sin_f;
+                    float sv = (-ox*sin_f + oy*cos_f)*roundness_scale;
+                    float sample = 255;
+                    if (is_builtin_circle) {
+                        float sd = su*su + sv*sv;
+                        if (sd > r_sq) continue;
+                        if (brush_config.hardness < 100 && sd > inner_r_sq) {
+                            int index = (int)(sd*1023.0f/r_sq);
+                            if (index > 1023) index = 1023;
+                            sample = g_hardness_lut[index];
+                        }
+                    } else {
+                        if (su < -rf || su > rf || sv < -rf || sv > rf) continue;
+                        if (!is_builtin_square && stex->pixels && stex->width > 0 && stex->height > 0) {
+                            int tx = (int)((su + rf)*(stex->width - 1)/(2*rf));
+                            int ty = (int)((sv + rf)*(stex->height - 1)/(2*rf));
+                            sample = stex->pixels[ty*stex->width + tx] >> 24;
+                        }
+                    }
+                    sum += sample;
+                }
+                shape_a = (uint32_t)(sum/64.0f + 0.5f);
+                if (is_builtin_circle && brush_config.hardness == 100)
+                    shape_a=(uint32_t)(w_tip_ellipse_coverage(dx,dy,rf,rf/roundness_scale,cos_f,sin_f)*255+0.5f);
+            }
             if (shape_a == 0) continue;
 
             // Dual brush
@@ -1581,7 +1630,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                 if (shape_a == 0) continue;
             }
 
-            if (brush_config.subpixel && is_builtin_circle) {
+            if (!fine_tip && brush_config.subpixel && is_builtin_circle) {
                 float dist = __builtin_sqrtf(dist_sq);
                 if (dist > rf) {
                     if (dist < rf + 1.0f) {
@@ -1606,7 +1655,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
 
             // Hardness / Softness falloff & Flow alpha calculation via LUT
             uint32_t a = DIV255(dab_flow_a * shape_a);
-            if (brush_config.hardness < 100 && r > 0 && is_builtin_circle) {
+            if (!fine_tip && brush_config.hardness < 100 && r > 0 && is_builtin_circle) {
                 if (dist_sq > inner_r_sq) {
                     int lut_idx = (int)((dist_sq * 1023.0f) / (r_sq > 0.0f ? r_sq : 1.0f));
                     if (lut_idx > 1023) lut_idx = 1023;
@@ -2733,18 +2782,19 @@ static void render_stroke_dab(uint32_t *pix, int w, int h, float cx, float cy, f
     if (scale_factor <= 0) return;
 
     // Size with size_jitter and pressure sensitivity
-    int dab_r = (brush_config.size * scale_factor) / 100;
+    float dab_r = (brush_config.size * scale_factor) / 100.0f;
     if (brush_config.pressure_size && pressure >= 0) {
         int p = pressure > 1000 ? 1000 : pressure;
-        if (realism_params[15] == 100) dab_r = (dab_r * p) / 1000;
-        else dab_r = (int)(dab_r * realism_pressure(p*.001f, realism_params[15]));
+        if (realism_params[15] == 100) dab_r = (dab_r * p) / 1000.0f;
+        else dab_r *= realism_pressure(p*.001f, realism_params[15]);
     }
     if (brush_config.size_jitter > 0) {
         int sj = (int)(next_random() % (brush_config.size_jitter + 1));
         dab_r = (dab_r * (100 - sj)) / 100;
     }
-    dab_r = (int)(dab_r * realism_sample.size);
-    if (dab_r < 1) dab_r = 1;
+    dab_r *= realism_sample.size;
+    if (!(dab_r > 0.0f)) return;
+    if (dab_r < 0.05f) dab_r = 0.05f;
 
     // Angle with angle_jitter and stylus tilt dynamics
     int dab_angle = brush_config.angle;
@@ -3004,7 +3054,7 @@ W_EXPORT void w_brush_stroke_ext_f(int32_t state, float x0, float y0, float x1, 
         float min_step = (float)brush_config.size * 0.04f;
         if (step_size < min_step) step_size = min_step;
     }
-    if (step_size < 0.5f) step_size = 0.5f;
+    if (step_size < 0.25f) step_size = 0.25f;
 
     int move_dx = 0, move_dy = 0;
     float sm_step = (brush_config.size > 8) ? ((float)brush_config.size * 0.25f) : 2.0f;

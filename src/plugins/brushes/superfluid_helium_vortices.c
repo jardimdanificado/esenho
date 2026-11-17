@@ -60,13 +60,13 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     int x0, y0, x1, y1;
     w_brush_compute_bounds((int)cx, (int)cy, (int)(radius + 2.0f), canvas_w, canvas_h, &x0, &y0, &x1, &y1);
 
-    float pitch = (float)_param_lattice_pitch;
+    float pitch = ((float)_param_lattice_pitch) * w_brush_detail_scale(radius);
     float inv_pitch = 1.0f / pitch;
     float row_h = pitch * 0.8660254f; /* sqrt(3)/2 for triangular lattice */
     float inv_row_h = 1.0f / row_h;
@@ -75,14 +75,14 @@ void w_brush_render_dab(
     float coherence = (float)_param_bose_glow * 0.01f;
     float inv_r_sq = 1.0f / (radius * radius);
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
             /* Map to triangular hexagonal vortex lattice in world coordinates */
             float row_idx = w_floorf((float)y * inv_row_h);
@@ -105,7 +105,7 @@ void w_brush_render_dab(
             float phase_ang = (v_dist > 0.001f) ? w_sinf(v_dx / v_dist) : 0.0f;
             float circulation_spiral = 0.5f + 0.5f * w_sinf(phase_ang * 2.0f + v_dist * 0.35f);
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, radius);
             if (falloff <= 0.01f) continue;
 
             /* Condensate quantum fluid coloring: liquid neon cyan/sapphire with dark hollow vortex cores */

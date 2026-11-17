@@ -11,6 +11,7 @@
  */
 
 #include "quadro_brush_plugin.h"
+#include "quadro_brush_footprint.h"
 
 static int g_nib_angle = 45;      // degrees
 static int g_flatness = 85;       // % aspect ratio reduction (thickness vs width)
@@ -74,7 +75,7 @@ W_EXPORT void w_brush_render_dab(
 
     float major_r = radius * (0.8f + eff_p * 0.4f);
     float minor_r = major_r * (1.0f - (float)g_flatness * 0.01f);
-    if (minor_r < 0.75f) minor_r = 0.75f;
+    if (minor_r < 0.01f) minor_r = 0.01f;
 
     int max_dim = (int)(major_r + 1.0f);
     int x0, y0, x1, y1;
@@ -96,10 +97,13 @@ W_EXPORT void w_brush_render_dab(
             float local_y = -dx * sin_a + dy * cos_a;
 
             float ellipse_eq = (local_x * local_x) * inv_major_sq + (local_y * local_y) * inv_minor_sq;
-            if (ellipse_eq > 1.0f) continue;
+            if (minor_r >= 3.0f && ellipse_eq > 1.0f) continue;
 
             float edge_dist = 1.0f - ellipse_eq;
             float aa = w_smoothstep(0.0f, 0.25f, edge_dist);
+            if (minor_r < 3.0f) {
+                aa = w_tip_ellipse_coverage(dx,dy,major_r,minor_r,cos_a,sin_a);
+            }
 
             uint32_t alpha_step = (uint32_t)(aa * flow_mult * eff_p * 255.0f);
             if (alpha_step > 255) alpha_step = 255;

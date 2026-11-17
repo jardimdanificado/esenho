@@ -63,14 +63,14 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     int x0, y0, x1, y1;
     w_brush_compute_bounds((int)cx, (int)cy, (int)(radius + 2.0f), canvas_w, canvas_h, &x0, &y0, &x1, &y1);
 
     float coils = (float)_param_helix_coils;
-    float flux_freq = 0.15f + ((float)_param_flux_density * 0.003f);
+    float flux_freq = (0.15f + ((float)_param_flux_density * 0.003f)) / w_brush_detail_scale(radius);
     float tor_ratio = (float)_param_toroidal_ratio * 0.01f;
     float glow_boost = (float)_param_induction_glow * 0.01f;
     float inv_r_sq = 1.0f / (radius * radius);
@@ -79,14 +79,14 @@ void w_brush_render_dab(
     float cos_a = w_cosf(rad_ang);
     float sin_a = w_sinf(rad_ang);
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
             float r = w_sqrtf(dist_sq);
 
@@ -106,7 +106,7 @@ void w_brush_render_dab(
             /* Combined MHD dynamo induction field */
             float mhd_flux = toroidal * tor_ratio + poloidal * (1.0f - tor_ratio);
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, radius);
             float intensity = mhd_flux * falloff * eff_p;
             if (intensity <= 0.01f) continue;
 

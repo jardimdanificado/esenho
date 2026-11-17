@@ -10,7 +10,7 @@
  * =========================================================================
  */
 
-#include "quadro_brush_plugin.h"
+#include "quadro_brush_grid.h"
 
 #define GRID_DIM 48
 #define TOTAL_CELLS (GRID_DIM * GRID_DIM)
@@ -81,7 +81,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
 
@@ -132,6 +132,18 @@ void w_brush_render_dab(
         }
     }
 
+    if (radius < 4.0f) {
+        static float density[TOTAL_CELLS];
+        for (int state=1; state<=2; ++state) {
+            for (int i=0; i<TOTAL_CELLS; ++i)
+                density[i]=_cells[i]==state ? eff_p*(state==1 ? 1.0f : 170.0f/255) : 0;
+            uint32_t paint=state==1 ? w_color_pack(210,250,255,255) : w_color_pack(255,80,130,255);
+            w_brush_resolve_grid(pixels,canvas_w,canvas_h,cx,cy,radius,
+                density,GRID_DIM,radius,paint,is_eraser,1);
+        }
+        return;
+    }
+
     /* 3. Render Automaton grid onto canvas */
     int x0, y0, x1, y1;
     w_brush_compute_bounds((int)cx, (int)cy, (int)(radius + 2.0f), canvas_w, canvas_h, &x0, &y0, &x1, &y1);
@@ -139,7 +151,7 @@ void w_brush_render_dab(
     float inv_r_scale = (float)(GRID_DIM - 2) / (radius * 2.0f);
     float inv_r_sq = 1.0f / (radius * radius);
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float fdy = (float)y - cy;
         float dy_sq = fdy * fdy;
         float gy = (fdy + radius) * inv_r_scale + 1.0f;
@@ -148,10 +160,10 @@ void w_brush_render_dab(
 
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float fdx = (float)x - cx;
             float dist_sq = fdx * fdx + dy_sq;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
             float gx = (fdx + radius) * inv_r_scale + 1.0f;
             int gi = (int)gx;
@@ -160,7 +172,7 @@ void w_brush_render_dab(
             uint8_t cell_state = _cells[C_IX(gi, gj)];
             if (cell_state == 0) continue;
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff((float)x-cx, (float)y-cy, radius);
             if (falloff <= 0.01f) continue;
 
             uint32_t r, g, b;

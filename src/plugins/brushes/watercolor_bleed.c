@@ -94,9 +94,10 @@ W_EXPORT void w_brush_render_dab(
         for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy_sq;
-            if (dist_sq > r_sq) continue;
+            if (r >= 3.0f && dist_sq > r_sq) continue;
 
-            float dist_ratio = dist_sq * inv_r_sq; // 0.0 at center, 1.0 at outer edge
+            float dist_ratio = dist_sq * inv_r_sq;
+            if (dist_ratio > 1) dist_ratio = 1; // 0.0 at center, 1.0 at outer edge
 
             // Fast polynomial fringe calculation (avoids sqrt)
             float edge_fringe = 0.0f;
@@ -119,6 +120,22 @@ W_EXPORT void w_brush_render_dab(
                 edge_feather = ef * ef * (3.0f - 2.0f * ef);
             }
 
+            if (r < 3.0f) {
+                /* Integrate wash and its fringe together so fine marks retain
+                   both the transparent center and concentrated boundary. */
+                float sum = 0;
+                for (int sy = 0; sy < 4; ++sy) for (int sx = 0; sx < 4; ++sx) {
+                    float ox = dx + (sx + 0.5f)*0.25f - 0.5f;
+                    float oy = dy + (sy + 0.5f)*0.25f - 0.5f;
+                    float q = (ox*ox + oy*oy)*inv_r_sq;
+                    if (q >= 1) continue;
+                    float t = q > 0.5f ? (q-0.5f)*2 : 0;
+                    float feather = q > 0.65f ? w_smoothstep(0, 0.35f, 1-q) : 1;
+                    sum += (0.35f + (1-q)*0.25f + t*t*fringe_strength)*feather;
+                }
+                wash_density = sum*0.0625f;
+                edge_feather = 1;
+            }
             float final_flow = wash_density * gran_factor * water_flow * edge_feather;
             if (final_flow > 1.0f) final_flow = 1.0f;
 

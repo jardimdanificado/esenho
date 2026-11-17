@@ -68,12 +68,12 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     _pulse_time += 0.15f * (1.0f + speed * 0.02f);
 
-    float tentacle_len = (float)_param_tentacle_len * (0.5f + eff_p * 0.8f);
+    float tentacle_len = ((float)_param_tentacle_len * (0.5f + eff_p * 0.8f)) * w_brush_detail_scale(radius);
     float glow_boost = (float)_param_glow_pulse * 0.01f;
     float ruff_freq = (float)_param_undulation * 0.1f;
     float clarity = (float)_param_bell_clarity * 0.01f;
@@ -95,11 +95,11 @@ void w_brush_render_dab(
     float inv_r_sq = 1.0f / (radius * radius);
 
     /* 1. Render Translucent Medusa Umbrella & Trailing Tendrils */
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
 
@@ -143,7 +143,7 @@ void w_brush_render_dab(
                 float t_wave = w_sinf(p_behind * 0.12f + _pulse_time * 2.0f) * radius * 0.35f * (1.0f - t_ratio);
                 float lat_dist = p_lateral - t_wave;
 
-                float tent_thick = (1.5f + (1.0f - t_ratio) * 2.0f);
+                float tent_thick = ((1.5f + (1.0f - t_ratio) * 2.0f)) * w_brush_detail_scale(radius);
                 if (lat_dist * lat_dist < tent_thick * tent_thick) {
                     float t_alpha = (1.0f - t_ratio) * w_brush_falloff_smooth(lat_dist * lat_dist, 1.0f / (tent_thick * tent_thick));
                     uint32_t a = (uint32_t)(t_alpha * 220.0f * glow_boost * eff_p);

@@ -65,7 +65,7 @@ W_EXPORT void w_brush_render_dab(
     uint32_t color,
     int32_t is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f || !(pressure > 0) || !w_color_get_a(color)) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f || !(pressure > 0) || !w_color_get_a(color)) return;
 
     float eff_p = pressure > 1.0f ? 1.0f : pressure;
 
@@ -73,6 +73,10 @@ W_EXPORT void w_brush_render_dab(
     if (speed_scatter > 2.0f) speed_scatter = 2.0f;
 
     int droplet_count = (int)((float)g_particle_density * eff_p);
+    if (radius < 4.0f) {
+        droplet_count=(int)(droplet_count*w_brush_detail_scale(radius)+0.5f);
+        if (droplet_count < 1) droplet_count=1;
+    }
     float jitter_mult = 1.0f + ((float)g_splatter_jitter * 0.01f) * speed_scatter;
 
     int drop_r = g_droplet_size;
@@ -95,6 +99,21 @@ W_EXPORT void w_brush_render_dab(
         float dist_scale = radius;
         if (g_splatter_jitter > 10 && (w_brush_rand() % 100) < (uint32_t)g_splatter_jitter) {
             dist_scale *= jitter_mult;
+        }
+
+        if (radius < 4.0f) {
+            float fx=cx+gx*dist_scale, fy=cy+gy*dist_scale;
+            float fine_r=drop_r*w_brush_detail_scale(radius);
+            int fx0,fy0,fx1,fy1;
+            w_brush_compute_bounds((int)fx,(int)fy,(int)(fine_r+2),canvas_w,canvas_h,&fx0,&fy0,&fx1,&fy1);
+            float flow=(0.5f+w_brush_randf()*0.5f)*base_flow;
+            for (int y=fy0; y<fy1; ++y) for (int x=fx0; x<fx1; ++x) {
+                uint32_t a=(uint32_t)(w_brush_fine_falloff(x-fx,y-fy,fine_r)*flow*255+0.5f);
+                if (!a) continue;
+                uint32_t *dst=&pixels[y*canvas_w+x];
+                *dst=is_eraser ? w_brush_erase(*dst,color,a) : w_brush_blend_over(color,*dst,a);
+            }
+            continue;
         }
 
         int px = (int)(cx + gx * dist_scale);

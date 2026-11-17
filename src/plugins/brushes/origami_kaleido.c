@@ -62,7 +62,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (radius < 4.0f) radius = 4.0f;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || !(radius > 0.0f)) return;
 
     int n_fold = _param_order;
     float sector_angle = 6.2831853f / (float)n_fold;
@@ -72,10 +72,10 @@ void w_brush_render_dab(
     float crease_rad = (float)_param_crease * 0.017453f;
     float bloom_factor = ((float)_param_bloom / 100.0f);
 
-    int x0 = (int)(cx - radius); if (x0 < 0) x0 = 0;
-    int y0 = (int)(cy - radius); if (y0 < 0) y0 = 0;
-    int x1 = (int)(cx + radius); if (x1 >= canvas_w) x1 = canvas_w - 1;
-    int y1 = (int)(cy + radius); if (y1 >= canvas_h) y1 = canvas_h - 1;
+    int x0 = (int)(cx - radius - 1); if (x0 < 0) x0 = 0;
+    int y0 = (int)(cy - radius - 1); if (y0 < 0) y0 = 0;
+    int x1 = (int)(cx + radius + 1); if (x1 >= canvas_w) x1 = canvas_w - 1;
+    int y1 = (int)(cy + radius + 1); if (y1 >= canvas_h) y1 = canvas_h - 1;
 
     float inv_r = 1.0f / radius;
 
@@ -91,7 +91,7 @@ void w_brush_render_dab(
         for (int x = x0; x <= x1; x++) {
             float fdx = (float)x - cx;
             float r_sq = fdx * fdx + dy_sq;
-            if (r_sq > radius * radius) continue;
+            if (radius >= 3.0f && r_sq > radius * radius) continue;
 
             float r = w_sqrtf(r_sq);
             if (r < 0.001f) r = 0.001f;
@@ -129,6 +129,25 @@ void w_brush_render_dab(
             float u = 1.0f - norm_r;
             float edge_falloff = (u > 0.0f) ? (u * u * (3.0f - 2.0f * u)) : 0.0f;
             float alpha_f = intensity * edge_falloff * pressure * 255.0f;
+            if (radius < 3.0f) {
+                alpha_f=0;
+                for (int sy=0; sy<8; ++sy) for (int sx=0; sx<8; ++sx) {
+                    float ox=fdx+(sx+0.5f)*0.125f-0.5f;
+                    float oy=fdy+(sy+0.5f)*0.125f-0.5f;
+                    float nr=w_sqrtf(ox*ox+oy*oy)*inv_r;
+                    if (nr>=1) continue;
+                    float theta=w_atan2f(oy,ox);
+                    if (theta<0) theta+=6.2831853f;
+                    float folded=theta-(int)(theta/sector_angle)*sector_angle;
+                    if (folded>half_sector) folded=sector_angle-folded;
+                    if (curv>0.01f) nr=(2*nr)/(1+nr*nr*curv);
+                    if (nr>1) nr=1;
+                    float crease=w_fabsf(folded/half_sector-0.5f)*2;
+                    float v=(w_cosf(nr*ring_freq*3.14159f)*0.5f+0.5f)*w_cosf(crease_rad*crease);
+                    float edge=1-nr;
+                    if (v>0) alpha_f+=v*edge*edge*(3-2*edge)*pressure*255/64;
+                }
+            }
             if (alpha_f <= 0.0f) continue;
             uint32_t alpha = (uint32_t)alpha_f;
             if (alpha > 255) alpha = 255;

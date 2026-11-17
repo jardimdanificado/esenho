@@ -60,7 +60,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     int x0, y0, x1, y1;
@@ -75,14 +75,14 @@ void w_brush_render_dab(
     float spin = (float)_param_spin_rate * 0.062831853f;
     float inv_r_sq = 1.0f / (radius * radius);
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
             float r = w_sqrtf(dist_sq);
             if (r < 0.001f) continue;
@@ -129,7 +129,7 @@ void w_brush_render_dab(
             if (g_val > 255) g_val = 255;
             if (b_val > 255) b_val = 255;
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, radius);
             uint32_t alpha = (uint32_t)(falloff * eff_p * 255.0f);
             if (alpha > 255) alpha = 255;
 

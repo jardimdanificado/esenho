@@ -68,7 +68,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     _stream_time += 0.12f * (1.0f + speed * 0.02f);
@@ -79,17 +79,17 @@ void w_brush_render_dab(
 
     float inv_r_sq = 1.0f / (reach_r * reach_r);
     float pulse_rate = (float)_param_peristalsis * 0.03f;
-    float vein_scale = 0.12f + ((float)_param_vein_density * 0.002f);
+    float vein_scale = (0.12f + ((float)_param_vein_density * 0.002f)) / w_brush_detail_scale(radius);
     float visc = (float)_param_vein_viscosity * 0.01f;
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > reach_r * reach_r) continue;
+            if (reach_r >= 3.0f && dist_sq > reach_r * reach_r) continue;
 
             /* Continuous space Voronoi-like vein ridge network */
             float sx = (float)x * vein_scale;
@@ -109,7 +109,7 @@ void w_brush_render_dab(
             /* Peristaltic flow swell */
             float peristaltic = 0.8f + 0.2f * w_sinf(sx * 0.5f + sy * 0.5f + _stream_time * pulse_rate);
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, reach_r);
             float slime_density = tube * peristaltic * falloff * eff_p;
             if (slime_density <= 0.01f) continue;
 

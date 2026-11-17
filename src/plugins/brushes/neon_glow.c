@@ -59,7 +59,7 @@ W_EXPORT void w_brush_render_dab(
     uint32_t color,
     int32_t is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.01f) ? pressure : 0.5f;
     float spread_factor = 1.0f + ((float)g_glow_spread * 0.01f);
@@ -89,13 +89,13 @@ W_EXPORT void w_brush_render_dab(
         for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy_sq;
-            if (dist_sq > rad_sq) continue;
+            if (rad >= 3.0f && dist_sq > rad_sq) continue;
 
-            float glow_falloff = w_brush_falloff_smooth(dist_sq, inv_rad_sq);
+            float glow_falloff = w_brush_fine_falloff(dx, dy, rad);
 
             float core_factor = 0.0f;
-            if (dist_sq <= core_radius_sq && inv_core_sq > 0.0f) {
-                core_factor = w_brush_falloff_smooth(dist_sq, inv_core_sq);
+            if (core_radius > 0.0f) {
+                core_factor = w_brush_fine_falloff(dx, dy, core_radius);
             }
 
             uint32_t r = (uint32_t)((float)base_r + (255.0f - (float)base_r) * core_factor);

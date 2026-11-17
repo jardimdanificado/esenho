@@ -70,7 +70,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (radius < 3.0f) radius = 3.0f;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || !(radius > 0.0f)) return;
 
     float dx = cx - _last_x;
     float dy = cy - _last_y;

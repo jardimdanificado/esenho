@@ -9,7 +9,7 @@
  * =========================================================================
  */
 
-#include "quadro_brush_plugin.h"
+#include "quadro_brush_grid.h"
 
 #define RD_SIZE 56
 #define RD_CELLS (RD_SIZE * RD_SIZE)
@@ -82,7 +82,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (radius < 2.0f) radius = 2.0f;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || !(radius > 0.0f)) return;
 
     /* Gray-Scott PDE parameters based on preset */
     float F = 0.0545f;
@@ -162,6 +162,17 @@ void w_brush_render_dab(
         }
     }
 
+    if (radius < 4.0f) {
+        static float density[RD_CELLS];
+        for (int i=0; i<RD_CELLS; ++i) {
+            float v=(_V[i]-0.15f)*1.4f;
+            density[i]=(v > 1 ? 1 : (v > 0 ? v : 0))*pressure;
+        }
+        w_brush_resolve_grid(pixels,canvas_w,canvas_h,cx,cy,radius,
+            density,RD_SIZE,radius*1.5f,color,is_eraser,0);
+        return;
+    }
+
     /* Render emergent morphogenesis pattern onto active layer */
     float r_bound = radius * 1.5f;
     int x0 = (int)(cx - r_bound); if (x0 < 0) x0 = 0;
@@ -190,7 +201,7 @@ void w_brush_render_dab(
         for (int x = x0; x <= x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy_sq;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
             float gx = ((float)x - (cx - r_bound)) * inv_rad_scale + 1.0f;
             int gi = (int)gx;
@@ -200,7 +211,7 @@ void w_brush_render_dab(
             if (v < 0.15f) continue;
 
             /* Smooth Hermite edge falloff */
-            float circular_falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float circular_falloff = w_brush_fine_falloff(dx, dy, radius);
             float pattern_intensity = (v - 0.15f) * 1.4f;
             if (pattern_intensity > 1.0f) pattern_intensity = 1.0f;
 

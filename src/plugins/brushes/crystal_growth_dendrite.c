@@ -64,7 +64,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     float growth_reach = radius * (1.1f + eff_p * 0.4f);
@@ -81,14 +81,14 @@ void w_brush_render_dab(
 
     float base_angle = angle_deg * 0.0174532925f;
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > growth_reach * growth_reach) continue;
+            if (growth_reach >= 3.0f && dist_sq > growth_reach * growth_reach) continue;
 
             float dist = w_sqrtf(dist_sq);
             if (dist < 0.001f) continue;
@@ -117,7 +117,7 @@ void w_brush_render_dab(
             if (edge_factor < 0.0f) edge_factor = 0.0f;
             edge_factor = edge_factor * edge_factor * (3.0f - 2.0f * edge_factor);
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, growth_reach);
             float ice_density = edge_factor * falloff * eff_p;
             if (ice_density <= 0.01f) continue;
 

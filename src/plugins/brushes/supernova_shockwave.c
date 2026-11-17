@@ -63,7 +63,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     float shock_r = radius * (0.9f + eff_p * 0.3f);
@@ -76,14 +76,14 @@ void w_brush_render_dab(
     float turb_amt = (float)_param_ejecta_turb * 0.01f;
     float synch = (float)_param_synchrotron * 0.01f;
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > shock_r * shock_r) continue;
+            if (shock_r >= 3.0f && dist_sq > shock_r * shock_r) continue;
 
             float dist = w_sqrtf(dist_sq);
             if (dist < 0.001f) continue;
@@ -108,7 +108,7 @@ void w_brush_render_dab(
             if (core_factor < 0.0f) core_factor = 0.0f;
             core_factor = core_factor * core_factor;
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, shock_r);
             float energy = (shell_factor * 0.85f + core_factor * 1.1f) * falloff * eff_p;
             if (energy <= 0.01f) continue;
 

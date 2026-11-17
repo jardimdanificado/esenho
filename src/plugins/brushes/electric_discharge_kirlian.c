@@ -63,7 +63,7 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     float reach_r = radius * (1.0f + ((float)_param_corona_reach * 0.008f) * eff_p);
@@ -76,14 +76,14 @@ void w_brush_render_dab(
     float violet_mix = (float)_param_ozone_violet * 0.01f;
     float energy = (float)_param_spark_energy * 0.01f;
 
-    for (int y = y0; y <= y1; y++) {
+    for (int y = y0; y < y1; y++) {
         float dy = (float)y - cy;
         uint32_t *row = pixels + (y * canvas_w);
 
-        for (int x = x0; x <= x1; x++) {
+        for (int x = x0; x < x1; x++) {
             float dx = (float)x - cx;
             float dist_sq = dx * dx + dy * dy;
-            if (dist_sq > reach_r * reach_r) continue;
+            if (reach_r >= 3.0f && dist_sq > reach_r * reach_r) continue;
 
             float dist = w_sqrtf(dist_sq);
             if (dist < 0.001f) continue;
@@ -100,7 +100,7 @@ void w_brush_render_dab(
             float streamer_factor = spike * (1.0f - norm_d);
             streamer_factor = streamer_factor * streamer_factor;
 
-            float falloff = w_brush_falloff_smooth(dist_sq, inv_r_sq);
+            float falloff = w_brush_fine_falloff(dx, dy, reach_r);
             float aura_intensity = (streamer_factor * 0.7f + (1.0f - norm_d) * 0.3f) * falloff * energy * eff_p;
             if (aura_intensity <= 0.01f) continue;
 

@@ -63,10 +63,14 @@ void w_brush_render_dab(
     uint32_t color,
     int is_eraser
 ) {
-    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.5f) return;
+    if (!pixels || canvas_w <= 0 || canvas_h <= 0 || radius <= 0.0f) return;
 
     float eff_p = (pressure > 0.02f) ? pressure : 0.5f;
     int block = _param_block_size;
+    if (radius < 4.0f) {
+        block = (int)(block*radius*0.25f);
+        if (block < 1) block=1;
+    }
     int x0, y0, x1, y1;
     w_brush_compute_bounds((int)cx, (int)cy, (int)(radius + (float)block + 2.0f), canvas_w, canvas_h, &x0, &y0, &x1, &y1);
 
@@ -91,7 +95,7 @@ void w_brush_render_dab(
         for (int bx = x0; bx < x1; bx += block) {
             float dx = (float)bx + (float)block * 0.5f - cx;
             float dist_sq = dx * dx + dy_sq;
-            if (dist_sq > radius * radius) continue;
+            if (radius >= 3.0f && dist_sq > radius * radius) continue;
 
             /* Stochastic block selection */
             uint32_t b_hash = ((uint32_t)(bx / block) * 0x1F1F1F1F) ^ ((uint32_t)(by / block) * 0x3D3D3D3D);
@@ -140,7 +144,10 @@ void w_brush_render_dab(
                     }
 
                     uint32_t out_c = w_color_pack(r, g, b, 255);
-                    row_dst[cx2] = out_c;
+                    if (radius < 3.0f) {
+                        uint32_t coverage=(uint32_t)(w_brush_fine_falloff(cx2-cx,cy2-cy,radius)*255+0.5f);
+                        row_dst[cx2]=w_brush_blend_over(out_c,row_dst[cx2],coverage);
+                    } else row_dst[cx2] = out_c;
                 }
             }
         }

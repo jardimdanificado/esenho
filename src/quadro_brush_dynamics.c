@@ -597,6 +597,18 @@ void w_dyn_surface_render_dab(uint32_t *pixels, int width, int height, const w_d
             float dist_sq = ex * ex + ey * ey;
 
             float intensity = dyn_exp(-dist_sq * inv_two_sigma_sq);
+            /* Integrate narrow Gaussian nibs instead of sampling only the
+               pixel center. This retains aspect and pressure below one pixel. */
+            if (rad / aspect < 3.0f) {
+                intensity = 0;
+                for (int sy = 0; sy < 4; ++sy) for (int sx = 0; sx < 4; ++sx) {
+                    float ox = dx + (sx + 0.5f)*0.25f - 0.5f;
+                    float oy = dy + (sy + 0.5f)*0.25f - 0.5f;
+                    float ux = ox*cos_a + oy*sin_a;
+                    float uy = (-ox*sin_a + oy*cos_a)*aspect;
+                    intensity += dyn_exp(-(ux*ux + uy*uy)*inv_two_sigma_sq)*0.0625f;
+                }
+            }
             if (intensity < 0.005f) continue;
 
             float alpha = intensity * dab_op;
