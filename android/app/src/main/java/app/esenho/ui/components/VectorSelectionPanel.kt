@@ -281,7 +281,7 @@ internal fun VectorSelectionPanel(engine: EsenhoEngine, revision: Int, onChanged
 }
 
 @Composable
-private fun VectorNumber(
+internal fun VectorNumber(
     label: String,
     value: String,
     onChange: (String) -> Unit,

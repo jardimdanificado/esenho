@@ -20,6 +20,12 @@ enum class VectorTool(val label: String) {
     ELLIPSE("Elipse"),
 }
 
+enum class VectorNodeType(val label: String) {
+    CORNER("Angular"),
+    SMOOTH("Suave"),
+    SYMMETRIC("Simétrico"),
+}
+
 data class VectorNode(
     var x: Float,
     var y: Float,
@@ -30,6 +36,7 @@ data class VectorNode(
     var inY: Float = y,
     var outX: Float = x,
     var outY: Float = y,
+    var type: VectorNodeType = VectorNodeType.CORNER,
 ) {
     fun move(dx: Float, dy: Float) {
         x += dx
@@ -40,7 +47,48 @@ data class VectorNode(
         outY += dy
     }
 
-    fun json() = JSONArray(listOf(x, y, pressure, tiltX, tiltY, inX, inY, outX, outY))
+    /**
+     * Smooth nodes keep both handles on one line, preserving their lengths.
+     * Symmetric nodes also force equal lengths. [moved] is 1 for the in handle,
+     * 2 for the out handle, and 0 when the type itself is being changed.
+     */
+    fun balanceHandles(moved: Int = 0) {
+        if (type == VectorNodeType.CORNER) return
+        val li = hypot(inX - x, inY - y)
+        val lo = hypot(outX - x, outY - y)
+        if (li < .0001f && lo < .0001f) return
+        val fromIn = moved == 1 || (moved == 0 && li > lo)
+        val useIn = fromIn && li >= .0001f || !fromIn && lo < .0001f
+        val ux: Float
+        val uy: Float
+        if (useIn) {
+            ux = -(inX - x) / li
+            uy = -(inY - y) / li
+        } else {
+            ux = (outX - x) / lo
+            uy = (outY - y) / lo
+        }
+        if (type == VectorNodeType.SYMMETRIC) {
+            val length =
+                when (moved) {
+                    1 -> li
+                    2 -> lo
+                    else -> max(li, lo)
+                }
+            outX = x + ux * length
+            outY = y + uy * length
+            inX = x - ux * length
+            inY = y - uy * length
+        } else {
+            outX = x + ux * lo
+            outY = y + uy * lo
+            inX = x - ux * li
+            inY = y - uy * li
+        }
+    }
+
+    fun json() =
+        JSONArray(listOf(x, y, pressure, tiltX, tiltY, inX, inY, outX, outY, type.name))
 }
 
 /** Extra contours belong to the same filled object; they may bound holes or separate islands. */
@@ -204,6 +252,8 @@ data class VectorObject(
                         a.getDouble(6).toFloat(),
                         a.getDouble(7).toFloat(),
                         a.getDouble(8).toFloat(),
+                        runCatching { VectorNodeType.valueOf(a.optString(9, "CORNER")) }
+                            .getOrDefault(VectorNodeType.CORNER),
                     )
                 }
             return VectorObject(
@@ -276,6 +326,9 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     private var nodeIndex = -1
     val selectedNode: VectorNode?
         get() = selected?.allNodes()?.getOrNull(nodeIndex)
+
+    val selectedNodeIndex: Int
+        get() = nodeIndex
 
     private val raw = mutableListOf<VectorNode>()
     private var strokeBase: Bitmap? = null
@@ -564,10 +617,12 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     1 -> {
                         n.inX += dx
                         n.inY += dy
+                        n.balanceHandles(1)
                     }
                     2 -> {
                         n.outX += dx
                         n.outY += dy
+                        n.balanceHandles(2)
                     }
                     else -> n.move(dx, dy)
                 }
@@ -792,14 +847,76 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
 
     fun applyStyle() = changeAppearance { it.style = engine.captureVectorStyle() }
 
-    fun cornerNode() = changeSelected { obj ->
-        obj.allNodes().getOrNull(nodeIndex)?.let { n ->
+    fun cornerNode() = setNodeType(VectorNodeType.CORNER)
+
+    fun setNodeType(type: VectorNodeType) = changeSelected { obj ->
+        val (contour, index) = editingContour() ?: return@changeSelected
+        val n = contour.nodes.getOrNull(index) ?: return@changeSelected
+        n.type = type
+        if (type == VectorNodeType.CORNER) {
             n.inX = n.x
             n.inY = n.y
             n.outX = n.x
             n.outY = n.y
+            return@changeSelected
         }
+        // A fresh node has both handles collapsed; seed them from its neighbours.
+        if (hypot(n.inX - n.x, n.inY - n.y) < .0001f &&
+            hypot(n.outX - n.x, n.outY - n.y) < .0001f
+        ) {
+            val nodes = contour.nodes
+            val previous = when {
+                index > 0 -> nodes[index - 1]
+                contour.closed -> nodes.lastOrNull()
+                else -> null
+            }
+            val next = when {
+                index < nodes.lastIndex -> nodes[index + 1]
+                contour.closed -> nodes.firstOrNull()
+                else -> null
+            }
+            val dx: Float
+            val dy: Float
+            when {
+                previous != null && next != null -> {
+                    dx = next.x - previous.x
+                    dy = next.y - previous.y
+                }
+                next != null -> {
+                    dx = next.x - n.x
+                    dy = next.y - n.y
+                }
+                previous != null -> {
+                    dx = n.x - previous.x
+                    dy = n.y - previous.y
+                }
+                else -> return@changeSelected
+            }
+            val length = hypot(dx, dy)
+            if (length < .0001f) return@changeSelected
+            val handle = (minOf(40f, length / 3f) / length)
+            n.outX = n.x + dx * handle
+            n.outY = n.y + dy * handle
+            n.inX = n.x - dx * handle
+            n.inY = n.y - dy * handle
+        }
+        n.balanceHandles()
     }
+
+    /** Absolute coordinates for the active node, without touching its handles' offsets. */
+    fun moveNode(x: Float, y: Float) = changeSelected {
+        val n = selectedNode ?: return@changeSelected
+        val dx = x - n.x
+        val dy = y - n.y
+        if (dx.isFinite() && dy.isFinite()) n.move(dx, dy)
+    }
+
+    fun setObjectCap(cap: String) = changeAppearance { it.style.put("cap", cap) }
+
+    fun setObjectJoin(join: String) = changeAppearance { it.style.put("join", join) }
+
+    fun setObjectMiter(miter: Float) =
+        changeAppearance { it.style.put("miter", miter.toDouble()) }
 
     private fun editingContour(): Pair<VectorContour, Int>? {
         val obj = selected ?: return null

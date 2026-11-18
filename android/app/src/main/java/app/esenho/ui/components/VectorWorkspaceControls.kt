@@ -11,12 +11,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import app.esenho.nativeengine.*
+import java.util.Locale
 
 private fun vectorIcon(tool: VectorTool): ImageVector =
     when (tool) {
@@ -257,6 +262,68 @@ fun VectorObjectPanel(
                     )
                     Text("Preenchimento")
                 }
+            if (selected.style.optBoolean("svgStroke", false)) {
+                Text(
+                    "Terminações e junções do contorno SVG",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text("Terminação", style = MaterialTheme.typography.bodySmall)
+                Row {
+                    listOf("butt" to "Butt", "round" to "Redonda", "square" to "Quadrada")
+                        .forEach { (value, label) ->
+                            FilterChip(
+                                selected = selected.style.optString("cap", "round") == value,
+                                onClick = {
+                                    vector.setObjectCap(value)
+                                    onChanged()
+                                },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        }
+                }
+                Text("Junção", style = MaterialTheme.typography.bodySmall)
+                Row {
+                    listOf("miter" to "Mitre", "round" to "Redonda", "bevel" to "Chanfro")
+                        .forEach { (value, label) ->
+                            FilterChip(
+                                selected = selected.style.optString("join", "round") == value,
+                                onClick = {
+                                    vector.setObjectJoin(value)
+                                    onChanged()
+                                },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        }
+                }
+                if (selected.style.optString("join", "round") == "miter") {
+                    var miter by
+                        remember(selected.id) {
+                            mutableStateOf(
+                                String.format(
+                                    Locale.ROOT,
+                                    "%.1f",
+                                    selected.style.optDouble("miter", 4.0),
+                                )
+                            )
+                        }
+                    val miterValue = miter.replace(',', '.').toFloatOrNull()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        VectorNumber("Limite do mitre", miter, { miter = it }, Modifier.weight(1f))
+                        TextButton(
+                            enabled =
+                                miterValue != null && miterValue.isFinite() && miterValue >= 1f,
+                            onClick = {
+                                vector.setObjectMiter(miterValue!!)
+                                onChanged()
+                            },
+                        ) {
+                            Text("Aplicar")
+                        }
+                    }
+                }
+            }
             OutlinedButton(
                 onClick = {
                     vector.applyStyle()
@@ -291,16 +358,47 @@ fun VectorObjectPanel(
                         Text("Excluir nó")
                     }
                 }
-                TextButton(
-                    enabled = vector.selectedNode != null,
-                    onClick = {
-                        vector.cornerNode()
-                        onChanged()
-                    },
-                ) {
-                    Text("Tornar angular")
+                Text("Tipo do nó", style = MaterialTheme.typography.bodySmall)
+                Row {
+                    VectorNodeType.values().forEach { type ->
+                        FilterChip(
+                            enabled = vector.selectedNode != null,
+                            selected = vector.selectedNode?.type == type,
+                            onClick = {
+                                vector.setNodeType(type)
+                                onChanged()
+                            },
+                            label = { Text(type.label, style = MaterialTheme.typography.labelSmall) },
+                            modifier = Modifier.padding(end = 4.dp),
+                        )
+                    }
                 }
                 vector.selectedNode?.let { node ->
+                    var nodeX by
+                        remember(vector.selected?.id, vector.selectedNodeIndex) {
+                            mutableStateOf(String.format(Locale.ROOT, "%.2f", node.x))
+                        }
+                    var nodeY by
+                        remember(vector.selected?.id, vector.selectedNodeIndex) {
+                            mutableStateOf(String.format(Locale.ROOT, "%.2f", node.y))
+                        }
+                    val xValue = nodeX.replace(',', '.').toFloatOrNull()
+                    val yValue = nodeY.replace(',', '.').toFloatOrNull()
+                    Text("Posição do nó", style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        VectorNumber("X", nodeX, { nodeX = it }, Modifier.weight(1f))
+                        VectorNumber("Y", nodeY, { nodeY = it }, Modifier.weight(1f))
+                    }
+                    TextButton(
+                        enabled =
+                            xValue != null && yValue != null && xValue.isFinite() && yValue.isFinite(),
+                        onClick = {
+                            vector.moveNode(xValue!!, yValue!!)
+                            onChanged()
+                        },
+                    ) {
+                        Text("Mover nó")
+                    }
                     Text("Pressão do nó: ${(node.pressure*100).toInt()}%")
                     Slider(
                         value = node.pressure.coerceIn(.01f, 1f),
