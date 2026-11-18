@@ -1,4 +1,4 @@
-name: Build Offline Android APK
+name: Build Android APK and Linux
 
 on:
   push:
@@ -74,21 +74,49 @@ jobs:
           path: esenho-v${{ env.APK_VERSION }}.apk
           if-no-files-found: error
 
+      - name: Install Linux Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential cmake libx11-dev libxi-dev ffmpeg
+
+      - name: Test Linux Desktop
+        run: ./desktop/test.sh
+
+      - name: Build Linux Package with Bundled Java
+        run: |
+          make linux
+          cp desktop/build/Esenho-linux.tar.gz "esenho-v${APK_VERSION}-linux-x86_64.tar.gz"
+
+      - name: Test Packaged Linux Executable
+        env:
+          JAVA_TOOL_OPTIONS: -Djava.awt.headless=true
+        run: |
+          TEST_DATA_DIR=$(mktemp -d "$RUNNER_TEMP/esenho-linux-test.XXXXXX")
+          XDG_DATA_HOME="$TEST_DATA_DIR/data" XDG_CACHE_HOME="$TEST_DATA_DIR/cache" \
+            desktop/build/package/Esenho/bin/Esenho --smoke-test
+
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: esenho-v${{ env.APK_VERSION }}-linux-x86_64
+          path: esenho-v${{ env.APK_VERSION }}-linux-x86_64.tar.gz
+          if-no-files-found: error
+
       - name: Create or Update GitHub Release
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          assets=(
+            "esenho-v${APK_VERSION}.apk"
+            "esenho-v${APK_VERSION}-linux-x86_64.tar.gz"
+          )
           if gh release view "v${APK_VERSION}" >/dev/null 2>&1; then
-            for asset in $(gh release view "v${APK_VERSION}" --json assets -q '.assets[].name'); do
-              if [ "$asset" != "esenho-v${APK_VERSION}.apk" ]; then
-                gh release delete-asset "v${APK_VERSION}" "$asset" -y || true
-              fi
-            done
             gh release edit "v${APK_VERSION}" --title "v${APK_VERSION}"
-            gh release upload "v${APK_VERSION}" "esenho-v${APK_VERSION}.apk" --clobber
+            gh release upload "v${APK_VERSION}" "${assets[@]}" --clobber
           else
-            gh release create "v${APK_VERSION}" "esenho-v${APK_VERSION}.apk" \
+            gh release create "v${APK_VERSION}" "${assets[@]}" \
               --title "v${APK_VERSION}" \
               --notes "Release v${APK_VERSION}"
           fi
