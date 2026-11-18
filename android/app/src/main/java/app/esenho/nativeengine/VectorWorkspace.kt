@@ -981,6 +981,166 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
 
     fun setTextPath(pathId: String?) = changeSelected { it.pathId = pathId }
 
+    private fun offsetContour(contour: VectorContour, radius: Float): List<VectorContour> {
+        val source =
+            VectorObject("offset", contour.nodes.toMutableList(), JSONObject(), contour.closed)
+        val flattened = source.samples()
+        if (flattened.size < 2) return emptyList()
+        val points =
+            if (
+                contour.closed &&
+                    hypot(flattened.first().x - flattened.last().x, flattened.first().y - flattened.last().y) < .01f
+            )
+                flattened.dropLast(1)
+            else flattened
+        val size = points.size
+        val normals =
+            points.indices.map { i ->
+                val previous =
+                    if (contour.closed) points[(i - 1 + size) % size] else points[maxOf(0, i - 1)]
+                val next =
+                    if (contour.closed) points[(i + 1) % size] else points[minOf(size - 1, i + 1)]
+                val dx = next.x - previous.x
+                val dy = next.y - previous.y
+                val length = hypot(dx, dy)
+                if (length < .0001f) 0f to 0f else -dy / length to dx / length
+            }
+        fun shifted(sign: Float) =
+            points.indices.map { i ->
+                val (nx, ny) = normals[i]
+                VectorNode(points[i].x + nx * sign * radius, points[i].y + ny * sign * radius, 1f)
+            }.toMutableList()
+        fun area(nodes: List<VectorNode>): Float {
+            var value = 0f
+            for (i in nodes.indices) {
+                val a = nodes[i]
+                val b = nodes[(i + 1) % nodes.size]
+                value += a.x * b.y - b.x * a.y
+            }
+            return value
+        }
+        val positive = shifted(1f)
+        val negative = shifted(-1f)
+        if (!contour.closed)
+            return listOf(VectorContour((positive + negative.asReversed()).toMutableList(), true))
+        val outer = if (abs(area(positive)) >= abs(area(negative))) positive else negative
+        val inner = if (outer === positive) negative else positive
+        return listOf(
+            VectorContour(outer, true),
+            VectorContour(inner.asReversed().toMutableList(), true),
+        )
+    }
+
+    /** Turns the current stroke into a filled, editable closed area. */
+    fun outlineStroke() = changeSelected { obj ->
+        val radius = obj.style.optDouble("size", 14.0).toFloat() / 2f
+        if (radius <= .01f) return@changeSelected
+        val results = obj.geometry().flatMap { offsetContour(it, radius) }
+        if (results.isEmpty()) return@changeSelected
+        obj.nodes.clear()
+        obj.nodes.addAll(results.first().nodes)
+        obj.closed = results.first().closed
+        obj.subPaths.clear()
+        obj.subPaths.addAll(results.drop(1))
+        obj.fill = obj.fill ?: obj.style.optInt("color", 0xff000000.toInt())
+        obj.style.put("strokeEnabled", false)
+        obj.evenOdd = obj.subPaths.isNotEmpty()
+    }
+
+    private fun distanceToLine(point: VectorNode, a: VectorNode, b: VectorNode): Float {
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+        val length = dx * dx + dy * dy
+        val t = if (length == 0f) 0f else ((point.x - a.x) * dx + (point.y - a.y) * dy) / length
+        val clamped = t.coerceIn(0f, 1f)
+        return hypot(point.x - (a.x + clamped * dx), point.y - (a.y + clamped * dy))
+    }
+
+    private fun rdp(points: List<VectorNode>, tolerance: Float): List<VectorNode> {
+        if (points.size <= 2) return points
+        var farthest = 0f
+        var index = -1
+        for (i in 1 until points.size - 1) {
+            val distance = distanceToLine(points[i], points.first(), points.last())
+            if (distance > farthest) {
+                farthest = distance
+                index = i
+            }
+        }
+        if (index < 0 || farthest <= tolerance) return listOf(points.first(), points.last())
+        return rdp(points.take(index + 1), tolerance).dropLast(1) +
+            rdp(points.drop(index), tolerance)
+    }
+
+    private fun refreshHandles(nodes: List<VectorNode>, closed: Boolean) {
+        nodes.indices.forEach { i ->
+            val previous =
+                if (closed) nodes[(i - 1 + nodes.size) % nodes.size] else nodes[maxOf(0, i - 1)]
+            val next =
+                if (closed) nodes[(i + 1) % nodes.size] else nodes[minOf(nodes.size - 1, i + 1)]
+            val dx = (next.x - previous.x) / 6
+            val dy = (next.y - previous.y) / 6
+            nodes[i].inX = nodes[i].x - dx
+            nodes[i].inY = nodes[i].y - dy
+            nodes[i].outX = nodes[i].x + dx
+            nodes[i].outY = nodes[i].y + dy
+        }
+    }
+
+    /** Ramer-Douglas-Peucker reduction that keeps the path editable. */
+    fun simplify(tolerance: Float = 2f) = changeSelected { obj ->
+        val limit = tolerance.coerceIn(.1f, 40f)
+        val main = rdp(obj.nodes, limit)
+        if (main.size >= if (obj.closed) 3 else 2) {
+            obj.nodes.clear()
+            obj.nodes.addAll(main)
+            refreshHandles(obj.nodes, obj.closed)
+        }
+        val contours = mutableListOf<VectorContour>()
+        obj.subPaths.forEach { contour ->
+            val reduced = rdp(contour.nodes, limit)
+            if (reduced.size >= if (contour.closed) 3 else 2) {
+                refreshHandles(reduced, contour.closed)
+                contours += VectorContour(reduced.toMutableList(), contour.closed)
+            }
+        }
+        obj.subPaths.clear()
+        obj.subPaths.addAll(contours)
+    }
+
+    /** Converts opaque pixels of the active layer into filled vector contours. */
+    fun traceLayer(threshold: Int = 128, maxContours: Int = 120): Int {
+        val index = engine.activeLayerIndex
+        val bitmap = Bitmap.createBitmap(engine.width, engine.height, Bitmap.Config.ARGB_8888)
+        val contours =
+            try {
+                if (!EsenhoNativeBridge.nativeLayerGetBitmap(index, bitmap)) return 0
+                VectorTracer.trace(bitmap, threshold.coerceIn(1, 255), maxContours.coerceIn(1, 500))
+            } finally {
+                bitmap.recycle()
+            }
+        if (contours.isEmpty()) return 0
+        engine.beginVectorEdit()
+        switchMode(true)
+        ensureLayer()
+        val target = layers.getOrPut(engine.activeLayerIndex) { mutableListOf() }
+        contours.forEach { contour ->
+            val obj =
+                VectorObject(
+                    java.util.UUID.randomUUID().toString(),
+                    contour.nodes,
+                    engine.captureVectorStyle().apply { put("strokeEnabled", false) },
+                    true,
+                    engine.currentColor,
+                    name = "Vetorizado",
+                )
+            target.add(obj)
+        }
+        selectedId = target.last().id
+        render()
+        return contours.size
+    }
+
     fun convertTextToCurves() = changeSelected { obj ->
         val body = obj.text ?: return@changeSelected
         val contours = VectorFont.outline(body, obj.fontSize, obj.fontFamily)

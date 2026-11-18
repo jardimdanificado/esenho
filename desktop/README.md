@@ -95,6 +95,12 @@ A ferramenta **Texto** cria um objeto editável. No painel do objeto é possíve
 
 **Texto sobre caminho** prende o texto a outro caminho da mesma camada; cada caractere é posicionado e girado ao longo da curva. **Converter em curvas** substitui o texto por contornos de glifos editáveis pela ferramenta **Nós**, preservando furos. Textos e referências `textPath` sobrevivem ao projeto `.esenho` e à exportação/importação SVG, inclusive SVG externo com `text`, `font-family`, `font-size`, `letter-spacing` e `text-anchor`. Fontes não instaladas no sistema podem mudar de aparência em outros computadores.
 
+### Conversões
+
+No painel do objeto, **Contorno em área** transforma a espessura do traço em uma área fechada preenchida, com o contorno interno preservado como furo quando aplicável. **Simplificar** reduz âncoras quase colineares com tolerância de 2 px, mantendo o caminho editável.
+
+**Vetorizar camada** lê os pixels opacos da camada ativa, usa o limiar de alfa informado e cria caminhos fechados preenchidos com marching squares. Imagens grandes são amostradas para manter a operação responsiva; contornos duplicados gerados em cantos ambíguos são descartados. Todas as conversões entram no desfazer/refazer.
+
 ### Booleanas e SVG externo
 
 No painel **Objetos**, selecione dois ou mais objetos fechados e desbloqueados da mesma camada. **Unir**, **Subtrair**, **Interseção** e **Excluir sobreposição** combinam suas áreas. Subtrair retira os objetos da frente do objeto de trás; o resultado herda a aparência do objeto de trás. A operação usa a geometria dos caminhos, sem expandir a espessura do pincel. O resultado pode conter furos e ilhas no mesmo objeto. Seus contornos continuam selecionáveis, transformáveis e editáveis pela ferramenta **Nós**; salvamento, exportação e desfazer/refazer preservam todos os contornos. As booleanas aproximam as curvas do resultado por segmentos editáveis com tolerância de 0,1 px; os caminhos originais ficam no desfazer.

@@ -448,6 +448,46 @@ fun VectorObjectPanel(
             ) {
                 Text("Aplicar pincel atual ao contorno")
             }
+            HorizontalDivider()
+            Text("Conversões", style = MaterialTheme.typography.titleSmall)
+            Row {
+                TextButton(
+                    onClick = {
+                        vector.outlineStroke()
+                        onChanged()
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Contorno em área", style = MaterialTheme.typography.labelSmall)
+                }
+                TextButton(
+                    onClick = {
+                        vector.simplify()
+                        onChanged()
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Simplificar", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            var threshold by remember { mutableStateOf("128") }
+            val thresholdValue = threshold.toIntOrNull()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                VectorNumber("Limiar da vetorização", threshold, { threshold = it }, Modifier.weight(1f))
+                TextButton(
+                    enabled = thresholdValue != null && thresholdValue in 1..255,
+                    onClick = {
+                        vector.traceLayer(thresholdValue!!)
+                        onChanged()
+                    },
+                ) {
+                    Text("Vetorizar camada")
+                }
+            }
+            Text(
+                "A vetorização lê os pixels opacos da camada ativa e cria caminhos fechados.",
+                style = MaterialTheme.typography.bodySmall,
+            )
             if (vector.tool == VectorTool.NODES) {
                 Text("Nós e alças", style = MaterialTheme.typography.titleSmall)
                 Text(
