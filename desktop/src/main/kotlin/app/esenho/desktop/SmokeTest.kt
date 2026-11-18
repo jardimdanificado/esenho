@@ -26,6 +26,21 @@ fun smokeTest() {
     val engine = EsenhoEngine(context, 128, 128)
     check(EsenhoNativeBridge.nativeGetBrushCount() > 0)
     check(EsenhoNativeBridge.nativeGetFilterCount() > 0)
+    // Reuse the image and convert only accumulated changed pixels.
+    val dirtyBitmap = Bitmap(4, 4)
+    val dirtyImage = dirtyBitmap.toImage()
+    dirtyBitmap.rgbaBuffer.putInt(0, 0xff0000ff.toInt())
+    dirtyBitmap.rgbaBuffer.putInt((3 * 4 + 3) * 4, 0xff00ff00.toInt())
+    dirtyBitmap.markDirty(0, 0, 0, 0)
+    check(dirtyBitmap.toImage() === dirtyImage)
+    check(dirtyImage.getRGB(0, 0) == Color.rgb(255, 0, 0))
+    check(dirtyImage.getRGB(3, 3) == 0) { "Converted pixels outside the dirty rectangle" }
+    dirtyBitmap.markDirty()
+    check(dirtyBitmap.toImage().getRGB(3, 3) == Color.rgb(0, 255, 0))
+    dirtyBitmap.setPixel(1, 0, Color.rgb(0, 0, 255))
+    dirtyBitmap.setPixel(0, 3, 0x80804020.toInt())
+    check(dirtyBitmap.toImage().getRGB(1, 0) == Color.rgb(0, 0, 255))
+    check(dirtyImage.getRGB(0, 3) == dirtyBitmap.getPixel(0, 3))
     val transparent = Bitmap(2, 2).apply { eraseColor(0x8080ff40.toInt()) }
     val imported = engine.importImageToLayer(transparent)
     val restored = Bitmap(engine.width, engine.height)

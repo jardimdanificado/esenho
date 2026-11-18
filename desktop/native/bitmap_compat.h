@@ -1,5 +1,6 @@
 /* Linux pixel storage adapter for the shared Android JNI implementation. */
 #include <jni.h>
+#define ESENHO_DESKTOP_BITMAP 1
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -29,5 +30,12 @@ static int AndroidBitmap_lockPixels(JNIEnv *env, jobject bitmap, void **pixels) 
 static int AndroidBitmap_unlockPixels(JNIEnv *env, jobject bitmap) {
     jclass cls = (*env)->GetObjectClass(env, bitmap);
     (*env)->CallVoidMethod(env, bitmap, (*env)->GetMethodID(env, cls, "markDirty", "()V"));
+    (*env)->DeleteLocalRef(env, cls); return 0;
+}
+
+/* Display updates already know their changed bounds; preserve that information. */
+static int AndroidBitmap_unlockPixelsRect(JNIEnv *env, jobject bitmap, int x0, int y0, int x1, int y1) {
+    jclass cls = (*env)->GetObjectClass(env, bitmap);
+    (*env)->CallVoidMethod(env, bitmap, (*env)->GetMethodID(env, cls, "markDirty", "(IIII)V"), x0, y0, x1, y1);
     (*env)->DeleteLocalRef(env, cls); return 0;
 }

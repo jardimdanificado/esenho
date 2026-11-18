@@ -1022,6 +1022,7 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeRenderDisplayBitmap(
         int dx1=(int)(((int64_t)(x1+1)*info.width+width-1)/width)-1;
         int dy1=(int)(((int64_t)(y1+1)*info.height+height-1)/height)-1;
         w_viewport_reduce(src,width,height,pixels,info.width,info.height,info.stride,dx0,dy0,dx1,dy1);
+        x0=dx0; y0=dy0; x1=dx1; y1=dy1;
     } else if (x0 <= x1 && y0 <= y1) {
         size_t bytes = (size_t)(x1 - x0 + 1) * sizeof(uint32_t);
         for (int y = y0; y <= y1; ++y) {
@@ -1029,7 +1030,11 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeRenderDisplayBitmap(
                    src + (size_t)y * width + x0, bytes);
         }
     }
+#ifdef ESENHO_DESKTOP_BITMAP
+    AndroidBitmap_unlockPixelsRect(env, bitmap, x0, y0, x1, y1);
+#else
     AndroidBitmap_unlockPixels(env, bitmap);
+#endif
     if (!same) {
         if (g_display_bitmap) (*env)->DeleteWeakGlobalRef(env, g_display_bitmap);
         g_display_bitmap = (*env)->NewWeakGlobalRef(env, bitmap);

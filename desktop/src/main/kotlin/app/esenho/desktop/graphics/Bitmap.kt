@@ -25,8 +25,24 @@ class Bitmap(val width: Int, val height: Int) {
             .order(ByteOrder.LITTLE_ENDIAN)
     private var cachedImage: BufferedImage? = null
 
-    fun markDirty() {
-        cachedImage = null
+    private var dirtyX0 = 0
+    private var dirtyY0 = 0
+    private var dirtyX1 = width - 1
+    private var dirtyY1 = height - 1
+
+    fun markDirty() = markDirty(0, 0, width - 1, height - 1)
+
+    /** Inclusive bounds, matching the native renderer's dirty rectangle. */
+    fun markDirty(x0: Int, y0: Int, x1: Int, y1: Int) {
+        val left = x0.coerceAtLeast(0)
+        val top = y0.coerceAtLeast(0)
+        val right = x1.coerceAtMost(width - 1)
+        val bottom = y1.coerceAtMost(height - 1)
+        if (left > right || top > bottom) return
+        dirtyX0 = minOf(dirtyX0, left)
+        dirtyY0 = minOf(dirtyY0, top)
+        dirtyX1 = maxOf(dirtyX1, right)
+        dirtyY1 = maxOf(dirtyY1, bottom)
     }
 
     var isRecycled = false
@@ -55,7 +71,7 @@ class Bitmap(val width: Int, val height: Int) {
     fun setPixel(x: Int, y: Int, color: Int) {
         check(!isRecycled)
         require(x in 0 until width && y in 0 until height)
-        markDirty()
+        markDirty(x, y, x, y)
         rgbaBuffer.putInt(
             (y * width + x) * 4,
             (Color.alpha(color) shl 24) or
@@ -89,18 +105,22 @@ class Bitmap(val width: Int, val height: Int) {
         }
 
     fun toImage(): BufferedImage {
-        cachedImage?.let {
-            return it
-        }
         check(!isRecycled)
-        val image = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB_PRE)
+        val image = cachedImage ?: BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB_PRE)
+            .also { cachedImage = it }
+        if (dirtyX0 > dirtyX1 || dirtyY0 > dirtyY1) return image
         val pixels = (image.raster.dataBuffer as java.awt.image.DataBufferInt).data
         val source = rgbaBuffer.asIntBuffer()
-        for (i in pixels.indices) {
-            val p = source.get(i)
-            pixels[i] = (p and -0xff0100) or ((p and 255) shl 16) or ((p ushr 16) and 255)
+        for (y in dirtyY0..dirtyY1) {
+            for (i in y * width + dirtyX0..y * width + dirtyX1) {
+                val p = source.get(i)
+                pixels[i] = (p and -0xff0100) or ((p and 255) shl 16) or ((p ushr 16) and 255)
+            }
         }
-        cachedImage = image
+        dirtyX0 = width
+        dirtyY0 = height
+        dirtyX1 = -1
+        dirtyY1 = -1
         return image
     }
 

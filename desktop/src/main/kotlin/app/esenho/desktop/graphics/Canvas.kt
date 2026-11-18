@@ -357,7 +357,11 @@ private constructor(
 
     fun drawBitmap(bitmap: Bitmap, src: Rect?, dst: RectF, p: Paint?) {
         val s = src ?: Rect(0, 0, bitmap.width, bitmap.height)
-        val cropped = Bitmap.createBitmap(bitmap, s.left, s.top, s.width(), s.height())
+        // The document view draws the complete bitmap into a scaled rectangle.
+        // Reuse it: a pixel-by-pixel crop here blocks every stroke and pan frame.
+        val cropped = if (s.left == 0 && s.top == 0 && s.width() == bitmap.width && s.height() == bitmap.height) {
+            bitmap
+        } else Bitmap.createBitmap(bitmap, s.left, s.top, s.width(), s.height())
         drawBitmap(
             cropped,
             Matrix().apply {
