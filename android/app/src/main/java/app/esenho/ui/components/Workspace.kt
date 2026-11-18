@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
@@ -31,7 +30,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import app.esenho.R
 import app.esenho.nativeengine.EsenhoEngine
 import app.esenho.nativeengine.EsenhoStorageManager.SideSliderSetting
 import app.esenho.nativeengine.ToolMode
@@ -104,22 +102,27 @@ fun WorkspaceHeader(
     }
 }
 
-internal fun workspaceToolIcon(mode: ToolMode) =
+internal fun workspaceToolIcon(mode: ToolMode): ImageVector =
     when (mode) {
         ToolMode.BRUSH -> Icons.Default.Brush
-        ToolMode.ERASER -> Icons.Default.DeleteOutline
+        ToolMode.ERASER -> EraserIcon
+        ToolMode.SMUDGE -> SmudgeIcon
+        ToolMode.BLEND -> BlendIcon
         ToolMode.FILL -> Icons.Default.FormatColorFill
-        ToolMode.SMUDGE,
-        ToolMode.BLEND -> Icons.Default.WaterDrop
+        ToolMode.LASSO_FILL -> LassoFillIcon
         ToolMode.EYEDROPPER -> Icons.Default.Colorize
         ToolMode.TRANSFORM -> Icons.Default.OpenWith
         ToolMode.PAN -> Icons.Default.PanTool
         ToolMode.LINE -> Icons.Default.HorizontalRule
-        ToolMode.RECTANGLE,
-        ToolMode.ERASE_RECTANGLE -> Icons.Default.CropSquare
-        ToolMode.ELLIPSE,
-        ToolMode.ERASE_ELLIPSE -> Icons.Default.Circle
-        else -> Icons.Default.CropFree
+        ToolMode.RECTANGLE -> Icons.Default.CropSquare
+        ToolMode.ELLIPSE -> Icons.Default.Circle
+        ToolMode.SELECT_RECT -> SelectRectIcon
+        ToolMode.SELECT_ELLIPSE -> SelectEllipseIcon
+        ToolMode.SELECT_LASSO -> SelectLassoIcon
+        ToolMode.SELECT_BRUSH_MASK -> SelectBrushIcon
+        ToolMode.SELECT_WAND -> SelectWandIcon
+        ToolMode.ERASE_RECTANGLE -> EraseRectIcon
+        ToolMode.ERASE_ELLIPSE -> EraseEllipseIcon
     }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -200,13 +203,7 @@ fun WorkspaceToolPicker(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                if (mode == ToolMode.ERASER)
-                                    Icon(
-                                        painterResource(R.drawable.ic_eraser),
-                                        null,
-                                        Modifier.size(16.dp),
-                                    )
-                                else Icon(workspaceToolIcon(mode), null, Modifier.size(16.dp))
+                                Icon(workspaceToolIcon(mode), null, Modifier.size(16.dp))
                                 Text(
                                     mode.displayName,
                                     style = MaterialTheme.typography.labelSmall,

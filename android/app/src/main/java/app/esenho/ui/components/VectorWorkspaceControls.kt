@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -32,9 +33,16 @@ private fun vectorIcon(tool: VectorTool): ImageVector =
         VectorTool.LINE -> Icons.Default.HorizontalRule
         VectorTool.RECT -> Icons.Default.CropSquare
         VectorTool.ELLIPSE -> Icons.Default.RadioButtonUnchecked
-        VectorTool.ERASER -> Icons.Default.DeleteOutline
+        VectorTool.ERASER -> EraserIcon
         VectorTool.TEXT -> Icons.Default.TextFields
     }
+
+private data class ToolbarTool(
+    val label: String,
+    val icon: ImageVector,
+    val selected: Boolean,
+    val onClick: () -> Unit,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,14 +60,23 @@ private fun VectorToolButton(
         FilledIconToggleButton(
             checked = checked,
             onCheckedChange = { onClick() },
-            modifier = Modifier.size(38.dp),
+            modifier = Modifier.size(36.dp),
+            shape = RoundedCornerShape(9.dp),
+            colors =
+                IconButtonDefaults.filledIconToggleButtonColors(
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    checkedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    checkedContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
         ) {
-            Icon(icon, label, Modifier.size(20.dp))
+            Icon(icon, label, Modifier.size(19.dp))
         }
     }
 }
 
 /** Tools occupy the existing bottom dock; document actions live in the project menu. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditorToolStrip(
     engine: EsenhoEngine,
@@ -68,61 +85,98 @@ fun EditorToolStrip(
     onHide: () -> Unit,
     onChanged: () -> Unit,
 ) {
+    val groups: List<List<ToolbarTool>> =
+        if (engine.vectors.enabled) {
+            val vectorTool = { tool: VectorTool ->
+                ToolbarTool(
+                    tool.label,
+                    vectorIcon(tool),
+                    engine.vectors.tool == tool && engine.currentTool == ToolMode.BRUSH,
+                ) {
+                    engine.cancelActiveStroke()
+                    engine.vectors.finishPen()
+                    engine.vectors.tool = tool
+                    engine.currentTool = ToolMode.BRUSH
+                    onChanged()
+                }
+            }
+            val navTool = { tool: ToolMode, icon: ImageVector ->
+                ToolbarTool(tool.displayName, icon, engine.currentTool == tool) {
+                    engine.cancelActiveStroke()
+                    engine.currentTool = tool
+                    onChanged()
+                }
+            }
+            listOf(
+                listOf(VectorTool.DRAW, VectorTool.PEN, VectorTool.ERASER, VectorTool.SELECT, VectorTool.NODES, VectorTool.TEXT).map(vectorTool),
+                listOf(VectorTool.LINE, VectorTool.RECT, VectorTool.ELLIPSE).map(vectorTool),
+                listOf(
+                    navTool(ToolMode.EYEDROPPER, Icons.Default.Colorize),
+                    navTool(ToolMode.PAN, Icons.Default.PanTool),
+                ),
+            )
+        } else {
+            val rasterTool = { tool: ToolMode ->
+                ToolbarTool(tool.displayName, workspaceToolIcon(tool), engine.currentTool == tool) {
+                    onTool(tool)
+                }
+            }
+            listOf(
+                listOf(ToolMode.BRUSH, ToolMode.ERASER, ToolMode.SMUDGE, ToolMode.BLEND, ToolMode.FILL, ToolMode.LASSO_FILL).map(rasterTool),
+                listOf(ToolMode.SELECT_RECT, ToolMode.SELECT_ELLIPSE, ToolMode.SELECT_LASSO, ToolMode.SELECT_BRUSH_MASK, ToolMode.SELECT_WAND).map(rasterTool),
+                listOf(ToolMode.LINE, ToolMode.RECTANGLE, ToolMode.ELLIPSE, ToolMode.ERASE_RECTANGLE, ToolMode.ERASE_ELLIPSE).map(rasterTool),
+                listOf(ToolMode.EYEDROPPER, ToolMode.TRANSFORM, ToolMode.PAN).map(rasterTool),
+            )
+        }
+    val activeLabel =
+        if (engine.vectors.enabled && engine.currentTool == ToolMode.BRUSH)
+            engine.vectors.tool.label
+        else engine.currentTool.displayName
+
     Surface(color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(
-                Modifier.weight(1f)
+                Modifier
+                    .weight(1f)
+                    .padding(vertical = 3.dp, horizontal = 4.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        RoundedCornerShape(10.dp),
+                    )
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 4.dp),
+                    .padding(horizontal = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                if (engine.vectors.enabled) {
-                    VectorTool.values().forEach { tool ->
-                        VectorToolButton(
-                            engine.vectors.tool == tool && engine.currentTool == ToolMode.BRUSH,
-                            tool.label,
-                            vectorIcon(tool),
-                        ) {
-                            engine.cancelActiveStroke()
-                            engine.vectors.finishPen()
-                            engine.vectors.tool = tool
-                            engine.currentTool = ToolMode.BRUSH
-                            onChanged()
-                        }
-                    }
-                    listOf(
-                            ToolMode.EYEDROPPER to Icons.Default.Colorize,
-                            ToolMode.PAN to Icons.Default.PanTool,
+                groups.forEachIndexed { index, group ->
+                    if (index > 0)
+                        VerticalDivider(
+                            Modifier.height(20.dp).padding(horizontal = 2.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
                         )
-                        .forEach { (tool, icon) ->
-                            VectorToolButton(engine.currentTool == tool, tool.displayName, icon) {
-                                engine.cancelActiveStroke()
-                                engine.currentTool = tool
-                                onChanged()
-                            }
-                        }
-                } else {
-                    ToolMode.values().forEach { tool ->
-                        VectorToolButton(
-                            engine.currentTool == tool,
-                            tool.displayName,
-                            workspaceToolIcon(tool),
-                        ) {
-                            onTool(tool)
-                        }
+                    group.forEach { tool ->
+                        VectorToolButton(tool.selected, tool.label, tool.icon, tool.onClick)
                     }
                 }
-                Text(
-                    if (engine.vectors.enabled && engine.currentTool == ToolMode.BRUSH)
-                        engine.vectors.tool.label
-                    else engine.currentTool.displayName,
-                    modifier =
-                        Modifier.align(Alignment.CenterVertically).padding(horizontal = 12.dp),
-                    style = MaterialTheme.typography.labelMedium,
-                )
             }
-            IconButton(onClick = onHide, modifier = Modifier.size(38.dp)) {
-                Icon(Icons.Default.ExpandMore, "Ocultar ferramentas", Modifier.size(20.dp))
+            Text(
+                activeLabel,
+                modifier =
+                    Modifier.padding(start = 6.dp, end = 2.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                maxLines = 1,
+            )
+            TooltipBox(
+                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                tooltip = { PlainTooltip { Text("Ocultar ferramentas") } },
+                state = rememberTooltipState(),
+            ) {
+                IconButton(onClick = onHide, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.ExpandMore, "Ocultar ferramentas", Modifier.size(19.dp))
+                }
             }
         }
     }
