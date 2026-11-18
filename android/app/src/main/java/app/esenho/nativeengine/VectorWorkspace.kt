@@ -43,6 +43,9 @@ data class VectorNode(
     fun json() = JSONArray(listOf(x, y, pressure, tiltX, tiltY, inX, inY, outX, outY))
 }
 
+/** Extra contours belong to the same filled object; they may bound holes or separate islands. */
+data class VectorContour(val nodes: MutableList<VectorNode>, var closed: Boolean)
+
 data class VectorObject(
     val id: String,
     val nodes: MutableList<VectorNode>,
@@ -53,21 +56,34 @@ data class VectorObject(
     var visible: Boolean = true,
     var locked: Boolean = false,
     var groupId: String? = null,
+    val subPaths: MutableList<VectorContour> = mutableListOf(),
+    var evenOdd: Boolean = false,
 ) {
+    fun geometry(): List<VectorContour> = listOf(VectorContour(nodes, closed)) + subPaths
+
+    fun allNodes(): List<VectorNode> = geometry().flatMap { it.nodes }
+
+    fun strokes(): List<VectorObject> =
+        geometry().map { copy(nodes = it.nodes, closed = it.closed, subPaths = mutableListOf()) }
+
     fun path() =
         Path().apply {
-            if (nodes.isNotEmpty()) {
-                moveTo(nodes[0].x, nodes[0].y)
-                for (i in 1 until nodes.size) {
-                    val a = nodes[i - 1]
-                    val b = nodes[i]
-                    cubicTo(a.outX, a.outY, b.inX, b.inY, b.x, b.y)
-                }
-                if (closed) {
-                    val a = nodes.last()
-                    val b = nodes.first()
-                    cubicTo(a.outX, a.outY, b.inX, b.inY, b.x, b.y)
-                    close()
+            fillType = if (evenOdd) Path.FillType.EVEN_ODD else Path.FillType.WINDING
+            geometry().forEach { contour ->
+                val n = contour.nodes
+                if (n.isNotEmpty()) {
+                    moveTo(n[0].x, n[0].y)
+                    for (i in 1 until n.size) {
+                        val a = n[i - 1]
+                        val b = n[i]
+                        cubicTo(a.outX, a.outY, b.inX, b.inY, b.x, b.y)
+                    }
+                    if (contour.closed) {
+                        val a = n.last()
+                        val b = n.first()
+                        cubicTo(a.outX, a.outY, b.inX, b.inY, b.x, b.y)
+                        close()
+                    }
                 }
             }
         }
@@ -153,6 +169,24 @@ data class VectorObject(
             .put("visible", visible)
             .put("locked", locked)
             .put("group", groupId)
+            .put("evenOdd", evenOdd)
+            .put(
+                "subPaths",
+                JSONArray().also { paths ->
+                    subPaths.forEach { contour ->
+                        paths.put(
+                            JSONObject()
+                                .put("closed", contour.closed)
+                                .put(
+                                    "nodes",
+                                    JSONArray().also { a ->
+                                        contour.nodes.forEach { a.put(it.json()) }
+                                    },
+                                )
+                        )
+                    }
+                },
+            )
 
     companion object {
         fun read(j: JSONObject): VectorObject {
@@ -182,6 +216,21 @@ data class VectorObject(
                 j.optBoolean("visible", true),
                 j.optBoolean("locked", false),
                 if (j.isNull("group")) null else j.optString("group").takeIf { it.isNotEmpty() },
+                mutableListOf<VectorContour>().also { paths ->
+                    val a = j.optJSONArray("subPaths") ?: JSONArray()
+                    repeat(a.length()) { i ->
+                        val c = a.getJSONObject(i)
+                        val objectData =
+                            JSONObject()
+                                .put("id", "contour")
+                                .put("nodes", c.getJSONArray("nodes"))
+                                .put("style", JSONObject())
+                                .put("closed", c.optBoolean("closed"))
+                        val obj = read(objectData)
+                        paths.add(VectorContour(obj.nodes, obj.closed))
+                    }
+                },
+                j.optBoolean("evenOdd", false),
             )
         }
     }
@@ -226,7 +275,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     private var handle = -1
     private var nodeIndex = -1
     val selectedNode: VectorNode?
-        get() = selected?.nodes?.getOrNull(nodeIndex)
+        get() = selected?.allNodes()?.getOrNull(nodeIndex)
 
     private val raw = mutableListOf<VectorNode>()
     private var strokeBase: Bitmap? = null
@@ -450,7 +499,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         if (tool == VectorTool.NODES) {
             if (tool == VectorTool.NODES || tool == VectorTool.PEN) {
                 var best = 12f / engine.vectorViewScale
-                selected?.nodes?.forEachIndexed { i, n ->
+                selected?.allNodes()?.forEachIndexed { i, n ->
                     listOf(n.x to n.y, n.inX to n.inY, n.outX to n.outY).forEachIndexed { h, p ->
                         val distance = hypot(p.first - x, p.second - y)
                         if (distance < best) {
@@ -510,7 +559,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
             val dx = x - lastX
             val dy = y - lastY
             if (nodeIndex >= 0) {
-                val n = obj.nodes[nodeIndex]
+                val n = obj.allNodes()[nodeIndex]
                 when (handle) {
                     1 -> {
                         n.inX += dx
@@ -522,7 +571,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     }
                     else -> n.move(dx, dy)
                 }
-            } else if (tool == VectorTool.SELECT) obj.nodes.forEach { it.move(dx, dy) }
+            } else if (tool == VectorTool.SELECT) obj.allNodes().forEach { it.move(dx, dy) }
             lastX = x
             lastY = y
         } else if (hypot(x - raw.last().x, y - raw.last().y) >= 2f) {
@@ -661,34 +710,42 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     }
 
     private fun hit(obj: VectorObject, x: Float, y: Float): Boolean {
-        val samples = obj.samples()
+        val contours = obj.strokes().map { it.samples() }
         val tolerance =
-            max(12f / engine.vectorViewScale, obj.style.optDouble("size", 14.0).toFloat() / 2)
-        if (samples.size == 1 && hypot(samples[0].x - x, samples[0].y - y) <= tolerance) return true
+            max(
+                12f / engine.vectorViewScale,
+                if (obj.style.optBoolean("strokeEnabled", true))
+                    obj.style.optDouble("size", 14.0).toFloat() / 2
+                else 0f,
+            )
         if (
-            samples.zipWithNext().any { (a, b) ->
-                val dx = b.x - a.x
-                val dy = b.y - a.y
-                val length = dx * dx + dy * dy
-                val t =
-                    if (length == 0f) 0f
-                    else (((x - a.x) * dx + (y - a.y) * dy) / length).coerceIn(0f, 1f)
-                hypot(a.x + t * dx - x, a.y + t * dy - y) <= tolerance
+            contours.any { points ->
+                points.size == 1 && hypot(points[0].x - x, points[0].y - y) <= tolerance ||
+                    points.zipWithNext().any { (a, b) ->
+                        val dx = b.x - a.x
+                        val dy = b.y - a.y
+                        val length = dx * dx + dy * dy
+                        val t =
+                            if (length == 0f) 0f
+                            else (((x - a.x) * dx + (y - a.y) * dy) / length).coerceIn(0f, 1f)
+                        hypot(a.x + t * dx - x, a.y + t * dy - y) <= tolerance
+                    }
             }
         )
             return true
-        if (!obj.closed || obj.fill == null) return false
-        var inside = false
-        var previous = samples.lastOrNull() ?: return false
-        samples.forEach { n ->
-            if (
-                (n.y > y) != (previous.y > y) &&
-                    x < (previous.x - n.x) * (y - n.y) / (previous.y - n.y) + n.x
-            )
-                inside = !inside
-            previous = n
+        if (obj.fill == null) return false
+        var winding = 0
+        contours.forEach { points ->
+            if (points.size < 2) return@forEach
+            var a = points.last()
+            points.forEach { b ->
+                val cross = (b.x - a.x) * (y - a.y) - (x - a.x) * (b.y - a.y)
+                if (a.y <= y && b.y > y && cross > 0) winding++
+                if (a.y > y && b.y <= y && cross < 0) winding--
+                a = b
+            }
         }
-        return inside
+        return if (obj.evenOdd) abs(winding) % 2 == 1 else winding != 0
     }
 
     private fun editAppearance(action: (VectorObject) -> Unit) {
@@ -708,7 +765,9 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     }
 
     fun setObjectColor(color: Int) = editAppearance { obj ->
-        if (editFillColor && obj.closed) obj.fill = color else obj.style.put("color", color)
+        if (editFillColor && (obj.closed || obj.style.optBoolean("svgStroke", false)))
+            obj.fill = color
+        else obj.style.put("color", color)
     }
 
     fun setObjectSize(size: Float) = editAppearance { obj ->
@@ -734,7 +793,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     fun applyStyle() = changeAppearance { it.style = engine.captureVectorStyle() }
 
     fun cornerNode() = changeSelected { obj ->
-        obj.nodes.getOrNull(nodeIndex)?.let { n ->
+        obj.allNodes().getOrNull(nodeIndex)?.let { n ->
             n.inX = n.x
             n.inY = n.y
             n.outX = n.x
@@ -742,19 +801,32 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         }
     }
 
+    private fun editingContour(): Pair<VectorContour, Int>? {
+        val obj = selected ?: return null
+        var offset = 0
+        obj.geometry().forEach { c ->
+            if (nodeIndex in offset until offset + c.nodes.size) return c to (nodeIndex - offset)
+            offset += c.nodes.size
+        }
+        return obj.geometry().firstOrNull()?.let { it to 0 }
+    }
+
     fun removeNode() {
-        if (selectedNode == null || (selected?.nodes?.size ?: 0) <= 2) return
-        changeSelected { it.nodes.removeAt(nodeIndex) }
+        val (contour, index) = editingContour() ?: return
+        if (selectedNode == null || contour.nodes.size <= if (contour.closed) 3 else 2) return
+        changeSelected { contour.nodes.removeAt(index) }
         nodeIndex = -1
     }
 
     fun splitSegment() {
-        val obj = selected ?: return
-        if (obj.nodes.size < 2) return
-        val index = nodeIndex.takeIf { it in 0 until obj.nodes.lastIndex } ?: 0
+        val (contour, index) = editingContour() ?: return
+        val nodes = contour.nodes
+        if (nodes.size < 2) return
+        val i = if (!contour.closed && index == nodes.lastIndex) index - 1 else index
+        val offset = selected!!.allNodes().indexOfFirst { it === nodes[i] }
         changeSelected {
-            val a = it.nodes[index]
-            val b = it.nodes[index + 1]
+            val a = nodes[i]
+            val b = nodes[(i + 1) % nodes.size]
             val ax = (a.x + a.outX) / 2
             val ay = (a.y + a.outY) / 2
             val bx = (a.outX + b.inX) / 2
@@ -769,8 +841,8 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
             a.outY = ay
             b.inX = cx
             b.inY = cy
-            it.nodes.add(
-                index + 1,
+            nodes.add(
+                i + 1,
                 VectorNode(
                     (dx + ex) / 2,
                     (dy + ey) / 2,
@@ -784,7 +856,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 ),
             )
         }
-        nodeIndex = index + 1
+        nodeIndex = offset + 1
     }
 
     fun duplicateSelected() = selection.duplicate()
@@ -807,7 +879,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     obj.style.put("size", size)
                     obj.style.optJSONObject("preset")?.put("size", size.toInt())
                 }
-                obj.nodes.forEach { n ->
+                obj.allNodes().forEach { n ->
                     n.x = n.x * sx + offsetX
                     n.y = n.y * sy + offsetY
                     n.inX = n.inX * sx + offsetX
@@ -851,44 +923,65 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
             (if (append == null) objects else listOf(append))
                 .filter { it.visible }
                 .forEach { obj ->
-                    obj.fill
-                        ?.takeIf { obj.closed }
-                        ?.let { color ->
-                            val bitmap =
-                                fillBitmap
-                                    ?: Bitmap.createBitmap(
-                                            engine.width,
-                                            engine.height,
-                                            Bitmap.Config.ARGB_8888,
-                                        )
-                                        .also { fillBitmap = it }
-                            bitmap.eraseColor(0)
-                            run {
-                                Canvas(bitmap)
-                                    .drawPath(
-                                        obj.path(),
-                                        Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                                            this.color = color
-                                            style = Paint.Style.FILL
-                                        },
+                    if (obj.style.optBoolean("svgStroke", false)) {
+                        val bitmap =
+                            fillBitmap
+                                ?: Bitmap.createBitmap(
+                                        engine.width,
+                                        engine.height,
+                                        Bitmap.Config.ARGB_8888,
                                     )
-                                EsenhoNativeBridge.nativeLayerDrawBitmap(
-                                    engine.activeLayerIndex,
-                                    bitmap,
-                                    0,
-                                    0,
-                                    engine.width,
-                                    engine.height,
+                                    .also { fillBitmap = it }
+                        VectorSvgPaint.draw(obj, bitmap)
+                        EsenhoNativeBridge.nativeLayerDrawBitmap(
+                            engine.activeLayerIndex,
+                            bitmap,
+                            0,
+                            0,
+                            engine.width,
+                            engine.height,
+                        )
+                        return@forEach
+                    }
+                    obj.fill?.let { color ->
+                        val bitmap =
+                            fillBitmap
+                                ?: Bitmap.createBitmap(
+                                        engine.width,
+                                        engine.height,
+                                        Bitmap.Config.ARGB_8888,
+                                    )
+                                    .also { fillBitmap = it }
+                        bitmap.eraseColor(0)
+                        run {
+                            Canvas(bitmap)
+                                .drawPath(
+                                    obj.path(),
+                                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                        this.color = color
+                                        style = Paint.Style.FILL
+                                    },
                                 )
-                            }
+                            EsenhoNativeBridge.nativeLayerDrawBitmap(
+                                engine.activeLayerIndex,
+                                bitmap,
+                                0,
+                                0,
+                                engine.width,
+                                engine.height,
+                            )
                         }
+                    }
                     val styleKey = obj.style.toString()
-                    engine.renderVectorStroke(
-                        obj.style,
-                        obj.samples(),
-                        configure = previousStyle != styleKey,
-                    )
-                    previousStyle = styleKey
+                    if (obj.style.optBoolean("strokeEnabled", true))
+                        obj.strokes().forEach { stroke ->
+                            engine.renderVectorStroke(
+                                obj.style,
+                                stroke.samples(),
+                                configure = previousStyle != styleKey,
+                            )
+                            previousStyle = styleKey
+                        }
                 }
         } finally {
             engine.restoreVectorStyle(saved)
@@ -920,7 +1013,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                             color = 0xffffffff.toInt()
                             style = Paint.Style.FILL
                         }
-                    obj.nodes.forEachIndexed { index, n ->
+                    obj.allNodes().forEachIndexed { index, n ->
                         if (hypot(n.inX - n.x, n.inY - n.y) > 1f / scale) {
                             canvas.drawLine(n.x, n.y, n.inX, n.inY, paint)
                             canvas.drawCircle(n.inX, n.inY, 3f / scale, fill)
@@ -1014,26 +1107,32 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     objects
                         .filter { it.nodes.isNotEmpty() && it.visible }
                         .forEach { obj ->
-                            val n = obj.nodes
                             val d = buildString {
-                                append("M ${n[0].x} ${n[0].y} ")
-                                if (n.size == 1) append("L ${n[0].x} ${n[0].y} ")
-                                for (i in 1 until n.size) {
-                                    val a = n[i - 1]
-                                    val b = n[i]
-                                    append("C ${a.outX} ${a.outY} ${b.inX} ${b.inY} ${b.x} ${b.y} ")
-                                }
-                                if (obj.closed) {
-                                    val a = n.last()
-                                    val b = n.first()
-                                    append(
-                                        "C ${a.outX} ${a.outY} ${b.inX} ${b.inY} ${b.x} ${b.y} Z"
-                                    )
+                                obj.geometry().forEach { contour ->
+                                    val n = contour.nodes
+                                    if (n.isNotEmpty()) {
+                                        append("M ${n[0].x} ${n[0].y} ")
+                                        if (n.size == 1) append("L ${n[0].x} ${n[0].y} ")
+                                        for (i in 1 until n.size) {
+                                            val a = n[i - 1]
+                                            val b = n[i]
+                                            append(
+                                                "C ${a.outX} ${a.outY} ${b.inX} ${b.inY} ${b.x} ${b.y} "
+                                            )
+                                        }
+                                        if (contour.closed) {
+                                            val a = n.last()
+                                            val b = n.first()
+                                            append(
+                                                "C ${a.outX} ${a.outY} ${b.inX} ${b.inY} ${b.x} ${b.y} Z "
+                                            )
+                                        }
+                                    }
                                 }
                             }
                             val color = obj.style.optInt("color", 0xff000000.toInt())
                             append(
-                                "<path d=\"$d\" fill=\"${obj.fill?.let(::rgb) ?: "none"}\" fill-opacity=\"${obj.fill?.let { (it ushr 24)/255f } ?: 1f}\" stroke=\"${rgb(color)}\" stroke-width=\"${obj.style.optDouble("size",14.0)}\" stroke-opacity=\"${obj.style.optDouble("opacity",1.0)*(color ushr 24)/255.0}\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+                                "<path d=\"$d\" fill=\"${obj.fill?.let(::rgb) ?: "none"}\" fill-opacity=\"${obj.fill?.let { (it ushr 24)/255f } ?: 1f}\" stroke=\"${if(obj.style.optBoolean("strokeEnabled",true)) rgb(color) else "none"}\" stroke-width=\"${obj.style.optDouble("size",14.0)}\" stroke-opacity=\"${obj.style.optDouble("opacity",1.0)*(color ushr 24)/255.0}\" fill-rule=\"${if(obj.evenOdd) "evenodd" else "nonzero"}\" opacity=\"${obj.style.optDouble("svgOpacity",1.0)}\" stroke-linecap=\"${xml(obj.style.optString("cap","round"))}\" stroke-linejoin=\"${xml(obj.style.optString("join","round"))}\" stroke-miterlimit=\"${obj.style.optDouble("miter",4.0)}\" stroke-dasharray=\"${obj.style.optJSONArray("dash")?.let { a -> if(a.length()==0) "none" else (0 until a.length()).joinToString(",") { a.getDouble(it).toString() } } ?: "none"}\" stroke-dashoffset=\"${obj.style.optDouble("dashOffset",0.0)}\"/>"
                             )
                         }
                 append("</g>")

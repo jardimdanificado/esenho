@@ -15,7 +15,13 @@ object VectorSvgIO {
                 setFeature("http://xml.org/sax/features/external-parameter-entities", false)
             }
         val root = factory.newDocumentBuilder().parse(svg.byteInputStream()).documentElement
-        require(root.localName == "svg") { "Arquivo SVG inválido" }
+        require(
+            root.localName == "svg" &&
+                (root.namespaceURI.isNullOrEmpty() ||
+                    root.namespaceURI == "http://www.w3.org/2000/svg")
+        ) {
+            "Arquivo SVG inválido"
+        }
         val metadata = root.getElementsByTagNameNS("http://www.w3.org/2000/svg", "metadata")
         for (i in 0 until metadata.length) {
             val item = metadata.item(i) as Element
@@ -28,7 +34,7 @@ object VectorSvgIO {
                     repeat(objects.length()) { index ->
                         val obj = VectorObject.read(objects.getJSONObject(index))
                         require(
-                            obj.nodes.all { n ->
+                            obj.allNodes().all { n ->
                                 listOf(n.x, n.y, n.inX, n.inY, n.outX, n.outY, n.pressure).all {
                                     it.isFinite()
                                 }
@@ -36,14 +42,15 @@ object VectorSvgIO {
                         ) {
                             "Coordenadas SVG inválidas"
                         }
-                        obj.groupId = obj.groupId?.let { groups.getOrPut(it) { java.util.UUID.randomUUID().toString() } }
+                        obj.groupId =
+                            obj.groupId?.let {
+                                groups.getOrPut(it) { java.util.UUID.randomUUID().toString() }
+                            }
                         add(obj.copy(id = java.util.UUID.randomUUID().toString()))
                     }
                 }
             }
         }
-        error(
-            "Este importador reabre SVGs exportados pelo Esenho. A importação de SVGs externos ainda não está disponível."
-        )
+        return SvgDocumentReader(root).read()
     }
 }

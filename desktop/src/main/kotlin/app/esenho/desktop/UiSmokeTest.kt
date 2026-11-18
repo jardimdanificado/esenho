@@ -382,6 +382,26 @@ suspend fun exerciseDesktopVectors(window: java.awt.Window) {
     check(kotlin.math.abs(view.editorBounds.bottom - rasterBottom) < 2f) {
         "Raster tools could not be restored"
     }
+    checkNotNull(desktopUiTestCommand)("vector")
+    engine.vectors.layers.getValue(engine.activeLayerIndex).clear()
+    engine.vectors.importSvg("""<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920">
+        <rect x="260" y="640" width="560" height="640" fill="#cb702e"/>
+        <ellipse cx="540" cy="960" rx="140" ry="180" fill="#304050"/>
+    </svg>""")
+    checkNotNull(desktopUiTestCommand)("vectorSelect")
+    checkNotNull(desktopUiTestCommand)("vectorObjects")
+    checkNotNull(desktopUiTestCommand)("vectorAll")
+    kotlinx.coroutines.delay(300)
+    captureEditor(window, File("desktop/build/ui-vector-boolean-ready.png"))
+    clickEditor(window,target.width-75,414)
+    kotlinx.coroutines.delay(400)
+    val compound=engine.vectors.layers.getValue(engine.activeLayerIndex).single()
+    check(compound.subPaths.isNotEmpty()) { "Subtraction button did not create an editable hole" }
+    val bitmap=app.esenho.desktop.graphics.Bitmap(engine.width,engine.height)
+    check(app.esenho.nativeengine.EsenhoNativeBridge.nativeLayerGetBitmap(engine.activeLayerIndex,bitmap))
+    check(bitmap.getPixel(540,960) ushr 24==0 && bitmap.getPixel(300,700) ushr 24>0)
+    bitmap.recycle()
+    captureEditor(window, File("desktop/build/ui-vector-boolean.png"))
     println(
         "Desktop UI: raster/vector tools, independent visibility, pen anchors, shapes and color editing OK"
     )

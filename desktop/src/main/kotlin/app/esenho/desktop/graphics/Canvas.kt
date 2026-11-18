@@ -95,6 +95,7 @@ class Paint(flags: Int = 0) {
     var strokeWidth = 1f
     var strokeCap = Cap.BUTT
     var strokeJoin = Join.MITER
+    var strokeMiter = 10f
     var isAntiAlias = flags and ANTI_ALIAS_FLAG != 0
     var isFilterBitmap = flags and FILTER_BITMAP_FLAG != 0
     var colorFilter: PorterDuffColorFilter? = null
@@ -155,9 +156,12 @@ private constructor(
                 p.strokeWidth.coerceAtLeast(.01f),
                 p.strokeCap.ordinal,
                 p.strokeJoin.ordinal,
-                10f,
+                p.strokeMiter,
                 p.pathEffect?.intervals,
-                p.pathEffect?.phase ?: 0f,
+                p.pathEffect?.let { effect ->
+                    val length = effect.intervals.sum()
+                    if (length > 0) ((effect.phase % length) + length) % length else 0f
+                } ?: 0f,
             )
     }
 
@@ -359,9 +363,15 @@ private constructor(
         val s = src ?: Rect(0, 0, bitmap.width, bitmap.height)
         // The document view draws the complete bitmap into a scaled rectangle.
         // Reuse it: a pixel-by-pixel crop here blocks every stroke and pan frame.
-        val cropped = if (s.left == 0 && s.top == 0 && s.width() == bitmap.width && s.height() == bitmap.height) {
-            bitmap
-        } else Bitmap.createBitmap(bitmap, s.left, s.top, s.width(), s.height())
+        val cropped =
+            if (
+                s.left == 0 &&
+                    s.top == 0 &&
+                    s.width() == bitmap.width &&
+                    s.height() == bitmap.height
+            ) {
+                bitmap
+            } else Bitmap.createBitmap(bitmap, s.left, s.top, s.width(), s.height())
         drawBitmap(
             cropped,
             Matrix().apply {

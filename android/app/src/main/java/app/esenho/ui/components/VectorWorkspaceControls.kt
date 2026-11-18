@@ -162,6 +162,22 @@ fun VectorObjectPanel(
         }
         if (selected != null && !selected.locked && selected.visible) {
             Text("Aparência do objeto", style = MaterialTheme.typography.titleSmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = selected.style.optBoolean("strokeEnabled", true),
+                    onCheckedChange = { value ->
+                        vector.changeAppearance { it.style.put("strokeEnabled", value) }
+                        onChanged()
+                    },
+                )
+                Text("Contorno")
+            }
+            if (selected.subPaths.isNotEmpty())
+                Text(
+                    "${selected.geometry().size} contornos no mesmo objeto",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 OutlinedButton(
                     onClick = {
@@ -183,7 +199,7 @@ fun VectorObjectPanel(
                 }
                 OutlinedButton(
                     onClick = { onColor(true) },
-                    enabled = selected.closed,
+                    enabled = selected.closed || selected.style.optBoolean("svgStroke", false),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Box(
@@ -219,13 +235,16 @@ fun VectorObjectPanel(
                 Checkbox(
                     checked = selected.closed,
                     onCheckedChange = { value ->
-                        vector.changeAppearance { it.closed = value }
+                        vector.changeAppearance {
+                            it.closed = value
+                            it.subPaths.forEach { c -> c.closed = value }
+                        }
                         onChanged()
                     },
                 )
                 Text("Caminho fechado")
             }
-            if (selected.closed)
+            if (selected.closed || selected.style.optBoolean("svgStroke", false))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
                         checked = selected.fill != null,
@@ -338,7 +357,7 @@ fun VectorObjectPanel(
                     ) {
                         Icon(Icons.Default.Polyline, null, Modifier.size(18.dp))
                         Text(
-                            "${obj.name.ifBlank { "Caminho ${index+1}" }}${if (obj.groupId != null) " · grupo" else ""} · ${obj.nodes.size} nós",
+                            "${obj.name.ifBlank { "Caminho ${index+1}" }}${if (obj.groupId != null) " · grupo" else ""} · ${obj.allNodes().size} nós",
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f),
                         )

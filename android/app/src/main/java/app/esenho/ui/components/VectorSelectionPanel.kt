@@ -72,6 +72,34 @@ internal fun VectorSelectionPanel(engine: EsenhoEngine, revision: Int, onChanged
         }
     }
     Text("${objects.size} selecionado(s)", style = MaterialTheme.typography.titleSmall)
+    if (objects.size > 1) {
+        Text("Operações de área", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "Subtrair remove os objetos da frente do objeto de trás. O resultado usa a aparência do objeto de trás.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        VectorBooleanOperation.values().toList().chunked(2).forEach { row ->
+            Row {
+                row.forEach { operation ->
+                    TextButton(
+                        enabled = VectorBoolean.eligible(objects),
+                        onClick = {
+                            selection.boolean(operation)
+                            onChanged()
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(operation.label, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
+        if (!VectorBoolean.eligible(objects))
+            Text(
+                "Feche os caminhos e desbloqueie os objetos para combinar áreas.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+    }
     val bounds = selection.bounds()
     if (bounds != null) {
         fun number(value: Float) = String.format(Locale.ROOT, "%.2f", value)

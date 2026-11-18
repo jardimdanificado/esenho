@@ -1672,7 +1672,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 }
                             }
                             if (engine.vectors.enabled) {
-                                DropdownMenuItem(text = { Text("Importar SVG Esenho…") }, onClick = {
+                                DropdownMenuItem(text = { Text("Importar SVG…") }, onClick = {
                                     showWorkspaceActions = false
                                     openSvgLauncher.launch(arrayOf("image/svg+xml"))
                                 })

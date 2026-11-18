@@ -160,8 +160,9 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
         }
         original.forEach { source ->
             val target = objects.firstOrNull { it.id == source.id } ?: return@forEach
-            target.nodes.forEachIndexed { index, node ->
-                val n = source.nodes[index]
+            val sourceNodes = source.allNodes()
+            target.allNodes().forEachIndexed { index, node ->
+                val n = sourceNodes[index]
                 val a = transform(n.x, n.y)
                 val b = transform(n.inX, n.inY)
                 val c = transform(n.outX, n.outY)
@@ -274,7 +275,7 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
         val s = sin(r)
         edit { targets ->
             targets.forEach { obj ->
-                obj.nodes.forEach { n ->
+                obj.allNodes().forEach { n ->
                     fun point(a: Float, z: Float): Pair<Float, Float> {
                         val ax = x + (a - b.left) * sx
                         val ay = y + (z - b.top) * sy
@@ -317,7 +318,7 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
                         "bottom" -> b.bottom - a.bottom
                         else -> 0f
                     }
-                unit.forEach { obj -> obj.nodes.forEach { it.move(dx, dy) } }
+                unit.forEach { obj -> obj.allNodes().forEach { it.move(dx, dy) } }
             }
         }
     }
@@ -339,12 +340,28 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
                     start + (end - start) * index / (sorted.size - 1) -
                         if (horizontal) b.cx else b.cy
                 unit.forEach { obj ->
-                    obj.nodes.forEach {
+                    obj.allNodes().forEach {
                         it.move(if (horizontal) shift else 0f, if (horizontal) 0f else shift)
                     }
                 }
             }
         }
+    }
+
+    fun boolean(operation: VectorBooleanOperation) {
+        val targets = objects
+        if (!VectorBoolean.eligible(targets)) return
+        // Compute and validate before consuming history or replacing source objects.
+        val result = VectorBoolean.combine(targets, operation)
+        workspace.finishAppearanceEdit()
+        workspace.finishPen()
+        engine.beginVectorEdit()
+        val layer = workspace.layers.getValue(engine.activeLayerIndex)
+        val insertion = layer.indexOf(targets.first())
+        layer.removeAll(targets.toSet())
+        if (result != null) layer.add(insertion.coerceAtMost(layer.size), result)
+        replace(result?.id)
+        workspace.render()
     }
 
     fun group() {
@@ -418,7 +435,7 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
                             }
                         obj.locked = false
                         obj.visible = true
-                        obj.nodes.forEach { it.move(12f, 12f) }
+                        obj.allNodes().forEach { it.move(12f, 12f) }
                     }
             }
         workspace.layers.getOrPut(engine.activeLayerIndex) { mutableListOf() }.addAll(copies)
@@ -501,7 +518,7 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
 
         companion object {
             fun of(objects: List<VectorObject>): VectorBounds? {
-                val points = objects.flatMap { it.samples() }
+                val points = objects.flatMap { obj -> obj.strokes().flatMap { it.samples() } }
                 if (points.isEmpty()) return null
                 return VectorBounds(
                     points.minOf { it.x },

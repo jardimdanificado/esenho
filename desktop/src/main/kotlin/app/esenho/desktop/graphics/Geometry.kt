@@ -254,6 +254,7 @@ class Matrix() {
 class Path() {
     constructor(other: Path) : this() {
         shape.append(other.shape, false)
+        fillType = other.fillType
     }
 
     enum class Direction {
@@ -262,6 +263,83 @@ class Path() {
     }
 
     val shape = java.awt.geom.Path2D.Float()
+
+    enum class FillType {
+        WINDING,
+        EVEN_ODD,
+    }
+
+    enum class Op {
+        UNION,
+        DIFFERENCE,
+        INTERSECT,
+        XOR,
+    }
+
+    var fillType: FillType = FillType.WINDING
+        set(value) {
+            field = value
+            shape.windingRule =
+                if (value == FillType.EVEN_ODD) java.awt.geom.Path2D.WIND_EVEN_ODD
+                else java.awt.geom.Path2D.WIND_NON_ZERO
+        }
+
+    val isEmpty: Boolean
+        get() = shape.currentPoint == null
+
+    fun op(other: Path, operation: Op): Boolean {
+        val area = java.awt.geom.Area(shape)
+        val right = java.awt.geom.Area(other.shape)
+        when (operation) {
+            Op.UNION -> area.add(right)
+            Op.DIFFERENCE -> area.subtract(right)
+            Op.INTERSECT -> area.intersect(right)
+            Op.XOR -> area.exclusiveOr(right)
+        }
+        shape.reset()
+        shape.append(area, false)
+        fillType = FillType.WINDING
+        return true
+    }
+
+    /** Android Path.approximate layout: fraction, x, y; moveTo keeps the preceding fraction. */
+    fun approximate(acceptableError: Float): FloatArray {
+        val iterator = shape.getPathIterator(null, acceptableError.toDouble().coerceAtLeast(.0001))
+        val points = mutableListOf<Triple<Float, Float, Float>>()
+        val coords = FloatArray(6)
+        var startX = 0f
+        var startY = 0f
+        var x = 0f
+        var y = 0f
+        var length = 0f
+        while (!iterator.isDone) {
+            when (iterator.currentSegment(coords)) {
+                java.awt.geom.PathIterator.SEG_MOVETO -> {
+                    x = coords[0]
+                    y = coords[1]
+                    startX = x
+                    startY = y
+                    points.add(Triple(length, x, y))
+                }
+                java.awt.geom.PathIterator.SEG_LINETO -> {
+                    length += hypot(coords[0] - x, coords[1] - y)
+                    x = coords[0]
+                    y = coords[1]
+                    points.add(Triple(length, x, y))
+                }
+                java.awt.geom.PathIterator.SEG_CLOSE -> {
+                    length += hypot(startX - x, startY - y)
+                    x = startX
+                    y = startY
+                    points.add(Triple(length, x, y))
+                }
+            }
+            iterator.next()
+        }
+        return points
+            .flatMap { listOf(if (length > 0) it.first / length else 0f, it.second, it.third) }
+            .toFloatArray()
+    }
 
     fun moveTo(x: Float, y: Float) = shape.moveTo(x.toDouble(), y.toDouble())
 
