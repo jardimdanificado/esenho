@@ -75,6 +75,31 @@ class NativeScriptExtendedApi(private val e: EsenhoEngine, private val canvas: E
     private fun curveDefaults() = e.presetCatalog.associate { "preset:${it.id}" to it.curveBindings } + e.brushCatalog.associate { "brush:${it.id}" to it.curveBindings }
     private fun parameter(id: Int) = availableSliderParameters(e).firstOrNull { it.paramId == id } ?: error("Parâmetro inexistente: $id")
 
+    private fun vectorObject(a: JSONObject) =
+        e.vectors.objectById(a.optString("id")) ?: error("Objeto vetorial inexistente: ${a.optString("id")}")
+
+    private fun vectorNodes(a: JSONObject): MutableList<VectorNode> {
+        val points = a.getJSONArray("points")
+        require(points.length() in 1..10000) { "Quantidade de pontos inválida" }
+        return MutableList(points.length()) { i ->
+            val point = points.getJSONArray(i)
+            VectorNode(
+                point.getDouble(0).toFloat(),
+                point.getDouble(1).toFloat(),
+                if (point.length() > 2) point.getDouble(2).toFloat() else 1f,
+            )
+        }
+    }
+
+    private fun vectorStyle(a: JSONObject): JSONObject {
+        val style = e.captureVectorStyle()
+        if (a.has("color")) style.put("color", color(a.get("color")))
+        if (a.has("size")) style.put("size", a.f("size", 14.0).toDouble())
+        if (a.has("opacity")) style.put("opacity", a.f("opacity", 1.0).toDouble())
+        if (a.has("strokeEnabled")) style.put("strokeEnabled", a.getBoolean("strokeEnabled"))
+        return style
+    }
+
     fun invoke(op: String, a: JSONObject): Any? = when (op) {
         "document.new" -> {
             val w = a.getInt("width"); val h = a.getInt("height")
@@ -329,6 +354,175 @@ class NativeScriptExtendedApi(private val e: EsenhoEngine, private val canvas: E
         "storage.get" -> e.context.getSharedPreferences("esenho_script_data",0).getString(a.getString("key"),null)
         "storage.set" -> { e.context.getSharedPreferences("esenho_script_data",0).edit().putString(a.getString("key"),a.getString("value")).apply(); null }
         "storage.remove" -> { e.context.getSharedPreferences("esenho_script_data",0).edit().remove(a.getString("key")).apply(); null }
+        "vector.enable" -> { e.vectors.switchMode(a.optBoolean("enabled", true)); null }
+        "vector.list" -> JSONArray(e.vectors.layers.values.flatten().map { it.json() })
+        "vector.get" -> vectorObject(a).json()
+        "vector.create" -> {
+            val type = a.optString("type", "rect").lowercase()
+            val x = a.f("x")
+            val y = a.f("y")
+            val width = a.f("width", 100.0)
+            val height = a.f("height", 100.0)
+            val nodes =
+                when (type) {
+                    "points" -> vectorNodes(a)
+                    "line" ->
+                        mutableListOf(VectorNode(x, y, 1f), VectorNode(x + width, y + height, 1f))
+                    "ellipse" -> {
+                        val cx = x + width / 2
+                        val cy = y + height / 2
+                        val rx = kotlin.math.abs(width) / 2
+                        val ry = kotlin.math.abs(height) / 2
+                        val k = .55228475f
+                        mutableListOf(
+                            VectorNode(cx + rx, cy, 1f, inX = cx + rx, inY = cy - ry * k, outX = cx + rx, outY = cy + ry * k),
+                            VectorNode(cx, cy + ry, 1f, inX = cx + rx * k, inY = cy + ry, outX = cx - rx * k, outY = cy + ry),
+                            VectorNode(cx - rx, cy, 1f, inX = cx - rx, inY = cy + ry * k, outX = cx - rx, outY = cy - ry * k),
+                            VectorNode(cx, cy - ry, 1f, inX = cx - rx * k, inY = cy - ry, outX = cx + rx * k, outY = cy - ry),
+                        )
+                    }
+                    "text" -> mutableListOf(VectorNode(x, y, 1f))
+                    else ->
+                        mutableListOf(
+                            VectorNode(x, y, 1f),
+                            VectorNode(x + width, y, 1f),
+                            VectorNode(x + width, y + height, 1f),
+                            VectorNode(x, y + height, 1f),
+                        )
+                }
+            require(nodes.isNotEmpty())
+            val obj =
+                VectorObject(
+                    UUID.randomUUID().toString(),
+                    nodes,
+                    vectorStyle(a),
+                    type != "line" && type != "points",
+                    if (a.has("fill")) color(a.get("fill")) else null,
+                    a.optString("name", ""),
+                    text = if (type == "text") a.optString("text", "Texto") else null,
+                    fontFamily = a.optString("fontFamily", "sans-serif"),
+                    fontSize = a.f("fontSize", 24.0),
+                    letterSpacing = a.f("letterSpacing", 0.0),
+                    textAlign = a.optString("textAlign", "left"),
+                )
+            if (type == "text") e.vectors.syncTextBounds(obj)
+            e.vectors.addObject(obj)
+            obj.id
+        }
+        "vector.setStyle" -> {
+            val obj = vectorObject(a)
+            e.beginVectorEdit()
+            val style = vectorStyle(a)
+            if (a.has("color")) obj.style.put("color", style.get("color"))
+            if (a.has("size")) obj.style.put("size", style.get("size"))
+            if (a.has("opacity")) obj.style.put("opacity", style.get("opacity"))
+            if (a.has("strokeEnabled")) obj.style.put("strokeEnabled", style.get("strokeEnabled"))
+            if (a.has("fill")) obj.fill = color(a.get("fill"))
+            e.vectors.render()
+            obj.id
+        }
+        "vector.setText" -> {
+            val obj = vectorObject(a)
+            require(obj.text != null) { "Objeto não é texto" }
+            if (a.has("text")) obj.text = a.getString("text")
+            if (a.has("fontFamily")) obj.fontFamily = a.getString("fontFamily")
+            if (a.has("fontSize")) obj.fontSize = a.f("fontSize", 24.0)
+            if (a.has("letterSpacing")) obj.letterSpacing = a.f("letterSpacing", 0.0)
+            if (a.has("textAlign")) obj.textAlign = a.getString("textAlign")
+            e.vectors.syncTextBounds(obj)
+            e.vectors.render()
+            obj.id
+        }
+        "vector.remove" -> e.vectors.removeObject(a.getString("id"))
+        "vector.select" -> {
+            e.vectors.selectedId = a.optString("id").takeIf { it.isNotEmpty() }
+            null
+        }
+        "vector.boolean" -> {
+            val operation =
+                VectorBooleanOperation.values().firstOrNull { it.name.equals(a.getString("op"), true) }
+                    ?: error("Operação booleana inválida")
+            val ids = a.getJSONArray("ids")
+            e.vectors.selection.replace(if (ids.length() == 0) null else ids.getString(0))
+            repeat(ids.length() - 1) { i -> e.vectors.selection.select(ids.getString(i + 1)) }
+            e.vectors.selection.boolean(operation)
+            null
+        }
+        "vector.clip" -> {
+            val ids = a.getJSONArray("ids")
+            e.vectors.selection.replace(ids.getString(0))
+            repeat(ids.length() - 1) { i -> e.vectors.selection.select(ids.getString(i + 1)) }
+            if (a.optBoolean("release", false)) e.vectors.selection.releaseClip()
+            else e.vectors.selection.createClip()
+            null
+        }
+        "vector.simplify" -> {
+            e.vectors.selectedId = a.getString("id")
+            e.vectors.simplify(a.f("tolerance", 2.0))
+            null
+        }
+        "vector.outline" -> {
+            e.vectors.selectedId = a.getString("id")
+            e.vectors.outlineStroke()
+            null
+        }
+        "vector.gradient" -> {
+            val obj = vectorObject(a)
+            val type = a.optString("type", "linear").lowercase()
+            require(type in listOf("linear", "radial")) { "Tipo de gradiente inválido" }
+            val stops = a.getJSONArray("stops")
+            require(stops.length() >= 2) { "Gradiente precisa de pelo menos duas paradas" }
+            obj.fillGradient =
+                VectorGradient(
+                    type,
+                    MutableList(stops.length()) { i ->
+                        val stop = stops.getJSONArray(i)
+                        VectorGradientStop(stop.getDouble(0).toFloat(), color(stop.get(1)))
+                    },
+                    a.f("startX", 0.0), a.f("startY", .5),
+                    a.f("endX", 1.0), a.f("endY", .5),
+                    a.f("radius", .5),
+                    a.optBoolean("userSpace", false),
+                )
+            e.beginVectorEdit()
+            e.vectors.render()
+            obj.id
+        }
+        "vector.flip" -> {
+            val ids = a.getJSONArray("ids")
+            e.vectors.selection.replace(ids.getString(0))
+            repeat(ids.length() - 1) { i -> e.vectors.selection.select(ids.getString(i + 1)) }
+            e.vectors.selection.flip(a.optBoolean("horizontal", true))
+            null
+        }
+        "vector.moveZ" -> {
+            val ids = a.getJSONArray("ids")
+            e.vectors.selection.replace(ids.getString(0))
+            repeat(ids.length() - 1) { i -> e.vectors.selection.select(ids.getString(i + 1)) }
+            e.vectors.selection.reorderRelative(a.optBoolean("forward", true))
+            null
+        }
+        "vector.group" -> {
+            val ids = a.getJSONArray("ids")
+            e.vectors.selection.replace(ids.getString(0))
+            repeat(ids.length() - 1) { i -> e.vectors.selection.select(ids.getString(i + 1)) }
+            e.vectors.selection.group(a.optString("name", ""))
+            null
+        }
+        "vector.ungroup" -> {
+            val ids = a.getJSONArray("ids")
+            e.vectors.selection.replace(ids.getString(0))
+            repeat(ids.length() - 1) { i -> e.vectors.selection.select(ids.getString(i + 1)) }
+            e.vectors.selection.ungroup()
+            null
+        }
+        "vector.trace" -> e.vectors.traceLayer(a.optInt("threshold", 128), a.optInt("maxContours", 120))
+        "vector.toSvg" -> e.vectors.exportSvg(a.optBoolean("appearance", false))
+        "vector.fromSvg" -> {
+            val objects = VectorSvgIO.readEditable(a.getString("svg"))
+            objects.forEach { e.vectors.addObject(it) }
+            JSONArray(objects.map { it.id })
+        }
         else -> error("Comando desconhecido: $op")
     }
 

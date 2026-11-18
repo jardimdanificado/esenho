@@ -278,6 +278,28 @@
     cancel: () => { call("stroke.cancel");lastStrokePoint=undefined; }
   });
   esenho.scripts = {list: () => call("scripts.list"),save: options => call("scripts.save",options),remove: script => call("scripts.remove",{id:idOf(script)})};
+  esenho.vector = {
+    enable: (enabled = true) => call("vector.enable", {enabled}),
+    list: () => call("vector.list"),
+    get: object => call("vector.get", {id:idOf(object)}),
+    create: options => call("vector.create", options),
+    setStyle: (object, options) => call("vector.setStyle", {...options,id:idOf(object)}),
+    setText: (object, options) => call("vector.setText", {...options,id:idOf(object)}),
+    remove: object => call("vector.remove", {id:idOf(object)}),
+    select: object => call("vector.select", {id:object == null ? "" : idOf(object)}),
+    boolean: (op, objects) => call("vector.boolean", {op,ids:objects.map(idOf)}),
+    clip: (objects, release = false) => call("vector.clip", {ids:objects.map(idOf),release}),
+    simplify: (object, tolerance = 2) => call("vector.simplify", {id:idOf(object),tolerance}),
+    outline: object => call("vector.outline", {id:idOf(object)}),
+    gradient: (object, options) => call("vector.gradient", {...options,id:idOf(object)}),
+    flip: (objects, horizontal = true) => call("vector.flip", {ids:objects.map(idOf),horizontal}),
+    moveZ: (objects, forward = true) => call("vector.moveZ", {ids:objects.map(idOf),forward}),
+    group: (objects, name = '') => call("vector.group", {ids:objects.map(idOf),name}),
+    ungroup: objects => call("vector.ungroup", {ids:objects.map(idOf)}),
+    trace: (threshold = 128, maxContours = 120) => call("vector.trace", {threshold,maxContours}),
+    toSvg: (appearance = false) => call("vector.toSvg", {appearance}),
+    fromSvg: svg => call("vector.fromSvg", {svg})
+  };
   esenho.help = () => Object.fromEntries(Object.entries(esenho).filter(([,v]) => v && typeof v === "object").map(([k,v]) => [k,Object.getOwnPropertyNames(v)]));
   const print = (...args) => call("log", { message: args.map(value =>
     typeof value === "string" ? value : JSON.stringify(value) ?? String(value)).join(" ") });

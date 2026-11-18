@@ -531,6 +531,33 @@ pessoais; `scripts.save({id?,name,source})` cria/atualiza um preset pessoal e
 `scripts.remove(preset)` remove um preset pessoal. Exemplos de fábrica são
 somente leitura. `esenho.help()` lista os membros públicos por namespace.
 
+## Vetor: objetos, estilos e SVG
+
+O namespace `esenho.vector` expõe o modo vetorial nativo ao mesmo runtime QuickJS:
+
+```js
+esenho.vector.enable(true);
+const a = esenho.vector.create({type:'rect', x:10, y:10, width:60, height:40, fill:'#ff0000'});
+const b = esenho.vector.create({type:'ellipse', x:90, y:10, width:60, height:40});
+const t = esenho.vector.create({type:'text', x:10, y:80, text:'Título', fontSize:24});
+esenho.vector.setText(t, {text:'Novo título', fontFamily:'serif'});
+esenho.vector.gradient(a, {type:'linear', stops:[[0,'#ff0000'],[1,'#00ff00']]});
+esenho.vector.boolean('union', [a, b]);
+const svg = esenho.vector.toSvg();
+const objects = esenho.vector.list();
+```
+
+`create` aceita `rect`, `ellipse`, `line`, `text` e `points` (com `points:[[x,y,pressão?],…]`).
+`setStyle`, `setText`, `gradient`, `simplify`, `outline` e `remove` recebem o objeto
+ou seu `id`. `select` define a seleção; `boolean(op, objetos)` usa `union`,
+`subtract`, `intersect` ou `exclude`; `clip(objetos, release?)` cria ou libera um
+recorte. `trace(limiar, máximo)` vetoriza a camada ativa. `flip(objetos, horizontal?)`,
+`moveZ(objetos, forward?)`, `group(objetos, nome?)` e `ungroup(objetos)` cobrem
+espelhamento, z-order relativo e grupos aninhados. `toSvg(appearance?)` exporta
+curvas ou aparência e `fromSvg(svg)` importa caminhos editáveis.
+Todas as operações usam o desfazer do editor e exigem o modo vetorial ativo
+quando aplicável.
+
 ## Filtros: cor, detalhe, desenho e distorção
 
 O painel Filtros possui 97 efeitos e busca por nome ou ID. Todos também estão

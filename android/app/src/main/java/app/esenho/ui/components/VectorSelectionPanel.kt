@@ -198,6 +198,8 @@ internal fun VectorSelectionPanel(engine: EsenhoEngine, revision: Int, onChanged
         var height by
             remember(bounds, selection.selectedIds) { mutableStateOf(number(bounds.height)) }
         var angle by remember(bounds, selection.selectedIds) { mutableStateOf("0") }
+        var skewX by remember(bounds, selection.selectedIds) { mutableStateOf("0") }
+        var skewY by remember(bounds, selection.selectedIds) { mutableStateOf("0") }
         var pivotX by remember { mutableStateOf("50") }
         var pivotY by remember { mutableStateOf("50") }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -210,11 +212,15 @@ internal fun VectorSelectionPanel(engine: EsenhoEngine, revision: Int, onChanged
         }
         VectorNumber("Girar seleção (graus)", angle, { angle = it }, Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            VectorNumber("Inclinar X (graus)", skewX, { skewX = it }, Modifier.weight(1f))
+            VectorNumber("Inclinar Y (graus)", skewY, { skewY = it }, Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             VectorNumber("Pivô X (%)", pivotX, { pivotX = it }, Modifier.weight(1f))
             VectorNumber("Pivô Y (%)", pivotY, { pivotY = it }, Modifier.weight(1f))
         }
         val values =
-            listOf(x, y, width, height, angle, pivotX, pivotY).map {
+            listOf(x, y, width, height, angle, pivotX, pivotY, skewX, skewY).map {
                 it.replace(',', '.').toFloatOrNull()?.takeIf(Float::isFinite)
             }
         OutlinedButton(
@@ -232,6 +238,8 @@ internal fun VectorSelectionPanel(engine: EsenhoEngine, revision: Int, onChanged
                     values[4]!!,
                     values[5]!! / 100f,
                     values[6]!! / 100f,
+                    values[7]!!,
+                    values[8]!!,
                 )
                 onChanged()
             },
@@ -299,6 +307,48 @@ internal fun VectorSelectionPanel(engine: EsenhoEngine, revision: Int, onChanged
                 },
             ) {
                 Text("À frente")
+            }
+        }
+        Row {
+            TextButton(
+                enabled = editable,
+                onClick = {
+                    selection.reorderRelative(false)
+                    onChanged()
+                },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Recuar", style = MaterialTheme.typography.labelSmall)
+            }
+            TextButton(
+                enabled = editable,
+                onClick = {
+                    selection.reorderRelative(true)
+                    onChanged()
+                },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Avançar", style = MaterialTheme.typography.labelSmall)
+            }
+            TextButton(
+                enabled = editable,
+                onClick = {
+                    selection.flip(true)
+                    onChanged()
+                },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Espelhar H", style = MaterialTheme.typography.labelSmall)
+            }
+            TextButton(
+                enabled = editable,
+                onClick = {
+                    selection.flip(false)
+                    onChanged()
+                },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Espelhar V", style = MaterialTheme.typography.labelSmall)
             }
         }
         if (objects.size > 1) {

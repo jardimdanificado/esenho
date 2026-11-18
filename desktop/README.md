@@ -69,7 +69,7 @@ Os botões de presets e a amostra de cor do dock abrem os mesmos painéis do ras
 
 O arquivo `.esenho` preserva os caminhos e os pixels renderizados. Projetos anteriores continuam abrindo. No menu do documento, **Exportar curvas SVG** grava curvas convencionais e os metadados editáveis do Esenho; efeitos de pincel não equivalentes ao padrão SVG podem mudar de aparência em outros programas. **Exportar SVG com aparência** incorpora PNGs das camadas vetoriais e mantém os mesmos metadados. **Importar SVG** adiciona caminhos ao documento atual, preservando os parâmetros dos arquivos Esenho e lendo formas SVG externas compatíveis, sem alterar o tamanho do canvas.
 
-**Rasterizar camada** permite continuar com ferramentas de pixels. Filtros raster, mesclagem de camadas e transformação raster exigem essa conversão. Undo/redo preserva geometria e aparência antes e depois da rasterização. O modo vetorial ainda não oferece gradientes editáveis ou rigging do editor web antigo.
+**Rasterizar camada** permite continuar com ferramentas de pixels. Filtros raster, mesclagem de camadas e transformação raster exigem essa conversão. Undo/redo preserva geometria e aparência antes e depois da rasterização. O modo vetorial ainda não oferece rigging do editor web antigo.
 
 A barra de ferramentas existe nos dois espaços. O botão de seta no fim da barra a oculta; no menu **…**, escolha **Mostrar ferramentas** para reabri-la. A visibilidade é salva separadamente para Raster e Vetor. Linha usa arraste entre as extremidades; retângulo e elipse usam arraste entre os cantos da caixa delimitadora, com prévia da forma durante o gesto. A caneta mostra âncoras quadradas e alças circulares enquanto desenha. A edição de nós/alças usa prévia geométrica durante o arraste e atualiza a aparência do pincel ao soltar.
 
@@ -79,9 +79,9 @@ Para medir o mesmo arraste de oito movimentos em uma camada com seis caminhos e 
 
 Na ferramenta **Objetos** (`V`), arraste uma área vazia para selecionar os caminhos totalmente contidos. Use `Shift` ao clicar, ou **Adicionar/remover da seleção** no painel, para acumular ou retirar objetos. Arraste o objeto para mover a seleção, as oito alças para escalar e o círculo acima para girar. A prévia geométrica acompanha o gesto; o pincel nativo é reaplicado ao soltar.
 
-O painel **Objetos vetoriais** permite editar X/Y, largura/altura, rotação relativa e pivô percentual, alinhar e distribuir centros, agrupar/desagrupar e levar a seleção à frente ou ao fundo. O tamanho do pincel permanece constante ao transformar a geometria. Grupos são planos, dentro da mesma camada. Copiar/colar usa uma área de transferência interna do app, preservando pincéis e grupos. `Ctrl+A/C/V/D`, `Ctrl+G`, `Ctrl+Shift+G`, `Delete` e `Esc` controlam seleção, cópia, colagem, duplicação, grupos e exclusão quando o canvas tem foco.
+O painel **Objetos vetoriais** permite editar X/Y, largura/altura, rotação relativa, inclinação X/Y e pivô percentual, alinhar e distribuir centros, espelhar horizontal/verticalmente, agrupar/desagrupar e levar a seleção à frente, ao fundo, avançar ou recuar uma posição. O tamanho do pincel permanece constante ao transformar a geometria. Grupos podem ser aninhados dentro da mesma camada: agrupar objetos que já pertencem ao mesmo grupo cria um subgrupo, e selecionar um objeto do grupo pais inclui seus descendentes. Copiar/colar usa uma área de transferência interna do app, preservando pincéis e grupos. `Ctrl+A/C/V/D`, `Ctrl+G`, `Ctrl+Shift+G`, `Delete` e `Esc` controlam seleção, cópia, colagem, duplicação, grupos e exclusão quando o canvas tem foco.
 
-Ative **Encaixar** no painel para alinhar movimentos e alças à grade de 8/16/32 px, aos limites/centro do canvas e às bordas/centros dos outros objetos da camada. Nome, ordem, grupo, bloqueio e visibilidade são salvos no projeto e participam do desfazer/refazer. Os ícones de olho e cadeado na lista agem por objeto. Grupos aninhados ainda não estão disponíveis.
+Ative **Encaixar** no painel para alinhar movimentos e alças à grade de 8/16/32 px, aos limites/centro do canvas e às bordas/centros dos outros objetos da camada. Nome, ordem, grupo, bloqueio e visibilidade são salvos no projeto e participam do desfazer/refazer. Os ícones de olho e cadeado na lista agem por objeto.
 
 ### Animação vetorial
 
@@ -101,6 +101,12 @@ A ferramenta **Texto** cria um objeto editável. No painel do objeto é possíve
 
 **Texto sobre caminho** prende o texto a outro caminho da mesma camada; cada caractere é posicionado e girado ao longo da curva. **Converter em curvas** substitui o texto por contornos de glifos editáveis pela ferramenta **Nós**, preservando furos. Textos e referências `textPath` sobrevivem ao projeto `.esenho` e à exportação/importação SVG, inclusive SVG externo com `text`, `font-family`, `font-size`, `letter-spacing` e `text-anchor`. Fontes não instaladas no sistema podem mudar de aparência em outros computadores.
 
+### Gradientes e imagens
+
+**Preenchimento gradiente** cria um gradiente linear ou radial editável. Cada parada tem posição e cor; use **Adicionar parada com a cor atual** e o seletor de cor do objeto para compor a transição. **Coordenadas em pixels** troca as posições normalizadas do gradiente por coordenadas absolutas no documento. Gradientes são exportados como `<linearGradient>`/`<radialGradient>` e importados de SVG externo.
+
+Imagens PNG incorporadas em SVG (`data:image/png;base64`) viram objetos vetoriais editáveis: a caixa do objeto controla posição e tamanho. Na exportação, voltam como `<image>`. O projeto `.esenho` guarda os bytes da imagem.
+
 ### Aparência avançada
 
 **Preenchimento com pincel** usa o pincel atual em varreduras dentro da área fechada, em vez de cor sólida. A configuração do pincel fica guardada com o objeto. **Filtro do preenchimento** e **Filtro do contorno** aplicam um filtro nativo apenas à parte correspondente: o editor isola essa parte, aplica o filtro e recombina com o restante da camada. Ambos são salvos no projeto e participam do desfazer.
@@ -119,4 +125,4 @@ No painel **Objetos**, selecione dois ou mais objetos fechados e desbloqueados d
 
 A importação externa aceita `path` com M/L/H/V/C/S/Q/T/A/Z, comandos relativos e repetidos, `rect` com cantos arredondados, `circle`, `ellipse`, `line`, `polyline` e `polygon`. Quadráticas e arcos são convertidos em Béziers cúbicas. Também lê viewBox, unidades físicas/percentuais, transformações, grupos planos, referências internas `use`, estilos inline/herdados, cores sólidas, regras evenodd/nonzero, opacidade por objeto, terminações/junções e tracejados. Escalas não uniformes são aceitas em preenchimentos; contornos exigem transformação uniforme, sem inclinação. O contorno SVG mantém seus atributos ao importar; **Aplicar pincel atual ao contorno** troca essa aparência pelo pincel raster selecionado.
 
-Imagens incorporadas, gradientes/padrões, máscaras/recortes, filtros, marcadores, CSS em folhas de estilo, opacidade de grupo, viewports aninhados, `pathLength` e `preserveAspectRatio="slice"` ainda não são importados. O importador informa o recurso incompatível e mantém o documento anterior intacto. Converta esses elementos em caminhos simples antes de importar. Os SVGs exportados pelo próprio app continuam usando seus metadados para preservar integralmente os parâmetros nativos.
+Padrões de preenchimento, `clip-path`/`mask` externos, filtros SVG, marcadores, CSS em folhas de estilo, opacidade de grupo, viewports aninhados, `pathLength` e `preserveAspectRatio="slice"` ainda não são importados. Gradientes lineares/radiais e imagens PNG incorporadas são importados. O importador informa o recurso incompatível e mantém o documento anterior intacto. Converta esses elementos em caminhos simples antes de importar. Os SVGs exportados pelo próprio app continuam usando seus metadados para preservar integralmente os parâmetros nativos.

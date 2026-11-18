@@ -442,6 +442,82 @@ fun VectorObjectPanel(
                     )
                     Text("Preenchimento com pincel", style = MaterialTheme.typography.bodySmall)
                 }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = selected.fillGradient != null,
+                        onCheckedChange = {
+                            vector.setGradientEnabled(it)
+                            onChanged()
+                        },
+                    )
+                    Text("Preenchimento gradiente", style = MaterialTheme.typography.bodySmall)
+                }
+                selected.fillGradient?.let { gradient ->
+                    Row {
+                        listOf("linear" to "Linear", "radial" to "Radial").forEach { (value, label) ->
+                            FilterChip(
+                                selected = gradient.type == value,
+                                onClick = {
+                                    vector.updateGradient { it.type = value }
+                                    onChanged()
+                                },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        }
+                    }
+                    gradient.stops.sortedBy { it.offset }.forEach { stop ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier.size(16.dp)
+                                    .background(Color(stop.color), CircleShape)
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                            )
+                            Slider(
+                                value = stop.offset.coerceIn(0f, 1f),
+                                valueRange = 0f..1f,
+                                onValueChange = { value ->
+                                    vector.updateGradient { g ->
+                                        g.stops.firstOrNull { it === stop }?.offset = value
+                                    }
+                                    onChanged()
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(
+                                onClick = {
+                                    vector.updateGradient { g ->
+                                        if (g.stops.size > 2) g.stops.removeAll { it === stop }
+                                    }
+                                    onChanged()
+                                }
+                            ) {
+                                Icon(Icons.Default.Delete, "Remover parada")
+                            }
+                        }
+                    }
+                    TextButton(
+                        onClick = {
+                            vector.updateGradient { g ->
+                                val last = g.stops.maxOfOrNull { it.offset } ?: 0f
+                                g.stops += VectorGradientStop((last + .25f).coerceAtMost(1f), engine.currentColor)
+                            }
+                            onChanged()
+                        },
+                    ) {
+                        Text("Adicionar parada com a cor atual")
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = gradient.userSpace,
+                            onCheckedChange = {
+                                vector.updateGradient { g -> g.userSpace = it }
+                                onChanged()
+                            },
+                        )
+                        Text("Coordenadas em pixels", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
                 @Composable
                 fun FilterPicker(label: String, current: VectorFilter?, apply: (VectorFilter?) -> Unit) {
                     var expanded by remember { mutableStateOf(false) }
@@ -867,7 +943,7 @@ fun VectorObjectPanel(
                     ) {
                         Icon(Icons.Default.Polyline, null, Modifier.size(18.dp))
                         Text(
-                            "${obj.name.ifBlank { if (obj.text != null) "Texto ${index+1}" else "Caminho ${index+1}" }}${if (obj.groupId != null) " · grupo" else ""}${if (obj.isClip) " · recorte" else ""}${if (obj.clipOf != null) " · recortado" else ""} · ${obj.allNodes().size} nós",
+                            "${obj.name.ifBlank { if (obj.text != null) "Texto ${index+1}" else "Caminho ${index+1}" }}${obj.groupId?.let { id -> " · ${vector.groups[id]?.name?.ifBlank { "grupo" } ?: "grupo"}" } ?: ""}${if (obj.isClip) " · recorte" else ""}${if (obj.clipOf != null) " · recortado" else ""} · ${obj.allNodes().size} nós",
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f),
                         )

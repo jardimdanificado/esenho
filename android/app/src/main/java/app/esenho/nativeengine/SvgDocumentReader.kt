@@ -1,7 +1,9 @@
 package app.esenho.nativeengine
 
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import kotlin.math.*
+import java.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 import org.w3c.dom.Element
@@ -11,6 +13,7 @@ import org.w3c.dom.Node
 internal class SvgDocumentReader(private val root: Element) {
     private val objects = mutableListOf<VectorObject>()
     private val ids = mutableMapOf<String, Element>()
+    private val gradients = mutableMapOf<String, VectorGradient>()
     private var viewportWidth = 300.0
     private var viewportHeight = 150.0
     private val number = Regex("[-+]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?")
@@ -216,12 +219,71 @@ internal class SvgDocumentReader(private val root: Element) {
         return Affine(a = sx, d = sy, e = tx - box[0] * sx, f = ty - box[1] * sy)
     }
 
+    private fun gradientFor(value: String?): VectorGradient? {
+        val ref = value?.trim()?.takeIf { it.startsWith("url(") } ?: return null
+        val id = ref.removePrefix("url(").removeSuffix(")").trim().removePrefix("#")
+        return gradients[id]?.copyGradient()
+    }
+
+    private fun parseGradients() {
+        listOf("linearGradient", "radialGradient").forEach { tag ->
+            val list = root.getElementsByTagNameNS("*", tag)
+            repeat(list.length) { index ->
+                val element = list.item(index) as Element
+                val id = element.getAttribute("id")
+                if (id.isEmpty()) return@repeat
+                val userSpace = element.getAttribute("gradientUnits") == "userSpaceOnUse"
+                fun coordinate(name: String, fallback: Double, fraction: Boolean): Float {
+                    val raw = element.getAttribute(name)
+                    if (raw.isEmpty()) return fallback.toFloat()
+                    val value =
+                        if (raw.endsWith("%")) raw.dropLast(1).toDoubleOrNull()?.div(100.0)
+                        else raw.toDoubleOrNull()
+                    require(value != null && value.isFinite()) { "Coordenada de gradiente SVG inválida." }
+                    return (if (fraction && !raw.endsWith("%")) value else if (userSpace) length(raw, viewportWidth) else value)
+                        .toFloat()
+                }
+                val stops = mutableListOf<VectorGradientStop>()
+                val children = element.childNodes
+                repeat(children.length) { i ->
+                    val node = children.item(i)
+                    if (node !is Element || (node.localName ?: node.tagName) != "stop") return@repeat
+                    val raw = node.getAttribute("offset")
+                    val offset =
+                        if (raw.endsWith("%")) (raw.dropLast(1).toDoubleOrNull() ?: 0.0) / 100.0
+                        else raw.toDoubleOrNull() ?: 0.0
+                    require(offset.isFinite()) { "Parada de gradiente SVG inválida." }
+                    val alpha = opacity(node.getAttribute("stop-opacity").ifEmpty { "1" })
+                    val color =
+                        paint(
+                            node.getAttribute("stop-color").ifEmpty { "black" },
+                            alpha,
+                            "black",
+                        ) ?: 0xff000000.toInt()
+                    stops += VectorGradientStop(offset.toFloat().coerceIn(0f, 1f), color, alpha.toFloat())
+                }
+                gradients[id] =
+                    VectorGradient(
+                        type = tag.removeSuffix("Gradient"),
+                        stops = stops,
+                        startX = coordinate("x1", 0.0, !userSpace),
+                        startY = coordinate("y1", 0.5, !userSpace),
+                        endX = coordinate("x2", 1.0, !userSpace),
+                        endY = coordinate("y2", 0.5, !userSpace),
+                        radius = coordinate("r", 0.5, !userSpace),
+                        userSpace = userSpace,
+                    )
+            }
+        }
+    }
+
     fun read(): List<VectorObject> {
         fun index(e: Element) {
             e.getAttribute("id").takeIf { it.isNotEmpty() }?.let { ids[it] = e }
             elements(e).forEach(::index)
         }
         index(root)
+        parseGradients()
         val document = root.ownerDocument
         require(
             (0 until document.childNodes.length).none {
@@ -431,6 +493,56 @@ internal class SvgDocumentReader(private val root: Element) {
         }
         if (p["visibility"] in setOf("hidden", "collapse")) return
         if (e.hasAttribute("pathLength")) fail("pathLength ainda não é suportado.")
+        if (tag == "image") {
+            val href =
+                e.getAttribute("href").ifEmpty {
+                    e.getAttributeNS("http://www.w3.org/1999/xlink", "href")
+                }
+            val prefix = "data:image/png;base64,"
+            require(href.startsWith(prefix)) { "SVG: apenas imagens PNG incorporadas são suportadas." }
+            val data = href.removePrefix(prefix)
+            val bytes =
+                try {
+                    Base64.getDecoder().decode(data)
+                } catch (_: Exception) {
+                    fail("Imagem SVG incorporada inválida.")
+                }
+            val image =
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    ?: fail("Imagem SVG incorporada inválida.")
+            val width = attr(e, "width", viewportWidth, image.width.toDouble()).toFloat()
+            val height = attr(e, "height", viewportHeight, image.height.toDouble()).toFloat()
+            require(width > 0 && height > 0 && width <= 1e5 && height <= 1e5) {
+                "Dimensão de imagem SVG inválida."
+            }
+            val x = attr(e, "x", viewportWidth).toFloat()
+            val y = attr(e, "y", viewportHeight).toFloat()
+            val nodes =
+                mutableListOf(
+                    VectorNode(x, y, 1f),
+                    VectorNode(x + width, y, 1f),
+                    VectorNode(x + width, y + height, 1f),
+                    VectorNode(x, y + height, 1f),
+                )
+            nodes.forEach { node ->
+                val point = m.point(node.x, node.y)
+                node.x = point.first
+                node.y = point.second
+            }
+            objects.add(
+                VectorObject(
+                    java.util.UUID.randomUUID().toString(),
+                    nodes,
+                    JSONObject().put("svgStroke", true).put("strokeEnabled", false).put("color", 0),
+                    false,
+                    name = e.getAttribute("id").ifEmpty { "Imagem" },
+                    groupId = group,
+                    imageData = data,
+                )
+            )
+            require(objects.size <= 20000) { "SVG contém objetos demais." }
+            return
+        }
         if (tag == "text") {
             fun textOf(node: Node, out: StringBuilder) {
                 if (node.nodeType == Node.TEXT_NODE || node.nodeType == Node.CDATA_SECTION_NODE)
@@ -465,7 +577,8 @@ internal class SvgDocumentReader(private val root: Element) {
                             }
                         ref.removePrefix("#").takeIf { it.isNotBlank() }
                     }
-            val color = paint(p["fill"], opacity(p["fill-opacity"]), p["color"] ?: "black")
+            val gradient = gradientFor(p["fill"])
+            val color = if (gradient != null) null else paint(p["fill"], opacity(p["fill-opacity"]), p["color"] ?: "black")
             val style =
                 JSONObject()
                     .put("svgStroke", true)
@@ -513,6 +626,7 @@ internal class SvgDocumentReader(private val root: Element) {
                     letterSpacing = spacing.toFloat(),
                     textAlign = align,
                     pathId = pathRef,
+                    fillGradient = gradient,
                 )
             )
             require(objects.size <= 20000) { "SVG contém objetos demais." }
@@ -521,7 +635,8 @@ internal class SvgDocumentReader(private val root: Element) {
         val contours = shape(e, tag)
         if (contours.isEmpty()) return
         val stroke = paint(p["stroke"], opacity(p["stroke-opacity"]), p["color"] ?: "black")
-        val fill = paint(p["fill"], opacity(p["fill-opacity"]), p["color"] ?: "black")
+        val gradient = gradientFor(p["fill"])
+        val fill = if (gradient != null) null else paint(p["fill"], opacity(p["fill-opacity"]), p["color"] ?: "black")
         val width =
             length(p["stroke-width"] ?: "1", hypot(viewportWidth, viewportHeight) / sqrt(2.0))
         require(width >= 0) { "Espessura SVG negativa." }
@@ -593,6 +708,7 @@ internal class SvgDocumentReader(private val root: Element) {
                 groupId = group,
                 subPaths = contours.drop(1).toMutableList(),
                 evenOdd = rule == "evenodd",
+                fillGradient = gradient,
             )
         )
         require(objects.size <= 20000) { "SVG contém objetos demais." }

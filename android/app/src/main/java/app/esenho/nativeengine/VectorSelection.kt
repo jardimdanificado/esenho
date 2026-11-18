@@ -50,14 +50,23 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
         primary = ids.lastOrNull()
     }
 
+    private fun groupMembers(groupId: String): List<VectorObject> {
+        val all = workspace.layers[engine.activeLayerIndex].orEmpty()
+        return all.filter { obj ->
+            var current = obj.groupId
+            var guard = 0
+            while (current != null && guard++ < 64) {
+                if (current == groupId) return@filter true
+                current = workspace.groups[current]?.parentId
+            }
+            false
+        }
+    }
+
     fun select(id: String, toggle: Boolean = adding) {
         val obj = workspace.layers[engine.activeLayerIndex]?.firstOrNull { it.id == id } ?: return
-        val group =
-            if (obj.groupId == null) listOf(obj)
-            else
-                workspace.layers[engine.activeLayerIndex].orEmpty().filter {
-                    it.groupId == obj.groupId
-                }
+        val groupId = obj.groupId
+        val group = if (groupId == null) listOf(obj) else groupMembers(groupId)
         val values = group.map { it.id }
         if (!toggle) setIds(values)
         else if (values.all { it in ids }) setIds(ids - values.toSet()) else setIds(ids + values)
@@ -248,12 +257,9 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
                 }
             val values =
                 found.flatMap { obj ->
-                    if (obj.groupId == null) listOf(obj.id)
-                    else
-                        workspace.layers[engine.activeLayerIndex]
-                            .orEmpty()
-                            .filter { it.groupId == obj.groupId && !it.locked && it.visible }
-                            .map { it.id }
+                    val id = obj.groupId
+                    if (id == null) listOf(obj.id)
+                    else groupMembers(id).filter { !it.locked && it.visible }.map { it.id }
                 }
             setIds((if (adding) beforeIds else emptySet()) + values)
         } else if (token != 0L) workspace.render()
@@ -292,11 +298,15 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
         degrees: Float = 0f,
         pivotX: Float = .5f,
         pivotY: Float = .5f,
+        skewX: Float = 0f,
+        skewY: Float = 0f,
     ) {
         if (
-            listOf(x, y, width, height, degrees, pivotX, pivotY).any { !it.isFinite() } ||
+            listOf(x, y, width, height, degrees, pivotX, pivotY, skewX, skewY).any { !it.isFinite() } ||
                 width < 0 ||
-                height < 0
+                height < 0 ||
+                abs(skewX) >= 89f ||
+                abs(skewY) >= 89f
         )
             return
         val b = bounds() ?: return
@@ -307,14 +317,18 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
         val r = degrees * PI.toFloat() / 180f
         val c = cos(r)
         val s = sin(r)
+        val kx = tan(skewX * PI.toFloat() / 180f)
+        val ky = tan(skewY * PI.toFloat() / 180f)
         edit { targets ->
             targets.forEach { obj ->
                 obj.allNodes().forEach { n ->
                     fun point(a: Float, z: Float): Pair<Float, Float> {
                         val ax = x + (a - b.left) * sx
                         val ay = y + (z - b.top) * sy
-                        return (px + (ax - px) * c - (ay - py) * s) to
-                            (py + (ax - px) * s + (ay - py) * c)
+                        val skx = ax + kx * (ay - py)
+                        val sky = ay + ky * (ax - px)
+                        return (px + (skx - px) * c - (sky - py) * s) to
+                            (py + (skx - px) * s + (sky - py) * c)
                     }
                     val a = point(n.x, n.y)
                     val i = point(n.inX, n.inY)
@@ -434,15 +448,34 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
         }
     }
 
-    fun group() {
+    fun group(name: String = "") {
         if (editable().size > 1)
             edit { targets ->
+                val parent =
+                    targets.map { it.groupId }.distinct().singleOrNull()?.takeIf { it.isNotEmpty() }
                 val id = java.util.UUID.randomUUID().toString()
+                workspace.groups[id] = VectorGroup(id, name, parent)
                 targets.forEach { it.groupId = id }
             }
     }
 
-    fun ungroup() = edit { targets -> targets.forEach { it.groupId = null } }
+    fun ungroup() = edit { targets ->
+        val removed = targets.mapNotNull { it.groupId }.distinct()
+        targets.forEach { it.groupId = null }
+        removed.forEach { id ->
+            if (workspace.layers.values.flatten().none { it.groupId == id }) {
+                workspace.groups.remove(id)
+                workspace.groups.values.forEach { group ->
+                    if (group.parentId == id) group.parentId = null
+                }
+            }
+        }
+    }
+
+    fun renameGroup(id: String, name: String) {
+        workspace.groups[id]?.name = name.trim().take(120)
+        workspace.render()
+    }
 
     fun rename(name: String) = edit { targets ->
         targets.forEach { it.name = name.trim().take(120) }
@@ -479,6 +512,39 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
         val layer = workspace.layers.getValue(engine.activeLayerIndex)
         layer.removeAll(targets.toSet())
         layer.addAll(if (front) layer.size else 0, targets)
+    }
+
+    fun reorderRelative(forward: Boolean) = edit { targets ->
+        val layer = workspace.layers.getValue(engine.activeLayerIndex)
+        val indices = targets.map { layer.indexOf(it) }.sortedBy { if (forward) -it else it }
+        indices.forEach { index ->
+            val target = if (forward) minOf(index + 1, layer.lastIndex) else maxOf(index - 1, 0)
+            if (target != index) {
+                val obj = layer.removeAt(index)
+                layer.add(target, obj)
+            }
+        }
+    }
+
+    fun flip(horizontal: Boolean) {
+        val b = bounds() ?: return
+        val cx = if (horizontal) b.cx else 0f
+        val cy = if (horizontal) 0f else b.cy
+        edit { targets ->
+            targets.forEach { obj ->
+                obj.allNodes().forEach { n ->
+                    if (horizontal) {
+                        n.x = 2 * cx - n.x
+                        n.inX = 2 * cx - n.inX
+                        n.outX = 2 * cx - n.outX
+                    } else {
+                        n.y = 2 * cy - n.y
+                        n.inY = 2 * cy - n.inY
+                        n.outY = 2 * cy - n.outY
+                    }
+                }
+            }
+        }
     }
 
     fun copy() {

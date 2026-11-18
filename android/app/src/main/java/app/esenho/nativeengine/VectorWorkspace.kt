@@ -1,13 +1,16 @@
 package app.esenho.nativeengine
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RectF
 import kotlin.math.*
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Base64
 
 /** Editable geometry is authoritative; native layer pixels are its rendered cache. */
 enum class VectorTool(val label: String) {
@@ -105,6 +108,19 @@ data class VectorNode(
 /** Extra contours belong to the same filled object; they may bound holes or separate islands. */
 data class VectorContour(val nodes: MutableList<VectorNode>, var closed: Boolean)
 
+data class VectorGroup(val id: String, var name: String = "", var parentId: String? = null) {
+    fun json() = JSONObject().put("id", id).put("name", name).put("parentId", parentId)
+
+    companion object {
+        fun read(j: JSONObject) =
+            VectorGroup(
+                j.optString("id"),
+                j.optString("name"),
+                if (j.isNull("parentId")) null else j.optString("parentId").takeIf { it.isNotEmpty() },
+            )
+    }
+}
+
 data class VectorObject(
     val id: String,
     val nodes: MutableList<VectorNode>,
@@ -129,6 +145,8 @@ data class VectorObject(
     var fillBrushStyle: JSONObject? = null,
     var fillFilter: VectorFilter? = null,
     var strokeFilter: VectorFilter? = null,
+    var fillGradient: VectorGradient? = null,
+    var imageData: String? = null,
 ) {
     fun geometry(): List<VectorContour> = listOf(VectorContour(nodes, closed)) + subPaths
 
@@ -254,6 +272,8 @@ data class VectorObject(
             .put("fillBrushStyle", fillBrushStyle)
             .put("fillFilter", fillFilter?.json())
             .put("strokeFilter", strokeFilter?.json())
+            .put("fillGradient", fillGradient?.json())
+            .put("imageData", imageData)
             .put(
                 "subPaths",
                 JSONArray().also { paths ->
@@ -330,6 +350,8 @@ data class VectorObject(
                 if (j.isNull("fillBrushStyle")) null else j.getJSONObject("fillBrushStyle"),
                 if (j.isNull("fillFilter")) null else VectorFilter.read(j.getJSONObject("fillFilter")),
                 if (j.isNull("strokeFilter")) null else VectorFilter.read(j.getJSONObject("strokeFilter")),
+                if (j.isNull("fillGradient")) null else VectorGradient.read(j.getJSONObject("fillGradient")),
+                if (j.isNull("imageData")) null else j.optString("imageData"),
             )
         }
     }
@@ -343,6 +365,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
 
     var tool = VectorTool.DRAW
     val layers = linkedMapOf<Int, MutableList<VectorObject>>()
+    val groups = linkedMapOf<String, VectorGroup>()
     val selection = VectorSelection(engine, this)
     val animation = VectorAnimation(this)
     var selectedId: String?
@@ -399,6 +422,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         finishAppearanceEdit()
         selection.finish()
         layers.clear()
+        groups.clear()
         undo.clear()
         redo.clear()
         selectedId = null
@@ -454,6 +478,10 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 },
             )
             .put("animation", animation.json())
+            .put(
+                "groups",
+                JSONArray().also { array -> groups.values.forEach { array.put(it.json()) } },
+            )
             .toString()
 
     fun restore(value: String) {
@@ -467,6 +495,12 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 MutableList(objects.length()) { VectorObject.read(objects.getJSONObject(it)) }
         }
         enabled = j.optBoolean("enabled")
+        groups.clear()
+        val savedGroups = j.optJSONArray("groups") ?: JSONArray()
+        repeat(savedGroups.length()) { i ->
+            val group = VectorGroup.read(savedGroups.getJSONObject(i))
+            if (group.id.isNotEmpty()) groups[group.id] = group
+        }
         animation.load(j.optJSONObject("animation"))
         selectedId = null
         finishPen()
@@ -530,6 +564,26 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         engine.restoreVectorStyle(obj.style)
         engine.currentTool = currentTool
         editFillColor = false
+    }
+
+    fun objectById(id: String): VectorObject? = layers.values.flatten().firstOrNull { it.id == id }
+
+    fun addObject(obj: VectorObject) {
+        switchMode(true)
+        engine.beginVectorEdit()
+        layers.getOrPut(engine.activeLayerIndex) { mutableListOf() }.add(obj)
+        selectedId = obj.id
+        render()
+    }
+
+    fun removeObject(id: String): Boolean {
+        val layer = layers.values.firstOrNull { objects -> objects.any { it.id == id } } ?: return false
+        val obj = layer.first { it.id == id }
+        engine.beginVectorEdit()
+        layer.remove(obj)
+        if (selectedId == id) selectedId = null
+        render()
+        return true
     }
 
     fun selectObject(id: String) {
@@ -1012,6 +1066,21 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         if (enabled) obj.fillBrushStyle = JSONObject(engine.captureVectorStyle().toString())
     }
 
+    fun setGradientEnabled(enabled: Boolean) = changeSelected { obj ->
+        if (!enabled) obj.fillGradient = null
+        else if (obj.fillGradient == null)
+            obj.fillGradient =
+                VectorGradient().apply {
+                    stops += VectorGradientStop(0f, obj.fill ?: engine.currentColor)
+                    stops += VectorGradientStop(1f, 0xffffffff.toInt())
+                }
+    }
+
+    fun updateGradient(action: (VectorGradient) -> Unit) = changeSelected { obj ->
+        val gradient = obj.fillGradient ?: return@changeSelected
+        action(gradient)
+    }
+
     fun setObjectFilter(target: String, filter: VectorFilter?) = changeSelected { obj ->
         if (target == "fill") obj.fillFilter = filter else obj.strokeFilter = filter
     }
@@ -1447,6 +1516,106 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     }
 
     /** Renders one component alone, filters it, then composites it over the previous layer. */
+    private fun drawEmbeddedImage(obj: VectorObject, bitmap: Bitmap) {
+        val data = obj.imageData ?: return
+        val bounds = VectorSelection.VectorBounds.of(listOf(obj)) ?: return
+        val image =
+            try {
+                val bytes = Base64.getDecoder().decode(data)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            } catch (_: Exception) {
+                null
+            } ?: return
+        try {
+            bitmap.eraseColor(0)
+            Canvas(bitmap).drawBitmap(
+                image,
+                null,
+                RectF(bounds.left, bounds.top, bounds.right, bounds.bottom),
+                Paint(Paint.ANTI_ALIAS_FLAG),
+            )
+            EsenhoNativeBridge.nativeLayerDrawBitmap(
+                engine.activeLayerIndex,
+                bitmap,
+                0,
+                0,
+                engine.width,
+                engine.height,
+            )
+        } finally {
+            image.recycle()
+        }
+    }
+
+    fun embedBitmap(bitmap: Bitmap, x: Float, y: Float): String? {
+        val bytes = java.io.ByteArrayOutputStream()
+        if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, bytes)) return null
+        val data = Base64.getEncoder().encodeToString(bytes.toByteArray())
+        switchMode(true)
+        ensureLayer()
+        val style = engine.captureVectorStyle().apply { put("strokeEnabled", false) }
+        val obj =
+            VectorObject(
+                java.util.UUID.randomUUID().toString(),
+                mutableListOf(
+                    VectorNode(x, y, 1f),
+                    VectorNode(x + bitmap.width, y, 1f),
+                    VectorNode(x + bitmap.width, y + bitmap.height, 1f),
+                    VectorNode(x, y + bitmap.height, 1f),
+                ),
+                style,
+                true,
+                name = "Imagem",
+                imageData = data,
+            )
+        engine.beginVectorEdit()
+        layers.getOrPut(engine.activeLayerIndex) { mutableListOf() }.add(obj)
+        selectedId = obj.id
+        render()
+        return obj.id
+    }
+
+    private fun gradientRegion(obj: VectorObject): Pair<Bitmap, RectF>? {
+        val gradient = obj.fillGradient ?: return null
+        val bounds = VectorSelection.VectorBounds.of(listOf(obj)) ?: return null
+        val left = maxOf(0, floor(bounds.left).toInt())
+        val top = maxOf(0, floor(bounds.top).toInt())
+        val right = minOf(engine.width - 1, ceil(bounds.right).toInt())
+        val bottom = minOf(engine.height - 1, ceil(bounds.bottom).toInt())
+        if (right < left || bottom < top) return null
+        val width = right - left + 1
+        val height = bottom - top + 1
+        val startX =
+            if (gradient.userSpace) gradient.startX else bounds.left + gradient.startX * bounds.width
+        val startY =
+            if (gradient.userSpace) gradient.startY else bounds.top + gradient.startY * bounds.height
+        val endX =
+            if (gradient.userSpace) gradient.endX else bounds.left + gradient.endX * bounds.width
+        val endY =
+            if (gradient.userSpace) gradient.endY else bounds.top + gradient.endY * bounds.height
+        val radius =
+            if (gradient.userSpace) gradient.radius else maxOf(bounds.width, bounds.height) * gradient.radius
+        val dx = endX - startX
+        val dy = endY - startY
+        val lengthSquared = dx * dx + dy * dy
+        val pixels = IntArray(width * height)
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val px = left + x + .5f
+                val py = top + y + .5f
+                val t =
+                    if (gradient.type == "radial")
+                        hypot(px - startX, py - startY) / radius.coerceAtLeast(.001f)
+                    else if (lengthSquared < .0001f) 0f
+                    else ((px - startX) * dx + (py - startY) * dy) / lengthSquared
+                pixels[y * width + x] = gradient.colorAt(t)
+            }
+        }
+        val region = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        region.setPixels(pixels, 0, width, 0, 0, width, height)
+        return region to RectF(left.toFloat(), top.toFloat(), right + 1f, bottom + 1f)
+    }
+
     private fun isolatedPaint(obj: VectorObject, clip: Path?, filter: VectorFilter?, draw: () -> Unit) {
         val width = engine.width
         val height = engine.height
@@ -1486,6 +1655,18 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         var fillBitmap: Bitmap? = null
         var previousStyle: String? = null
         fun paintObject(obj: VectorObject) {
+            if (obj.imageData != null) {
+                val bitmap =
+                    fillBitmap
+                        ?: Bitmap.createBitmap(
+                                engine.width,
+                                engine.height,
+                                Bitmap.Config.ARGB_8888,
+                            )
+                        .also { fillBitmap = it }
+                drawEmbeddedImage(obj, bitmap)
+                return
+            }
             if (obj.text != null) {
                 val bitmap =
                     fillBitmap
@@ -1527,7 +1708,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 return
             }
             obj.fill?.let { color ->
-                if (obj.fillBrush || obj.fillFilter != null) {
+                if (obj.fillBrush || obj.fillGradient != null || obj.fillFilter != null) {
                     isolatedPaint(obj, obj.path(), obj.fillFilter) {
                         if (obj.fillBrush)
                             engine.renderVectorStroke(
@@ -1535,7 +1716,30 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                                 brushFillPoints(obj),
                                 configure = true,
                             )
-                        else {
+                        else if (obj.fillGradient != null) {
+                            val region = gradientRegion(obj)
+                            if (region != null) {
+                                val bitmap =
+                                    fillBitmap
+                                        ?: Bitmap.createBitmap(
+                                                engine.width,
+                                                engine.height,
+                                                Bitmap.Config.ARGB_8888,
+                                            )
+                                        .also { fillBitmap = it }
+                                bitmap.eraseColor(0)
+                                Canvas(bitmap).drawBitmap(region.first, null, region.second, Paint())
+                                EsenhoNativeBridge.nativeLayerDrawBitmap(
+                                    engine.activeLayerIndex,
+                                    bitmap,
+                                    0,
+                                    0,
+                                    engine.width,
+                                    engine.height,
+                                )
+                                region.first.recycle()
+                            }
+                        } else {
                             val bitmap =
                                 fillBitmap
                                     ?: Bitmap.createBitmap(
@@ -1826,9 +2030,24 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 } else {
                     val drawn = objects.filter { it.nodes.isNotEmpty() && it.visible }
                     val clips = drawn.filter { it.isClip }
+                    fun fillRef(obj: VectorObject) =
+                        if (obj.fillGradient != null) "url(#grad-${xml(obj.id)})"
+                        else obj.fill?.let(::rgb) ?: "none"
+                    fun gradientDef(obj: VectorObject): String {
+                        val g = obj.fillGradient!!
+                        val tag = if (g.type == "radial") "radialGradient" else "linearGradient"
+                        val units = if (g.userSpace) "userSpaceOnUse" else "objectBoundingBox"
+                        val coords = "x1=\"${g.startX}\" y1=\"${g.startY}\" x2=\"${g.endX}\" y2=\"${g.endY}\""
+                        val radius = if (g.type == "radial") " r=\"${g.radius}\"" else ""
+                        val stops =
+                            g.stops.sortedBy { it.offset }.joinToString("") { stop ->
+                                "<stop offset=\"${stop.offset}\" stop-color=\"${rgb(stop.color)}\" stop-opacity=\"${stop.opacity}\"/>"
+                            }
+                        return "<$tag id=\"grad-${xml(obj.id)}\" gradientUnits=\"$units\" $coords$radius>$stops</$tag>"
+                    }
                     fun pathElement(obj: VectorObject): String {
                         val color = obj.style.optInt("color", 0xff000000.toInt())
-                        return "<path d=\"${pathData(obj)}\" id=\"${xml(obj.id)}\" fill=\"${obj.fill?.let(::rgb) ?: "none"}\" fill-opacity=\"${obj.fill?.let { (it ushr 24)/255f } ?: 1f}\" stroke=\"${if(obj.style.optBoolean("strokeEnabled",true)) rgb(color) else "none"}\" stroke-width=\"${obj.style.optDouble("size",14.0)}\" stroke-opacity=\"${obj.style.optDouble("opacity",1.0)*(color ushr 24)/255.0}\" fill-rule=\"${if(obj.evenOdd) "evenodd" else "nonzero"}\" opacity=\"${obj.style.optDouble("svgOpacity",1.0)}\" stroke-linecap=\"${xml(obj.style.optString("cap","round"))}\" stroke-linejoin=\"${xml(obj.style.optString("join","round"))}\" stroke-miterlimit=\"${obj.style.optDouble("miter",4.0)}\" stroke-dasharray=\"${obj.style.optJSONArray("dash")?.let { a -> if(a.length()==0) "none" else (0 until a.length()).joinToString(",") { a.getDouble(it).toString() } } ?: "none"}\" stroke-dashoffset=\"${obj.style.optDouble("dashOffset",0.0)}\"/>"
+                        return "<path d=\"${pathData(obj)}\" id=\"${xml(obj.id)}\" fill=\"${fillRef(obj)}\" fill-opacity=\"${obj.fill?.let { (it ushr 24)/255f } ?: 1f}\" stroke=\"${if(obj.style.optBoolean("strokeEnabled",true)) rgb(color) else "none"}\" stroke-width=\"${obj.style.optDouble("size",14.0)}\" stroke-opacity=\"${obj.style.optDouble("opacity",1.0)*(color ushr 24)/255.0}\" fill-rule=\"${if(obj.evenOdd) "evenodd" else "nonzero"}\" opacity=\"${obj.style.optDouble("svgOpacity",1.0)}\" stroke-linecap=\"${xml(obj.style.optString("cap","round"))}\" stroke-linejoin=\"${xml(obj.style.optString("join","round"))}\" stroke-miterlimit=\"${obj.style.optDouble("miter",4.0)}\" stroke-dasharray=\"${obj.style.optJSONArray("dash")?.let { a -> if(a.length()==0) "none" else (0 until a.length()).joinToString(",") { a.getDouble(it).toString() } } ?: "none"}\" stroke-dashoffset=\"${obj.style.optDouble("dashOffset",0.0)}\"/>"
                     }
                     fun textElement(obj: VectorObject): String {
                         val anchor =
@@ -1839,19 +2058,26 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                             }
                         val origin = obj.nodes.firstOrNull() ?: VectorNode(0f, 0f)
                         val attributes =
-                            "x=\"${origin.x}\" y=\"${origin.y + obj.fontSize * .85f}\" font-family=\"${xml(obj.fontFamily)}\" font-size=\"${obj.fontSize}\" letter-spacing=\"${obj.letterSpacing}\" text-anchor=\"$anchor\" fill=\"${obj.fill?.let(::rgb) ?: rgb(obj.style.optInt("color", 0xff000000.toInt()))}\""
+                            "x=\"${origin.x}\" y=\"${origin.y + obj.fontSize * .85f}\" font-family=\"${xml(obj.fontFamily)}\" font-size=\"${obj.fontSize}\" letter-spacing=\"${obj.letterSpacing}\" text-anchor=\"$anchor\" fill=\"${if (obj.fillGradient != null) fillRef(obj) else obj.fill?.let(::rgb) ?: rgb(obj.style.optInt("color", 0xff000000.toInt()))}\""
                         val body = xml(obj.text.orEmpty())
                         return if (obj.pathId != null)
                             "<text $attributes><textPath href=\"#${xml(obj.pathId!!)}\">$body</textPath></text>"
                         else "<text $attributes>$body</text>"
                     }
+                    fun imageElement(obj: VectorObject): String {
+                        val b = VectorSelection.VectorBounds.of(listOf(obj)) ?: return ""
+                        return "<image id=\"${xml(obj.id)}\" x=\"${b.left}\" y=\"${b.top}\" width=\"${b.width}\" height=\"${b.height}\" href=\"data:image/png;base64,${obj.imageData}\"/>"
+                    }
                     fun element(obj: VectorObject) =
-                        if (obj.text != null) textElement(obj) else pathElement(obj)
-                    if (clips.isNotEmpty()) {
+                        if (obj.imageData != null) imageElement(obj)
+                        else if (obj.text != null) textElement(obj) else pathElement(obj)
+                    val gradients = drawn.filter { it.fillGradient != null }
+                    if (clips.isNotEmpty() || gradients.isNotEmpty()) {
                         append("<defs>")
                         clips.forEach { clip ->
                             append("<clipPath id=\"clip-${xml(clip.id)}\"><path d=\"${pathData(clip)}\" clip-rule=\"${if(clip.evenOdd) "evenodd" else "nonzero"}\"/></clipPath>")
                         }
+                        gradients.forEach { append(gradientDef(it)) }
                         append("</defs>")
                     }
                     drawn.filter { !it.isClip && it.clipOf == null }
