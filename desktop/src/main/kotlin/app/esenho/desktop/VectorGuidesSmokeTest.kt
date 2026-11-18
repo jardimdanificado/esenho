@@ -37,9 +37,11 @@ fun vectorGuidesSmokeTest(context: Context) {
     engine.guideSnapEnabled = true
     // Object snapping stays off: only the guide contributes a candidate.
     v.selection.snapEnabled = false
+    HandleMetrics.density = .5f
     engine.onTouchDown(45f, 45f)
     engine.onTouchMove(113f, 45f)
     engine.onTouchUp(113f, 45f)
+    HandleMetrics.density = 1f
     val left = v.layers.getValue(layer).first().nodes.minOf { it.x }
     check(abs(left - 100f) < .05f) { "Object did not snap to guide: $left" }
     check(!v.rulersVisible)

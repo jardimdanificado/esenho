@@ -83,6 +83,12 @@ O painel **Objetos vetoriais** permite editar X/Y, largura/altura, rotação rel
 
 Ative **Encaixar** no painel para alinhar movimentos e alças à grade de 8/16/32 px, aos limites/centro do canvas e às bordas/centros dos outros objetos da camada. Nome, ordem, grupo, bloqueio e visibilidade são salvos no projeto e participam do desfazer/refazer. Os ícones de olho e cadeado na lista agem por objeto. Grupos aninhados ainda não estão disponíveis.
 
+### Animação vetorial
+
+Cada objeto pode ter faixas de propriedades com keyframes de posição, rotação, escala e opacidade. No painel do objeto, ajuste os valores, escolha a interpolação (`linear`, `ease-in`, `ease-out`, `ease-in-out`) e use **Adicionar keyframe no quadro atual**. O slider percorre os quadros; **Reproduzir** avança no intervalo ativo. A geometria original não é alterada: a animação aplica uma transformação temporária só na renderização.
+
+**Criar clipe** registra um nome e um intervalo de quadros; o menu **Clipe ativo** escolhe qual intervalo a reprodução repete. Tracks, keyframes, clipes e quadro atual ficam no projeto `.esenho` e no desfazer/refazer.
+
 ### Recortes, réguas e guias
 
 No painel **Objetos**, selecione dois ou mais objetos da mesma camada e use **Criar recorte**: o objeto da frente passa a recortar os demais, mantendo a geometria editável. **Liberar recorte** devolve os objetos ao estado independente. O recorte aparece como `<clipPath>` na exportação SVG e volta com os metadados do projeto. A importação de SVG externo com `clip-path` ou `mask` continua sem suporte; converta o recorte em caminhos antes de importar.

@@ -48,7 +48,7 @@ fun vectorSelectionSmokeTest(context: Context) {
     check(engine.undo())
     s.all()
     // Eight resize handles scale both objects and preserve pressure/tilt.
-    engine.onTouchDown(160f, 100f)
+    engine.onTouchDown(170f, 110f)
     engine.onTouchMove(190f, 130f)
     engine.onTouchUp(190f, 130f)
     near(s.bounds()!!.width, 150f)
@@ -138,9 +138,12 @@ fun vectorSelectionSmokeTest(context: Context) {
     // Snap the left edge to the 16px grid, retaining a single undo operation.
     s.select("a", false)
     s.snapEnabled = true
+    // The 16dp handle target covers this small object; shrink hit areas for the plain move.
+    HandleMetrics.density = .5f
     engine.onTouchDown(55f, 85f)
     engine.onTouchMove(46f, 85f)
     engine.onTouchUp(46f, 85f)
+    HandleMetrics.density = 1f
     near(v.selected!!.nodes.first().x, 32f)
     check(engine.undo())
     s.snapEnabled = false

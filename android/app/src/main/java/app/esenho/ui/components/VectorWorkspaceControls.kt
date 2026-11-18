@@ -539,6 +539,149 @@ fun VectorObjectPanel(
                 "A vetorização lê os pixels opacos da camada ativa e cria caminhos fechados.",
                 style = MaterialTheme.typography.bodySmall,
             )
+            HorizontalDivider()
+            Text("Animação vetorial", style = MaterialTheme.typography.titleSmall)
+            val animation = vector.animation
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(
+                    onClick = {
+                        animation.playing = !animation.playing
+                        onChanged()
+                    }
+                ) {
+                    Text(if (animation.playing) "Pausar" else "Reproduzir")
+                }
+                Text("Quadro ${animation.currentFrame + 1} / ${animation.duration}")
+            }
+            Slider(
+                value = animation.currentFrame.toFloat().coerceIn(0f, animation.duration.toFloat()),
+                valueRange = 0f..animation.duration.toFloat().coerceAtLeast(1f),
+                onValueChange = {
+                    animation.currentFrame = it.toInt().coerceIn(0, animation.duration - 1)
+                    vector.render()
+                    onChanged()
+                },
+            )
+            var rotation by remember(selected.id) { mutableStateOf("0") }
+            var scale by remember(selected.id) { mutableStateOf("1") }
+            var opacity by remember(selected.id) { mutableStateOf("100") }
+            var easing by remember(selected.id) { mutableStateOf("linear") }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                VectorNumber("Rotação", rotation, { rotation = it }, Modifier.weight(1f))
+                VectorNumber("Escala", scale, { scale = it }, Modifier.weight(1f))
+                VectorNumber("Opacidade %", opacity, { opacity = it }, Modifier.weight(1f))
+            }
+            Row {
+                listOf("linear", "ease-in", "ease-out", "ease-in-out").forEach { type ->
+                    FilterChip(
+                        selected = easing == type,
+                        onClick = { easing = type },
+                        label = { Text(type, style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.padding(end = 2.dp),
+                    )
+                }
+            }
+            val rotationValue = rotation.replace(',', '.').toFloatOrNull()
+            val scaleValue = scale.replace(',', '.').toFloatOrNull()
+            val opacityValue = opacity.replace(',', '.').toFloatOrNull()
+            OutlinedButton(
+                enabled = rotationValue != null && scaleValue != null && opacityValue != null,
+                onClick = {
+                    val bounds = VectorSelection.VectorBounds.of(listOf(selected)) ?: return@OutlinedButton
+                    animation.addKeyframe(
+                        selected.id,
+                        animation.currentFrame,
+                        bounds.left,
+                        bounds.top,
+                        rotationValue!!,
+                        scaleValue!!,
+                        opacityValue!! / 100f,
+                        easing,
+                    )
+                    vector.render()
+                    onChanged()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Adicionar keyframe no quadro atual")
+            }
+            animation.tracks[selected.id]?.keyframes?.sortedBy { it.frame }?.forEach { keyframe ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(
+                        onClick = {
+                            animation.currentFrame = keyframe.frame
+                            vector.render()
+                            onChanged()
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(
+                            "Quadro ${keyframe.frame + 1} · ${keyframe.easing}",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            animation.removeKeyframe(selected.id, keyframe.frame)
+                            vector.render()
+                            onChanged()
+                        }
+                    ) {
+                        Icon(Icons.Default.Delete, "Remover keyframe")
+                    }
+                }
+            }
+            var clipName by remember { mutableStateOf("Clipe") }
+            var clipStart by remember { mutableStateOf("1") }
+            var clipEnd by remember { mutableStateOf(animation.duration.toString()) }
+            OutlinedTextField(
+                value = clipName,
+                onValueChange = { clipName = it },
+                label = { Text("Nome do clipe") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                VectorNumber("Início", clipStart, { clipStart = it }, Modifier.weight(1f))
+                VectorNumber("Fim", clipEnd, { clipEnd = it }, Modifier.weight(1f))
+            }
+            TextButton(
+                enabled = clipStart.toIntOrNull() != null && clipEnd.toIntOrNull() != null,
+                onClick = {
+                    val start = (clipStart.toInt() - 1).coerceAtLeast(0)
+                    val end = (clipEnd.toInt() - 1).coerceAtLeast(start)
+                    animation.clips.add(VectorAnimationClip(clipName, start, end))
+                    onChanged()
+                },
+            ) {
+                Text("Criar clipe")
+            }
+            if (animation.clips.isNotEmpty()) {
+                var clipMenu by remember { mutableStateOf(false) }
+                Button(onClick = { clipMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Clipe ativo: ${animation.activeClip ?: "Nenhum"}")
+                }
+                DropdownMenu(expanded = clipMenu, onDismissRequest = { clipMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Nenhum") },
+                        onClick = {
+                            animation.activeClip = null
+                            clipMenu = false
+                            onChanged()
+                        },
+                    )
+                    animation.clips.forEach { clip ->
+                        DropdownMenuItem(
+                            text = { Text("${clip.name} (${clip.start + 1}-${clip.end + 1})") },
+                            onClick = {
+                                animation.activeClip = clip.name
+                                clipMenu = false
+                                onChanged()
+                            },
+                        )
+                    }
+                }
+            }
             if (vector.tool == VectorTool.NODES) {
                 Text("Nós e alças", style = MaterialTheme.typography.titleSmall)
                 Text(

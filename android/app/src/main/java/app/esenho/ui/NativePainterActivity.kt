@@ -654,9 +654,14 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     // Playback belongs to the editor, independently of the visible dock.
     LaunchedEffect(engine) {
         while (true) {
-            delay(if (engine.isAnimationPlaying) (1000L / engine.animationFps.coerceIn(1, 60)).coerceAtLeast(16) else 100L)
+            val vectorPlaying = engine.vectors.enabled && engine.vectors.animation.playing
+            delay(if (engine.isAnimationPlaying || vectorPlaying) (1000L / engine.animationFps.coerceIn(1, 60)).coerceAtLeast(16) else 100L)
             if (engine.isAnimationPlaying) {
                 engine.advanceAnimationTick()
+                refreshState(persistFavoriteTool = false)
+            } else if (vectorPlaying) {
+                engine.vectors.animation.advance()
+                engine.vectors.render()
                 refreshState(persistFavoriteTool = false)
             }
         }

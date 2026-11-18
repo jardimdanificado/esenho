@@ -168,6 +168,7 @@ fun smokeTest() {
     vectorTextSmokeTest(context)
     vectorConversionSmokeTest(context)
     vectorAppearanceSmokeTest(context)
+    vectorAnimationSmokeTest(context)
     vectorBooleanSvgSmokeTest(context)
     println(
         "Desktop smoke test: pincéis, filtros, traço, undo/redo, camadas, seleção, projeto, animação, PNG/JPEG/WebP/GIF/WebM, filtro, homografia e QuickJS OK"

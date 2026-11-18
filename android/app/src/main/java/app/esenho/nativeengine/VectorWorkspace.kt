@@ -344,6 +344,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     var tool = VectorTool.DRAW
     val layers = linkedMapOf<Int, MutableList<VectorObject>>()
     val selection = VectorSelection(engine, this)
+    val animation = VectorAnimation(this)
     var selectedId: String?
         get() = selection.primary
         set(value) {
@@ -452,6 +453,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     }
                 },
             )
+            .put("animation", animation.json())
             .toString()
 
     fun restore(value: String) {
@@ -465,6 +467,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 MutableList(objects.length()) { VectorObject.read(objects.getJSONObject(it)) }
         }
         enabled = j.optBoolean("enabled")
+        animation.load(j.optJSONObject("animation"))
         selectedId = null
         finishPen()
         finishAppearanceEdit()
@@ -1384,6 +1387,44 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         }
     }
 
+    private fun animatedObject(obj: VectorObject, value: VectorAnimatedValue): VectorObject {
+        val bounds = VectorSelection.VectorBounds.of(listOf(obj)) ?: return obj
+        val copy =
+            obj.copy(
+                nodes = obj.nodes.map { it.copy() }.toMutableList(),
+                subPaths =
+                    obj.subPaths
+                        .map { VectorContour(it.nodes.map { node -> node.copy() }.toMutableList(), it.closed) }
+                        .toMutableList(),
+                style = JSONObject(obj.style.toString()),
+            )
+        val dx = value.x - bounds.left
+        val dy = value.y - bounds.top
+        val cx = bounds.cx + dx
+        val cy = bounds.cy + dy
+        val angle = value.rotation * Math.PI.toFloat() / 180f
+        val cosine = cos(angle)
+        val sine = sin(angle)
+        fun point(x: Float, y: Float): Pair<Float, Float> {
+            val px = (x + dx - cx) * value.scale
+            val py = (y + dy - cy) * value.scale
+            return (cx + px * cosine - py * sine) to (cy + px * sine + py * cosine)
+        }
+        copy.allNodes().forEach { node ->
+            val anchor = point(node.x, node.y)
+            val incoming = point(node.inX, node.inY)
+            val outgoing = point(node.outX, node.outY)
+            node.x = anchor.first
+            node.y = anchor.second
+            node.inX = incoming.first
+            node.inY = incoming.second
+            node.outX = outgoing.first
+            node.outY = outgoing.second
+        }
+        copy.style.put("opacity", copy.style.optDouble("opacity", 1.0) * value.opacity)
+        return copy
+    }
+
     private fun brushFillPoints(obj: VectorObject): List<VectorNode> {
         val bounds = VectorSelection.VectorBounds.of(listOf(obj)) ?: return emptyList()
         val style = obj.fillBrushStyle ?: obj.style
@@ -1585,9 +1626,14 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
             }
             val visible =
                 (if (append == null) objects else listOf(append)).filter { it.visible }
-            visible.filter { !it.isClip && it.clipOf == null }.forEach(::paintObject)
-            visible.filter { it.isClip }.forEach { clip ->
-                val clipped = visible.filter { it.clipOf == clip.id }
+            val display =
+                visible.map { obj ->
+                    animation.evaluate(obj, animation.currentFrame)?.let { animatedObject(obj, it) }
+                        ?: obj
+                }
+            display.filter { !it.isClip && it.clipOf == null }.forEach(::paintObject)
+            display.filter { it.isClip }.forEach { clip ->
+                val clipped = display.filter { it.clipOf == clip.id }
                 if (clipped.isEmpty()) return@forEach
                 val width = engine.width
                 val height = engine.height
