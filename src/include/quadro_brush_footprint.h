@@ -1,6 +1,24 @@
 #ifndef QUADRO_BRUSH_FOOTPRINT_H
 #define QUADRO_BRUSH_FOOTPRINT_H
 
+/* A half-pixel square under the tangent of a broad circular tip. The
+ * piecewise quadratic area keeps diagonal coverage smooth with one square
+ * root; narrow tips retain the full ellipse integrator below. */
+static inline float w_tip_circle_sample(float dx, float dy, float radius) {
+    float distance=__builtin_sqrtf(dx*dx+dy*dy);
+    if (distance==0) return 1;
+    float a=__builtin_fabsf(dx)*0.5f/distance;
+    float b=__builtin_fabsf(dy)*0.5f/distance;
+    if (b>a) { float swap=a; a=b; b=swap; }
+    float edge=radius-distance+(a+b)*0.5f;
+    if (edge<=0) return 0;
+    if (edge>=a+b) return 1;
+    if (edge<b) return edge*edge/(2*a*b);
+    if (edge<a) return (edge-b*0.5f)/a;
+    edge=a+b-edge;
+    return 1-edge*edge/(2*a*b);
+}
+
 /* Integrate an ellipse's vertical spans across a pixel. Sampling only points
  * can entirely miss a hairline nib. Clip the integration interval to the
  * projected ellipse first, so even subpixel widths contribute their area. */

@@ -1096,6 +1096,11 @@ static uint32_t accumulate_subpixel_coverage(int index, uint32_t alpha,
     uint32_t flow=shape ? (alpha*255+shape/2)/shape : 0;
     if (flow>255) flow=255;
     uint32_t packed=stroke_subpixel_mask[index], next=0, sum=0;
+    if (packed==0xffffffffu) return 255;
+    if (alpha==255 && shape==255 && limit==255) {
+        stroke_subpixel_mask[index]=0xffffffffu;
+        return 255;
+    }
     for (int i=0; i<4; ++i) {
         uint32_t old=(packed>>(i*8))&255;
         uint32_t target=DIV255(samples[i]*limit);
@@ -1569,6 +1574,18 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                 if (abs_u > rf || abs_v > rf) continue;
             }
 
+            int solid_area=0;
+            if (area_tip && is_builtin_circle) {
+                // Classify the whole pixel before resolving its four samples.
+                // Only boundary pixels need ellipse area integration.
+                float pad=0.5f*(__builtin_fabsf(cos_f)+__builtin_fabsf(sin_f));
+                float au=__builtin_fabsf(u), av=__builtin_fabsf(v_scaled);
+                float min_u=au>pad ? au-pad : 0;
+                float min_v=av>pad*roundness_scale ? av-pad*roundness_scale : 0;
+                if (min_u*min_u+min_v*min_v>r_sq) continue;
+                float max_u=au+pad, max_v=av+pad*roundness_scale;
+                solid_area=brush_config.hardness==100 && max_u*max_u+max_v*max_v<=r_sq;
+            }
             uint32_t shape_a = 255;
             uint8_t subpixel_shape[4] = {255,255,255,255};
             if (!area_tip && !is_builtin_circle && !is_builtin_square) {
@@ -1609,7 +1626,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
             }
             /* Supersample the tip at twice the canvas resolution. Resolve
                tiny custom tips within each sample so their detail survives. */
-            if (area_tip) {
+            if (area_tip && !solid_area) {
                 uint32_t total=0;
                 for (int cell=0; cell<4; ++cell) {
                     float ox=dx+((cell&1) ? 0.25f : -0.25f);
@@ -1618,8 +1635,10 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                     if (is_builtin_circle && brush_config.hardness==100) {
                         float maxu=__builtin_fabsf(ox*cos_f+oy*sin_f)+0.25f*(__builtin_fabsf(cos_f)+__builtin_fabsf(sin_f));
                         float maxv=(__builtin_fabsf(-ox*sin_f+oy*cos_f)+0.25f*(__builtin_fabsf(cos_f)+__builtin_fabsf(sin_f)))*roundness_scale;
-                        sum=maxu*maxu+maxv*maxv<=r_sq ? 255
-                            : w_tip_ellipse_coverage(ox*2,oy*2,rf*2,rf*2/roundness_scale,cos_f,sin_f)*255;
+                        if (maxu*maxu+maxv*maxv<=r_sq) sum=255;
+                        else if (rf>=4 && roundness_scale==1)
+                            sum=w_tip_circle_sample(ox,oy,rf)*255;
+                        else sum=w_tip_ellipse_coverage(ox*2,oy*2,rf*2,rf*2/roundness_scale,cos_f,sin_f)*255;
                     } else {
                         int grid=rf<4 ? 4 : 1;
                         for (int sy=0; sy<grid; ++sy) for (int sx=0; sx<grid; ++sx) {

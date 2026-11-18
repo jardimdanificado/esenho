@@ -17,5 +17,7 @@ object TabletInput {
         }
     }
 
+    fun initialize() { available }
+
     fun sample(): FloatArray = if (available) read() else floatArrayOf(1f, 0f, 0f)
 }

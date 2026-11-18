@@ -13,6 +13,16 @@ import javax.swing.SwingUtilities
 /** Exercises shared editor behavior against the real desktop JNI libraries, without a display. */
 fun smokeTest() {
     val context = Context()
+    val pressureView = EsenhoCanvasView(context)
+    val stylus = app.esenho.desktop.platform.MotionEvent.TOOL_TYPE_STYLUS
+    val eraser = app.esenho.desktop.platform.MotionEvent.TOOL_TYPE_ERASER
+    val mouse = app.esenho.desktop.platform.MotionEvent.TOOL_TYPE_MOUSE
+    check(pressureView.strokePressure(stylus, 0.005f) == 0.005f)
+    check(pressureView.strokePressure(stylus, 0f) == 0f)
+    check(pressureView.strokePressure(eraser, 0.005f) == 0.005f)
+    check(pressureView.strokePressure(mouse, 0f) == 0.85f)
+    check(pressureView.strokePressure(stylus, Float.NaN) == 0f)
+    check(pressureView.strokePressure(stylus, 2f) == 1f)
     val engine = EsenhoEngine(context, 128, 128)
     check(EsenhoNativeBridge.nativeGetBrushCount() > 0)
     check(EsenhoNativeBridge.nativeGetFilterCount() > 0)
@@ -24,6 +34,27 @@ fun smokeTest() {
         "Canais semitransparentes alterados no JNI"
     }
     engine.deleteLayer(imported)
+    // Exercise the same reduced display path used by Android and desktop.
+    val reduced = engine.getRenderBitmap(0.125f)!!
+    check(reduced.width == 32 && reduced.height == 32)
+    val unchangedImage = reduced.toImage()
+    check(engine.getRenderBitmap(0.125f) === reduced)
+    check(reduced.toImage() === unchangedImage) { "Unchanged viewport invalidated its image cache" }
+    EsenhoNativeBridge.nativeDrawLine(125, 0, 125, 127, Color.BLACK)
+    check(engine.getRenderBitmap(0.125f) === reduced)
+    check(reduced.getPixel(31, 16) == 0xffbfbfbf.toInt()) {
+        "One-pixel line vanished or its reduced dirty region was skipped"
+    }
+    val clearPreview = reduced.getPixel(22, 22)
+    engine.selectRect(80, 80, 96, 96)
+    check(engine.fillSelection(Color.rgb(20, 90, 200)))
+    engine.clearSelection()
+    check(engine.getRenderBitmap(0.125f) === reduced)
+    check(reduced.getPixel(22, 22) != clearPreview) { "Reduced dirty display did not refresh" }
+    check(engine.getRenderBitmap()!!.width == 128)
+    check(engine.undo())
+    engine.getRenderBitmap(0.125f)
+    check(engine.getRenderBitmap()!!.getPixel(88, 88) != Color.rgb(20, 90, 200))
     val initialLayerCount = engine.layers.size
     engine.currentColor = Color.rgb(220, 30, 40)
     val before = engine.getRenderBitmap()!!.getPixel(64, 64)

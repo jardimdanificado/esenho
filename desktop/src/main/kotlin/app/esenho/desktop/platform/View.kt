@@ -95,6 +95,7 @@ open class View(val context: Context, attrs: AttributeSet? = null, style: Int = 
     private var oldHeight = 0
 
     init {
+        app.esenho.desktop.TabletInput.initialize()
         isFocusable = true
         val mouse =
             object : MouseAdapter() {

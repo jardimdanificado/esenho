@@ -9,6 +9,11 @@ if [[ -z "${JAVA_HOME:-}" ]]; then
   fi
 fi
 export JAVA_HOME
+TABLET_TEST="$(mktemp /tmp/esenho-tablet-test-XXXXXX)"
+trap 'rm -f "$TABLET_TEST"' EXIT
+cc -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" desktop/native/test_tablet_input.c -o "$TABLET_TEST" -lXi -lX11 -lpthread -lm
+"$TABLET_TEST"
+rm -f "$TABLET_TEST"
 ./android/gradlew -p desktop installDist --quiet
 TEST_DIR="$(mktemp -d /tmp/esenho-desktop-test-XXXXXX)"
 trap 'rm -rf "$TEST_DIR"' EXIT

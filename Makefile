@@ -65,7 +65,9 @@ bin/test_dynamic_dirty: tests/test_dynamic_dirty.c src/quadro.c $(wildcard src/i
 	mkdir -p bin
 	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_dynamic_dirty.c src/quadro.c -lm
 
-test-native: bin/test_dynamic_dirty bin/test_brush_dynamics bin/test_brush_coverage bin/test_brush_realism bin/test_native_svg
+test-native: bin/test_dynamic_dirty bin/test_brush_dynamics bin/test_brush_coverage bin/test_brush_realism bin/test_native_svg bin/test_viewport_filter bin/test_tip_footprint
+	./bin/test_viewport_filter
+	./bin/test_tip_footprint
 	./bin/test_dynamic_dirty
 	./bin/test_brush_dynamics
 	./bin/test_brush_coverage
@@ -106,3 +108,20 @@ clean:
 	rm -rf plugins/*.wasm plugins/brushes/*.wasm plugins/manifest.json plugins/brushes/manifest.json roms bin android/.gradle android/build android/app/build android/app/src/main/assets
 
 .PHONY: all run clean native test-native test-brush-dyn test-brush-curves apk linux
+
+bin/test_viewport_filter: tests/test_viewport_filter.c src/include/quadro_viewport_filter.h
+	mkdir -p bin
+	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ $<
+
+bin/test_tip_footprint: tests/test_tip_footprint.c src/include/quadro_brush_footprint.h
+	mkdir -p bin
+	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ $< -lm
+
+bin/benchmark-rendering: scripts/benchmark-rendering.c src/quadro.c $(wildcard src/include/*.h)
+	mkdir -p bin
+	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ scripts/benchmark-rendering.c src/quadro.c -lm
+
+benchmark-rendering: bin/benchmark-rendering
+	./bin/benchmark-rendering
+
+.PHONY: benchmark-rendering

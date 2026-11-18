@@ -96,6 +96,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
 
+    private val displayPaint = Paint()
+    private val displayBounds = RectF()
+
     private val paperPaint = Paint().apply {
         color = Color.WHITE
         style = Paint.Style.FILL
@@ -258,13 +261,20 @@ class EsenhoCanvasView @JvmOverloads constructor(
         return Pair(pts[0], pts[1])
     }
 
+    internal fun strokePressure(toolType: Int, value: Float): Float {
+        val stylus = toolType == MotionEvent.TOOL_TYPE_STYLUS || toolType == MotionEvent.TOOL_TYPE_ERASER
+        return if (stylus) {
+            if (value.isFinite()) value.coerceIn(0f, 1f) else 0f
+        } else if (value.isFinite() && value > 0.01f) value.coerceAtMost(1f) else 0.85f
+    }
+
     private fun processHistoricalStrokeSamples(event: MotionEvent) {
         val eng = engine ?: return
         for (h in 0 until event.historySize) {
             val raw = mapToCanvas(event.getHistoricalX(0, h), event.getHistoricalY(0, h))
             val (cx, cy) = constrainToGuide(raw.first, raw.second)
             val historicalPressure = event.getHistoricalPressure(0, h)
-            val pressure = if (historicalPressure > 0.01f) historicalPressure else 0.85f
+            val pressure = strokePressure(event.getToolType(0), historicalPressure)
             val tiltRadians = event.getHistoricalAxisValue(MotionEvent.AXIS_TILT, 0, h)
             val tilt = (tiltRadians * 180f / Math.PI).toInt()
             eng.onTouchMove(cx, cy, pressure, tilt, 0)
@@ -446,7 +456,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
                 val raw = mapToCanvas(event.x, event.y)
                 val (cx, cy) = constrainToGuide(raw.first, raw.second)
-                val pressure = if (event.pressure > 0.01f) event.pressure else 0.85f
+                val pressure = strokePressure(event.getToolType(0), event.pressure)
                 val tilt = (event.getAxisValue(MotionEvent.AXIS_TILT) * 180f / Math.PI).toInt()
                 if (event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) {
                     // Delay finger dabs until a move confirms drawing. This
@@ -632,7 +642,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
                     val raw = mapToCanvas(event.x, event.y)
                     val (cx, cy) = constrainToGuide(raw.first, raw.second)
-                    val pressure = if (event.pressure > 0.01f) event.pressure else 0.85f
+                    val pressure = strokePressure(event.getToolType(0), event.pressure)
                     val tilt = (event.getAxisValue(MotionEvent.AXIS_TILT) * 180f / Math.PI).toInt()
 
                     engine?.onTouchMove(cx, cy, pressure, tilt, 0)
@@ -721,7 +731,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
                 val raw = mapToCanvas(event.x, event.y)
                 val (cx, cy) = constrainToGuide(raw.first, raw.second)
-                val pressure = if (event.pressure > 0.01f) event.pressure else 0.85f
+                val pressure = strokePressure(event.getToolType(0), event.pressure)
                 pendingCanvasDown?.let { pending ->
                     pendingCanvasDown = null
                     engine?.onTouchDown(pending.x, pending.y, pending.pressure, pending.tilt, 0)
@@ -772,9 +782,17 @@ class EsenhoCanvasView @JvmOverloads constructor(
         canvas.drawRect(0f, 0f, eng.width.toFloat(), eng.height.toFloat(), paperPaint)
 
         // 2. Document flattened composite, including its opaque background.
-        val bmp = eng.getRenderBitmap()
+        // MSCALE_X alone drops toward zero as the canvas rotates, which made
+        // the grid disappear even though individual pixels were still large.
+        transformMatrix.getValues(matrixValues)
+        val scaleX = hypot(matrixValues[Matrix.MSCALE_X], matrixValues[Matrix.MSKEW_Y])
+        val scaleY = hypot(matrixValues[Matrix.MSKEW_X], matrixValues[Matrix.MSCALE_Y])
+        val gridScale = min(scaleX, scaleY)
+        displayPaint.isFilterBitmap = gridScale < 1f
+        val bmp = eng.getRenderBitmap(gridScale)
         if (bmp != null) {
-            canvas.drawBitmap(bmp, 0f, 0f, null)
+            displayBounds.set(0f, 0f, eng.width.toFloat(), eng.height.toFloat())
+            canvas.drawBitmap(bmp, null, displayBounds, displayPaint)
         }
 
         // 3. Onion skin must be drawn over the flattened composite: that
@@ -792,12 +810,6 @@ class EsenhoCanvasView @JvmOverloads constructor(
         onionNextPaint.colorFilter = PorterDuffColorFilter(0xFF3C8CFF.toInt(), PorterDuff.Mode.SRC_IN)
 
         // 4. Pixel Art Grid Overlay
-        transformMatrix.getValues(matrixValues)
-        // MSCALE_X alone drops toward zero as the canvas rotates, which made
-        // the grid disappear even though individual pixels were still large.
-        val scaleX = hypot(matrixValues[Matrix.MSCALE_X], matrixValues[Matrix.MSKEW_Y])
-        val scaleY = hypot(matrixValues[Matrix.MSKEW_X], matrixValues[Matrix.MSCALE_Y])
-        val gridScale = min(scaleX, scaleY)
         if (eng.pixelArtGrid && gridScale >= 4f) {
             val step = eng.pixelArtGridStep.coerceAtLeast(1).toFloat()
             var gx = 0f

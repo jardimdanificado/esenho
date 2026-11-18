@@ -1,3 +1,4 @@
+#include "quadro_viewport_filter.h"
 #include <jni.h>
 #include <android/bitmap.h>
 #include <android/log.h>
@@ -987,11 +988,14 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeRenderDisplayBitmap(
     void *pixels = NULL;
     if (AndroidBitmap_getInfo(env, bitmap, &info) < 0 ||
         info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return JNI_FALSE;
-    if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return JNI_FALSE;
-
     int same = g_display_bitmap && (*env)->IsSameObject(env, g_display_bitmap, bitmap);
     uint32_t *src = w_render();
-    if (!src || !pixels) {
+    if (!src) return JNI_FALSE;
+    // Do not lock/unlock an unchanged bitmap: desktop unlock invalidates its
+    // cached BufferedImage, and Android would mark unchanged GPU pixels dirty.
+    if (same && !w_has_dirty_rect()) return JNI_TRUE;
+    if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return JNI_FALSE;
+    if (!pixels) {
         AndroidBitmap_unlockPixels(env, bitmap);
         return JNI_FALSE;
     }
@@ -1008,7 +1012,17 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeRenderDisplayBitmap(
         if (w_get_dirty_x1() < x1) x1 = w_get_dirty_x1();
         if (w_get_dirty_y1() < y1) y1 = w_get_dirty_y1();
     }
-    if (x0 <= x1 && y0 <= y1) {
+    if ((int)info.width <= width && (int)info.height <= height &&
+        ((int)info.width != width || (int)info.height != height)) {
+        // Map dirty source bounds to all reduced pixels whose area overlaps.
+        if (!same) { x0=0; y0=0; x1=width-1; y1=height-1; }
+        else { x1=w_get_dirty_x1(); y1=w_get_dirty_y1(); }
+        int dx0=(int)((int64_t)x0*info.width/width);
+        int dy0=(int)((int64_t)y0*info.height/height);
+        int dx1=(int)(((int64_t)(x1+1)*info.width+width-1)/width)-1;
+        int dy1=(int)(((int64_t)(y1+1)*info.height+height-1)/height)-1;
+        w_viewport_reduce(src,width,height,pixels,info.width,info.height,info.stride,dx0,dy0,dx1,dy1);
+    } else if (x0 <= x1 && y0 <= y1) {
         size_t bytes = (size_t)(x1 - x0 + 1) * sizeof(uint32_t);
         for (int y = y0; y <= y1; ++y) {
             memcpy((char *)pixels + (size_t)y * info.stride + (size_t)x0 * 4,

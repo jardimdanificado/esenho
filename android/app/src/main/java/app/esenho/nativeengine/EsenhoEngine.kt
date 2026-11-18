@@ -1161,6 +1161,7 @@ class EsenhoEngine(
                 EsenhoNativeBridge.nativeLayerSetClipping(backgroundId, 0)
             }
         }
+        discardViewportBitmap()
         renderBitmap?.takeUnless { it.isRecycled }?.recycle()
         undoStack.forEach { if (!it.isRecycled) it.recycle() }
         redoStack.forEach { if (!it.isRecycled) it.recycle() }
@@ -1325,6 +1326,7 @@ class EsenhoEngine(
             if (cel.bitmap !== bitmap && !cel.bitmap.isRecycled) cel.bitmap.recycle()
             cel.bitmap = bitmap
         }
+        discardViewportBitmap()
         renderBitmap?.takeUnless { it.isRecycled }?.recycle()
         renderBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         syncLayers()
@@ -1379,6 +1381,7 @@ class EsenhoEngine(
             if (!cel.bitmap.isRecycled) cel.bitmap.recycle()
             cel.bitmap = bitmap
         }
+        discardViewportBitmap()
         renderBitmap?.takeUnless { it.isRecycled }?.recycle()
         renderBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         syncLayers()
@@ -4313,7 +4316,31 @@ class EsenhoEngine(
         return EsenhoNativeBridge.nativeRenderToBitmap(targetBitmap)
     }
 
-    fun getRenderBitmap(): Bitmap? {
+    private var viewportBitmap: Bitmap? = null
+
+    private fun discardViewportBitmap() {
+        viewportBitmap?.takeUnless { it.isRecycled }?.recycle()
+        viewportBitmap = null
+    }
+
+    fun getRenderBitmap(viewScale: Float = 1f): Bitmap? {
+        // Reduce by area before the platform applies the remaining fractional
+        // zoom. Keep source texels at least half a screen pixel wide.
+        var divisor = 1
+        if (viewScale.isFinite() && viewScale > 0f) {
+            while (viewScale * divisor < 0.5f && divisor < maxOf(width, height)) divisor *= 2
+        }
+        if (divisor > 1) {
+            val targetWidth = maxOf(1, (width + divisor - 1) / divisor)
+            val targetHeight = maxOf(1, (height + divisor - 1) / divisor)
+            var preview = viewportBitmap
+            if (preview == null || preview.isRecycled || preview.width != targetWidth || preview.height != targetHeight) {
+                preview?.takeUnless { it.isRecycled }?.recycle()
+                preview = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+                viewportBitmap = preview
+            }
+            if (EsenhoNativeBridge.nativeRenderDisplayBitmap(preview)) return preview
+        }
         renderBitmap?.let { bmp ->
             EsenhoNativeBridge.nativeRenderDisplayBitmap(bmp)
         }
