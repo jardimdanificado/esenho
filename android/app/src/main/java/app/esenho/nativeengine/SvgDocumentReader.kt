@@ -5,6 +5,7 @@ import kotlin.math.*
 import org.json.JSONArray
 import org.json.JSONObject
 import org.w3c.dom.Element
+import org.w3c.dom.Node
 
 /** A strict editable SVG subset. Unsupported paint/compositing never silently drops artwork. */
 internal class SvgDocumentReader(private val root: Element) {
@@ -263,6 +264,12 @@ internal class SvgDocumentReader(private val root: Element) {
             "marker-start",
             "marker-mid",
             "marker-end",
+            "font-family",
+            "font-size",
+            "font-style",
+            "font-weight",
+            "letter-spacing",
+            "text-anchor",
         )
 
     private fun properties(e: Element, parent: Map<String, String>): Map<String, String> {
@@ -424,6 +431,93 @@ internal class SvgDocumentReader(private val root: Element) {
         }
         if (p["visibility"] in setOf("hidden", "collapse")) return
         if (e.hasAttribute("pathLength")) fail("pathLength ainda não é suportado.")
+        if (tag == "text") {
+            fun textOf(node: Node, out: StringBuilder) {
+                if (node.nodeType == Node.TEXT_NODE || node.nodeType == Node.CDATA_SECTION_NODE)
+                    out.append(node.nodeValue.orEmpty())
+                node.childNodes?.let { children ->
+                    repeat(children.length) { i -> textOf(children.item(i), out) }
+                }
+            }
+            val body =
+                buildString {
+                    e.childNodes?.let { children ->
+                        repeat(children.length) { i -> textOf(children.item(i), this) }
+                    }
+                }.trim()
+            val family = p["font-family"]?.trim('"', '\'')?.ifBlank { "sans-serif" } ?: "sans-serif"
+            val size = p["font-size"]?.let { length(it, viewportWidth) } ?: 24.0
+            require(size > 0 && size <= 1e5) { "Tamanho de fonte SVG inválido." }
+            val spacing = p["letter-spacing"]?.let { length(it, viewportWidth) } ?: 0.0
+            val align =
+                when (p["text-anchor"]) {
+                    "middle" -> "center"
+                    "end" -> "right"
+                    else -> "left"
+                }
+            val pathRef =
+                elements(e)
+                    .firstOrNull { (it.localName ?: it.tagName) == "textPath" }
+                    ?.let { node ->
+                        val ref =
+                            node.getAttribute("href").ifEmpty {
+                                node.getAttributeNS("http://www.w3.org/1999/xlink", "href")
+                            }
+                        ref.removePrefix("#").takeIf { it.isNotBlank() }
+                    }
+            val color = paint(p["fill"], opacity(p["fill-opacity"]), p["color"] ?: "black")
+            val style =
+                JSONObject()
+                    .put("svgStroke", true)
+                    .put("strokeEnabled", false)
+                    .put("color", color ?: 0xff000000.toInt())
+                    .put("size", size)
+                    .put("opacity", 1.0)
+                    .put("smooth", 0)
+                    .put("hardness", 100)
+                    .put("svgOpacity", opacity(p["opacity"]))
+            val width =
+                (VectorFont.measure(body, size.toFloat(), family) +
+                    spacing * body.length.coerceAtLeast(1).minus(1)).toFloat()
+            val height = (size * 1.2).toFloat()
+            val x = attr(e, "x", viewportWidth).toFloat()
+            val y = attr(e, "y", viewportHeight).toFloat()
+            val nodes =
+                mutableListOf(
+                    VectorNode(x, y, 1f),
+                    VectorNode(x + width, y, 1f),
+                    VectorNode(x + width, y + height, 1f),
+                    VectorNode(x, y + height, 1f),
+                )
+            nodes.forEach { node ->
+                val point = m.point(node.x, node.y)
+                node.x = point.first
+                node.y = point.second
+                node.inX = node.x
+                node.inY = node.y
+                node.outX = node.x
+                node.outY = node.y
+            }
+            objects.add(
+                VectorObject(
+                    java.util.UUID.randomUUID().toString(),
+                    nodes,
+                    style,
+                    true,
+                    color,
+                    e.getAttribute("id"),
+                    groupId = group,
+                    text = body,
+                    fontFamily = family,
+                    fontSize = size.toFloat(),
+                    letterSpacing = spacing.toFloat(),
+                    textAlign = align,
+                    pathId = pathRef,
+                )
+            )
+            require(objects.size <= 20000) { "SVG contém objetos demais." }
+            return
+        }
         val contours = shape(e, tag)
         if (contours.isEmpty()) return
         val stroke = paint(p["stroke"], opacity(p["stroke-opacity"]), p["color"] ?: "black")

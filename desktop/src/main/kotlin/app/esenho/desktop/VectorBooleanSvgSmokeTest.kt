@@ -207,7 +207,6 @@ fun vectorBooleanSvgSmokeTest(context: Context) {
     val bad =
         listOf(
             "<rect width='10' height='10' stroke='red' stroke-width='1e100'/>",
-            "<text>Hello</text>",
             "<path d='M0 0C1 2'/>",
             "<rect width='10' height='10' fill='url(#g)'/>",
             "<g opacity='.5'><rect width='10' height='10'/></g>",
@@ -236,6 +235,20 @@ fun vectorBooleanSvgSmokeTest(context: Context) {
             }
             .isFailure
     )
+    v.importSvg(
+        svg(
+            "<text x='10' y='40' font-family='serif' font-size='20' letter-spacing='2' text-anchor='middle'>Olá</text>"
+        )
+    )
+    val text = v.layers.getValue(engine.activeLayerIndex).last()
+    check(
+        text.text == "Olá" &&
+            text.fontFamily == "serif" &&
+            text.fontSize == 20f &&
+            text.letterSpacing == 2f &&
+            text.textAlign == "center"
+    )
+    check(v.exportSvg().contains("<text "))
     println(
         "Vector boolean/SVG: four area operations, holes/islands, compound nodes/transforms, empty results, undo, project/export roundtrip, external shapes/curves/arcs/styles and atomic errors OK"
     )

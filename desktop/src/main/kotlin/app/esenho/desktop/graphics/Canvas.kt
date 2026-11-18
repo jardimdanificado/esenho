@@ -101,6 +101,7 @@ class Paint(flags: Int = 0) {
     var colorFilter: PorterDuffColorFilter? = null
     var xfermode: PorterDuffXfermode? = null
     var pathEffect: DashPathEffect? = null
+    var typeface: String? = null
     var textSize = 12f
 
     companion object {
@@ -214,7 +215,7 @@ private constructor(
 
     fun drawText(text: String, x: Float, y: Float, p: Paint) {
         setup(p)
-        graphics.font = java.awt.Font("SansSerif", 0, p.textSize.toInt())
+        graphics.font = java.awt.Font(p.typeface ?: "SansSerif", 0, p.textSize.toInt().coerceAtLeast(1))
         graphics.drawString(text, x, y)
         flush()
     }

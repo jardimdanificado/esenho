@@ -7,7 +7,7 @@ out = root / 'desktop/build/generated/editor'
 if out.exists(): shutil.rmtree(out)
 base = root / 'android/app/src/main/java'
 for src in base.rglob('*'):
-    if src.suffix not in ('.kt', '.java') or src.name == 'WebmWriter.kt': continue
+    if src.suffix not in ('.kt', '.java') or src.name in ('WebmWriter.kt', 'VectorFont.kt'): continue
     text = src.read_text()
     if src.name == 'NativePainterActivity.kt':
         start = text.index('@Composable\nfun EsenhoNativeTheme')
@@ -61,6 +61,7 @@ for src in base.rglob('*'):
     }
 
     fun markScriptPivot(""")
+    text = text.replace('VectorFont.', 'app.esenho.desktop.graphics.VectorFont.')
     text = text.replace('android.graphics', 'app.esenho.desktop.graphics')
     text = text.replace('android.content', 'app.esenho.desktop.platform')
     text = text.replace('android.net', 'app.esenho.desktop.platform')

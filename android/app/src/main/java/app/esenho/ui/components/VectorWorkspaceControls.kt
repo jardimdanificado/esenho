@@ -33,6 +33,7 @@ private fun vectorIcon(tool: VectorTool): ImageVector =
         VectorTool.RECT -> Icons.Default.CropSquare
         VectorTool.ELLIPSE -> Icons.Default.RadioButtonUnchecked
         VectorTool.ERASER -> Icons.Default.DeleteOutline
+        VectorTool.TEXT -> Icons.Default.TextFields
     }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -167,6 +168,120 @@ fun VectorObjectPanel(
         }
         if (selected != null && !selected.locked && selected.visible) {
             Text("Aparência do objeto", style = MaterialTheme.typography.titleSmall)
+            if (selected.text != null) {
+                Text("Texto vetorial", style = MaterialTheme.typography.titleSmall)
+                OutlinedTextField(
+                    value = selected.text!!,
+                    onValueChange = {
+                        vector.setTextContent(it)
+                        onChanged()
+                    },
+                    label = { Text("Conteúdo") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                )
+                Text("Fonte", style = MaterialTheme.typography.bodySmall)
+                Row {
+                    listOf(
+                            "sans-serif" to "Sem serifa",
+                            "serif" to "Serifa",
+                            "monospace" to "Monoespaçada",
+                        )
+                        .forEach { (value, label) ->
+                            FilterChip(
+                                selected = selected.fontFamily == value,
+                                onClick = {
+                                    vector.setFontFamily(value)
+                                    onChanged()
+                                },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        }
+                }
+                Text("Tamanho: ${selected.fontSize.toInt()} px")
+                Slider(
+                    value = selected.fontSize.coerceIn(4f, 200f),
+                    valueRange = 4f..200f,
+                    onValueChange = {
+                        vector.setFontSize(it)
+                        onChanged()
+                    },
+                )
+                var spacing by
+                    remember(selected.id) {
+                        mutableStateOf(String.format(Locale.ROOT, "%.1f", selected.letterSpacing))
+                    }
+                val spacingValue = spacing.replace(',', '.').toFloatOrNull()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    VectorNumber("Espaçamento", spacing, { spacing = it }, Modifier.weight(1f))
+                    TextButton(
+                        enabled = spacingValue != null && spacingValue.isFinite(),
+                        onClick = {
+                            vector.setLetterSpacing(spacingValue!!)
+                            onChanged()
+                        },
+                    ) {
+                        Text("Aplicar")
+                    }
+                }
+                Text("Alinhamento", style = MaterialTheme.typography.bodySmall)
+                Row {
+                    listOf("left" to "Esquerda", "center" to "Centro", "right" to "Direita")
+                        .forEach { (value, label) ->
+                            FilterChip(
+                                selected = selected.textAlign == value,
+                                onClick = {
+                                    vector.setTextAlign(value)
+                                    onChanged()
+                                },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        }
+                }
+                val paths =
+                    vector.layers.values.flatten().filter {
+                        it.id != selected.id && it.text == null && it.nodes.size > 1
+                    }
+                var pathMenu by remember { mutableStateOf(false) }
+                val pathLabel =
+                    selected.pathId?.let { id ->
+                        paths.firstOrNull { it.id == id }?.name?.ifBlank { "Caminho" } ?: id
+                    } ?: "Nenhum"
+                Button(onClick = { pathMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Texto sobre caminho: $pathLabel")
+                }
+                DropdownMenu(expanded = pathMenu, onDismissRequest = { pathMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Nenhum") },
+                        onClick = {
+                            vector.setTextPath(null)
+                            pathMenu = false
+                            onChanged()
+                        },
+                    )
+                    paths.forEach { path ->
+                        DropdownMenuItem(
+                            text = { Text(path.name.ifBlank { "Caminho" }) },
+                            onClick = {
+                                vector.setTextPath(path.id)
+                                pathMenu = false
+                                onChanged()
+                            },
+                        )
+                    }
+                }
+                OutlinedButton(
+                    onClick = {
+                        vector.convertTextToCurves()
+                        onChanged()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Converter em curvas")
+                }
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(
                     checked = selected.style.optBoolean("strokeEnabled", true),
@@ -455,7 +570,7 @@ fun VectorObjectPanel(
                     ) {
                         Icon(Icons.Default.Polyline, null, Modifier.size(18.dp))
                         Text(
-                            "${obj.name.ifBlank { "Caminho ${index+1}" }}${if (obj.groupId != null) " · grupo" else ""}${if (obj.isClip) " · recorte" else ""}${if (obj.clipOf != null) " · recortado" else ""} · ${obj.allNodes().size} nós",
+                            "${obj.name.ifBlank { if (obj.text != null) "Texto ${index+1}" else "Caminho ${index+1}" }}${if (obj.groupId != null) " · grupo" else ""}${if (obj.isClip) " · recorte" else ""}${if (obj.clipOf != null) " · recortado" else ""} · ${obj.allNodes().size} nós",
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f),
                         )

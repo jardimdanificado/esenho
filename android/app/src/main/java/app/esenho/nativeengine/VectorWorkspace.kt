@@ -2,6 +2,7 @@ package app.esenho.nativeengine
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import kotlin.math.*
@@ -18,6 +19,7 @@ enum class VectorTool(val label: String) {
     LINE("Linha"),
     RECT("Retângulo"),
     ELLIPSE("Elipse"),
+    TEXT("Texto"),
 }
 
 enum class VectorNodeType(val label: String) {
@@ -108,6 +110,12 @@ data class VectorObject(
     var evenOdd: Boolean = false,
     var isClip: Boolean = false,
     var clipOf: String? = null,
+    var text: String? = null,
+    var fontFamily: String = "sans-serif",
+    var fontSize: Float = 24f,
+    var letterSpacing: Float = 0f,
+    var textAlign: String = "left",
+    var pathId: String? = null,
 ) {
     fun geometry(): List<VectorContour> = listOf(VectorContour(nodes, closed)) + subPaths
 
@@ -222,6 +230,12 @@ data class VectorObject(
             .put("evenOdd", evenOdd)
             .put("isClip", isClip)
             .put("clipOf", clipOf)
+            .put("text", text)
+            .put("fontFamily", fontFamily)
+            .put("fontSize", fontSize.toDouble())
+            .put("letterSpacing", letterSpacing.toDouble())
+            .put("textAlign", textAlign)
+            .put("textPath", pathId)
             .put(
                 "subPaths",
                 JSONArray().also { paths ->
@@ -287,6 +301,12 @@ data class VectorObject(
                 j.optBoolean("evenOdd", false),
                 j.optBoolean("isClip", false),
                 if (j.isNull("clipOf")) null else j.optString("clipOf").takeIf { it.isNotEmpty() },
+                if (j.isNull("text")) null else j.optString("text"),
+                j.optString("fontFamily", "sans-serif"),
+                j.optDouble("fontSize", 24.0).toFloat(),
+                j.optDouble("letterSpacing", 0.0).toFloat(),
+                j.optString("textAlign", "left"),
+                if (j.isNull("textPath")) null else j.optString("textPath").takeIf { it.isNotEmpty() },
             )
         }
     }
@@ -746,7 +766,15 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     nodes,
                     engine.captureVectorStyle(),
                     tool == VectorTool.RECT || tool == VectorTool.ELLIPSE,
+                    text = if (tool == VectorTool.TEXT) "Texto" else null,
+                    fontSize = engine.brushSize.coerceIn(8f, 96f) * 2f,
+                    fill = engine.currentColor,
                 )
+            if (tool == VectorTool.TEXT) {
+                obj.nodes.clear()
+                obj.nodes.add(VectorNode(startX, startY, 1f))
+                syncTextBounds(obj)
+            }
             ensureLayer().add(obj)
             selectedId = obj.id
             render(if (tool == VectorTool.DRAW && strokeBase == null) null else obj)
@@ -926,6 +954,58 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     fun setObjectMiter(miter: Float) =
         changeAppearance { it.style.put("miter", miter.toDouble()) }
 
+    fun setTextContent(content: String) = changeSelected { obj ->
+        obj.text = content
+        syncTextBounds(obj)
+    }
+
+    fun setFontFamily(family: String) = changeSelected { obj ->
+        obj.fontFamily = family
+        syncTextBounds(obj)
+    }
+
+    fun setFontSize(size: Float) = changeSelected { obj ->
+        obj.fontSize = size.coerceIn(4f, 400f)
+        syncTextBounds(obj)
+    }
+
+    fun setLetterSpacing(spacing: Float) = changeSelected { obj ->
+        obj.letterSpacing = spacing.coerceIn(-20f, 100f)
+        syncTextBounds(obj)
+    }
+
+    fun setTextAlign(align: String) = changeSelected { obj ->
+        obj.textAlign = align
+        syncTextBounds(obj)
+    }
+
+    fun setTextPath(pathId: String?) = changeSelected { it.pathId = pathId }
+
+    fun convertTextToCurves() = changeSelected { obj ->
+        val body = obj.text ?: return@changeSelected
+        val contours = VectorFont.outline(body, obj.fontSize, obj.fontFamily)
+        if (contours.isEmpty()) return@changeSelected
+        val baseX = obj.nodes.firstOrNull()?.x ?: 0f
+        val baseY = obj.nodes.firstOrNull()?.y ?: 0f
+        val baseline = baseY + obj.fontSize * .85f
+        val curves =
+            contours.map { contour ->
+                VectorContour(
+                    contour.map { (x, y) -> VectorNode(baseX + x, baseline - y, 1f) }
+                        .toMutableList(),
+                    true,
+                )
+            }
+        obj.nodes.clear()
+        obj.nodes.addAll(curves.first().nodes)
+        obj.subPaths.clear()
+        obj.subPaths.addAll(curves.drop(1))
+        obj.text = null
+        obj.closed = true
+        obj.fill = obj.fill ?: obj.style.optInt("color", 0xff000000.toInt())
+        obj.style.put("strokeEnabled", false)
+    }
+
     private fun editingContour(): Pair<VectorContour, Int>? {
         val obj = selected ?: return null
         var offset = 0
@@ -1025,6 +1105,93 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         switchMode(false)
     }
 
+    fun textWidth(obj: VectorObject): Float {
+        val content = obj.text.orEmpty()
+        val spacing = obj.letterSpacing * content.length.coerceAtLeast(1).minus(1)
+        return VectorFont.measure(content, obj.fontSize, obj.fontFamily) + spacing
+    }
+
+    /** Rebuild the anchor rectangle so selection, transform and hit tests follow the text. */
+    fun syncTextBounds(obj: VectorObject) {
+        if (obj.text == null) return
+        val x = obj.nodes.firstOrNull()?.x ?: 0f
+        val y = obj.nodes.firstOrNull()?.y ?: 0f
+        val width = textWidth(obj).coerceAtLeast(obj.fontSize)
+        val height = obj.fontSize * 1.2f + obj.fontSize * .2f * max(0, obj.text!!.count { it == '\n' })
+        val nodes =
+            mutableListOf(
+                VectorNode(x, y, 1f),
+                VectorNode(x + width, y, 1f),
+                VectorNode(x + width, y + height, 1f),
+                VectorNode(x, y + height, 1f),
+            )
+        obj.nodes.clear()
+        obj.nodes.addAll(nodes)
+    }
+
+    private fun pointOnPath(points: List<VectorNode>, distance: Float): Pair<Pair<Float, Float>, Float> {
+        var remaining = distance.coerceAtLeast(0f)
+        for (i in 1 until points.size) {
+            val a = points[i - 1]
+            val b = points[i]
+            val length = hypot(b.x - a.x, b.y - a.y)
+            if (length < .0001f) continue
+            if (remaining <= length) {
+                val t = remaining / length
+                val x = a.x + (b.x - a.x) * t
+                val y = a.y + (b.y - a.y) * t
+                return (x to y) to (atan2(b.y - a.y, b.x - a.x) * 180f / Math.PI.toFloat())
+            }
+            remaining -= length
+        }
+        val last = points.last()
+        return (last.x to last.y) to 0f
+    }
+
+    private fun drawTextObject(obj: VectorObject, bitmap: Bitmap) {
+        bitmap.eraseColor(0)
+        val canvas = Canvas(bitmap)
+        val paint =
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                textSize = obj.fontSize.coerceAtLeast(1f)
+                color = obj.fill ?: obj.style.optInt("color", 0xff000000.toInt())
+                VectorFont.apply(this, obj.fontFamily)
+            }
+        val content = obj.text.orEmpty()
+        val origin = obj.nodes.firstOrNull() ?: VectorNode(0f, 0f)
+        if (obj.pathId == null) {
+            val width = textWidth(obj)
+            content.split('\n').forEachIndexed { index, line ->
+                val offset =
+                    when (obj.textAlign) {
+                        "center" -> (width - VectorFont.measure(line, obj.fontSize, obj.fontFamily)) / 2
+                        "right" -> width - VectorFont.measure(line, obj.fontSize, obj.fontFamily)
+                        else -> 0f
+                    }
+                canvas.drawText(
+                    line,
+                    origin.x + offset,
+                    origin.y + obj.fontSize * .85f + index * obj.fontSize * 1.2f,
+                    paint,
+                )
+            }
+            return
+        }
+        val pathObject = layers.values.flatten().firstOrNull { it.id == obj.pathId }
+        val points = pathObject?.samples().orEmpty()
+        if (points.size < 2) return
+        var distance = 0f
+        content.forEach { char ->
+            val advance = VectorFont.measure(char.toString(), obj.fontSize, obj.fontFamily) + obj.letterSpacing
+            val (position, angle) = pointOnPath(points, distance + advance / 2)
+            canvas.save()
+            canvas.concat(Matrix().apply { postRotate(angle, position.first, position.second) })
+            canvas.drawText(char.toString(), position.first - advance / 2, position.second - obj.fontSize * .35f, paint)
+            canvas.restore()
+            distance += advance
+        }
+    }
+
     fun render(append: VectorObject? = null) {
         val objects = layers[engine.activeLayerIndex] ?: return
         val saved = engine.captureVectorStyle()
@@ -1032,6 +1199,26 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         var fillBitmap: Bitmap? = null
         var previousStyle: String? = null
         fun paintObject(obj: VectorObject) {
+            if (obj.text != null) {
+                val bitmap =
+                    fillBitmap
+                        ?: Bitmap.createBitmap(
+                                engine.width,
+                                engine.height,
+                                Bitmap.Config.ARGB_8888,
+                            )
+                        .also { fillBitmap = it }
+                drawTextObject(obj, bitmap)
+                EsenhoNativeBridge.nativeLayerDrawBitmap(
+                    engine.activeLayerIndex,
+                    bitmap,
+                    0,
+                    0,
+                    engine.width,
+                    engine.height,
+                )
+                return
+            }
             if (obj.style.optBoolean("svgStroke", false)) {
                 val bitmap =
                     fillBitmap
@@ -1291,8 +1478,25 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     val clips = drawn.filter { it.isClip }
                     fun pathElement(obj: VectorObject): String {
                         val color = obj.style.optInt("color", 0xff000000.toInt())
-                        return "<path d=\"${pathData(obj)}\" fill=\"${obj.fill?.let(::rgb) ?: "none"}\" fill-opacity=\"${obj.fill?.let { (it ushr 24)/255f } ?: 1f}\" stroke=\"${if(obj.style.optBoolean("strokeEnabled",true)) rgb(color) else "none"}\" stroke-width=\"${obj.style.optDouble("size",14.0)}\" stroke-opacity=\"${obj.style.optDouble("opacity",1.0)*(color ushr 24)/255.0}\" fill-rule=\"${if(obj.evenOdd) "evenodd" else "nonzero"}\" opacity=\"${obj.style.optDouble("svgOpacity",1.0)}\" stroke-linecap=\"${xml(obj.style.optString("cap","round"))}\" stroke-linejoin=\"${xml(obj.style.optString("join","round"))}\" stroke-miterlimit=\"${obj.style.optDouble("miter",4.0)}\" stroke-dasharray=\"${obj.style.optJSONArray("dash")?.let { a -> if(a.length()==0) "none" else (0 until a.length()).joinToString(",") { a.getDouble(it).toString() } } ?: "none"}\" stroke-dashoffset=\"${obj.style.optDouble("dashOffset",0.0)}\"/>"
+                        return "<path d=\"${pathData(obj)}\" id=\"${xml(obj.id)}\" fill=\"${obj.fill?.let(::rgb) ?: "none"}\" fill-opacity=\"${obj.fill?.let { (it ushr 24)/255f } ?: 1f}\" stroke=\"${if(obj.style.optBoolean("strokeEnabled",true)) rgb(color) else "none"}\" stroke-width=\"${obj.style.optDouble("size",14.0)}\" stroke-opacity=\"${obj.style.optDouble("opacity",1.0)*(color ushr 24)/255.0}\" fill-rule=\"${if(obj.evenOdd) "evenodd" else "nonzero"}\" opacity=\"${obj.style.optDouble("svgOpacity",1.0)}\" stroke-linecap=\"${xml(obj.style.optString("cap","round"))}\" stroke-linejoin=\"${xml(obj.style.optString("join","round"))}\" stroke-miterlimit=\"${obj.style.optDouble("miter",4.0)}\" stroke-dasharray=\"${obj.style.optJSONArray("dash")?.let { a -> if(a.length()==0) "none" else (0 until a.length()).joinToString(",") { a.getDouble(it).toString() } } ?: "none"}\" stroke-dashoffset=\"${obj.style.optDouble("dashOffset",0.0)}\"/>"
                     }
+                    fun textElement(obj: VectorObject): String {
+                        val anchor =
+                            when (obj.textAlign) {
+                                "center" -> "middle"
+                                "right" -> "end"
+                                else -> "start"
+                            }
+                        val origin = obj.nodes.firstOrNull() ?: VectorNode(0f, 0f)
+                        val attributes =
+                            "x=\"${origin.x}\" y=\"${origin.y + obj.fontSize * .85f}\" font-family=\"${xml(obj.fontFamily)}\" font-size=\"${obj.fontSize}\" letter-spacing=\"${obj.letterSpacing}\" text-anchor=\"$anchor\" fill=\"${obj.fill?.let(::rgb) ?: rgb(obj.style.optInt("color", 0xff000000.toInt()))}\""
+                        val body = xml(obj.text.orEmpty())
+                        return if (obj.pathId != null)
+                            "<text $attributes><textPath href=\"#${xml(obj.pathId!!)}\">$body</textPath></text>"
+                        else "<text $attributes>$body</text>"
+                    }
+                    fun element(obj: VectorObject) =
+                        if (obj.text != null) textElement(obj) else pathElement(obj)
                     if (clips.isNotEmpty()) {
                         append("<defs>")
                         clips.forEach { clip ->
@@ -1301,12 +1505,12 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                         append("</defs>")
                     }
                     drawn.filter { !it.isClip && it.clipOf == null }
-                        .forEach { append(pathElement(it)) }
+                        .forEach { append(element(it)) }
                     clips.forEach { clip ->
                         val members = drawn.filter { it.clipOf == clip.id }
                         if (members.isEmpty()) return@forEach
                         append("<g clip-path=\"url(#clip-${xml(clip.id)})\">")
-                        members.forEach { append(pathElement(it)) }
+                        members.forEach { append(element(it)) }
                         append("</g>")
                     }
                 }

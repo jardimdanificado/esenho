@@ -28,29 +28,36 @@ object VectorSvgIO {
             if (item.getAttribute("id") != "esenho-vector") continue
             val layers = JSONObject(item.textContent).getJSONArray("layers")
             val groups = mutableMapOf<String, String>()
-            return buildList {
-                repeat(layers.length()) { l ->
-                    val objects = layers.getJSONObject(l).getJSONArray("objects")
-                    repeat(objects.length()) { index ->
-                        val obj = VectorObject.read(objects.getJSONObject(index))
-                        require(
-                            obj.allNodes().all { n ->
-                                listOf(n.x, n.y, n.inX, n.inY, n.outX, n.outY, n.pressure).all {
-                                    it.isFinite()
-                                }
+            val ids = mutableMapOf<String, String>()
+            val objects = mutableListOf<VectorObject>()
+            repeat(layers.length()) { l ->
+                val layerObjects = layers.getJSONObject(l).getJSONArray("objects")
+                repeat(layerObjects.length()) { index ->
+                    val obj = VectorObject.read(layerObjects.getJSONObject(index))
+                    require(
+                        obj.allNodes().all { n ->
+                            listOf(n.x, n.y, n.inX, n.inY, n.outX, n.outY, n.pressure).all {
+                                it.isFinite()
                             }
-                        ) {
-                            "Coordenadas SVG inválidas"
                         }
-                        obj.groupId =
-                            obj.groupId?.let {
-                                groups.getOrPut(it) { java.util.UUID.randomUUID().toString() }
-                            }
-                        add(obj.copy(id = java.util.UUID.randomUUID().toString()))
+                    ) {
+                        "Coordenadas SVG inválidas"
                     }
+                    obj.groupId =
+                        obj.groupId?.let {
+                            groups.getOrPut(it) { java.util.UUID.randomUUID().toString() }
+                        }
+                    val newId = java.util.UUID.randomUUID().toString()
+                    ids[obj.id] = newId
+                    objects.add(obj.copy(id = newId))
                 }
             }
+            objects.forEach { obj -> obj.pathId = obj.pathId?.let { ids[it] ?: it } }
+            return objects
         }
-        return SvgDocumentReader(root).read()
+        val parsed = SvgDocumentReader(root).read()
+        val byName = parsed.associate { it.name to it.id }
+        parsed.forEach { obj -> obj.pathId = obj.pathId?.let { byName[it] ?: it } }
+        return parsed
     }
 }
