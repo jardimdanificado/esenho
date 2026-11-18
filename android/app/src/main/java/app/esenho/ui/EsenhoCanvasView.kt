@@ -64,6 +64,17 @@ class EsenhoCanvasView @JvmOverloads constructor(
     private var creatingGuideType: DrawingGuideType? = null
     private var guideStart = GuidePoint(0f, 0f)
     private val guideDraft = mutableListOf<GuidePoint>()
+    private var draggingGuideIndex = -1
+    private var guideDragStart = GuidePoint(0f, 0f)
+    private var guideDragOriginal: List<List<GuidePoint>> = emptyList()
+
+    private val rulerBackgroundPaint = Paint().apply { color = 0xE6221F1B.toInt(); style = Paint.Style.FILL }
+    private val rulerLinePaint = Paint().apply {
+        color = 0xFFB8AFA0.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 1f
+    }
+    private val rulerTextPaint = Paint().apply { color = 0xFFE8DCC8.toInt(); textSize = 11f }
 
     private fun restoreStylusEraserTool() {
         val previous = stylusEraserPreviousTool ?: return
@@ -261,6 +272,80 @@ class EsenhoCanvasView @JvmOverloads constructor(
         return Pair(pts[0], pts[1])
     }
 
+    private fun mapToScreen(canvasX: Float, canvasY: Float): Pair<Float, Float> {
+        val pts = floatArrayOf(canvasX, canvasY)
+        transformMatrix.mapPoints(pts)
+        return Pair(pts[0], pts[1])
+    }
+
+    private fun distanceToSegment(px: Float, py: Float, a: GuidePoint, b: GuidePoint): Float {
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+        val length = dx * dx + dy * dy
+        val t = if (length == 0f) 0f else ((px - a.x) * dx + (py - a.y) * dy) / length
+        val clamped = t.coerceIn(0f, 1f)
+        return hypot(px - (a.x + clamped * dx), py - (a.y + clamped * dy))
+    }
+
+    private fun hitTestGuide(screenX: Float, screenY: Float): Int {
+        val eng = engine ?: return -1
+        val (cx, cy) = mapToCanvas(screenX, screenY)
+        transformMatrix.getValues(matrixValues)
+        val scale = hypot(matrixValues[Matrix.MSCALE_X], matrixValues[Matrix.MSKEW_Y]).coerceAtLeast(.01f)
+        val radius = 8f / scale
+        for (index in eng.canvasGuides.indices.reversed()) {
+            val guide = eng.canvasGuides[index]
+            if (guide.paths.any { path ->
+                path.zipWithNext().any { (a, b) -> distanceToSegment(cx, cy, a, b) <= radius }
+            }) return index
+        }
+        return -1
+    }
+
+    private fun drawVectorRulers(canvas: Canvas, eng: EsenhoEngine) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        val ruler = 22f
+        canvas.drawRect(0f, 0f, w, ruler, rulerBackgroundPaint)
+        canvas.drawRect(0f, 0f, ruler, h, rulerBackgroundPaint)
+        transformMatrix.getValues(matrixValues)
+        val scaleX = hypot(matrixValues[Matrix.MSCALE_X], matrixValues[Matrix.MSKEW_Y])
+        val scaleY = hypot(matrixValues[Matrix.MSKEW_X], matrixValues[Matrix.MSCALE_Y])
+        val scale = min(scaleX, scaleY).coerceAtLeast(.001f)
+        val target = 90f / scale
+        val step =
+            when {
+                target >= 1000f -> 1000f
+                target >= 500f -> 500f
+                target >= 200f -> 200f
+                target >= 100f -> 100f
+                target >= 50f -> 50f
+                target >= 20f -> 20f
+                target >= 10f -> 10f
+                else -> 5f
+            }
+        var tick = 0f
+        while (tick <= eng.width) {
+            val (sx, _) = mapToScreen(tick, 0f)
+            if (sx in ruler..w) {
+                canvas.drawLine(sx, ruler - 6f, sx, ruler, rulerLinePaint)
+                canvas.drawText(tick.toInt().toString(), sx + 2f, ruler - 8f, rulerTextPaint)
+            }
+            tick += step
+        }
+        tick = 0f
+        while (tick <= eng.height) {
+            val (_, sy) = mapToScreen(0f, tick)
+            if (sy in ruler..h) {
+                canvas.drawLine(ruler - 6f, sy, ruler, sy, rulerLinePaint)
+                canvas.drawText(tick.toInt().toString(), 2f, sy - 2f, rulerTextPaint)
+            }
+            tick += step
+        }
+        canvas.drawLine(ruler, 0f, ruler, h, rulerLinePaint)
+        canvas.drawLine(0f, ruler, w, ruler, rulerLinePaint)
+    }
+
     internal fun strokePressure(toolType: Int, value: Float): Float {
         val stylus = toolType == MotionEvent.TOOL_TYPE_STYLUS || toolType == MotionEvent.TOOL_TYPE_ERASER
         return if (stylus) {
@@ -408,6 +493,20 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
                 if (beginGuideGesture(event.x, event.y)) return true
 
+                if (engine?.vectors?.enabled == true && engine?.guideCreationType == null) {
+                    val index = hitTestGuide(event.x, event.y)
+                    if (index >= 0) {
+                        draggingGuideIndex = index
+                        val (gx, gy) = mapToCanvas(event.x, event.y)
+                        guideDragStart = GuidePoint(gx, gy)
+                        guideDragOriginal = engine?.canvasGuides?.getOrNull(index)?.paths
+                            ?.map { path -> path.map { GuidePoint(it.x, it.y) } }
+                            ?: emptyList()
+                        invalidate()
+                        return true
+                    }
+                }
+
                 val tState = engine?.transformState
                 if (tState != null) {
                     transformMatrix.getValues(matrixValues)
@@ -506,6 +605,25 @@ class EsenhoCanvasView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_MOVE -> {
+                if (draggingGuideIndex >= 0 && pointerCount == 1) {
+                    val (cx, cy) = mapToCanvas(event.x, event.y)
+                    val dx = cx - guideDragStart.x
+                    val dy = cy - guideDragStart.y
+                    val current = engine?.canvasGuides?.getOrNull(draggingGuideIndex)
+                    if (current != null) {
+                        engine?.canvasGuides?.set(
+                            draggingGuideIndex,
+                            CanvasGuide(
+                                current.type,
+                                guideDragOriginal.map { path ->
+                                    path.map { GuidePoint(it.x + dx, it.y + dy) }
+                                },
+                            ),
+                        )
+                    }
+                    invalidate()
+                    return true
+                }
                 if (creatingGuideType != null && pointerCount == 1) {
                     moveGuideGesture(event.x, event.y)
                     return true
@@ -673,6 +791,13 @@ class EsenhoCanvasView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_UP -> {
+                if (draggingGuideIndex >= 0) {
+                    draggingGuideIndex = -1
+                    guideDragOriginal = emptyList()
+                    onStateChanged?.invoke()
+                    invalidate()
+                    return true
+                }
                 if (creatingGuideType != null) {
                     finishGuideGesture(event.x, event.y)
                     return true
@@ -747,6 +872,8 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
             MotionEvent.ACTION_CANCEL -> {
                 if (creatingGuideType != null) finishGuideGesture(lastSingleTouchX, lastSingleTouchY, cancelled = true)
+                draggingGuideIndex = -1
+                guideDragOriginal = emptyList()
                 activeTransformHandle = app.esenho.nativeengine.TransformState.Handle.NONE
                 isEyedropperActive = false
                 isTransforming = false
@@ -995,6 +1122,8 @@ class EsenhoCanvasView @JvmOverloads constructor(
         }
 
         canvas.restore()
+
+        if (eng.vectors.enabled && eng.vectors.rulersVisible) drawVectorRulers(canvas, eng)
 
         // 4. Eyedropper Magnifying Loupe
         scripting.draw(canvas)

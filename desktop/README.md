@@ -83,6 +83,12 @@ O painel **Objetos vetoriais** permite editar X/Y, largura/altura, rotação rel
 
 Ative **Encaixar** no painel para alinhar movimentos e alças à grade de 8/16/32 px, aos limites/centro do canvas e às bordas/centros dos outros objetos da camada. Nome, ordem, grupo, bloqueio e visibilidade são salvos no projeto e participam do desfazer/refazer. Os ícones de olho e cadeado na lista agem por objeto. Grupos aninhados ainda não estão disponíveis.
 
+### Recortes, réguas e guias
+
+No painel **Objetos**, selecione dois ou mais objetos da mesma camada e use **Criar recorte**: o objeto da frente passa a recortar os demais, mantendo a geometria editável. **Liberar recorte** devolve os objetos ao estado independente. O recorte aparece como `<clipPath>` na exportação SVG e volta com os metadados do projeto. A importação de SVG externo com `clip-path` ou `mask` continua sem suporte; converta o recorte em caminhos antes de importar.
+
+A opção **Réguas** mostra escalas no topo e à esquerda do canvas. **Guia vertical** e **Guia horizontal** criam linhas na seleção ou no centro do documento; arraste uma guia no canvas para reposicioná-la. **Remover guias** limpa todas. O encaixe de objetos usa as guias ativas mesmo com a opção **Encaixar** desligada.
+
 ### Booleanas e SVG externo
 
 No painel **Objetos**, selecione dois ou mais objetos fechados e desbloqueados da mesma camada. **Unir**, **Subtrair**, **Interseção** e **Excluir sobreposição** combinam suas áreas. Subtrair retira os objetos da frente do objeto de trás; o resultado herda a aparência do objeto de trás. A operação usa a geometria dos caminhos, sem expandir a espessura do pincel. O resultado pode conter furos e ilhas no mesmo objeto. Seus contornos continuam selecionáveis, transformáveis e editáveis pela ferramenta **Nós**; salvamento, exportação e desfazer/refazer preservam todos os contornos. As booleanas aproximam as curvas do resultado por segmentos editáveis com tolerância de 0,1 px; os caminhos originais ficam no desfazer.

@@ -106,6 +106,8 @@ data class VectorObject(
     var groupId: String? = null,
     val subPaths: MutableList<VectorContour> = mutableListOf(),
     var evenOdd: Boolean = false,
+    var isClip: Boolean = false,
+    var clipOf: String? = null,
 ) {
     fun geometry(): List<VectorContour> = listOf(VectorContour(nodes, closed)) + subPaths
 
@@ -218,6 +220,8 @@ data class VectorObject(
             .put("locked", locked)
             .put("group", groupId)
             .put("evenOdd", evenOdd)
+            .put("isClip", isClip)
+            .put("clipOf", clipOf)
             .put(
                 "subPaths",
                 JSONArray().also { paths ->
@@ -281,6 +285,8 @@ data class VectorObject(
                     }
                 },
                 j.optBoolean("evenOdd", false),
+                j.optBoolean("isClip", false),
+                if (j.isNull("clipOf")) null else j.optString("clipOf").takeIf { it.isNotEmpty() },
             )
         }
     }
@@ -289,6 +295,8 @@ data class VectorObject(
 class VectorWorkspace(private val engine: EsenhoEngine) {
     var enabled = false
         private set
+
+    var rulersVisible = false
 
     var tool = VectorTool.DRAW
     val layers = linkedMapOf<Int, MutableList<VectorObject>>()
@@ -1023,6 +1031,65 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         val tool = engine.currentTool
         var fillBitmap: Bitmap? = null
         var previousStyle: String? = null
+        fun paintObject(obj: VectorObject) {
+            if (obj.style.optBoolean("svgStroke", false)) {
+                val bitmap =
+                    fillBitmap
+                        ?: Bitmap.createBitmap(
+                                engine.width,
+                                engine.height,
+                                Bitmap.Config.ARGB_8888,
+                            )
+                        .also { fillBitmap = it }
+                VectorSvgPaint.draw(obj, bitmap)
+                EsenhoNativeBridge.nativeLayerDrawBitmap(
+                    engine.activeLayerIndex,
+                    bitmap,
+                    0,
+                    0,
+                    engine.width,
+                    engine.height,
+                )
+                return
+            }
+            obj.fill?.let { color ->
+                val bitmap =
+                    fillBitmap
+                        ?: Bitmap.createBitmap(
+                                engine.width,
+                                engine.height,
+                                Bitmap.Config.ARGB_8888,
+                            )
+                        .also { fillBitmap = it }
+                bitmap.eraseColor(0)
+                Canvas(bitmap)
+                    .drawPath(
+                        obj.path(),
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            this.color = color
+                            style = Paint.Style.FILL
+                        },
+                    )
+                EsenhoNativeBridge.nativeLayerDrawBitmap(
+                    engine.activeLayerIndex,
+                    bitmap,
+                    0,
+                    0,
+                    engine.width,
+                    engine.height,
+                )
+            }
+            val styleKey = obj.style.toString()
+            if (obj.style.optBoolean("strokeEnabled", true))
+                obj.strokes().forEach { stroke ->
+                    engine.renderVectorStroke(
+                        obj.style,
+                        stroke.samples(),
+                        configure = previousStyle != styleKey,
+                    )
+                    previousStyle = styleKey
+                }
+        }
         EsenhoNativeBridge.nativeBeginLayerUpdate()
         try {
             if (append == null || strokeBase != null)
@@ -1037,69 +1104,48 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     engine.height,
                 )
             }
-            (if (append == null) objects else listOf(append))
-                .filter { it.visible }
-                .forEach { obj ->
-                    if (obj.style.optBoolean("svgStroke", false)) {
-                        val bitmap =
-                            fillBitmap
-                                ?: Bitmap.createBitmap(
-                                        engine.width,
-                                        engine.height,
-                                        Bitmap.Config.ARGB_8888,
-                                    )
-                                    .also { fillBitmap = it }
-                        VectorSvgPaint.draw(obj, bitmap)
-                        EsenhoNativeBridge.nativeLayerDrawBitmap(
-                            engine.activeLayerIndex,
-                            bitmap,
-                            0,
-                            0,
-                            engine.width,
-                            engine.height,
-                        )
+            val visible =
+                (if (append == null) objects else listOf(append)).filter { it.visible }
+            visible.filter { !it.isClip && it.clipOf == null }.forEach(::paintObject)
+            visible.filter { it.isClip }.forEach { clip ->
+                val clipped = visible.filter { it.clipOf == clip.id }
+                if (clipped.isEmpty()) return@forEach
+                val width = engine.width
+                val height = engine.height
+                val before = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                val after = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                val masked = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                val result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                try {
+                    if (!EsenhoNativeBridge.nativeLayerGetBitmap(engine.activeLayerIndex, before))
                         return@forEach
+                    clipped.forEach(::paintObject)
+                    if (!EsenhoNativeBridge.nativeLayerGetBitmap(engine.activeLayerIndex, after))
+                        return@forEach
+                    Canvas(masked).apply {
+                        clipPath(clip.path())
+                        drawBitmap(after, 0f, 0f, Paint())
                     }
-                    obj.fill?.let { color ->
-                        val bitmap =
-                            fillBitmap
-                                ?: Bitmap.createBitmap(
-                                        engine.width,
-                                        engine.height,
-                                        Bitmap.Config.ARGB_8888,
-                                    )
-                                    .also { fillBitmap = it }
-                        bitmap.eraseColor(0)
-                        run {
-                            Canvas(bitmap)
-                                .drawPath(
-                                    obj.path(),
-                                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                                        this.color = color
-                                        style = Paint.Style.FILL
-                                    },
-                                )
-                            EsenhoNativeBridge.nativeLayerDrawBitmap(
-                                engine.activeLayerIndex,
-                                bitmap,
-                                0,
-                                0,
-                                engine.width,
-                                engine.height,
-                            )
-                        }
+                    Canvas(result).apply {
+                        drawBitmap(before, 0f, 0f, Paint())
+                        drawBitmap(masked, 0f, 0f, Paint())
                     }
-                    val styleKey = obj.style.toString()
-                    if (obj.style.optBoolean("strokeEnabled", true))
-                        obj.strokes().forEach { stroke ->
-                            engine.renderVectorStroke(
-                                obj.style,
-                                stroke.samples(),
-                                configure = previousStyle != styleKey,
-                            )
-                            previousStyle = styleKey
-                        }
+                    EsenhoNativeBridge.nativeLayerClear(engine.activeLayerIndex)
+                    EsenhoNativeBridge.nativeLayerDrawBitmap(
+                        engine.activeLayerIndex,
+                        result,
+                        0,
+                        0,
+                        width,
+                        height,
+                    )
+                } finally {
+                    before.recycle()
+                    after.recycle()
+                    masked.recycle()
+                    result.recycle()
                 }
+            }
         } finally {
             engine.restoreVectorStyle(saved)
             engine.currentTool = tool
@@ -1198,6 +1244,26 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
         fun rgb(c: Int) = String.format(java.util.Locale.ROOT, "#%06x", c and 0xffffff)
+        fun pathData(obj: VectorObject) =
+            buildString {
+                obj.geometry().forEach { contour ->
+                    val n = contour.nodes
+                    if (n.isNotEmpty()) {
+                        append("M ${n[0].x} ${n[0].y} ")
+                        if (n.size == 1) append("L ${n[0].x} ${n[0].y} ")
+                        for (i in 1 until n.size) {
+                            val a = n[i - 1]
+                            val b = n[i]
+                            append("C ${a.outX} ${a.outY} ${b.inX} ${b.inY} ${b.x} ${b.y} ")
+                        }
+                        if (contour.closed) {
+                            val a = n.last()
+                            val b = n.first()
+                            append("C ${a.outX} ${a.outY} ${b.inX} ${b.inY} ${b.x} ${b.y} Z ")
+                        }
+                    }
+                }
+            }
         return buildString {
             append(
                 "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${engine.width}\" height=\"${engine.height}\" viewBox=\"0 0 ${engine.width} ${engine.height}\">"
@@ -1220,38 +1286,30 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     } finally {
                         bitmap.recycle()
                     }
-                } else
-                    objects
-                        .filter { it.nodes.isNotEmpty() && it.visible }
-                        .forEach { obj ->
-                            val d = buildString {
-                                obj.geometry().forEach { contour ->
-                                    val n = contour.nodes
-                                    if (n.isNotEmpty()) {
-                                        append("M ${n[0].x} ${n[0].y} ")
-                                        if (n.size == 1) append("L ${n[0].x} ${n[0].y} ")
-                                        for (i in 1 until n.size) {
-                                            val a = n[i - 1]
-                                            val b = n[i]
-                                            append(
-                                                "C ${a.outX} ${a.outY} ${b.inX} ${b.inY} ${b.x} ${b.y} "
-                                            )
-                                        }
-                                        if (contour.closed) {
-                                            val a = n.last()
-                                            val b = n.first()
-                                            append(
-                                                "C ${a.outX} ${a.outY} ${b.inX} ${b.inY} ${b.x} ${b.y} Z "
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            val color = obj.style.optInt("color", 0xff000000.toInt())
-                            append(
-                                "<path d=\"$d\" fill=\"${obj.fill?.let(::rgb) ?: "none"}\" fill-opacity=\"${obj.fill?.let { (it ushr 24)/255f } ?: 1f}\" stroke=\"${if(obj.style.optBoolean("strokeEnabled",true)) rgb(color) else "none"}\" stroke-width=\"${obj.style.optDouble("size",14.0)}\" stroke-opacity=\"${obj.style.optDouble("opacity",1.0)*(color ushr 24)/255.0}\" fill-rule=\"${if(obj.evenOdd) "evenodd" else "nonzero"}\" opacity=\"${obj.style.optDouble("svgOpacity",1.0)}\" stroke-linecap=\"${xml(obj.style.optString("cap","round"))}\" stroke-linejoin=\"${xml(obj.style.optString("join","round"))}\" stroke-miterlimit=\"${obj.style.optDouble("miter",4.0)}\" stroke-dasharray=\"${obj.style.optJSONArray("dash")?.let { a -> if(a.length()==0) "none" else (0 until a.length()).joinToString(",") { a.getDouble(it).toString() } } ?: "none"}\" stroke-dashoffset=\"${obj.style.optDouble("dashOffset",0.0)}\"/>"
-                            )
+                } else {
+                    val drawn = objects.filter { it.nodes.isNotEmpty() && it.visible }
+                    val clips = drawn.filter { it.isClip }
+                    fun pathElement(obj: VectorObject): String {
+                        val color = obj.style.optInt("color", 0xff000000.toInt())
+                        return "<path d=\"${pathData(obj)}\" fill=\"${obj.fill?.let(::rgb) ?: "none"}\" fill-opacity=\"${obj.fill?.let { (it ushr 24)/255f } ?: 1f}\" stroke=\"${if(obj.style.optBoolean("strokeEnabled",true)) rgb(color) else "none"}\" stroke-width=\"${obj.style.optDouble("size",14.0)}\" stroke-opacity=\"${obj.style.optDouble("opacity",1.0)*(color ushr 24)/255.0}\" fill-rule=\"${if(obj.evenOdd) "evenodd" else "nonzero"}\" opacity=\"${obj.style.optDouble("svgOpacity",1.0)}\" stroke-linecap=\"${xml(obj.style.optString("cap","round"))}\" stroke-linejoin=\"${xml(obj.style.optString("join","round"))}\" stroke-miterlimit=\"${obj.style.optDouble("miter",4.0)}\" stroke-dasharray=\"${obj.style.optJSONArray("dash")?.let { a -> if(a.length()==0) "none" else (0 until a.length()).joinToString(",") { a.getDouble(it).toString() } } ?: "none"}\" stroke-dashoffset=\"${obj.style.optDouble("dashOffset",0.0)}\"/>"
+                    }
+                    if (clips.isNotEmpty()) {
+                        append("<defs>")
+                        clips.forEach { clip ->
+                            append("<clipPath id=\"clip-${xml(clip.id)}\"><path d=\"${pathData(clip)}\" clip-rule=\"${if(clip.evenOdd) "evenodd" else "nonzero"}\"/></clipPath>")
                         }
+                        append("</defs>")
+                    }
+                    drawn.filter { !it.isClip && it.clipOf == null }
+                        .forEach { append(pathElement(it)) }
+                    clips.forEach { clip ->
+                        val members = drawn.filter { it.clipOf == clip.id }
+                        if (members.isEmpty()) return@forEach
+                        append("<g clip-path=\"url(#clip-${xml(clip.id)})\">")
+                        members.forEach { append(pathElement(it)) }
+                        append("</g>")
+                    }
+                }
                 append("</g>")
             }
             append("</svg>")

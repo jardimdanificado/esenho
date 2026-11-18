@@ -455,7 +455,7 @@ fun VectorObjectPanel(
                     ) {
                         Icon(Icons.Default.Polyline, null, Modifier.size(18.dp))
                         Text(
-                            "${obj.name.ifBlank { "Caminho ${index+1}" }}${if (obj.groupId != null) " · grupo" else ""} · ${obj.allNodes().size} nós",
+                            "${obj.name.ifBlank { "Caminho ${index+1}" }}${if (obj.groupId != null) " · grupo" else ""}${if (obj.isClip) " · recorte" else ""}${if (obj.clipOf != null) " · recortado" else ""} · ${obj.allNodes().size} nós",
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f),
                         )

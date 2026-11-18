@@ -176,22 +176,55 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
         }
     }
 
-    private fun snap(x: Float, y: Float, offsets: List<Pair<Float, Float>>): Pair<Float, Float> {
-        if (!snapEnabled) return x to y
-        val tolerance = 8f / engine.vectorViewScale
-        val xs = mutableListOf(0f, engine.width / 2f, engine.width.toFloat())
-        val ys = mutableListOf(0f, engine.height / 2f, engine.height.toFloat())
-        workspace.layers[engine.activeLayerIndex]
-            .orEmpty()
-            .filter { it.id !in ids && it.visible }
-            .forEach {
-                VectorBounds.of(listOf(it))?.let { b ->
-                    xs.addAll(listOf(b.left, b.cx, b.right))
-                    ys.addAll(listOf(b.top, b.cy, b.bottom))
+    private fun guideCandidates(x: Float, y: Float): List<Pair<Float, Float>> {
+        val result = mutableListOf<Pair<Float, Float>>()
+        engine.canvasGuides.forEachIndexed { index, guide ->
+            if (
+                !engine.snapToAllVisibleGuides &&
+                    index != engine.activeCanvasGuideIndex &&
+                    index !in engine.snapGuideIndices
+            )
+                return@forEachIndexed
+            guide.paths.forEach { path ->
+                path.zipWithNext().forEach { (a, b) ->
+                    val dx = b.x - a.x
+                    val dy = b.y - a.y
+                    val length = dx * dx + dy * dy
+                    val t = if (length == 0f) 0f else ((x - a.x) * dx + (y - a.y) * dy) / length
+                    val point = t.coerceIn(0f, 1f)
+                    result += (a.x + point * dx) to (a.y + point * dy)
                 }
             }
-        xs += round(x / gridSize) * gridSize
-        ys += round(y / gridSize) * gridSize
+        }
+        return result
+    }
+
+    private fun snap(x: Float, y: Float, offsets: List<Pair<Float, Float>>): Pair<Float, Float> {
+        if (!snapEnabled && !engine.guideSnapEnabled) return x to y
+        val tolerance = 8f / engine.vectorViewScale
+        val xs = mutableListOf<Float>()
+        val ys = mutableListOf<Float>()
+        if (snapEnabled) {
+            xs.addAll(listOf(0f, engine.width / 2f, engine.width.toFloat()))
+            ys.addAll(listOf(0f, engine.height / 2f, engine.height.toFloat()))
+            workspace.layers[engine.activeLayerIndex]
+                .orEmpty()
+                .filter { it.id !in ids && it.visible }
+                .forEach {
+                    VectorBounds.of(listOf(it))?.let { b ->
+                        xs.addAll(listOf(b.left, b.cx, b.right))
+                        ys.addAll(listOf(b.top, b.cy, b.bottom))
+                    }
+                }
+            xs += round(x / gridSize) * gridSize
+            ys += round(y / gridSize) * gridSize
+        }
+        if (engine.guideSnapEnabled)
+            guideCandidates(x, y).forEach { (gx, gy) ->
+                xs += gx
+                ys += gy
+            }
+        if (xs.isEmpty() && ys.isEmpty()) return x to y
         val candidates = listOf(0f to 0f) + offsets
         val bx = candidates.flatMap { o -> xs.map { it - o.first } }.minByOrNull { abs(it - x) }
         val by = candidates.flatMap { o -> ys.map { it - o.second } }.minByOrNull { abs(it - y) }
@@ -362,6 +395,42 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
         if (result != null) layer.add(insertion.coerceAtMost(layer.size), result)
         replace(result?.id)
         workspace.render()
+    }
+
+    /** The topmost selected object becomes a reusable clip; the others are masked by it. */
+    fun createClip() {
+        val layer = workspace.layers[engine.activeLayerIndex] ?: return
+        val targets = editable()
+        if (targets.size < 2) return
+        val clip = targets.maxByOrNull { layer.indexOf(it) } ?: return
+        edit { _ ->
+            targets.forEach { obj ->
+                if (obj === clip) {
+                    obj.isClip = true
+                    obj.fill = null
+                    obj.style.put("strokeEnabled", false)
+                } else {
+                    if (obj.isClip)
+                        layer.forEach { other -> if (other.clipOf == obj.id) other.clipOf = null }
+                    obj.isClip = false
+                    obj.clipOf = clip.id
+                }
+            }
+            replace(clip.id)
+        }
+    }
+
+    /** Turning a clip back into a normal object also frees everything it masked. */
+    fun releaseClip() {
+        val layer = workspace.layers[engine.activeLayerIndex] ?: return
+        val clips = editable().filter { it.isClip }
+        if (clips.isEmpty()) return
+        edit { _ ->
+            clips.forEach { clip ->
+                clip.isClip = false
+                layer.forEach { obj -> if (obj.clipOf == clip.id) obj.clipOf = null }
+            }
+        }
     }
 
     fun group() {

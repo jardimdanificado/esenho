@@ -15,6 +15,19 @@ internal fun VectorSelectionPanel(engine: EsenhoEngine, revision: Int, onChanged
     val selection = engine.vectors.selection
     val objects = selection.objects
     val editable = objects.isNotEmpty() && objects.none { it.locked || !it.visible }
+    fun addGuide(vertical: Boolean) {
+        val b = selection.bounds()
+        val position = if (vertical) (b?.cx ?: engine.width / 2f) else (b?.cy ?: engine.height / 2f)
+        val path =
+            if (vertical)
+                listOf(GuidePoint(position, 0f), GuidePoint(position, engine.height.toFloat()))
+            else
+                listOf(GuidePoint(0f, position), GuidePoint(engine.width.toFloat(), position))
+        engine.canvasGuides.add(CanvasGuide(DrawingGuideType.LINE, listOf(path)))
+        engine.activeCanvasGuideIndex = engine.canvasGuides.lastIndex
+        engine.guideSnapEnabled = true
+        if (!engine.snapToAllVisibleGuides) engine.snapGuideIndices.add(engine.canvasGuides.lastIndex)
+    }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(
             checked = selection.additive,
@@ -71,6 +84,52 @@ internal fun VectorSelectionPanel(engine: EsenhoEngine, revision: Int, onChanged
             }
         }
     }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(
+            checked = engine.vectors.rulersVisible,
+            onCheckedChange = {
+                engine.vectors.rulersVisible = it
+                onChanged()
+            },
+        )
+        Text("Réguas", style = MaterialTheme.typography.bodySmall)
+    }
+    Text("Guias", style = MaterialTheme.typography.titleSmall)
+    Text(
+        "Arraste uma guia no canvas para reposicioná-la.",
+        style = MaterialTheme.typography.bodySmall,
+    )
+    Row {
+        TextButton(
+            onClick = {
+                addGuide(true)
+                onChanged()
+            },
+            modifier = Modifier.weight(1f),
+        ) {
+            Text("Guia vertical", style = MaterialTheme.typography.labelSmall)
+        }
+        TextButton(
+            onClick = {
+                addGuide(false)
+                onChanged()
+            },
+            modifier = Modifier.weight(1f),
+        ) {
+            Text("Guia horizontal", style = MaterialTheme.typography.labelSmall)
+        }
+    }
+    TextButton(
+        onClick = {
+            engine.canvasGuides.clear()
+            engine.snapGuideIndices.clear()
+            engine.snapToAllVisibleGuides = false
+            engine.activeCanvasGuideIndex = -1
+            onChanged()
+        },
+    ) {
+        Text("Remover guias")
+    }
     Text("${objects.size} selecionado(s)", style = MaterialTheme.typography.titleSmall)
     if (objects.size > 1) {
         Text("Operações de área", style = MaterialTheme.typography.titleSmall)
@@ -99,6 +158,35 @@ internal fun VectorSelectionPanel(engine: EsenhoEngine, revision: Int, onChanged
                 "Feche os caminhos e desbloqueie os objetos para combinar áreas.",
                 style = MaterialTheme.typography.bodySmall,
             )
+    }
+    if (objects.size > 1 || objects.any { it.isClip }) {
+        Text("Recortes vetoriais", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "O objeto da frente recorta os demais selecionados. O recorte permanece editável.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Row {
+            TextButton(
+                enabled = editable && objects.size > 1,
+                onClick = {
+                    selection.createClip()
+                    onChanged()
+                },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Criar recorte", style = MaterialTheme.typography.labelSmall)
+            }
+            TextButton(
+                enabled = editable && objects.any { it.isClip },
+                onClick = {
+                    selection.releaseClip()
+                    onChanged()
+                },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Liberar recorte", style = MaterialTheme.typography.labelSmall)
+            }
+        }
     }
     val bounds = selection.bounds()
     if (bounds != null) {
