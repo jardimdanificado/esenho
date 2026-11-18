@@ -38,6 +38,15 @@ for src in base.rglob('*'):
             "toggleTools" -> { toggleTools() }
             "vectorObjects" -> { activePanel = WorkspacePanel.VECTOR; refreshState(false) }
             "vectorColor" -> { activePanel = WorkspacePanel.COLOR; refreshState(false) }
+            "vectorSelect" -> { engine.cancelActiveStroke(); engine.vectors.tool = app.esenho.nativeengine.VectorTool.SELECT; engine.currentTool = ToolMode.BRUSH; refreshState(false) }
+            "vectorAll" -> { engine.vectors.selection.all(); refreshState(false) }
+            "vectorClear" -> { engine.cancelActiveStroke(); engine.vectors.selection.clear(); refreshState(false) }
+            "vectorCopy" -> { engine.vectors.selection.copy(); refreshState(false) }
+            "vectorPaste" -> { engine.vectors.selection.paste(); refreshState(false) }
+            "vectorDuplicate" -> { engine.vectors.selection.duplicate(); refreshState(false) }
+            "vectorGroup" -> { engine.vectors.selection.group(); refreshState(false) }
+            "vectorUngroup" -> { engine.vectors.selection.ungroup(); refreshState(false) }
+            "vectorDelete" -> { engine.vectors.selection.delete(); refreshState(false) }
             "vectorNodes" -> { engine.vectors.tool = app.esenho.nativeengine.VectorTool.NODES; refreshState(false) }
             "layers" -> activePanel = WorkspacePanel.LAYERS
             "timeline" -> activePanel = WorkspacePanel.ANIMATION

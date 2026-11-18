@@ -234,13 +234,13 @@ suspend fun exerciseDesktopVectors(window: java.awt.Window) {
             (view.editorBounds.left + view.width / 2).toInt(),
             (view.editorBounds.top + view.height / 2).toInt(),
         )
-    fun event(id: Int, x: Int, y: Int, down: Boolean) {
+    fun event(id: Int, x: Int, y: Int, down: Boolean, shift: Boolean = false) {
         target.dispatchEvent(
             java.awt.event.MouseEvent(
                 target,
                 id,
                 System.currentTimeMillis(),
-                if (down) java.awt.event.InputEvent.BUTTON1_DOWN_MASK else 0,
+                (if (down) java.awt.event.InputEvent.BUTTON1_DOWN_MASK else 0) or (if (shift) java.awt.event.InputEvent.SHIFT_DOWN_MASK else 0),
                 x,
                 y,
                 1,
@@ -302,6 +302,50 @@ suspend fun exerciseDesktopVectors(window: java.awt.Window) {
     kotlinx.coroutines.delay(100)
     captureEditor(window, File("desktop/build/ui-vector-pen.png"))
     event(java.awt.event.MouseEvent.MOUSE_RELEASED, sx + 35, sy - 25, false)
+    kotlinx.coroutines.delay(200)
+    // Use the real selection tool, marquee and resize handle through Compose pointer events.
+    clickEditor(window, 144, view.editorBounds.bottom.toInt() + 19)
+    check(engine.vectors.tool == app.esenho.nativeengine.VectorTool.SELECT)
+    checkNotNull(desktopUiTestCommand)("vectorObjects")
+    checkNotNull(desktopUiTestCommand)("vectorClear")
+    kotlinx.coroutines.delay(300)
+    val objects = engine.vectors.layers.getValue(engine.activeLayerIndex)
+    val bounds = checkNotNull(app.esenho.nativeengine.VectorSelection.VectorBounds.of(objects))
+    fun screenPoint(x: Float,y: Float): Pair<Int,Int> {
+        val p=floatArrayOf(x,y);view.transformMatrix.mapPoints(p)
+        return (p[0]+view.editorBounds.left).toInt() to (p[1]+view.editorBounds.top).toInt()
+    }
+    val boxStart=screenPoint(bounds.left-35,bounds.top-35)
+    val boxEnd=screenPoint(bounds.right+35,bounds.bottom+35)
+    event(java.awt.event.MouseEvent.MOUSE_PRESSED,boxStart.first,boxStart.second,true)
+    kotlinx.coroutines.delay(50)
+    event(java.awt.event.MouseEvent.MOUSE_DRAGGED,boxEnd.first,boxEnd.second,true)
+    kotlinx.coroutines.delay(50)
+    event(java.awt.event.MouseEvent.MOUSE_RELEASED,boxEnd.first,boxEnd.second,false)
+    kotlinx.coroutines.delay(200)
+    check(engine.vectors.selection.objects.size==objects.size) { "Marquee did not select every enclosed vector" }
+    val anchor=objects.first().nodes.first()
+    val shiftPoint=screenPoint(anchor.x,anchor.y)
+    event(java.awt.event.MouseEvent.MOUSE_PRESSED,shiftPoint.first,shiftPoint.second,true,true)
+    kotlinx.coroutines.delay(50)
+    event(java.awt.event.MouseEvent.MOUSE_RELEASED,shiftPoint.first,shiftPoint.second,false,true)
+    kotlinx.coroutines.delay(100)
+    check(engine.vectors.selection.objects.size==objects.size-1) { "Shift-click did not remove an object from selection" }
+    event(java.awt.event.MouseEvent.MOUSE_PRESSED,shiftPoint.first,shiftPoint.second,true,true)
+    kotlinx.coroutines.delay(50)
+    event(java.awt.event.MouseEvent.MOUSE_RELEASED,shiftPoint.first,shiftPoint.second,false,true)
+    kotlinx.coroutines.delay(100)
+    check(engine.vectors.selection.objects.size==objects.size) { "Shift-click did not add the object back" }
+    captureEditor(window, File("desktop/build/ui-vector-selection.png"))
+    val resizeStart=screenPoint(bounds.right,bounds.bottom)
+    event(java.awt.event.MouseEvent.MOUSE_PRESSED,resizeStart.first,resizeStart.second,true)
+    kotlinx.coroutines.delay(50)
+    event(java.awt.event.MouseEvent.MOUSE_DRAGGED,resizeStart.first+30,resizeStart.second+25,true)
+    kotlinx.coroutines.delay(50)
+    event(java.awt.event.MouseEvent.MOUSE_RELEASED,resizeStart.first+30,resizeStart.second+25,false)
+    kotlinx.coroutines.delay(200)
+    check(engine.vectors.selection.bounds()!!.width>bounds.width+20) { "Selection handle did not scale the geometry" }
+    checkNotNull(desktopUiTestCommand)("undo")
     kotlinx.coroutines.delay(200)
     val vectorBottom = view.editorBounds.bottom
     clickEditor(window, target.width - 19, vectorBottom.toInt() + 19)

@@ -394,6 +394,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                engine?.vectors?.selection?.pointerAdditive = (event.metaState and android.view.KeyEvent.META_SHIFT_ON) != 0
                 maxPointersInGesture = 1
                 historyGestureHandled = false
                 initialPointerPositions.clear()

@@ -35,12 +35,20 @@ fun DesktopShortcuts(canvas: EsenhoCanvasView?, onCommand: (String) -> Unit) {
                                 if (event.isShiftDown) "redo" else "undo"
                             control && canvas.hasEditorFocus && event.keyCode == KeyEvent.VK_Y ->
                                 "redo"
+                            control && canvas.hasEditorFocus && canvas.engine?.vectors?.enabled == true && event.keyCode == KeyEvent.VK_A -> "vectorAll"
+                            control && canvas.hasEditorFocus && canvas.engine?.vectors?.enabled == true && event.keyCode == KeyEvent.VK_C -> "vectorCopy"
+                            control && canvas.hasEditorFocus && canvas.engine?.vectors?.enabled == true && event.keyCode == KeyEvent.VK_V -> "vectorPaste"
+                            control && canvas.hasEditorFocus && canvas.engine?.vectors?.enabled == true && event.keyCode == KeyEvent.VK_D -> "vectorDuplicate"
+                            control && canvas.hasEditorFocus && canvas.engine?.vectors?.enabled == true && event.keyCode == KeyEvent.VK_G -> if (event.isShiftDown) "vectorUngroup" else "vectorGroup"
                             event.keyCode == KeyEvent.VK_F6 -> "layers"
                             event.keyCode == KeyEvent.VK_F7 -> "timeline"
                             event.keyCode == KeyEvent.VK_F8 -> "scripts"
                             event.keyCode == KeyEvent.VK_F9 -> "filters"
                             canvas.hasEditorFocus && !control && !event.isAltDown ->
                                 when (event.keyCode) {
+                                    KeyEvent.VK_DELETE -> if (canvas.engine?.vectors?.enabled == true) "vectorDelete" else null
+                                    KeyEvent.VK_ESCAPE -> if (canvas.engine?.vectors?.enabled == true) "vectorClear" else null
+                                    KeyEvent.VK_V -> if (canvas.engine?.vectors?.enabled == true) "vectorSelect" else null
                                     KeyEvent.VK_B -> "brush"
                                     KeyEvent.VK_E -> "eraser"
                                     KeyEvent.VK_I -> "eyedropper"

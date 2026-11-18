@@ -74,3 +74,11 @@ O arquivo `.esenho` preserva os caminhos e os pixels renderizados. Projetos ante
 A barra de ferramentas existe nos dois espaços. O botão de seta no fim da barra a oculta; no menu **…**, escolha **Mostrar ferramentas** para reabri-la. A visibilidade é salva separadamente para Raster e Vetor. Linha usa arraste entre as extremidades; retângulo e elipse usam arraste entre os cantos da caixa delimitadora, com prévia da forma durante o gesto. A caneta mostra âncoras quadradas e alças circulares enquanto desenha. A edição de nós/alças usa prévia geométrica durante o arraste e atualiza a aparência do pincel ao soltar.
 
 Para medir o mesmo arraste de oito movimentos em uma camada com seis caminhos e pincel procedural semitransparente, execute o aplicativo com `--vector-benchmark`. A saída separa o tempo dos movimentos do tempo de confirmação.
+
+### Seleção e organização vetorial
+
+Na ferramenta **Objetos** (`V`), arraste uma área vazia para selecionar os caminhos totalmente contidos. Use `Shift` ao clicar, ou **Adicionar/remover da seleção** no painel, para acumular ou retirar objetos. Arraste o objeto para mover a seleção, as oito alças para escalar e o círculo acima para girar. A prévia geométrica acompanha o gesto; o pincel nativo é reaplicado ao soltar.
+
+O painel **Objetos vetoriais** permite editar X/Y, largura/altura, rotação relativa e pivô percentual, alinhar e distribuir centros, agrupar/desagrupar e levar a seleção à frente ou ao fundo. O tamanho do pincel permanece constante ao transformar a geometria. Grupos são planos, dentro da mesma camada. Copiar/colar usa uma área de transferência interna do app, preservando pincéis e grupos. `Ctrl+A/C/V/D`, `Ctrl+G`, `Ctrl+Shift+G`, `Delete` e `Esc` controlam seleção, cópia, colagem, duplicação, grupos e exclusão quando o canvas tem foco.
+
+Ative **Encaixar** no painel para alinhar movimentos e alças à grade de 8/16/32 px, aos limites/centro do canvas e às bordas/centros dos outros objetos da camada. Nome, ordem, grupo, bloqueio e visibilidade são salvos no projeto e participam do desfazer/refazer. Os ícones de olho e cadeado na lista agem por objeto. Esta etapa não inclui operações booleanas, grupos aninhados ou importação de SVG externo.

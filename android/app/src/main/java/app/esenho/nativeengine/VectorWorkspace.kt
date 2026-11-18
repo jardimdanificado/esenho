@@ -49,6 +49,10 @@ data class VectorObject(
     var style: JSONObject,
     var closed: Boolean = false,
     var fill: Int? = null,
+    var name: String = "",
+    var visible: Boolean = true,
+    var locked: Boolean = false,
+    var groupId: String? = null,
 ) {
     fun path() =
         Path().apply {
@@ -145,6 +149,10 @@ data class VectorObject(
             .put("style", style)
             .put("closed", closed)
             .put("fill", fill)
+            .put("name", name)
+            .put("visible", visible)
+            .put("locked", locked)
+            .put("group", groupId)
 
     companion object {
         fun read(j: JSONObject): VectorObject {
@@ -170,6 +178,10 @@ data class VectorObject(
                 j.getJSONObject("style"),
                 j.optBoolean("closed"),
                 if (j.isNull("fill")) null else j.getInt("fill"),
+                j.optString("name", ""),
+                j.optBoolean("visible", true),
+                j.optBoolean("locked", false),
+                if (j.isNull("group")) null else j.optString("group").takeIf { it.isNotEmpty() },
             )
         }
     }
@@ -181,10 +193,12 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
 
     var tool = VectorTool.DRAW
     val layers = linkedMapOf<Int, MutableList<VectorObject>>()
-    var selectedId: String? = null
+    val selection = VectorSelection(engine, this)
+    var selectedId: String?
+        get() = selection.primary
         set(value) {
-            if (field != value) nodeIndex = -1
-            field = value
+            if (selection.primary != value) nodeIndex = -1
+            selection.replace(value)
         }
 
     val selected: VectorObject?
@@ -229,6 +243,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         releaseStrokeBase()
         finishPen()
         finishAppearanceEdit()
+        selection.finish()
         layers.clear()
         undo.clear()
         redo.clear()
@@ -367,7 +382,8 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         finishAppearanceEdit()
         finishPen()
         engine.selectLayer(layer.key)
-        selectedId = id
+        nodeIndex = -1
+        selection.select(id)
         loadSelectedStyle()
     }
 
@@ -375,7 +391,8 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         finishAppearanceEdit()
         val objects = ensureLayer()
         if (tool == VectorTool.ERASER) {
-            selectedId = objects.asReversed().firstOrNull { hit(it, x, y) }?.id
+            selectedId =
+                objects.asReversed().firstOrNull { it.visible && !it.locked && hit(it, x, y) }?.id
             deleteSelected()
             return
         }
@@ -420,7 +437,17 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         nodeIndex = -1
         handle = -1
         gestureToken = 0L
-        if (tool == VectorTool.SELECT || tool == VectorTool.NODES) {
+        if (tool == VectorTool.SELECT) {
+            selection.down(
+                x,
+                y,
+                objects.asReversed().firstOrNull { it.visible && !it.locked && hit(it, x, y) },
+            )
+            loadSelectedStyle()
+            gestureBefore = snapshot()
+            return
+        }
+        if (tool == VectorTool.NODES) {
             if (tool == VectorTool.NODES || tool == VectorTool.PEN) {
                 var best = 12f / engine.vectorViewScale
                 selected?.nodes?.forEachIndexed { i, n ->
@@ -434,8 +461,13 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     }
                 }
             }
+            if (selected?.locked == true || selected?.visible == false) nodeIndex = -1
             if (nodeIndex < 0)
-                selectedId = objects.asReversed().firstOrNull { obj -> hit(obj, x, y) }?.id
+                selectedId =
+                    objects
+                        .asReversed()
+                        .firstOrNull { obj -> obj.visible && !obj.locked && hit(obj, x, y) }
+                        ?.id
             loadSelectedStyle()
         }
         gestureBefore = snapshot()
@@ -454,6 +486,10 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
 
     fun move(x: Float, y: Float, pressure: Float, tiltX: Int, tiltY: Int) {
         if (gestureBefore == null) return
+        if (tool == VectorTool.SELECT) {
+            selection.move(x, y)
+            return
+        }
         if (tool != VectorTool.SELECT && tool != VectorTool.NODES) {
             lastX = x
             lastY = y
@@ -569,6 +605,12 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
 
     fun up(x: Float, y: Float, pressure: Float, tiltX: Int, tiltY: Int) {
         if (gestureBefore == null) return
+        if (tool == VectorTool.SELECT) {
+            selection.up(x, y)
+            gestureBefore = null
+            raw.clear()
+            return
+        }
         if (tool == VectorTool.PEN) {
             move(x, y, pressure, tiltX, tiltY)
             render()
@@ -603,6 +645,12 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
 
     fun cancel() {
         val before = gestureBefore ?: return
+        if (tool == VectorTool.SELECT) {
+            selection.cancel()
+            gestureBefore = null
+            raw.clear()
+            return
+        }
         engine.endCurveStroke()
         if (gestureToken != 0L) {
             engine.undo()
@@ -644,10 +692,19 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     }
 
     private fun editAppearance(action: (VectorObject) -> Unit) {
-        val obj = selected ?: return
+        val targets =
+            selection.objects.takeIf { list ->
+                list.isNotEmpty() && list.none { it.locked || !it.visible }
+            } ?: return
         if (appearanceToken == 0L) appearanceToken = engine.beginVectorEdit()
-        action(obj)
+        targets.forEach(action)
         render()
+    }
+
+    fun changeAppearance(action: (VectorObject) -> Unit) {
+        finishAppearanceEdit()
+        editAppearance(action)
+        finishAppearanceEdit()
     }
 
     fun setObjectColor(color: Int) = editAppearance { obj ->
@@ -667,14 +724,14 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     fun applyStyleEdit() = editAppearance { it.style = engine.captureVectorStyle() }
 
     fun changeSelected(action: (VectorObject) -> Unit) {
-        val obj = selected ?: return
+        val obj = selected?.takeIf { !it.locked && it.visible } ?: return
         finishAppearanceEdit()
         engine.beginVectorEdit()
         action(obj)
         render()
     }
 
-    fun applyStyle() = changeSelected { it.style = engine.captureVectorStyle() }
+    fun applyStyle() = changeAppearance { it.style = engine.captureVectorStyle() }
 
     fun cornerNode() = changeSelected { obj ->
         obj.nodes.getOrNull(nodeIndex)?.let { n ->
@@ -730,15 +787,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         nodeIndex = index + 1
     }
 
-    fun duplicateSelected() {
-        val obj = selected ?: return
-        engine.beginVectorEdit()
-        val copy = VectorObject.read(obj.json()).copy(id = java.util.UUID.randomUUID().toString())
-        copy.nodes.forEach { it.move(12f, 12f) }
-        ensureLayer().add(copy)
-        selectedId = copy.id
-        render()
-    }
+    fun duplicateSelected() = selection.duplicate()
 
     fun scaleGeometry(
         sx: Float,
@@ -769,13 +818,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
             }
     }
 
-    fun deleteSelected() {
-        val obj = selected ?: return
-        engine.beginVectorEdit()
-        layers.values.forEach { it.remove(obj) }
-        selectedId = null
-        render()
-    }
+    fun deleteSelected() = selection.delete()
 
     fun rasterize() {
         if (engine.activeLayerIndex !in layers) return
@@ -805,46 +848,48 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     engine.height,
                 )
             }
-            (if (append == null) objects else listOf(append)).forEach { obj ->
-                obj.fill
-                    ?.takeIf { obj.closed }
-                    ?.let { color ->
-                        val bitmap =
-                            fillBitmap
-                                ?: Bitmap.createBitmap(
-                                        engine.width,
-                                        engine.height,
-                                        Bitmap.Config.ARGB_8888,
+            (if (append == null) objects else listOf(append))
+                .filter { it.visible }
+                .forEach { obj ->
+                    obj.fill
+                        ?.takeIf { obj.closed }
+                        ?.let { color ->
+                            val bitmap =
+                                fillBitmap
+                                    ?: Bitmap.createBitmap(
+                                            engine.width,
+                                            engine.height,
+                                            Bitmap.Config.ARGB_8888,
+                                        )
+                                        .also { fillBitmap = it }
+                            bitmap.eraseColor(0)
+                            run {
+                                Canvas(bitmap)
+                                    .drawPath(
+                                        obj.path(),
+                                        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                            this.color = color
+                                            style = Paint.Style.FILL
+                                        },
                                     )
-                                    .also { fillBitmap = it }
-                        bitmap.eraseColor(0)
-                        run {
-                            Canvas(bitmap)
-                                .drawPath(
-                                    obj.path(),
-                                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                                        this.color = color
-                                        style = Paint.Style.FILL
-                                    },
+                                EsenhoNativeBridge.nativeLayerDrawBitmap(
+                                    engine.activeLayerIndex,
+                                    bitmap,
+                                    0,
+                                    0,
+                                    engine.width,
+                                    engine.height,
                                 )
-                            EsenhoNativeBridge.nativeLayerDrawBitmap(
-                                engine.activeLayerIndex,
-                                bitmap,
-                                0,
-                                0,
-                                engine.width,
-                                engine.height,
-                            )
+                            }
                         }
-                    }
-                val styleKey = obj.style.toString()
-                engine.renderVectorStroke(
-                    obj.style,
-                    obj.samples(),
-                    configure = previousStyle != styleKey,
-                )
-                previousStyle = styleKey
-            }
+                    val styleKey = obj.style.toString()
+                    engine.renderVectorStroke(
+                        obj.style,
+                        obj.samples(),
+                        configure = previousStyle != styleKey,
+                    )
+                    previousStyle = styleKey
+                }
         } finally {
             engine.restoreVectorStyle(saved)
             engine.currentTool = tool
@@ -864,39 +909,42 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 style = Paint.Style.STROKE
                 strokeWidth = 1.5f / scale
             }
-        selected?.let { obj ->
-            canvas.drawPath(obj.path(), paint)
-            if (tool == VectorTool.NODES || tool == VectorTool.PEN) {
-                val fill =
-                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = 0xffffffff.toInt()
-                        style = Paint.Style.FILL
+        if (tool == VectorTool.SELECT) selection.draw(canvas, paint)
+        selected
+            ?.takeIf { tool != VectorTool.SELECT && it.visible }
+            ?.let { obj ->
+                canvas.drawPath(obj.path(), paint)
+                if (tool == VectorTool.NODES || tool == VectorTool.PEN) {
+                    val fill =
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            color = 0xffffffff.toInt()
+                            style = Paint.Style.FILL
+                        }
+                    obj.nodes.forEachIndexed { index, n ->
+                        if (hypot(n.inX - n.x, n.inY - n.y) > 1f / scale) {
+                            canvas.drawLine(n.x, n.y, n.inX, n.inY, paint)
+                            canvas.drawCircle(n.inX, n.inY, 3f / scale, fill)
+                            canvas.drawCircle(n.inX, n.inY, 3f / scale, paint)
+                        }
+                        if (hypot(n.outX - n.x, n.outY - n.y) > 1f / scale) {
+                            canvas.drawLine(n.x, n.y, n.outX, n.outY, paint)
+                            canvas.drawCircle(n.outX, n.outY, 3f / scale, fill)
+                            canvas.drawCircle(n.outX, n.outY, 3f / scale, paint)
+                        }
+                        val r = 4f / scale
+                        fill.color =
+                            if (
+                                index == nodeIndex ||
+                                    (tool == VectorTool.PEN && index == obj.nodes.lastIndex)
+                            )
+                                0xff4ba3ff.toInt()
+                            else 0xffffffff.toInt()
+                        canvas.drawRect(n.x - r, n.y - r, n.x + r, n.y + r, fill)
+                        canvas.drawRect(n.x - r, n.y - r, n.x + r, n.y + r, paint)
+                        fill.color = 0xffffffff.toInt()
                     }
-                obj.nodes.forEachIndexed { index, n ->
-                    if (hypot(n.inX - n.x, n.inY - n.y) > 1f / scale) {
-                        canvas.drawLine(n.x, n.y, n.inX, n.inY, paint)
-                        canvas.drawCircle(n.inX, n.inY, 3f / scale, fill)
-                        canvas.drawCircle(n.inX, n.inY, 3f / scale, paint)
-                    }
-                    if (hypot(n.outX - n.x, n.outY - n.y) > 1f / scale) {
-                        canvas.drawLine(n.x, n.y, n.outX, n.outY, paint)
-                        canvas.drawCircle(n.outX, n.outY, 3f / scale, fill)
-                        canvas.drawCircle(n.outX, n.outY, 3f / scale, paint)
-                    }
-                    val r = 4f / scale
-                    fill.color =
-                        if (
-                            index == nodeIndex ||
-                                (tool == VectorTool.PEN && index == obj.nodes.lastIndex)
-                        )
-                            0xff4ba3ff.toInt()
-                        else 0xffffffff.toInt()
-                    canvas.drawRect(n.x - r, n.y - r, n.x + r, n.y + r, fill)
-                    canvas.drawRect(n.x - r, n.y - r, n.x + r, n.y + r, paint)
-                    fill.color = 0xffffffff.toInt()
                 }
             }
-        }
         if (
             raw.isNotEmpty() && tool !in listOf(VectorTool.SELECT, VectorTool.NODES, VectorTool.PEN)
         ) {
@@ -964,7 +1012,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     }
                 } else
                     objects
-                        .filter { it.nodes.isNotEmpty() }
+                        .filter { it.nodes.isNotEmpty() && it.visible }
                         .forEach { obj ->
                             val n = obj.nodes
                             val d = buildString {

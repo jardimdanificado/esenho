@@ -156,7 +156,11 @@ fun VectorObjectPanel(
                 Text("Novo caminho")
             }
         }
-        if (selected != null) {
+        if (vector.tool == VectorTool.SELECT) {
+            VectorSelectionPanel(engine, revision, onChanged)
+            HorizontalDivider()
+        }
+        if (selected != null && !selected.locked && selected.visible) {
             Text("Aparência do objeto", style = MaterialTheme.typography.titleSmall)
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 OutlinedButton(
@@ -215,7 +219,7 @@ fun VectorObjectPanel(
                 Checkbox(
                     checked = selected.closed,
                     onCheckedChange = { value ->
-                        vector.changeSelected { it.closed = value }
+                        vector.changeAppearance { it.closed = value }
                         onChanged()
                     },
                 )
@@ -226,7 +230,7 @@ fun VectorObjectPanel(
                     Checkbox(
                         checked = selected.fill != null,
                         onCheckedChange = { value ->
-                            vector.changeSelected {
+                            vector.changeAppearance {
                                 it.fill = if (value) engine.currentColor else null
                             }
                             onChanged()
@@ -315,14 +319,14 @@ fun VectorObjectPanel(
         HorizontalDivider()
         Text("Objetos", style = MaterialTheme.typography.titleSmall)
         vector.layers.forEach { (_, objects) ->
-            objects.forEachIndexed { index, obj ->
+            objects.asReversed().forEachIndexed { index, obj ->
                 Surface(
                     onClick = {
                         vector.selectObject(obj.id)
                         onChanged()
                     },
                     color =
-                        if (obj.id == vector.selectedId)
+                        if (obj.id in vector.selection.selectedIds)
                             MaterialTheme.colorScheme.secondaryContainer
                         else MaterialTheme.colorScheme.surface,
                     modifier = Modifier.fillMaxWidth(),
@@ -334,9 +338,37 @@ fun VectorObjectPanel(
                     ) {
                         Icon(Icons.Default.Polyline, null, Modifier.size(18.dp))
                         Text(
-                            "Caminho ${index+1} · ${obj.nodes.size} nós",
+                            "${obj.name.ifBlank { "Caminho ${index+1}" }}${if (obj.groupId != null) " · grupo" else ""} · ${obj.nodes.size} nós",
                             style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
                         )
+                        IconButton(
+                            onClick = {
+                                vector.selection.toggleVisibility(obj)
+                                onChanged()
+                            },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                if (obj.visible) Icons.Default.Visibility
+                                else Icons.Default.VisibilityOff,
+                                if (obj.visible) "Ocultar objeto" else "Mostrar objeto",
+                                Modifier.size(18.dp),
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                vector.selection.toggleLock(obj)
+                                onChanged()
+                            },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                if (obj.locked) Icons.Default.Lock else Icons.Default.LockOpen,
+                                if (obj.locked) "Desbloquear objeto" else "Bloquear objeto",
+                                Modifier.size(18.dp),
+                            )
+                        }
                     }
                 }
             }

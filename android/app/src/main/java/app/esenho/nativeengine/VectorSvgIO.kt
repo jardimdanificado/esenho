@@ -21,6 +21,7 @@ object VectorSvgIO {
             val item = metadata.item(i) as Element
             if (item.getAttribute("id") != "esenho-vector") continue
             val layers = JSONObject(item.textContent).getJSONArray("layers")
+            val groups = mutableMapOf<String, String>()
             return buildList {
                 repeat(layers.length()) { l ->
                     val objects = layers.getJSONObject(l).getJSONArray("objects")
@@ -35,6 +36,7 @@ object VectorSvgIO {
                         ) {
                             "Coordenadas SVG inválidas"
                         }
+                        obj.groupId = obj.groupId?.let { groups.getOrPut(it) { java.util.UUID.randomUUID().toString() } }
                         add(obj.copy(id = java.util.UUID.randomUUID().toString()))
                     }
                 }
