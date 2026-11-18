@@ -137,6 +137,8 @@ data class VectorObject(
     var clipOf: String? = null,
     var text: String? = null,
     var fontFamily: String = "sans-serif",
+    var fontWeight: String = "normal",
+    var fontStyle: String = "normal",
     var fontSize: Float = 24f,
     var letterSpacing: Float = 0f,
     var textAlign: String = "left",
@@ -264,6 +266,8 @@ data class VectorObject(
             .put("clipOf", clipOf)
             .put("text", text)
             .put("fontFamily", fontFamily)
+            .put("fontWeight", fontWeight)
+            .put("fontStyle", fontStyle)
             .put("fontSize", fontSize.toDouble())
             .put("letterSpacing", letterSpacing.toDouble())
             .put("textAlign", textAlign)
@@ -293,6 +297,22 @@ data class VectorObject(
             )
 
     companion object {
+        fun readNode(a: JSONArray) =
+            VectorNode(
+                a.getDouble(0).toFloat(),
+                a.getDouble(1).toFloat(),
+                a.getDouble(2).toFloat(),
+                a.getInt(3),
+                a.getInt(4),
+                a.getDouble(5).toFloat(),
+                a.getDouble(6).toFloat(),
+                a.getDouble(7).toFloat(),
+                a.getDouble(8).toFloat(),
+                runCatching { VectorNodeType.valueOf(a.optString(9, "CORNER")) }
+                    .getOrDefault(VectorNodeType.CORNER),
+                a.optDouble(10, 1.0).toFloat(),
+            )
+
         fun read(j: JSONObject): VectorObject {
             val points = j.getJSONArray("nodes")
             val nodes =
@@ -342,6 +362,8 @@ data class VectorObject(
                 if (j.isNull("clipOf")) null else j.optString("clipOf").takeIf { it.isNotEmpty() },
                 if (j.isNull("text")) null else j.optString("text"),
                 j.optString("fontFamily", "sans-serif"),
+                j.optString("fontWeight", "normal"),
+                j.optString("fontStyle", "normal"),
                 j.optDouble("fontSize", 24.0).toFloat(),
                 j.optDouble("letterSpacing", 0.0).toFloat(),
                 j.optString("textAlign", "left"),
@@ -366,6 +388,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     var tool = VectorTool.DRAW
     val layers = linkedMapOf<Int, MutableList<VectorObject>>()
     val groups = linkedMapOf<String, VectorGroup>()
+    var skeleton: VectorSkeleton? = null
     val selection = VectorSelection(engine, this)
     val animation = VectorAnimation(this)
     var selectedId: String?
@@ -478,6 +501,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 },
             )
             .put("animation", animation.json())
+            .put("skeleton", skeleton?.json())
             .put(
                 "groups",
                 JSONArray().also { array -> groups.values.forEach { array.put(it.json()) } },
@@ -501,6 +525,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
             val group = VectorGroup.read(savedGroups.getJSONObject(i))
             if (group.id.isNotEmpty()) groups[group.id] = group
         }
+        skeleton = if (j.isNull("skeleton")) null else VectorSkeleton.read(j.getJSONObject("skeleton"))
         animation.load(j.optJSONObject("animation"))
         selectedId = null
         finishPen()
@@ -564,6 +589,63 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         engine.restoreVectorStyle(obj.style)
         engine.currentTool = currentTool
         editFillColor = false
+    }
+
+    fun ensureSkeleton(): VectorSkeleton {
+        if (skeleton == null)
+            skeleton = VectorSkeleton().apply {
+                rootX = engine.width / 2f
+                rootY = engine.height / 2f
+            }
+        return skeleton!!
+    }
+
+    fun createBone(name: String, parentId: String?, length: Float, angle: Float): VectorBone {
+        val rig = ensureSkeleton()
+        val bone =
+            VectorBone(
+                java.util.UUID.randomUUID().toString(),
+                name.ifBlank { "Osso ${rig.bones.size + 1}" },
+                parentId?.takeIf { rig.bone(it) != null },
+                length = length.coerceIn(1f, 2000f),
+                localAngle = angle,
+            )
+        rig.bones += bone
+        rig.updateFk()
+        render()
+        return bone
+    }
+
+    fun poseBone(id: String, angle: Float) {
+        val rig = skeleton ?: return
+        val bone = rig.bone(id) ?: return
+        bone.localAngle = angle
+        rig.updateFk()
+        engine.beginVectorEdit()
+        render()
+    }
+
+    fun solveRigIk(id: String, x: Float, y: Float): Float {
+        val rig = skeleton ?: return Float.MAX_VALUE
+        val error = rig.solveIk(id, x, y)
+        engine.beginVectorEdit()
+        render()
+        return error
+    }
+
+    fun bindSelected(boneId: String, type: String, weights: Map<String, Float> = emptyMap()): Boolean {
+        val obj = selected ?: return false
+        val rig = skeleton ?: return false
+        if (rig.bone(boneId) == null) return false
+        rig.bind(obj, boneId, type, weights)
+        engine.beginVectorEdit()
+        render()
+        return true
+    }
+
+    fun clearSkeleton() {
+        skeleton = null
+        render()
     }
 
     fun objectById(id: String): VectorObject? = layers.values.flatten().firstOrNull { it.id == id }
@@ -1044,6 +1126,16 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         syncTextBounds(obj)
     }
 
+    fun setFontWeight(weight: String) = changeSelected { obj ->
+        obj.fontWeight = weight
+        syncTextBounds(obj)
+    }
+
+    fun setFontStyle(style: String) = changeSelected { obj ->
+        obj.fontStyle = style
+        syncTextBounds(obj)
+    }
+
     fun setFontSize(size: Float) = changeSelected { obj ->
         obj.fontSize = size.coerceIn(4f, 400f)
         syncTextBounds(obj)
@@ -1249,7 +1341,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
 
     fun convertTextToCurves() = changeSelected { obj ->
         val body = obj.text ?: return@changeSelected
-        val contours = VectorFont.outline(body, obj.fontSize, obj.fontFamily)
+        val contours = VectorFont.outline(body, obj.fontSize, obj.fontFamily, obj.fontWeight, obj.fontStyle)
         if (contours.isEmpty()) return@changeSelected
         val baseX = obj.nodes.firstOrNull()?.x ?: 0f
         val baseY = obj.nodes.firstOrNull()?.y ?: 0f
@@ -1374,7 +1466,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     fun textWidth(obj: VectorObject): Float {
         val content = obj.text.orEmpty()
         val spacing = obj.letterSpacing * content.length.coerceAtLeast(1).minus(1)
-        return VectorFont.measure(content, obj.fontSize, obj.fontFamily) + spacing
+        return VectorFont.measure(content, obj.fontSize, obj.fontFamily, obj.fontWeight, obj.fontStyle) + spacing
     }
 
     /** Rebuild the anchor rectangle so selection, transform and hit tests follow the text. */
@@ -1421,7 +1513,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 textSize = obj.fontSize.coerceAtLeast(1f)
                 color = obj.fill ?: obj.style.optInt("color", 0xff000000.toInt())
-                VectorFont.apply(this, obj.fontFamily)
+                VectorFont.apply(this, obj.fontFamily, obj.fontWeight, obj.fontStyle)
             }
         val content = obj.text.orEmpty()
         val origin = obj.nodes.firstOrNull() ?: VectorNode(0f, 0f)
@@ -1430,8 +1522,8 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
             content.split('\n').forEachIndexed { index, line ->
                 val offset =
                     when (obj.textAlign) {
-                        "center" -> (width - VectorFont.measure(line, obj.fontSize, obj.fontFamily)) / 2
-                        "right" -> width - VectorFont.measure(line, obj.fontSize, obj.fontFamily)
+                        "center" -> (width - VectorFont.measure(line, obj.fontSize, obj.fontFamily, obj.fontWeight, obj.fontStyle)) / 2
+                        "right" -> width - VectorFont.measure(line, obj.fontSize, obj.fontFamily, obj.fontWeight, obj.fontStyle)
                         else -> 0f
                     }
                 canvas.drawText(
@@ -1448,7 +1540,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         if (points.size < 2) return
         var distance = 0f
         content.forEach { char ->
-            val advance = VectorFont.measure(char.toString(), obj.fontSize, obj.fontFamily) + obj.letterSpacing
+            val advance = VectorFont.measure(char.toString(), obj.fontSize, obj.fontFamily, obj.fontWeight, obj.fontStyle) + obj.letterSpacing
             val (position, angle) = pointOnPath(points, distance + advance / 2)
             canvas.save()
             canvas.concat(Matrix().apply { postRotate(angle, position.first, position.second) })
@@ -1493,6 +1585,8 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
             node.outY = outgoing.second
         }
         copy.style.put("opacity", copy.style.optDouble("opacity", 1.0) * value.opacity)
+        value.fill?.let { copy.fill = it }
+        value.fontSize?.let { size -> if (copy.text != null) copy.fontSize = size }
         return copy
     }
 
@@ -1834,8 +1928,10 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 (if (append == null) objects else listOf(append)).filter { it.visible }
             val display =
                 visible.map { obj ->
-                    animation.evaluate(obj, animation.currentFrame)?.let { animatedObject(obj, it) }
-                        ?: obj
+                    val skinned = skeleton?.apply(obj) ?: obj
+                    animation.evaluate(skinned, animation.currentFrame)?.let {
+                        animatedObject(skinned, it)
+                    } ?: skinned
                 }
             display.filter { !it.isClip && it.clipOf == null }.forEach(::paintObject)
             display.filter { it.isClip }.forEach { clip ->
@@ -1896,6 +1992,27 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 style = Paint.Style.STROKE
                 strokeWidth = HandleMetrics.dp(1.5f, scale)
             }
+        val rig = skeleton
+        if (rig != null) {
+            rig.updateFk()
+            val bonePaint =
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = 0xffd98a3d.toInt()
+                    style = Paint.Style.STROKE
+                    strokeWidth = HandleMetrics.dp(2.5f, scale)
+                }
+            val jointPaint =
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = 0xffffffff.toInt()
+                    style = Paint.Style.FILL
+                }
+            rig.bones.forEach { bone ->
+                canvas.drawLine(bone.worldX0, bone.worldY0, bone.worldX1, bone.worldY1, bonePaint)
+                canvas.drawCircle(bone.worldX0, bone.worldY0, HandleMetrics.dp(4f, scale), jointPaint)
+                canvas.drawCircle(bone.worldX0, bone.worldY0, HandleMetrics.dp(4f, scale), bonePaint)
+                canvas.drawCircle(bone.worldX1, bone.worldY1, HandleMetrics.dp(3f, scale), bonePaint)
+            }
+        }
         if (tool == VectorTool.SELECT) selection.draw(canvas, paint)
         selected
             ?.takeIf { tool != VectorTool.SELECT && it.visible }
@@ -2060,7 +2177,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                             }
                         val origin = obj.nodes.firstOrNull() ?: VectorNode(0f, 0f)
                         val attributes =
-                            "x=\"${origin.x}\" y=\"${origin.y + obj.fontSize * .85f}\" font-family=\"${xml(obj.fontFamily)}\" font-size=\"${obj.fontSize}\" letter-spacing=\"${obj.letterSpacing}\" text-anchor=\"$anchor\" fill=\"${if (obj.fillGradient != null) fillRef(obj) else obj.fill?.let(::rgb) ?: rgb(obj.style.optInt("color", 0xff000000.toInt()))}\""
+                            "x=\"${origin.x}\" y=\"${origin.y + obj.fontSize * .85f}\" font-family=\"${xml(obj.fontFamily)}\" font-weight=\"${obj.fontWeight}\" font-style=\"${obj.fontStyle}\" font-size=\"${obj.fontSize}\" letter-spacing=\"${obj.letterSpacing}\" text-anchor=\"$anchor\" fill=\"${if (obj.fillGradient != null) fillRef(obj) else obj.fill?.let(::rgb) ?: rgb(obj.style.optInt("color", 0xff000000.toInt()))}\""
                         val body = xml(obj.text.orEmpty())
                         return if (obj.pathId != null)
                             "<text $attributes><textPath href=\"#${xml(obj.pathId!!)}\">$body</textPath></text>"

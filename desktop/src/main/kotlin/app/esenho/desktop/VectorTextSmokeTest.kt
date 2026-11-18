@@ -31,6 +31,12 @@ fun vectorTextSmokeTest(context: Context) {
             text.textAlign == "center"
     )
     check(text.nodes[1].x > text.nodes[0].x)
+    val normalWidth = text.nodes[1].x - text.nodes[0].x
+    v.setFontWeight("bold")
+    v.setFontStyle("italic")
+    val styled = v.selected!!
+    check(styled.fontWeight == "bold" && styled.fontStyle == "italic")
+    check(styled.nodes[1].x - styled.nodes[0].x != normalWidth) { "Font style did not change the measured bounds" }
     val bitmap = Bitmap(300, 200)
     check(EsenhoNativeBridge.nativeLayerGetBitmap(layer, bitmap))
     val painted = (20 until 220).any { x -> (38 until 90).any { y -> (bitmap.getPixel(x, y) ushr 24) > 0 } }
@@ -39,6 +45,7 @@ fun vectorTextSmokeTest(context: Context) {
     val svg = v.exportSvg()
     check(svg.contains("<text "))
     check(svg.contains("font-family=\"serif\""))
+    check(svg.contains("font-weight=\"bold\"") && svg.contains("font-style=\"italic\""))
     check(svg.contains("letter-spacing=\"2.0\""))
     check(svg.contains(">Olá mundo</text>"))
 

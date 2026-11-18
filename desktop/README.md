@@ -69,7 +69,7 @@ Os botões de presets e a amostra de cor do dock abrem os mesmos painéis do ras
 
 O arquivo `.esenho` preserva os caminhos e os pixels renderizados. Projetos anteriores continuam abrindo. No menu do documento, **Exportar curvas SVG** grava curvas convencionais e os metadados editáveis do Esenho; efeitos de pincel não equivalentes ao padrão SVG podem mudar de aparência em outros programas. **Exportar SVG com aparência** incorpora PNGs das camadas vetoriais e mantém os mesmos metadados. **Importar SVG** adiciona caminhos ao documento atual, preservando os parâmetros dos arquivos Esenho e lendo formas SVG externas compatíveis, sem alterar o tamanho do canvas.
 
-**Rasterizar camada** permite continuar com ferramentas de pixels. Filtros raster, mesclagem de camadas e transformação raster exigem essa conversão. Undo/redo preserva geometria e aparência antes e depois da rasterização. O modo vetorial ainda não oferece rigging do editor web antigo.
+**Rasterizar camada** permite continuar com ferramentas de pixels. Filtros raster, mesclagem de camadas e transformação raster exigem essa conversão. Undo/redo preserva geometria e aparência antes e depois da rasterização.
 
 A barra de ferramentas existe nos dois espaços. O botão de seta no fim da barra a oculta; no menu **…**, escolha **Mostrar ferramentas** para reabri-la. A visibilidade é salva separadamente para Raster e Vetor. Linha usa arraste entre as extremidades; retângulo e elipse usam arraste entre os cantos da caixa delimitadora, com prévia da forma durante o gesto. A caneta mostra âncoras quadradas e alças circulares enquanto desenha. A edição de nós/alças usa prévia geométrica durante o arraste e atualiza a aparência do pincel ao soltar.
 
@@ -85,9 +85,15 @@ Ative **Encaixar** no painel para alinhar movimentos e alças à grade de 8/16/3
 
 ### Animação vetorial
 
-Cada objeto pode ter faixas de propriedades com keyframes de posição, rotação, escala e opacidade. No painel do objeto, ajuste os valores, escolha a interpolação (`linear`, `ease-in`, `ease-out`, `ease-in-out`) e use **Adicionar keyframe no quadro atual**. O slider percorre os quadros; **Reproduzir** avança no intervalo ativo. A geometria original não é alterada: a animação aplica uma transformação temporária só na renderização.
+Cada objeto pode ter faixas de propriedades com keyframes de posição, rotação, escala, opacidade, cor de preenchimento e tamanho da fonte (em objetos de texto). No painel do objeto, ajuste os valores, escolha a interpolação (`linear`, `ease-in`, `ease-out`, `ease-in-out` ou curvas cúbicas salvas) e use **Adicionar keyframe no quadro atual**. **Salvar curva** registra uma Bézier cúbica personalizada por quatro coordenadas de controle. O slider percorre os quadros; **Reproduzir** avança no intervalo ativo. A geometria original não é alterada: a animação aplica uma transformação temporária só na renderização.
 
 **Criar clipe** registra um nome e um intervalo de quadros; o menu **Clipe ativo** escolhe qual intervalo a reprodução repete. Tracks, keyframes, clipes e quadro atual ficam no projeto `.esenho` e no desfazer/refazer.
+
+### Rigging
+
+O painel do objeto oferece um esqueleto simples: **Criar esqueleto** coloca o osso raiz no centro do documento e **Adicionar osso filho** encadeia ossos na ponta do último. Cada osso tem um ângulo local ajustável; a hierarquia é resolvida por cinemática direta e desenhada sobre o canvas.
+
+**Vincular objeto selecionado** prende o objeto ao osso ativo nos modos rígido (`cutout`), por caminho (`path`) ou com pesos suaves (`smooth_path`). Os pesos combinam a transformação de vários ossos por interpolação linear. **Resolver IK** usa CCD para levar a ponta do osso ativo até X/Y informados. Esqueleto, ossos, vínculos e pesos ficam no projeto e no desfazer/refazer. A deformação é aplicada só na renderização.
 
 ### Recortes, réguas e guias
 
@@ -97,7 +103,7 @@ A opção **Réguas** mostra escalas no topo e à esquerda do canvas. **Guia ver
 
 ### Texto vetorial
 
-A ferramenta **Texto** cria um objeto editável. No painel do objeto é possível alterar o conteúdo, a família da fonte (sem serifa, serifa, monoespaçada), o tamanho, o espaçamento entre caracteres e o alinhamento. O contorno do objeto acompanha o texto medido, então seleção, transformação e encaixe continuam funcionando.
+A ferramenta **Texto** cria um objeto editável. No painel do objeto é possível alterar o conteúdo, a família da fonte (sem serifa, serifa, monoespaçada), negrito, itálico, o tamanho, o espaçamento entre caracteres e o alinhamento. O contorno do objeto acompanha o texto medido, então seleção, transformação e encaixe continuam funcionando.
 
 **Texto sobre caminho** prende o texto a outro caminho da mesma camada; cada caractere é posicionado e girado ao longo da curva. **Converter em curvas** substitui o texto por contornos de glifos editáveis pela ferramenta **Nós**, preservando furos. Textos e referências `textPath` sobrevivem ao projeto `.esenho` e à exportação/importação SVG, inclusive SVG externo com `text`, `font-family`, `font-size`, `letter-spacing` e `text-anchor`. Fontes não instaladas no sistema podem mudar de aparência em outros computadores.
 

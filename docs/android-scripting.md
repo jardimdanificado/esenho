@@ -559,6 +559,23 @@ curvas ou aparência e `fromSvg(svg)` importa caminhos editáveis.
 Todas as operações usam o desfazer do editor e exigem o modo vetorial ativo
 quando aplicável.
 
+## Rigging
+
+O namespace `esenho.rig` controla o esqueleto vetorial:
+
+```js
+const root = esenho.rig.bone({name:'Raiz', length:80, angle:0});
+const child = esenho.rig.bone({name:'Filho', parentId:root, length:40});
+esenho.rig.bind(object, child, 'cutout');
+esenho.rig.pose(child, 45);
+const error = esenho.rig.ik(child, 150, 200);
+esenho.rig.clear();
+```
+
+`bone` retorna o `id` do osso. `bind(objeto, osso, tipo)` aceita `cutout`,
+`path` e `smooth_path`; `pose` define o ângulo local em graus; `ik` resolve
+CCD até o alvo e retorna o erro residual em pixels.
+
 ## Filtros: cor, detalhe, desenho e distorção
 
 O painel Filtros possui 97 efeitos e busca por nome ou ID. Todos também estão

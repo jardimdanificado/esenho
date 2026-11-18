@@ -426,6 +426,8 @@ class NativeScriptExtendedApi(private val e: EsenhoEngine, private val canvas: E
             require(obj.text != null) { "Objeto não é texto" }
             if (a.has("text")) obj.text = a.getString("text")
             if (a.has("fontFamily")) obj.fontFamily = a.getString("fontFamily")
+            if (a.has("fontWeight")) obj.fontWeight = a.getString("fontWeight")
+            if (a.has("fontStyle")) obj.fontStyle = a.getString("fontStyle")
             if (a.has("fontSize")) obj.fontSize = a.f("fontSize", 24.0)
             if (a.has("letterSpacing")) obj.letterSpacing = a.f("letterSpacing", 0.0)
             if (a.has("textAlign")) obj.textAlign = a.getString("textAlign")
@@ -514,6 +516,29 @@ class NativeScriptExtendedApi(private val e: EsenhoEngine, private val canvas: E
             e.vectors.selection.replace(ids.getString(0))
             repeat(ids.length() - 1) { i -> e.vectors.selection.select(ids.getString(i + 1)) }
             e.vectors.selection.ungroup()
+            null
+        }
+        "vector.rig.bone" ->
+            e.vectors.createBone(
+                a.optString("name", ""),
+                a.optString("parentId").takeIf { it.isNotEmpty() },
+                a.f("length", 80.0),
+                a.f("angle", 0.0),
+            ).id
+        "vector.rig.pose" -> {
+            e.vectors.poseBone(a.getString("id"), a.f("angle", 0.0))
+            null
+        }
+        "vector.rig.ik" -> e.vectors.solveRigIk(a.getString("id"), a.f("x"), a.f("y"))
+        "vector.rig.bind" -> {
+            e.vectors.selectedId = a.getString("id")
+            check(e.vectors.bindSelected(a.getString("boneId"), a.optString("type", "cutout"))) {
+                "Não foi possível vincular o objeto ao osso"
+            }
+            null
+        }
+        "vector.rig.clear" -> {
+            e.vectors.clearSkeleton()
             null
         }
         "vector.trace" -> e.vectors.traceLayer(

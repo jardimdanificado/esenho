@@ -253,6 +253,26 @@ fun VectorObjectPanel(
                             )
                         }
                 }
+                Row {
+                    FilterChip(
+                        selected = selected.fontWeight == "bold",
+                        onClick = {
+                            vector.setFontWeight(if (selected.fontWeight == "bold") "normal" else "bold")
+                            onChanged()
+                        },
+                        label = { Text("Negrito", style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.padding(end = 4.dp),
+                    )
+                    FilterChip(
+                        selected = selected.fontStyle == "italic",
+                        onClick = {
+                            vector.setFontStyle(if (selected.fontStyle == "italic") "normal" else "italic")
+                            onChanged()
+                        },
+                        label = { Text("Itálico", style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.padding(end = 4.dp),
+                    )
+                }
                 Text("Tamanho: ${selected.fontSize.toInt()} px")
                 Slider(
                     value = selected.fontSize.coerceIn(4f, 200f),
@@ -737,14 +757,31 @@ fun VectorObjectPanel(
             var rotation by remember(selected.id) { mutableStateOf("0") }
             var scale by remember(selected.id) { mutableStateOf("1") }
             var opacity by remember(selected.id) { mutableStateOf("100") }
+            var keyframeFill by remember(selected.id) { mutableStateOf<Int?>(null) }
+            var keyframeFont by remember(selected.id) { mutableStateOf("") }
             var easing by remember(selected.id) { mutableStateOf("linear") }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 VectorNumber("Rotação", rotation, { rotation = it }, Modifier.weight(1f))
                 VectorNumber("Escala", scale, { scale = it }, Modifier.weight(1f))
                 VectorNumber("Opacidade %", opacity, { opacity = it }, Modifier.weight(1f))
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = { keyframeFill = engine.currentColor }) {
+                    Text("Cor do keyframe")
+                }
+                keyframeFill?.let {
+                    Box(
+                        Modifier.size(18.dp)
+                            .background(Color(it), CircleShape)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    )
+                }
+                TextButton(onClick = { keyframeFill = null }) { Text("Sem cor") }
+            }
+            if (selected.text != null)
+                VectorNumber("Tamanho da fonte", keyframeFont, { keyframeFont = it }, Modifier.fillMaxWidth())
             Row {
-                listOf("linear", "ease-in", "ease-out", "ease-in-out").forEach { type ->
+                (listOf("linear", "ease-in", "ease-out", "ease-in-out") + animation.customEasings.map { it.name }).forEach { type ->
                     FilterChip(
                         selected = easing == type,
                         onClick = { easing = type },
@@ -756,6 +793,7 @@ fun VectorObjectPanel(
             val rotationValue = rotation.replace(',', '.').toFloatOrNull()
             val scaleValue = scale.replace(',', '.').toFloatOrNull()
             val opacityValue = opacity.replace(',', '.').toFloatOrNull()
+            val fontValue = keyframeFont.replace(',', '.').toFloatOrNull()
             OutlinedButton(
                 enabled = rotationValue != null && scaleValue != null && opacityValue != null,
                 onClick = {
@@ -769,6 +807,8 @@ fun VectorObjectPanel(
                         scaleValue!!,
                         opacityValue!! / 100f,
                         easing,
+                        keyframeFill,
+                        fontValue,
                     )
                     vector.render()
                     onChanged()
@@ -802,6 +842,46 @@ fun VectorObjectPanel(
                         Icon(Icons.Default.Delete, "Remover keyframe")
                     }
                 }
+            }
+            Text("Curvas de easing", style = MaterialTheme.typography.titleSmall)
+            var easingName by remember { mutableStateOf("suave") }
+            var ex1 by remember { mutableStateOf("0.25") }
+            var ey1 by remember { mutableStateOf("0.10") }
+            var ex2 by remember { mutableStateOf("0.25") }
+            var ey2 by remember { mutableStateOf("1.00") }
+            OutlinedTextField(
+                value = easingName,
+                onValueChange = { easingName = it },
+                label = { Text("Nome da curva") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                VectorNumber("X1", ex1, { ex1 = it }, Modifier.weight(1f))
+                VectorNumber("Y1", ey1, { ey1 = it }, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                VectorNumber("X2", ex2, { ex2 = it }, Modifier.weight(1f))
+                VectorNumber("Y2", ey2, { ey2 = it }, Modifier.weight(1f))
+            }
+            val easingValues = listOf(ex1, ey1, ex2, ey2).map { it.replace(',', '.').toFloatOrNull() }
+            TextButton(
+                enabled = easingName.isNotBlank() && easingValues.all { it != null && it.isFinite() },
+                onClick = {
+                    animation.customEasings.removeAll { it.name == easingName }
+                    animation.customEasings +=
+                        VectorEasingCurve(
+                            easingName.trim(),
+                            easingValues[0]!!,
+                            easingValues[1]!!,
+                            easingValues[2]!!,
+                            easingValues[3]!!,
+                        )
+                    easing = easingName.trim()
+                    onChanged()
+                },
+            ) {
+                Text("Salvar curva")
             }
             var clipName by remember { mutableStateOf("Clipe") }
             var clipStart by remember { mutableStateOf("1") }
@@ -852,6 +932,105 @@ fun VectorObjectPanel(
                             },
                         )
                     }
+                }
+            }
+            HorizontalDivider()
+            Text("Rigging", style = MaterialTheme.typography.titleSmall)
+            val rig = vector.skeleton
+            if (rig == null) {
+                Button(
+                    onClick = {
+                        vector.createBone("Raiz", null, 80f, 0f)
+                        onChanged()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Criar esqueleto")
+                }
+            } else {
+                rig.bones.forEach { bone ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(bone.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        Text("${bone.localAngle.toInt()}°", style = MaterialTheme.typography.labelSmall)
+                    }
+                    Slider(
+                        value = bone.localAngle.coerceIn(-180f, 180f),
+                        valueRange = -180f..180f,
+                        onValueChange = {
+                            vector.poseBone(bone.id, it)
+                            onChanged()
+                        },
+                    )
+                }
+                Button(
+                    onClick = {
+                        val parent = rig.bones.lastOrNull()?.id
+                        vector.createBone("Filho", parent, 60f, 0f)
+                        onChanged()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Adicionar osso filho")
+                }
+                var boneId by remember { mutableStateOf(rig.bones.firstOrNull()?.id ?: "") }
+                var bindType by remember { mutableStateOf("cutout") }
+                var ikX by remember { mutableStateOf("0") }
+                var ikY by remember { mutableStateOf("0") }
+                var boneMenu by remember { mutableStateOf(false) }
+                Button(onClick = { boneMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Osso ativo: ${rig.bones.firstOrNull { it.id == boneId }?.name ?: "Nenhum"}")
+                }
+                DropdownMenu(expanded = boneMenu, onDismissRequest = { boneMenu = false }) {
+                    rig.bones.forEach { bone ->
+                        DropdownMenuItem(
+                            text = { Text(bone.name) },
+                            onClick = {
+                                boneId = bone.id
+                                boneMenu = false
+                            },
+                        )
+                    }
+                }
+                Row {
+                    listOf("cutout" to "Rígido", "path" to "Caminho", "smooth_path" to "Suave").forEach { (value, label) ->
+                        FilterChip(
+                            selected = bindType == value,
+                            onClick = { bindType = value },
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                            modifier = Modifier.padding(end = 4.dp),
+                        )
+                    }
+                }
+                Button(
+                    enabled = boneId.isNotBlank() && selected != null,
+                    onClick = {
+                        vector.bindSelected(boneId, bindType)
+                        onChanged()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Vincular objeto selecionado")
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    VectorNumber("IK X", ikX, { ikX = it }, Modifier.weight(1f))
+                    VectorNumber("IK Y", ikY, { ikY = it }, Modifier.weight(1f))
+                }
+                val xValue = ikX.replace(',', '.').toFloatOrNull()
+                val yValue = ikY.replace(',', '.').toFloatOrNull()
+                TextButton(
+                    enabled = boneId.isNotBlank() && xValue != null && yValue != null,
+                    onClick = {
+                        vector.solveRigIk(boneId, xValue!!, yValue!!)
+                        onChanged()
+                    },
+                ) {
+                    Text("Resolver IK")
+                }
+                TextButton(onClick = {
+                    vector.clearSkeleton()
+                    onChanged()
+                }) {
+                    Text("Remover esqueleto")
                 }
             }
             if (vector.tool == VectorTool.NODES) {

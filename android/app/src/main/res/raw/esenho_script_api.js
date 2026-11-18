@@ -300,6 +300,13 @@
     toSvg: (appearance = false) => call("vector.toSvg", {appearance}),
     fromSvg: svg => call("vector.fromSvg", {svg})
   };
+  esenho.rig = {
+    bone: options => call("vector.rig.bone", options),
+    pose: (bone, angle) => call("vector.rig.pose", {id:idOf(bone),angle}),
+    ik: (bone, x, y) => call("vector.rig.ik", {id:idOf(bone),x,y}),
+    bind: (object, bone, type = 'cutout') => call("vector.rig.bind", {id:idOf(object),boneId:idOf(bone),type}),
+    clear: () => call("vector.rig.clear", {})
+  };
   esenho.help = () => Object.fromEntries(Object.entries(esenho).filter(([,v]) => v && typeof v === "object").map(([k,v]) => [k,Object.getOwnPropertyNames(v)]));
   const print = (...args) => call("log", { message: args.map(value =>
     typeof value === "string" ? value : JSON.stringify(value) ?? String(value)).join(" ") });

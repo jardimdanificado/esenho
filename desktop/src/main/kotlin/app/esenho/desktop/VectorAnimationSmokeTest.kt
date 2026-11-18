@@ -43,6 +43,18 @@ fun vectorAnimationSmokeTest(context: Context) {
     val eased = animation.valueAt(animation.track("animated"), 15)!!
     check(abs(eased.x - 110f) < .01f) { "Ease-in interpolation ${eased.x}" }
 
+    animation.customEasings += VectorEasingCurve("soft", .42f, 0f, .58f, 1f)
+    animation.track("animated").keyframes.first { it.frame == 10 }.easing = "soft"
+    val custom = animation.valueAt(animation.track("animated"), 15)!!
+    check(abs(custom.x - 120f) < 1f) { "Custom easing interpolation ${custom.x}" }
+
+    animation.addKeyframe(
+        "animated", 30, 140f, 20f, 0f, 1f, 1f, "linear",
+        fill = 0xff0000ff.toInt(), fontSize = 30f,
+    )
+    val styled = animation.valueAt(animation.track("animated"), 30)!!
+    check(styled.fill == 0xff0000ff.toInt() && styled.fontSize == 30f)
+
     animation.currentFrame = 5
     v.render()
     val bitmap = Bitmap(200, 200)
@@ -59,7 +71,8 @@ fun vectorAnimationSmokeTest(context: Context) {
 
     val project = v.snapshot()
     v.restore(project)
-    check(v.animation.tracks["animated"]!!.keyframes.size == 3)
+    check(v.animation.tracks["animated"]!!.keyframes.size == 4)
+    check(v.animation.customEasings.single().name == "soft")
     check(v.animation.clips.single().name == "loop")
     check(v.animation.currentFrame == 0)
     check(engine.undo())

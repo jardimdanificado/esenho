@@ -327,6 +327,8 @@ internal class SvgDocumentReader(private val root: Element) {
             "marker-mid",
             "marker-end",
             "font-family",
+            "font-weight",
+            "font-style",
             "font-size",
             "font-style",
             "font-weight",
@@ -558,6 +560,12 @@ internal class SvgDocumentReader(private val root: Element) {
                     }
                 }.trim()
             val family = p["font-family"]?.trim('"', '\'')?.ifBlank { "sans-serif" } ?: "sans-serif"
+            val weight =
+                if (p["font-weight"]?.lowercase() == "bold" ||
+                    (p["font-weight"]?.toIntOrNull() ?: 0) >= 600
+                ) "bold" else "normal"
+            val fontStyle =
+                if (p["font-style"]?.lowercase() in setOf("italic", "oblique")) "italic" else "normal"
             val size = p["font-size"]?.let { length(it, viewportWidth) } ?: 24.0
             require(size > 0 && size <= 1e5) { "Tamanho de fonte SVG inválido." }
             val spacing = p["letter-spacing"]?.let { length(it, viewportWidth) } ?: 0.0
@@ -622,6 +630,8 @@ internal class SvgDocumentReader(private val root: Element) {
                     groupId = group,
                     text = body,
                     fontFamily = family,
+                    fontWeight = weight,
+                    fontStyle = fontStyle,
                     fontSize = size.toFloat(),
                     letterSpacing = spacing.toFloat(),
                     textAlign = align,

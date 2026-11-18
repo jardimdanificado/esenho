@@ -8,34 +8,50 @@ import java.awt.geom.PathIterator
 object VectorFont {
     private fun context() = FontRenderContext(null, true, true)
 
-    private fun awt(family: String, size: Float): Font =
-        Font(
-            when (family.lowercase()) {
-                "serif" -> "Serif"
-                "monospace" -> "Monospaced"
-                else -> "SansSerif"
-            },
-            Font.PLAIN,
-            size.toInt().coerceAtLeast(1),
-        )
+    private fun familyName(family: String) =
+        when (family.lowercase()) {
+            "serif" -> "Serif"
+            "monospace" -> "Monospaced"
+            else -> "SansSerif"
+        }
 
-    fun apply(paint: Paint, family: String) {
-        paint.typeface =
-            when (family.lowercase()) {
-                "serif" -> "Serif"
-                "monospace" -> "Monospaced"
-                else -> "SansSerif"
+    private fun awt(family: String, size: Float, weight: String, style: String): Font {
+        val faceStyle =
+            when {
+                weight.equals("bold", true) && style.equals("italic", true) -> Font.BOLD or Font.ITALIC
+                weight.equals("bold", true) -> Font.BOLD
+                style.equals("italic", true) -> Font.ITALIC
+                else -> Font.PLAIN
             }
+        return Font(familyName(family), faceStyle, size.toInt().coerceAtLeast(1))
     }
 
-    fun measure(text: String, size: Float, family: String): Float {
+    fun apply(paint: Paint, family: String, weight: String = "normal", style: String = "normal") {
+        paint.typeface = familyName(family)
+        paint.bold = weight.equals("bold", true)
+        paint.italic = style.equals("italic", true)
+    }
+
+    fun measure(
+        text: String,
+        size: Float,
+        family: String,
+        weight: String = "normal",
+        style: String = "normal",
+    ): Float {
         if (text.isEmpty()) return 0f
-        return awt(family, size).getStringBounds(text, context()).width.toFloat()
+        return awt(family, size, weight, style).getStringBounds(text, context()).width.toFloat()
     }
 
-    fun outline(text: String, size: Float, family: String): List<List<Pair<Float, Float>>> {
+    fun outline(
+        text: String,
+        size: Float,
+        family: String,
+        weight: String = "normal",
+        style: String = "normal",
+    ): List<List<Pair<Float, Float>>> {
         if (text.isEmpty()) return emptyList()
-        val shape = awt(family, size).createGlyphVector(context(), text).outline
+        val shape = awt(family, size, weight, style).createGlyphVector(context(), text).outline
         val iterator = shape.getPathIterator(null)
         val coords = DoubleArray(6)
         val result = mutableListOf<List<Pair<Float, Float>>>()

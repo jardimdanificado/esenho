@@ -102,6 +102,8 @@ class Paint(flags: Int = 0) {
     var xfermode: PorterDuffXfermode? = null
     var pathEffect: DashPathEffect? = null
     var typeface: String? = null
+    var bold: Boolean = false
+    var italic: Boolean = false
     var textSize = 12f
 
     companion object {
@@ -215,7 +217,9 @@ private constructor(
 
     fun drawText(text: String, x: Float, y: Float, p: Paint) {
         setup(p)
-        graphics.font = java.awt.Font(p.typeface ?: "SansSerif", 0, p.textSize.toInt().coerceAtLeast(1))
+        val faceStyle =
+            (if (p.bold) java.awt.Font.BOLD else 0) or (if (p.italic) java.awt.Font.ITALIC else 0)
+        graphics.font = java.awt.Font(p.typeface ?: "SansSerif", faceStyle, p.textSize.toInt().coerceAtLeast(1))
         graphics.drawString(text, x, y)
         flush()
     }
