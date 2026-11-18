@@ -28,6 +28,14 @@ enum class VectorNodeType(val label: String) {
     SYMMETRIC("Simétrico"),
 }
 
+data class VectorFilter(val id: String, var p1: Int = 0, var p2: Int = 0) {
+    fun json() = JSONObject().put("id", id).put("p1", p1).put("p2", p2)
+
+    companion object {
+        fun read(j: JSONObject) = VectorFilter(j.optString("id"), j.optInt("p1"), j.optInt("p2"))
+    }
+}
+
 data class VectorNode(
     var x: Float,
     var y: Float,
@@ -39,6 +47,7 @@ data class VectorNode(
     var outX: Float = x,
     var outY: Float = y,
     var type: VectorNodeType = VectorNodeType.CORNER,
+    var width: Float = 1f,
 ) {
     fun move(dx: Float, dy: Float) {
         x += dx
@@ -90,7 +99,7 @@ data class VectorNode(
     }
 
     fun json() =
-        JSONArray(listOf(x, y, pressure, tiltX, tiltY, inX, inY, outX, outY, type.name))
+        JSONArray(listOf(x, y, pressure, tiltX, tiltY, inX, inY, outX, outY, type.name, width))
 }
 
 /** Extra contours belong to the same filled object; they may bound holes or separate islands. */
@@ -116,6 +125,10 @@ data class VectorObject(
     var letterSpacing: Float = 0f,
     var textAlign: String = "left",
     var pathId: String? = null,
+    var fillBrush: Boolean = false,
+    var fillBrushStyle: JSONObject? = null,
+    var fillFilter: VectorFilter? = null,
+    var strokeFilter: VectorFilter? = null,
 ) {
     fun geometry(): List<VectorContour> = listOf(VectorContour(nodes, closed)) + subPaths
 
@@ -191,6 +204,7 @@ data class VectorObject(
                             a.pressure * (1 - t1) + b.pressure * t1,
                             (a.tiltX * (1 - t1) + b.tiltX * t1).roundToInt(),
                             (a.tiltY * (1 - t1) + b.tiltY * t1).roundToInt(),
+                            width = a.width * (1 - t1) + b.width * t1,
                         )
                     )
                     return
@@ -236,6 +250,10 @@ data class VectorObject(
             .put("letterSpacing", letterSpacing.toDouble())
             .put("textAlign", textAlign)
             .put("textPath", pathId)
+            .put("fillBrush", fillBrush)
+            .put("fillBrushStyle", fillBrushStyle)
+            .put("fillFilter", fillFilter?.json())
+            .put("strokeFilter", strokeFilter?.json())
             .put(
                 "subPaths",
                 JSONArray().also { paths ->
@@ -272,6 +290,7 @@ data class VectorObject(
                         a.getDouble(8).toFloat(),
                         runCatching { VectorNodeType.valueOf(a.optString(9, "CORNER")) }
                             .getOrDefault(VectorNodeType.CORNER),
+                        a.optDouble(10, 1.0).toFloat(),
                     )
                 }
             return VectorObject(
@@ -307,6 +326,10 @@ data class VectorObject(
                 j.optDouble("letterSpacing", 0.0).toFloat(),
                 j.optString("textAlign", "left"),
                 if (j.isNull("textPath")) null else j.optString("textPath").takeIf { it.isNotEmpty() },
+                j.optBoolean("fillBrush", false),
+                if (j.isNull("fillBrushStyle")) null else j.getJSONObject("fillBrushStyle"),
+                if (j.isNull("fillFilter")) null else VectorFilter.read(j.getJSONObject("fillFilter")),
+                if (j.isNull("strokeFilter")) null else VectorFilter.read(j.getJSONObject("strokeFilter")),
             )
         }
     }
@@ -534,7 +557,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 obj != null &&
                     obj.nodes.size >= 3 &&
                     hypot(x - obj.nodes.first().x, y - obj.nodes.first().y) <=
-                        12f / engine.vectorViewScale
+                        HandleMetrics.dp(HandleMetrics.PEN_CLOSE_HIT_DP, engine.vectorViewScale)
             ) {
                 obj.closed = true
                 selectedId = obj.id
@@ -579,7 +602,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         }
         if (tool == VectorTool.NODES) {
             if (tool == VectorTool.NODES || tool == VectorTool.PEN) {
-                var best = 12f / engine.vectorViewScale
+                var best = HandleMetrics.dp(HandleMetrics.NODE_HIT_DP, engine.vectorViewScale)
                 selected?.allNodes()?.forEachIndexed { i, n ->
                     listOf(n.x to n.y, n.inX to n.inY, n.outX to n.outY).forEachIndexed { h, p ->
                         val distance = hypot(p.first - x, p.second - y)
@@ -804,7 +827,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         val contours = obj.strokes().map { it.samples() }
         val tolerance =
             max(
-                12f / engine.vectorViewScale,
+                HandleMetrics.dp(HandleMetrics.NODE_HIT_DP, engine.vectorViewScale),
                 if (obj.style.optBoolean("strokeEnabled", true))
                     obj.style.optDouble("size", 14.0).toFloat() / 2
                 else 0f,
@@ -980,6 +1003,15 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     }
 
     fun setTextPath(pathId: String?) = changeSelected { it.pathId = pathId }
+
+    fun setBrushFill(enabled: Boolean) = changeSelected { obj ->
+        obj.fillBrush = enabled
+        if (enabled) obj.fillBrushStyle = JSONObject(engine.captureVectorStyle().toString())
+    }
+
+    fun setObjectFilter(target: String, filter: VectorFilter?) = changeSelected { obj ->
+        if (target == "fill") obj.fillFilter = filter else obj.strokeFilter = filter
+    }
 
     private fun offsetContour(contour: VectorContour, radius: Float): List<VectorContour> {
         val source =
@@ -1352,6 +1384,60 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         }
     }
 
+    private fun brushFillPoints(obj: VectorObject): List<VectorNode> {
+        val bounds = VectorSelection.VectorBounds.of(listOf(obj)) ?: return emptyList()
+        val style = obj.fillBrushStyle ?: obj.style
+        val spacing = (style.optDouble("size", 14.0).toFloat() / 3).coerceIn(2f, 80f)
+        val points = mutableListOf<VectorNode>()
+        var y = bounds.top
+        var forward = true
+        while (y <= bounds.bottom) {
+            if (forward) {
+                points += VectorNode(bounds.left, y, 1f)
+                points += VectorNode(bounds.right, y, 1f)
+            } else {
+                points += VectorNode(bounds.right, y, 1f)
+                points += VectorNode(bounds.left, y, 1f)
+            }
+            forward = !forward
+            y += spacing
+        }
+        return points
+    }
+
+    /** Renders one component alone, filters it, then composites it over the previous layer. */
+    private fun isolatedPaint(obj: VectorObject, clip: Path?, filter: VectorFilter?, draw: () -> Unit) {
+        val width = engine.width
+        val height = engine.height
+        val layer = engine.activeLayerIndex
+        val before = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val after = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val masked = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        try {
+            if (!EsenhoNativeBridge.nativeLayerGetBitmap(layer, before)) return
+            EsenhoNativeBridge.nativeLayerClear(layer)
+            draw()
+            if (filter != null) EsenhoNativeBridge.nativeApplyFilter(filter.id, filter.p1, filter.p2)
+            if (!EsenhoNativeBridge.nativeLayerGetBitmap(layer, after)) return
+            Canvas(masked).apply {
+                if (clip != null) clipPath(clip)
+                drawBitmap(after, 0f, 0f, Paint())
+            }
+            Canvas(result).apply {
+                drawBitmap(before, 0f, 0f, Paint())
+                drawBitmap(masked, 0f, 0f, Paint())
+            }
+            EsenhoNativeBridge.nativeLayerClear(layer)
+            EsenhoNativeBridge.nativeLayerDrawBitmap(layer, result, 0, 0, width, height)
+        } finally {
+            before.recycle()
+            after.recycle()
+            masked.recycle()
+            result.recycle()
+        }
+    }
+
     fun render(append: VectorObject? = null) {
         val objects = layers[engine.activeLayerIndex] ?: return
         val saved = engine.captureVectorStyle()
@@ -1400,42 +1486,88 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 return
             }
             obj.fill?.let { color ->
-                val bitmap =
-                    fillBitmap
-                        ?: Bitmap.createBitmap(
+                if (obj.fillBrush || obj.fillFilter != null) {
+                    isolatedPaint(obj, obj.path(), obj.fillFilter) {
+                        if (obj.fillBrush)
+                            engine.renderVectorStroke(
+                                obj.fillBrushStyle ?: obj.style,
+                                brushFillPoints(obj),
+                                configure = true,
+                            )
+                        else {
+                            val bitmap =
+                                fillBitmap
+                                    ?: Bitmap.createBitmap(
+                                            engine.width,
+                                            engine.height,
+                                            Bitmap.Config.ARGB_8888,
+                                        )
+                                    .also { fillBitmap = it }
+                            bitmap.eraseColor(0)
+                            Canvas(bitmap)
+                                .drawPath(
+                                    obj.path(),
+                                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                        this.color = color
+                                        style = Paint.Style.FILL
+                                    },
+                                )
+                            EsenhoNativeBridge.nativeLayerDrawBitmap(
+                                engine.activeLayerIndex,
+                                bitmap,
+                                0,
+                                0,
                                 engine.width,
                                 engine.height,
-                                Bitmap.Config.ARGB_8888,
                             )
-                        .also { fillBitmap = it }
-                bitmap.eraseColor(0)
-                Canvas(bitmap)
-                    .drawPath(
-                        obj.path(),
-                        Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                            this.color = color
-                            style = Paint.Style.FILL
-                        },
+                        }
+                    }
+                } else {
+                    val bitmap =
+                        fillBitmap
+                            ?: Bitmap.createBitmap(
+                                    engine.width,
+                                    engine.height,
+                                    Bitmap.Config.ARGB_8888,
+                                )
+                            .also { fillBitmap = it }
+                    bitmap.eraseColor(0)
+                    Canvas(bitmap)
+                        .drawPath(
+                            obj.path(),
+                            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                this.color = color
+                                style = Paint.Style.FILL
+                            },
+                        )
+                    EsenhoNativeBridge.nativeLayerDrawBitmap(
+                        engine.activeLayerIndex,
+                        bitmap,
+                        0,
+                        0,
+                        engine.width,
+                        engine.height,
                     )
-                EsenhoNativeBridge.nativeLayerDrawBitmap(
-                    engine.activeLayerIndex,
-                    bitmap,
-                    0,
-                    0,
-                    engine.width,
-                    engine.height,
-                )
+                }
             }
             val styleKey = obj.style.toString()
-            if (obj.style.optBoolean("strokeEnabled", true))
-                obj.strokes().forEach { stroke ->
-                    engine.renderVectorStroke(
-                        obj.style,
-                        stroke.samples(),
-                        configure = previousStyle != styleKey,
-                    )
-                    previousStyle = styleKey
-                }
+            if (obj.style.optBoolean("strokeEnabled", true)) {
+                if (obj.strokeFilter != null) {
+                    isolatedPaint(obj, null, obj.strokeFilter) {
+                        obj.strokes().forEach { stroke ->
+                            engine.renderVectorStroke(obj.style, stroke.samples(), configure = true)
+                        }
+                    }
+                } else
+                    obj.strokes().forEach { stroke ->
+                        engine.renderVectorStroke(
+                            obj.style,
+                            stroke.samples(),
+                            configure = previousStyle != styleKey,
+                        )
+                        previousStyle = styleKey
+                    }
+            }
         }
         EsenhoNativeBridge.nativeBeginLayerUpdate()
         try {
@@ -1510,7 +1642,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = 0xff4ba3ff.toInt()
                 style = Paint.Style.STROKE
-                strokeWidth = 1.5f / scale
+                strokeWidth = HandleMetrics.dp(1.5f, scale)
             }
         if (tool == VectorTool.SELECT) selection.draw(canvas, paint)
         selected
@@ -1526,15 +1658,17 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     obj.allNodes().forEachIndexed { index, n ->
                         if (hypot(n.inX - n.x, n.inY - n.y) > 1f / scale) {
                             canvas.drawLine(n.x, n.y, n.inX, n.inY, paint)
-                            canvas.drawCircle(n.inX, n.inY, 3f / scale, fill)
-                            canvas.drawCircle(n.inX, n.inY, 3f / scale, paint)
+                            val rh = HandleMetrics.dp(HandleMetrics.HANDLE_DOT_DP, scale)
+                            canvas.drawCircle(n.inX, n.inY, rh, fill)
+                            canvas.drawCircle(n.inX, n.inY, rh, paint)
                         }
                         if (hypot(n.outX - n.x, n.outY - n.y) > 1f / scale) {
                             canvas.drawLine(n.x, n.y, n.outX, n.outY, paint)
-                            canvas.drawCircle(n.outX, n.outY, 3f / scale, fill)
-                            canvas.drawCircle(n.outX, n.outY, 3f / scale, paint)
+                            val rh = HandleMetrics.dp(HandleMetrics.HANDLE_DOT_DP, scale)
+                            canvas.drawCircle(n.outX, n.outY, rh, fill)
+                            canvas.drawCircle(n.outX, n.outY, rh, paint)
                         }
-                        val r = 4f / scale
+                        val r = HandleMetrics.dp(HandleMetrics.NODE_DOT_DP, scale)
                         fill.color =
                             if (
                                 index == nodeIndex ||
@@ -1567,8 +1701,18 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                     }
             canvas.drawPath(path, paint)
             if (tool in listOf(VectorTool.LINE, VectorTool.RECT, VectorTool.ELLIPSE)) {
-                canvas.drawCircle(startX, startY, 4f / scale, paint)
-                canvas.drawCircle(lastX, lastY, 4f / scale, paint)
+                canvas.drawCircle(
+                    startX,
+                    startY,
+                    HandleMetrics.dp(HandleMetrics.SHAPE_DOT_DP, scale),
+                    paint,
+                )
+                canvas.drawCircle(
+                    lastX,
+                    lastY,
+                    HandleMetrics.dp(HandleMetrics.SHAPE_DOT_DP, scale),
+                    paint,
+                )
             }
         }
     }

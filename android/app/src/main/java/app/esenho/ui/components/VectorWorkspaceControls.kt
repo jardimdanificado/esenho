@@ -26,7 +26,7 @@ import java.util.Locale
 private fun vectorIcon(tool: VectorTool): ImageVector =
     when (tool) {
         VectorTool.DRAW -> Icons.Default.Brush
-        VectorTool.PEN -> Icons.Default.Edit
+        VectorTool.PEN -> PenToolIcon
         VectorTool.SELECT -> Icons.Default.NearMe
         VectorTool.NODES -> Icons.Default.Polyline
         VectorTool.LINE -> Icons.Default.HorizontalRule
@@ -377,6 +377,57 @@ fun VectorObjectPanel(
                     )
                     Text("Preenchimento")
                 }
+            if (selected.closed || selected.style.optBoolean("svgStroke", false)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = selected.fillBrush,
+                        onCheckedChange = {
+                            vector.setBrushFill(it)
+                            onChanged()
+                        },
+                    )
+                    Text("Preenchimento com pincel", style = MaterialTheme.typography.bodySmall)
+                }
+                @Composable
+                fun FilterPicker(label: String, current: VectorFilter?, apply: (VectorFilter?) -> Unit) {
+                    var expanded by remember { mutableStateOf(false) }
+                    Button(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text("$label: ${current?.id ?: "Nenhum"}")
+                    }
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Nenhum") },
+                            onClick = {
+                                apply(null)
+                                expanded = false
+                                onChanged()
+                            },
+                        )
+                        engine.filterCatalog.forEach { filter ->
+                            DropdownMenuItem(
+                                text = { Text(filter.title) },
+                                onClick = {
+                                    apply(
+                                        VectorFilter(
+                                            filter.id,
+                                            filter.params.getOrNull(0)?.currentVal ?: 0,
+                                            filter.params.getOrNull(1)?.currentVal ?: 0,
+                                        )
+                                    )
+                                    expanded = false
+                                    onChanged()
+                                },
+                            )
+                        }
+                    }
+                }
+                FilterPicker("Filtro do preenchimento", selected.fillFilter) {
+                    vector.setObjectFilter("fill", it)
+                }
+                FilterPicker("Filtro do contorno", selected.strokeFilter) {
+                    vector.setObjectFilter("stroke", it)
+                }
+            }
             if (selected.style.optBoolean("svgStroke", false)) {
                 Text(
                     "Terminações e junções do contorno SVG",
@@ -560,6 +611,15 @@ fun VectorObjectPanel(
                         valueRange = .01f..1f,
                         onValueChange = { value ->
                             vector.changeSelected { node.pressure = value }
+                            onChanged()
+                        },
+                    )
+                    Text("Largura do nó: ${String.format(Locale.ROOT, "%.2f", node.width)}×")
+                    Slider(
+                        value = node.width.coerceIn(.05f, 4f),
+                        valueRange = .05f..4f,
+                        onValueChange = { value ->
+                            vector.changeSelected { node.width = value }
                             onChanged()
                         },
                     )

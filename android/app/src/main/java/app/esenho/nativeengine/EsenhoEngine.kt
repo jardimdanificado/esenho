@@ -3211,6 +3211,9 @@ class EsenhoEngine(
         if (state == 2) endCurveStroke()
     }
 
+    private fun VectorNode.strokePressure() =
+        (pressure.coerceIn(.01f, 1f) * width.coerceIn(.05f, 4f) * 1000).toInt().coerceIn(1, 1000)
+
     internal fun renderVectorStroke(style: JSONObject, points: List<VectorNode>, configure: Boolean = true) {
         if (points.isEmpty()) return
         if (configure) restoreVectorStyle(style)
@@ -3229,7 +3232,7 @@ class EsenhoEngine(
                     previous.y,
                     toNativeColor(currentColor),
                     0,
-                    (point.pressure.coerceIn(.01f, 1f) * 1000).toInt(),
+                    point.strokePressure(),
                     point.tiltX,
                     point.tiltY,
                 )
@@ -3244,7 +3247,7 @@ class EsenhoEngine(
                 last.y,
                 toNativeColor(currentColor),
                 0,
-                (last.pressure.coerceIn(.01f, 1f) * 1000).toInt(),
+                last.strokePressure(),
                 last.tiltX,
                 last.tiltY,
             )

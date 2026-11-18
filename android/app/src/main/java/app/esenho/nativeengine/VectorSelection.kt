@@ -91,7 +91,8 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
         dragHandle =
             if (!adding && editable().size == objects.size)
                 bounds?.handles(engine.vectorViewScale)?.indexOfFirst {
-                    hypot(it.first - x, it.second - y) < 10f / engine.vectorViewScale
+                    hypot(it.first - x, it.second - y) <
+                        HandleMetrics.dp(HandleMetrics.SELECT_HIT_DP, engine.vectorViewScale)
                 } ?: -1
             else -1
         if (dragHandle >= 0) {
@@ -537,7 +538,7 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
         if (editable().size != objects.size) return
         val handles = b.handles(engine.vectorViewScale)
         canvas.drawLine(b.cx, b.top, handles[8].first, handles[8].second, paint)
-        val r = 4f / engine.vectorViewScale
+        val r = HandleMetrics.dp(HandleMetrics.SELECT_DOT_DP, engine.vectorViewScale)
         val fill =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = 0xffffffff.toInt()
@@ -582,7 +583,7 @@ class VectorSelection(private val engine: EsenhoEngine, private val workspace: V
                 cx to bottom,
                 left to bottom,
                 left to cy,
-                cx to (top - 28f / scale),
+                cx to (top - HandleMetrics.dp(HandleMetrics.SELECT_ROT_OFFSET_DP, scale)),
             )
 
         companion object {

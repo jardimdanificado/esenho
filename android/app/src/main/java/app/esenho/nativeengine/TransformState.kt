@@ -608,14 +608,14 @@ class TransformState(
         )
     }
 
-    fun getRotationHandlePos(): PointF {
+    fun getRotationHandlePos(canvasScale: Float = 1f): PointF {
         val midTopX = (dstPts[0] + dstPts[2]) / 2f
         val midTopY = (dstPts[1] + dstPts[3]) / 2f
         val c = getCenter()
         val dx = midTopX - c.x
         val dy = midTopY - c.y
         val len = hypot(dx, dy)
-        val offset = 36f
+        val offset = HandleMetrics.dp(HandleMetrics.TRANSFORM_ROT_OFFSET_DP, canvasScale)
         return if (len > 0.001f) {
             PointF(midTopX + (dx / len) * offset, midTopY + (dy / len) * offset)
         } else {
@@ -632,7 +632,7 @@ class TransformState(
         BODY
     }
 
-    fun getHandlePoint(handle: Handle): PointF? {
+    fun getHandlePoint(handle: Handle, canvasScale: Float = 1f): PointF? {
         return when (handle) {
             Handle.TOP_LEFT -> PointF(dstPts[0], dstPts[1])
             Handle.TOP -> PointF((dstPts[0] + dstPts[2]) / 2f, (dstPts[1] + dstPts[3]) / 2f)
@@ -642,14 +642,19 @@ class TransformState(
             Handle.BOTTOM -> PointF((dstPts[4] + dstPts[6]) / 2f, (dstPts[5] + dstPts[7]) / 2f)
             Handle.BOTTOM_LEFT -> PointF(dstPts[6], dstPts[7])
             Handle.LEFT -> PointF((dstPts[6] + dstPts[0]) / 2f, (dstPts[7] + dstPts[1]) / 2f)
-            Handle.ROTATION -> getRotationHandlePos()
+            Handle.ROTATION -> getRotationHandlePos(canvasScale)
             else -> null
         }
     }
 
-    fun hitTest(canvasX: Float, canvasY: Float, handleRadius: Float): Handle {
+    fun hitTest(
+        canvasX: Float,
+        canvasY: Float,
+        handleRadius: Float,
+        canvasScale: Float = 1f,
+    ): Handle {
         // 1. Rotation knob
-        val rotPt = getRotationHandlePos()
+        val rotPt = getRotationHandlePos(canvasScale)
         if (hypot(canvasX - rotPt.x, canvasY - rotPt.y) <= handleRadius * 1.6f) {
             return Handle.ROTATION
         }
@@ -660,7 +665,7 @@ class TransformState(
             Handle.TOP, Handle.RIGHT, Handle.BOTTOM, Handle.LEFT
         )
         for (h in handles) {
-            val pt = getHandlePoint(h) ?: continue
+            val pt = getHandlePoint(h, canvasScale) ?: continue
             if (hypot(canvasX - pt.x, canvasY - pt.y) <= handleRadius * 1.3f) {
                 return h
             }
@@ -697,8 +702,8 @@ class TransformState(
         drawPreviewBitmap(canvas)
 
         // 2. Render Bounding Box Quad
-        val handleRadius = 7f / canvasScale.coerceAtLeast(0.1f)
-        val strokeW = 1.8f / canvasScale.coerceAtLeast(0.1f)
+        val handleRadius = HandleMetrics.dp(HandleMetrics.TRANSFORM_DOT_DP, canvasScale)
+        val strokeW = HandleMetrics.dp(1.5f, canvasScale)
         quadPaint.strokeWidth = strokeW
         quadShadowPaint.strokeWidth = strokeW * 2f
         handleStrokePaint.strokeWidth = strokeW
@@ -718,7 +723,7 @@ class TransformState(
         // 3. Stem line connecting Top Midpoint to Rotation Knob
         val midTopX = (dstPts[0] + dstPts[2]) / 2f
         val midTopY = (dstPts[1] + dstPts[3]) / 2f
-        val rotPt = getRotationHandlePos()
+        val rotPt = getRotationHandlePos(canvasScale)
         canvas.drawLine(midTopX, midTopY, rotPt.x, rotPt.y, quadShadowPaint)
         canvas.drawLine(midTopX, midTopY, rotPt.x, rotPt.y, quadPaint)
 
@@ -732,7 +737,7 @@ class TransformState(
             Handle.TOP, Handle.RIGHT, Handle.BOTTOM, Handle.LEFT
         )
         for (handle in handles) {
-            val pt = getHandlePoint(handle) ?: continue
+            val pt = getHandlePoint(handle, canvasScale) ?: continue
             val r = if (handle == Handle.TOP_LEFT || handle == Handle.TOP_RIGHT ||
                          handle == Handle.BOTTOM_RIGHT || handle == Handle.BOTTOM_LEFT) {
                 handleRadius * 1.15f

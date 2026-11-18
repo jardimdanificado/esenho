@@ -9,6 +9,7 @@ import app.esenho.nativeengine.EsenhoEngine
 import app.esenho.nativeengine.CanvasGuide
 import app.esenho.nativeengine.DrawingGuideType
 import app.esenho.nativeengine.GuidePoint
+import app.esenho.nativeengine.HandleMetrics
 import app.esenho.nativeengine.ToolMode
 import kotlin.math.*
 
@@ -27,6 +28,10 @@ class EsenhoCanvasView @JvmOverloads constructor(
     var onStateChanged: (() -> Unit)? = null
     var onColorPicked: ((Int) -> Unit)? = null
     val scripting = app.esenho.scripting.ScriptCanvasInteraction(this)
+
+    init {
+        HandleMetrics.density = resources.displayMetrics.density.coerceAtLeast(1f)
+    }
 
     // Transform Matrix for Pan, Zoom & Rotate
     val transformMatrix = Matrix()
@@ -292,7 +297,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
         val (cx, cy) = mapToCanvas(screenX, screenY)
         transformMatrix.getValues(matrixValues)
         val scale = hypot(matrixValues[Matrix.MSCALE_X], matrixValues[Matrix.MSKEW_Y]).coerceAtLeast(.01f)
-        val radius = 8f / scale
+        val radius = HandleMetrics.dp(HandleMetrics.GUIDE_HIT_DP, scale)
         for (index in eng.canvasGuides.indices.reversed()) {
             val guide = eng.canvasGuides[index]
             if (guide.paths.any { path ->
@@ -512,8 +517,8 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     transformMatrix.getValues(matrixValues)
                     val currentScale = hypot(matrixValues[Matrix.MSCALE_X], matrixValues[Matrix.MSKEW_Y])
                     val (cx, cy) = mapToCanvas(event.x, event.y)
-                    val handleRadius = 26f / currentScale.coerceAtLeast(0.1f)
-                    val hit = tState.hitTest(cx, cy, handleRadius)
+                    val handleRadius = HandleMetrics.dp(HandleMetrics.TRANSFORM_HIT_DP, currentScale)
+                    val hit = tState.hitTest(cx, cy, handleRadius, currentScale)
                     if (hit != app.esenho.nativeengine.TransformState.Handle.NONE) {
                         activeTransformHandle = hit
                         transformDragStartX = cx

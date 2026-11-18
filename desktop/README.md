@@ -95,6 +95,12 @@ A ferramenta **Texto** cria um objeto editável. No painel do objeto é possíve
 
 **Texto sobre caminho** prende o texto a outro caminho da mesma camada; cada caractere é posicionado e girado ao longo da curva. **Converter em curvas** substitui o texto por contornos de glifos editáveis pela ferramenta **Nós**, preservando furos. Textos e referências `textPath` sobrevivem ao projeto `.esenho` e à exportação/importação SVG, inclusive SVG externo com `text`, `font-family`, `font-size`, `letter-spacing` e `text-anchor`. Fontes não instaladas no sistema podem mudar de aparência em outros computadores.
 
+### Aparência avançada
+
+**Preenchimento com pincel** usa o pincel atual em varreduras dentro da área fechada, em vez de cor sólida. A configuração do pincel fica guardada com o objeto. **Filtro do preenchimento** e **Filtro do contorno** aplicam um filtro nativo apenas à parte correspondente: o editor isola essa parte, aplica o filtro e recombina com o restante da camada. Ambos são salvos no projeto e participam do desfazer.
+
+Ao editar nós, **Largura do nó** multiplica a espessura do traço naquele ponto, permitindo largura variável ao longo do caminho.
+
 ### Conversões
 
 No painel do objeto, **Contorno em área** transforma a espessura do traço em uma área fechada preenchida, com o contorno interno preservado como furo quando aplicável. **Simplificar** reduz âncoras quase colineares com tolerância de 2 px, mantendo o caminho editável.
