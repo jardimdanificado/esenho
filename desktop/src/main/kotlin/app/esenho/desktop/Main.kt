@@ -15,7 +15,6 @@ fun main(args: Array<String>) {
         smokeTest()
         return
     }
-    System.setProperty("compose.interop.blending", "true")
     System.setProperty("esenho.uiSmoke", args.contains("--ui-smoke-test").toString())
     application {
         val state = rememberWindowState(width = 1440.dp, height = 960.dp)
@@ -39,6 +38,7 @@ fun main(args: Array<String>) {
                         kotlinx.coroutines.delay(3000)
                         exerciseDesktopCanvas(window)
                         captureEditor(window, File("desktop/build/ui-smoke.png"))
+                        exerciseProjectMenu(window)
                         for (panel in listOf("layers", "timeline", "scripts", "filters")) {
                             checkNotNull(desktopUiTestCommand)(panel)
                             kotlinx.coroutines.delay(500)
@@ -50,6 +50,7 @@ fun main(args: Array<String>) {
                 val context = remember { Context() }
                 CompositionLocalProvider(
                     LocalContext provides context,
+                    LocalDesktopWindow provides window,
                     LocalConfiguration provides
                         Configuration(
                             state.size.width.value.toInt(),

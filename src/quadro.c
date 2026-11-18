@@ -1021,6 +1021,7 @@ static w_brush_config_t brush_config = {
 static uint32_t stroke_generation = 0;
 static uint32_t *stroke_tag = 0;
 static uint8_t  *stroke_mask = 0;
+static uint32_t *stroke_subpixel_mask = 0;
 static uint32_t *stroke_orig = 0;
 static uint32_t stroke_buf_cap = 0;
 
@@ -1076,6 +1077,7 @@ static void ensure_stroke_buffers(uint32_t required_pixels) {
         stroke_buf_cap = required_pixels;
         stroke_tag = (uint32_t*)canvas_alloc(required_pixels * sizeof(uint32_t));
         stroke_mask = (uint8_t*)canvas_alloc(required_pixels * sizeof(uint8_t));
+        stroke_subpixel_mask = (uint32_t*)canvas_alloc(required_pixels * sizeof(uint32_t));
         stroke_orig = (uint32_t*)canvas_alloc(required_pixels * sizeof(uint32_t));
         for (uint32_t i = 0; i < required_pixels; i++) {
             stroke_tag[i] = 0;
@@ -1084,6 +1086,26 @@ static void ensure_stroke_buffers(uint32_t required_pixels) {
         }
         stroke_generation = 1;
     }
+}
+
+/* Four independent coverage samples form a 2x stroke surface without a
+ * second RGBA canvas. Flow approaches each sample's geometric coverage;
+ * overlapping dabs cannot turn a partially covered edge into a solid pixel. */
+static uint32_t accumulate_subpixel_coverage(int index, uint32_t alpha,
+        uint32_t shape, const uint8_t samples[4], uint32_t limit) {
+    uint32_t flow=shape ? (alpha*255+shape/2)/shape : 0;
+    if (flow>255) flow=255;
+    uint32_t packed=stroke_subpixel_mask[index], next=0, sum=0;
+    for (int i=0; i<4; ++i) {
+        uint32_t old=(packed>>(i*8))&255;
+        uint32_t target=DIV255(samples[i]*limit);
+        uint32_t value=old;
+        if (target>old) value+=DIV255(flow*(target-old));
+        next|=value<<(i*8);
+        sum+=value;
+    }
+    stroke_subpixel_mask[index]=next;
+    return (sum+2)/4;
 }
 
 static uint8_t g_hardness_lut[1024];
@@ -1351,6 +1373,7 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
                                 stroke_tag[idx] = stroke_generation;
                                 stroke_orig[idx] = dst_p;
                                 stroke_mask[idx] = 0;
+                                stroke_subpixel_mask[idx] = 0;
                             }
                             uint32_t cur_m = stroke_mask[idx];
                             uint32_t new_m = cur_m + DIV255(a * (255 - cur_m));
@@ -1372,6 +1395,7 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
                             stroke_tag[idx] = stroke_generation;
                             stroke_orig[idx] = dst_p;
                             stroke_mask[idx] = 0;
+                            stroke_subpixel_mask[idx] = 0;
                         }
                         uint32_t cur_m = stroke_mask[idx];
                         uint32_t new_m = cur_m + DIV255(a * (255 - cur_m));
@@ -1498,7 +1522,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
     int has_tex = (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0));
 
     update_hardness_lut(brush_config.hardness);
-    int fine_tip = brush_config.subpixel && rf < 4.0f;
+    int area_tip = brush_config.subpixel;
 
     for (int y = min_y; y <= max_y; y++) {
         float dy = (float)y - cy;
@@ -1512,7 +1536,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
         float v_scaled = dy * roundness_scale;
         float v_scaled_sq = v_scaled * v_scaled;
 
-        if (is_unrotated && !fine_tip) {
+        if (is_unrotated && !area_tip) {
             if (is_builtin_circle && v_scaled_sq > r_sq + (brush_config.subpixel ? (2.0f * rf + 1.0f) : 0.0f)) continue;
             else if (!is_builtin_circle && (dy < -rf || dy > rf)) continue;
         }
@@ -1531,22 +1555,23 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                 v = -dx * sin_f + row_v;
                 v_scaled = v * roundness_scale;
                 float abs_u = u < 0.0f ? -u : u;
-                if (!fine_tip && abs_u > rf + 1.0f) continue;
+                if (!area_tip && abs_u > rf + 1.0f) continue;
                 float abs_v = v_scaled < 0.0f ? -v_scaled : v_scaled;
-                if (!fine_tip && abs_v > rf + 1.0f) continue;
+                if (!area_tip && abs_v > rf + 1.0f) continue;
                 dist_sq = u * u + v_scaled * v_scaled;
             }
 
-            if (!fine_tip && is_builtin_circle) {
+            if (!area_tip && is_builtin_circle) {
                 if (dist_sq > r_sq + (brush_config.subpixel ? (2.0f * rf + 1.0f) : 0.0f)) continue;
-            } else if (!fine_tip) {
+            } else if (!area_tip) {
                 float abs_u = u < 0.0f ? -u : u;
                 float abs_v = v_scaled < 0.0f ? -v_scaled : v_scaled;
                 if (abs_u > rf || abs_v > rf) continue;
             }
 
             uint32_t shape_a = 255;
-            if (!fine_tip && !is_builtin_circle && !is_builtin_square) {
+            uint8_t subpixel_shape[4] = {255,255,255,255};
+            if (!area_tip && !is_builtin_circle && !is_builtin_square) {
                 if (stex->pixels && stex->width > 0 && stex->height > 0) {
                     if (brush_config.subpixel && stex->width > 1 && stex->height > 1 && r > 0) {
                         float fx = ((u + rf) * (float)(stex->width - 1)) / (2.0f * rf);
@@ -1582,38 +1607,51 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                     }
                 }
             }
-            /* Resolve fine tips over pixel area before compositing. Sample
-               custom tips too: their interior detail otherwise collapses to
-               one texel as pressure reduces the footprint. */
-            if (fine_tip) {
-                float sum = 0;
-                for (int sy = 0; sy < 8; ++sy) for (int sx = 0; sx < 8; ++sx) {
-                    float ox = dx + (sx + 0.5f)*0.125f - 0.5f;
-                    float oy = dy + (sy + 0.5f)*0.125f - 0.5f;
-                    float su = ox*cos_f + oy*sin_f;
-                    float sv = (-ox*sin_f + oy*cos_f)*roundness_scale;
-                    float sample = 255;
-                    if (is_builtin_circle) {
-                        float sd = su*su + sv*sv;
-                        if (sd > r_sq) continue;
-                        if (brush_config.hardness < 100 && sd > inner_r_sq) {
-                            int index = (int)(sd*1023.0f/r_sq);
-                            if (index > 1023) index = 1023;
-                            sample = g_hardness_lut[index];
-                        }
+            /* Supersample the tip at twice the canvas resolution. Resolve
+               tiny custom tips within each sample so their detail survives. */
+            if (area_tip) {
+                uint32_t total=0;
+                for (int cell=0; cell<4; ++cell) {
+                    float ox=dx+((cell&1) ? 0.25f : -0.25f);
+                    float oy=dy+((cell&2) ? 0.25f : -0.25f);
+                    float sum=0;
+                    if (is_builtin_circle && brush_config.hardness==100) {
+                        float maxu=__builtin_fabsf(ox*cos_f+oy*sin_f)+0.25f*(__builtin_fabsf(cos_f)+__builtin_fabsf(sin_f));
+                        float maxv=(__builtin_fabsf(-ox*sin_f+oy*cos_f)+0.25f*(__builtin_fabsf(cos_f)+__builtin_fabsf(sin_f)))*roundness_scale;
+                        sum=maxu*maxu+maxv*maxv<=r_sq ? 255
+                            : w_tip_ellipse_coverage(ox*2,oy*2,rf*2,rf*2/roundness_scale,cos_f,sin_f)*255;
                     } else {
-                        if (su < -rf || su > rf || sv < -rf || sv > rf) continue;
-                        if (!is_builtin_square && stex->pixels && stex->width > 0 && stex->height > 0) {
-                            int tx = (int)((su + rf)*(stex->width - 1)/(2*rf));
-                            int ty = (int)((sv + rf)*(stex->height - 1)/(2*rf));
-                            sample = stex->pixels[ty*stex->width + tx] >> 24;
+                        int grid=rf<4 ? 4 : 1;
+                        for (int sy=0; sy<grid; ++sy) for (int sx=0; sx<grid; ++sx) {
+                            float px=ox+(sx+0.5f)*0.5f/grid-0.25f;
+                            float py=oy+(sy+0.5f)*0.5f/grid-0.25f;
+                            float su=px*cos_f+py*sin_f;
+                            float sv=(-px*sin_f+py*cos_f)*roundness_scale;
+                            float sample=255;
+                            if (is_builtin_circle) {
+                                float sd=su*su+sv*sv;
+                                if (sd>r_sq) continue;
+                                if (brush_config.hardness<100 && sd>inner_r_sq) {
+                                    int index=(int)(sd*1023/r_sq);
+                                    if (index>1023) index=1023;
+                                    sample=g_hardness_lut[index];
+                                }
+                            } else {
+                                if (su < -rf || su > rf || sv < -rf || sv > rf) continue;
+                                if (!is_builtin_square && stex->pixels && stex->width>0 && stex->height>0) {
+                                    int tx=(int)((su+rf)*(stex->width-1)/(2*rf));
+                                    int ty=(int)((sv+rf)*(stex->height-1)/(2*rf));
+                                    sample=stex->pixels[ty*stex->width+tx]>>24;
+                                }
+                            }
+                            sum+=sample;
                         }
+                        sum/=grid*grid;
                     }
-                    sum += sample;
+                    subpixel_shape[cell]=(uint8_t)(sum+0.5f);
+                    total+=subpixel_shape[cell];
                 }
-                shape_a = (uint32_t)(sum/64.0f + 0.5f);
-                if (is_builtin_circle && brush_config.hardness == 100)
-                    shape_a=(uint32_t)(w_tip_ellipse_coverage(dx,dy,rf,rf/roundness_scale,cos_f,sin_f)*255+0.5f);
+                shape_a=(total+2)/4;
             }
             if (shape_a == 0) continue;
 
@@ -1630,7 +1668,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                 if (shape_a == 0) continue;
             }
 
-            if (!fine_tip && brush_config.subpixel && is_builtin_circle) {
+            if (!area_tip && brush_config.subpixel && is_builtin_circle) {
                 float dist = __builtin_sqrtf(dist_sq);
                 if (dist > rf) {
                     if (dist < rf + 1.0f) {
@@ -1655,7 +1693,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
 
             // Hardness / Softness falloff & Flow alpha calculation via LUT
             uint32_t a = DIV255(dab_flow_a * shape_a);
-            if (!fine_tip && brush_config.hardness < 100 && r > 0 && is_builtin_circle) {
+            if (!area_tip && brush_config.hardness < 100 && r > 0 && is_builtin_circle) {
                 if (dist_sq > inner_r_sq) {
                     int lut_idx = (int)((dist_sq * 1023.0f) / (r_sq > 0.0f ? r_sq : 1.0f));
                     if (lut_idx > 1023) lut_idx = 1023;
@@ -1726,10 +1764,13 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                             stroke_tag[idx] = stroke_generation;
                             stroke_orig[idx] = dst_p;
                             stroke_mask[idx] = 0;
+                            stroke_subpixel_mask[idx] = 0;
                         }
                         uint32_t cur_m = stroke_mask[idx];
                         uint32_t limit = realism_params[19] ? (uint32_t)(realism_sample.opacity*255) : 255;
-                        uint32_t new_m = cur_m + (limit > cur_m ? DIV255(a * (limit - cur_m)) : 0);
+                        uint32_t new_m = area_tip && !has_dual
+                            ? accumulate_subpixel_coverage(idx,a,shape_a,subpixel_shape,limit)
+                            : cur_m + (limit > cur_m ? DIV255(a * (limit - cur_m)) : 0);
                         if (new_m > 255) new_m = 255;
                         stroke_mask[idx] = (uint8_t)new_m;
                         uint32_t eff_erase_a = DIV255(new_m * max_stroke_a);
@@ -1840,6 +1881,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                         stroke_tag[idx] = stroke_generation;
                         stroke_orig[idx] = dst_p;
                         stroke_mask[idx] = 0;
+                        stroke_subpixel_mask[idx] = 0;
                     }
                     uint32_t cur_m = stroke_mask[idx];
                     uint32_t limit = realism_params[19] ? (uint32_t)(realism_sample.opacity*255) : 255;
@@ -1881,10 +1923,13 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                         stroke_tag[idx] = stroke_generation;
                         stroke_orig[idx] = dst_p;
                         stroke_mask[idx] = 0;
+                        stroke_subpixel_mask[idx] = 0;
                     }
                     uint32_t cur_m = stroke_mask[idx];
                     uint32_t limit = realism_params[19] ? (uint32_t)(realism_sample.opacity*255) : 255;
-                    uint32_t new_m = cur_m + (limit > cur_m ? DIV255(a * (limit - cur_m)) : 0);
+                    uint32_t new_m = area_tip && !has_dual
+                            ? accumulate_subpixel_coverage(idx,a,shape_a,subpixel_shape,limit)
+                            : cur_m + (limit > cur_m ? DIV255(a * (limit - cur_m)) : 0);
                     if (new_m > 255) new_m = 255;
                     stroke_mask[idx] = (uint8_t)new_m;
                     uint32_t eff_stroke_a = DIV255(new_m * max_stroke_a);

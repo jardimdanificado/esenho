@@ -99,7 +99,10 @@ apk:
 	cp android/app/build/outputs/apk/release/app-release.apk "esenho-v$${VERSION}.apk" && \
 	echo "Built signed APK: esenho-v$${VERSION}.apk"
 
+linux:
+	./desktop/package.sh
+
 clean:
 	rm -rf plugins/*.wasm plugins/brushes/*.wasm plugins/manifest.json plugins/brushes/manifest.json roms bin android/.gradle android/build android/app/build android/app/src/main/assets
 
-.PHONY: all run clean native test-native test-brush-dyn test-brush-curves apk
+.PHONY: all run clean native test-native test-brush-dyn test-brush-curves apk linux

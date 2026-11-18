@@ -1,11 +1,23 @@
 package app.esenho.desktop.platform
 
+import androidx.compose.foundation.Canvas as ComposeCanvas
+import androidx.compose.foundation.focusable
 import androidx.compose.runtime.*
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.awt.SwingPanel
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import app.esenho.desktop.graphics.Canvas
 import java.awt.Graphics
 import java.awt.event.*
+import java.awt.image.BufferedImage
 import javax.swing.JPanel
 
 interface AttributeSet
@@ -69,6 +81,16 @@ open class View(val context: Context, attrs: AttributeSet? = null, style: Int = 
     val resources
         get() = context.resources
 
+    var editorWindow: java.awt.Window? = null
+    var hasEditorFocus = false
+    var editorBounds = androidx.compose.ui.geometry.Rect.Zero
+    var onComposeInvalidate: (() -> Unit)? = null
+
+    override fun repaint() {
+        super.repaint()
+        onComposeInvalidate?.invoke()
+    }
+
     private var oldWidth = 0
     private var oldHeight = 0
 
@@ -94,7 +116,6 @@ open class View(val context: Context, attrs: AttributeSet? = null, style: Int = 
                     )
 
                 override fun mousePressed(e: MouseEvent) {
-                    requestFocusInWindow()
                     panning = javax.swing.SwingUtilities.isMiddleMouseButton(e)
                     lastX = e.x
                     lastY = e.y
@@ -164,6 +185,10 @@ open class View(val context: Context, attrs: AttributeSet? = null, style: Int = 
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
+        drawTo(g)
+    }
+
+    fun drawTo(g: Graphics) {
         if (width != oldWidth || height != oldHeight) {
             onSizeChanged(width, height, oldWidth, oldHeight)
             oldWidth = width
@@ -178,8 +203,150 @@ open class View(val context: Context, attrs: AttributeSet? = null, style: Int = 
     }
 }
 
+val LocalDesktopWindow = staticCompositionLocalOf<java.awt.Window?> { null }
+
+/** The canvas belongs to Compose's rendering, hit testing and focus tree, just like its menus. */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun <T : View> DesktopCanvasView(factory: (Context) -> T, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    SwingPanel(factory = { factory(context) }, modifier = modifier)
+    val window = LocalDesktopWindow.current
+    val view = remember(context) { factory(context) }
+    val requester = remember { FocusRequester() }
+    var revision by remember { mutableLongStateOf(0L) }
+    var dimensions by remember { mutableStateOf(IntSize.Zero) }
+    val backing =
+        remember(dimensions) {
+            if (dimensions.width > 0 && dimensions.height > 0)
+                BufferedImage(dimensions.width, dimensions.height, BufferedImage.TYPE_INT_ARGB_PRE)
+            else null
+        }
+    SideEffect { view.editorWindow = window }
+    DisposableEffect(view) {
+        view.onComposeInvalidate = { revision++ }
+        if (java.lang.Boolean.getBoolean("esenho.uiSmoke"))
+            app.esenho.desktop.desktopUiTestCanvas = view as? app.esenho.ui.EsenhoCanvasView
+        onDispose {
+            view.onComposeInvalidate = null
+            view.hasEditorFocus = false
+            view.editorWindow = null
+            view.onTouchEvent(MotionEvent(MotionEvent.ACTION_CANCEL, 0f, 0f))
+        }
+    }
+    ComposeCanvas(
+        modifier =
+            modifier
+                .onSizeChanged {
+                    dimensions = it
+                    view.setSize(it.width, it.height)
+                }
+                .onGloballyPositioned { view.editorBounds = it.boundsInRoot() }
+                .focusRequester(requester)
+                .onFocusChanged { view.hasEditorFocus = it.isFocused }
+                .focusable()
+                .pointerInput(view) {
+                    var pressed = false
+                    try {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull() ?: continue
+                                if (change.isConsumed) {
+                                    if (pressed)
+                                        view.onTouchEvent(
+                                            MotionEvent(
+                                                MotionEvent.ACTION_CANCEL,
+                                                change.position.x,
+                                                change.position.y,
+                                            )
+                                        )
+                                    pressed = false
+                                    continue
+                                }
+                                val native = event.nativeEvent as? MouseEvent
+                                val modifiers = native?.modifiersEx ?: 0
+                                val id =
+                                    when (event.type) {
+                                        PointerEventType.Press -> MouseEvent.MOUSE_PRESSED
+                                        PointerEventType.Move ->
+                                            if (pressed) MouseEvent.MOUSE_DRAGGED else continue
+                                        PointerEventType.Release ->
+                                            if (pressed) MouseEvent.MOUSE_RELEASED else continue
+                                        PointerEventType.Scroll -> MouseEvent.MOUSE_WHEEL
+                                        else -> continue
+                                    }
+                                if (id == MouseEvent.MOUSE_PRESSED) {
+                                    requester.requestFocus()
+                                    pressed = true
+                                }
+                                val button =
+                                    when {
+                                        id == MouseEvent.MOUSE_DRAGGED -> MouseEvent.NOBUTTON
+                                        native != null -> native.button
+                                        event.buttons.isSecondaryPressed -> MouseEvent.BUTTON3
+                                        event.buttons.isTertiaryPressed -> MouseEvent.BUTTON2
+                                        else -> MouseEvent.BUTTON1
+                                    }
+                                val x = change.position.x.toInt()
+                                val y = change.position.y.toInt()
+                                if (id == MouseEvent.MOUSE_WHEEL) {
+                                    val rotation =
+                                        (native as? MouseWheelEvent)?.preciseWheelRotation
+                                            ?: change.scrollDelta.y.toDouble()
+                                    view.dispatchEvent(
+                                        MouseWheelEvent(
+                                            view,
+                                            id,
+                                            System.currentTimeMillis(),
+                                            modifiers,
+                                            x,
+                                            y,
+                                            0,
+                                            0,
+                                            0,
+                                            false,
+                                            MouseWheelEvent.WHEEL_UNIT_SCROLL,
+                                            3,
+                                            rotation.toInt(),
+                                            rotation,
+                                        )
+                                    )
+                                } else {
+                                    view.dispatchEvent(
+                                        MouseEvent(
+                                            view,
+                                            id,
+                                            System.currentTimeMillis(),
+                                            modifiers,
+                                            x,
+                                            y,
+                                            if (id == MouseEvent.MOUSE_DRAGGED) 0 else 1,
+                                            false,
+                                            button,
+                                        )
+                                    )
+                                }
+                                if (id == MouseEvent.MOUSE_RELEASED) pressed = false
+                                change.consume()
+                            }
+                        }
+                    } finally {
+                        if (pressed)
+                            view.onTouchEvent(MotionEvent(MotionEvent.ACTION_CANCEL, 0f, 0f))
+                    }
+                }
+    ) {
+        // Observe invalidations here so a frame does not recreate the canvas or its pointer
+        // handler.
+        revision
+        backing?.let { image ->
+            val graphics = image.createGraphics()
+            try {
+                view.drawTo(graphics)
+            } finally {
+                graphics.dispose()
+            }
+            drawImage(image.toComposeImageBitmap())
+        }
+    }
 }
