@@ -478,6 +478,14 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushSetSize(
     w_brush_set_param(1, (int32_t)g_brush_size);
 }
 
+// Offline vector replay must not derive brush speed from CPU/rendering throughput.
+static int g_stroke_replay = 0;
+JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSetStrokeReplay(
+    JNIEnv *env, jobject thiz, jboolean enabled) {
+    g_stroke_replay = enabled ? 1 : 0;
+}
+
 // ── Stroke Execution (Classic + Procedural WASM/C) ──
 
 JNIEXPORT void JNICALL
@@ -493,6 +501,7 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
         int64_t now_ns = (int64_t)now.tv_sec * 1000000000LL + now.tv_nsec;
         if (state == 0) { w_brush_dyn_reset_state(); g_dynamic_last_stroke_ns = 0; }
         float dt = g_dynamic_last_stroke_ns > 0 ? (float)(now_ns - g_dynamic_last_stroke_ns) / 1000000000.0f : 1.0f / 60.0f;
+        if (g_stroke_replay) dt = hypotf(x0 - x1, y0 - y1) / 240.0f;
         if (dt < 0.001f) dt = 0.001f;
         if (dt > 0.25f) dt = 0.25f;
         g_dynamic_last_stroke_ns = now_ns;
@@ -566,6 +575,7 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
                 struct timespec now; clock_gettime(CLOCK_MONOTONIC, &now);
                 int64_t now_ns = (int64_t)now.tv_sec * 1000000000LL + now.tv_nsec;
                 float dt = g_procedural_last_ns > 0 ? (float)(now_ns - g_procedural_last_ns) / 1000000000.0f : 1.0f / 60.0f;
+                if (g_stroke_replay) dt = fmaxf(0.001f, dist / 240.0f);
                 float speed = dt > 0.0001f ? dist / dt : 0.0f;
                 float angle_deg = atan2f(dy, dx) * 180.0f / 3.14159265f;
                 int steps = (int)(dist / step);

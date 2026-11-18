@@ -1,0 +1,354 @@
+package app.esenho.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import app.esenho.nativeengine.*
+
+private fun vectorIcon(tool: VectorTool): ImageVector =
+    when (tool) {
+        VectorTool.DRAW -> Icons.Default.Brush
+        VectorTool.PEN -> Icons.Default.Edit
+        VectorTool.SELECT -> Icons.Default.NearMe
+        VectorTool.NODES -> Icons.Default.Polyline
+        VectorTool.LINE -> Icons.Default.HorizontalRule
+        VectorTool.RECT -> Icons.Default.CropSquare
+        VectorTool.ELLIPSE -> Icons.Default.RadioButtonUnchecked
+        VectorTool.ERASER -> Icons.Default.DeleteOutline
+    }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VectorToolButton(
+    checked: Boolean,
+    label: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+) {
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(label) } },
+        state = rememberTooltipState(),
+    ) {
+        FilledIconToggleButton(
+            checked = checked,
+            onCheckedChange = { onClick() },
+            modifier = Modifier.size(38.dp),
+        ) {
+            Icon(icon, label, Modifier.size(20.dp))
+        }
+    }
+}
+
+/** Tools occupy the existing bottom dock; document actions live in the project menu. */
+@Composable
+fun EditorToolStrip(
+    engine: EsenhoEngine,
+    revision: Int,
+    onTool: (ToolMode) -> Unit,
+    onHide: () -> Unit,
+    onChanged: () -> Unit,
+) {
+    Surface(color = MaterialTheme.colorScheme.surface) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.weight(1f)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                if (engine.vectors.enabled) {
+                    VectorTool.values().forEach { tool ->
+                        VectorToolButton(
+                            engine.vectors.tool == tool && engine.currentTool == ToolMode.BRUSH,
+                            tool.label,
+                            vectorIcon(tool),
+                        ) {
+                            engine.cancelActiveStroke()
+                            engine.vectors.finishPen()
+                            engine.vectors.tool = tool
+                            engine.currentTool = ToolMode.BRUSH
+                            onChanged()
+                        }
+                    }
+                    listOf(
+                            ToolMode.EYEDROPPER to Icons.Default.Colorize,
+                            ToolMode.PAN to Icons.Default.PanTool,
+                        )
+                        .forEach { (tool, icon) ->
+                            VectorToolButton(engine.currentTool == tool, tool.displayName, icon) {
+                                engine.cancelActiveStroke()
+                                engine.currentTool = tool
+                                onChanged()
+                            }
+                        }
+                } else {
+                    ToolMode.values().forEach { tool ->
+                        VectorToolButton(
+                            engine.currentTool == tool,
+                            tool.displayName,
+                            workspaceToolIcon(tool),
+                        ) {
+                            onTool(tool)
+                        }
+                    }
+                }
+                Text(
+                    if (engine.vectors.enabled && engine.currentTool == ToolMode.BRUSH)
+                        engine.vectors.tool.label
+                    else engine.currentTool.displayName,
+                    modifier =
+                        Modifier.align(Alignment.CenterVertically).padding(horizontal = 12.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+            IconButton(onClick = onHide, modifier = Modifier.size(38.dp)) {
+                Icon(Icons.Default.ExpandMore, "Ocultar ferramentas", Modifier.size(20.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun VectorObjectPanel(
+    engine: EsenhoEngine,
+    revision: Int,
+    onChanged: () -> Unit,
+    onColor: (Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val vector = engine.vectors
+    val selected = vector.selected
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        EditorPanelHeader("Objetos vetoriais", onDismiss)
+        Text(
+            "${vector.tool.label} · ${vector.layers.values.sumOf { it.size }} objetos",
+            style = MaterialTheme.typography.labelMedium,
+        )
+        if (vector.tool == VectorTool.PEN) {
+            Text(
+                "Clique para adicionar nós. Arraste para orientar as alças.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedButton(
+                onClick = {
+                    vector.finishPen()
+                    vector.selectedId = null
+                    onChanged()
+                }
+            ) {
+                Text("Novo caminho")
+            }
+        }
+        if (selected != null) {
+            Text("Aparência do objeto", style = MaterialTheme.typography.titleSmall)
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        vector.editFillColor = false
+                        onColor(false)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Box(
+                        Modifier.size(18.dp)
+                            .background(
+                                Color(selected.style.optInt("color", engine.currentColor)),
+                                CircleShape,
+                            )
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Cor do contorno")
+                }
+                OutlinedButton(
+                    onClick = { onColor(true) },
+                    enabled = selected.closed,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Box(
+                        Modifier.size(18.dp)
+                            .background(Color(selected.fill ?: 0), CircleShape)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Cor do preenchimento")
+                }
+            }
+            Text("Espessura: ${selected.style.optDouble("size",14.0).toInt()} px")
+            Slider(
+                value = selected.style.optDouble("size", 14.0).toFloat().coerceIn(1f, 100f),
+                valueRange = 1f..100f,
+                onValueChange = { value ->
+                    vector.setObjectSize(value)
+                    onChanged()
+                },
+                onValueChangeFinished = { vector.finishAppearanceEdit() },
+            )
+            Text("Opacidade: ${(selected.style.optDouble("opacity",1.0)*100).toInt()}%")
+            Slider(
+                value = selected.style.optDouble("opacity", 1.0).toFloat().coerceIn(0f, 1f),
+                valueRange = 0f..1f,
+                onValueChange = { value ->
+                    vector.setObjectOpacity(value)
+                    onChanged()
+                },
+                onValueChangeFinished = { vector.finishAppearanceEdit() },
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = selected.closed,
+                    onCheckedChange = { value ->
+                        vector.changeSelected { it.closed = value }
+                        onChanged()
+                    },
+                )
+                Text("Caminho fechado")
+            }
+            if (selected.closed)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = selected.fill != null,
+                        onCheckedChange = { value ->
+                            vector.changeSelected {
+                                it.fill = if (value) engine.currentColor else null
+                            }
+                            onChanged()
+                        },
+                    )
+                    Text("Preenchimento")
+                }
+            OutlinedButton(
+                onClick = {
+                    vector.applyStyle()
+                    onChanged()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Aplicar pincel atual ao contorno")
+            }
+            if (vector.tool == VectorTool.NODES) {
+                Text("Nós e alças", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Selecione uma âncora ou alça no canvas.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Row {
+                    TextButton(
+                        onClick = {
+                            vector.splitSegment()
+                            onChanged()
+                        }
+                    ) {
+                        Text("Inserir nó")
+                    }
+                    TextButton(
+                        enabled = vector.selectedNode != null,
+                        onClick = {
+                            vector.removeNode()
+                            onChanged()
+                        },
+                    ) {
+                        Text("Excluir nó")
+                    }
+                }
+                TextButton(
+                    enabled = vector.selectedNode != null,
+                    onClick = {
+                        vector.cornerNode()
+                        onChanged()
+                    },
+                ) {
+                    Text("Tornar angular")
+                }
+                vector.selectedNode?.let { node ->
+                    Text("Pressão do nó: ${(node.pressure*100).toInt()}%")
+                    Slider(
+                        value = node.pressure.coerceIn(.01f, 1f),
+                        valueRange = .01f..1f,
+                        onValueChange = { value ->
+                            vector.changeSelected { node.pressure = value }
+                            onChanged()
+                        },
+                    )
+                }
+            }
+            Row {
+                TextButton(
+                    onClick = {
+                        vector.duplicateSelected()
+                        onChanged()
+                    }
+                ) {
+                    Text("Duplicar")
+                }
+                TextButton(
+                    onClick = {
+                        vector.deleteSelected()
+                        onChanged()
+                    }
+                ) {
+                    Text("Excluir")
+                }
+            }
+        } else
+            Text(
+                "Selecione um objeto no canvas ou na lista para editar sua aparência.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        HorizontalDivider()
+        Text("Objetos", style = MaterialTheme.typography.titleSmall)
+        vector.layers.forEach { (_, objects) ->
+            objects.forEachIndexed { index, obj ->
+                Surface(
+                    onClick = {
+                        vector.selectObject(obj.id)
+                        onChanged()
+                    },
+                    color =
+                        if (obj.id == vector.selectedId)
+                            MaterialTheme.colorScheme.secondaryContainer
+                        else MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(Icons.Default.Polyline, null, Modifier.size(18.dp))
+                        Text(
+                            "Caminho ${index+1} · ${obj.nodes.size} nós",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            }
+        }
+        OutlinedButton(
+            onClick = {
+                vector.rasterize()
+                onChanged()
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Rasterizar camada")
+        }
+    }
+}

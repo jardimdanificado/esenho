@@ -160,6 +160,7 @@ fun smokeTest() {
     check(done.await(20, TimeUnit.SECONDS)) { "Runtime JavaScript não concluiu" }
     check(scriptError == null) { "Runtime JavaScript: $scriptError" }
     check(engine.layers.size == initialLayerCount + 2) { "Script não criou camada" }
+    vectorSmokeTest(context)
     println(
         "Desktop smoke test: pincéis, filtros, traço, undo/redo, camadas, seleção, projeto, animação, PNG/JPEG/WebP/GIF/WebM, filtro, homografia e QuickJS OK"
     )

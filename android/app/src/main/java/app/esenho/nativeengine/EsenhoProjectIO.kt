@@ -66,7 +66,8 @@ object EsenhoProjectIO {
         val wandContiguous: Boolean,
         val transformMode: TransformState.Mode,
         val transformInterpolation: TransformState.Interpolation,
-        val transformLockAspect: Boolean
+        val transformLockAspect: Boolean,
+        val vectorWorkspace: String = "{}"
     )
 
     fun capture(engine: EsenhoEngine): Snapshot {
@@ -143,7 +144,8 @@ object EsenhoProjectIO {
                 engine.wandContiguous,
                 activeTransform?.mode ?: engine.transformModePreference,
                 engine.transformInterpolation,
-                engine.transformLockAspect
+                engine.transformLockAspect,
+                engine.vectors.projectJson().toString()
             )
         } catch (failure: Throwable) {
             layers.forEach { it.bitmap.recycle() }
@@ -204,7 +206,7 @@ object EsenhoProjectIO {
             }
             guidesJson.put(org.json.JSONObject().put("type", guide.type.name).put("paths", paths))
         }
-        val metadata = org.json.JSONObject().put("format", 7).put("width", snapshot.width).put("height", snapshot.height)
+        val metadata = org.json.JSONObject().put("format", 8).put("width", snapshot.width).put("height", snapshot.height)
             .put("active", snapshot.active).put("layers", layersJson).put("fps", snapshot.fps)
             .put("currentFrame", snapshot.currentFrame).put("currentTick", snapshot.currentTick)
             .put("loop", snapshot.loop).put("onionEnabled", snapshot.onionEnabled)
@@ -221,6 +223,7 @@ object EsenhoProjectIO {
             .put("transformMode", snapshot.transformMode.name)
             .put("transformInterpolation", snapshot.transformInterpolation.name)
             .put("transformLockAspect", snapshot.transformLockAspect)
+            .put("vectorWorkspace", org.json.JSONObject(snapshot.vectorWorkspace))
         zip.putNextEntry(ZipEntry("project.json"))
         zip.write(metadata.toString().toByteArray(Charsets.UTF_8))
         zip.closeEntry()
@@ -260,7 +263,7 @@ object EsenhoProjectIO {
         val meta = entries["project.json"] ?: error("Arquivo de projeto inválido")
         val json = org.json.JSONObject(meta.toString(Charsets.UTF_8))
         val format = json.optInt("format", 1)
-        require(format in 1..7) { "Versão de projeto não suportada" }
+        require(format in 1..8) { "Versão de projeto não suportada" }
         val width = json.getInt("width").coerceIn(1, 8192)
         val height = json.getInt("height").coerceIn(1, 8192)
         val savedLayers = json.getJSONArray("layers")
@@ -454,6 +457,7 @@ object EsenhoProjectIO {
         engine.currentFrameIndex = json.optInt("currentFrame", 0).coerceIn(engine.animationFrames.indices)
         engine.currentAnimationTick = json.optInt("currentTick", 0).coerceIn(0, engine.totalAnimationTicks() - 1)
         engine.applyAnimationTick(engine.currentAnimationTick, captureActive = false)
+        engine.vectors.loadProject(json.optJSONObject("vectorWorkspace"))
         engine.getRenderBitmap()
     }
 }

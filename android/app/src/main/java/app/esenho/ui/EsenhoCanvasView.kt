@@ -795,6 +795,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
             canvas.drawBitmap(bmp, null, displayBounds, displayPaint)
         }
 
+        eng.vectorViewScale = gridScale.coerceAtLeast(.01f)
+        if (eng.vectors.enabled) eng.vectors.drawOverlay(canvas)
+
         // 3. Onion skin must be drawn over the flattened composite: that
         // bitmap includes the opaque background layer and would hide ghosts
         // drawn underneath it.

@@ -60,3 +60,17 @@ O benchmark do núcleo continua disponível, sem GPU ou interface do editor:
 ```
 
 Para abrir somente a bancada Swing anterior, use `./desktop/benchmark.sh`, com dimensões opcionais. O modo `full` força a cópia/recomposição completa para comparação; o benchmark também compara os pixels da renderização parcial com a completa.
+
+## Espaços Raster e Vetor
+
+No menu do documento (ícone de pasta), escolha **Raster** ou **Vetor**. A troca de espaço não acrescenta uma barra ao canvas. O dock inferior do Vetor oferece pincel, caneta Bézier, borracha de objetos, seleção, nós, linha, retângulo, elipse, conta-gotas e navegação. Na caneta, clique para adicionar âncoras e arraste para orientar as alças. Arraste um objeto com **Objetos**; em **Nós**, arraste as âncoras ou as alças. Os controles permitem inserir/excluir nós, tornar um nó angular e ajustar sua pressão.
+
+Os botões de presets e a amostra de cor do dock abrem os mesmos painéis do raster. O botão de propriedades abre a lista de objetos e controles de contorno, preenchimento, espessura, opacidade e nós. Alterar a cor ou os parâmetros do pincel atualiza o objeto selecionado. Cada objeto guarda uma cópia da configuração completa do preset ou pincel procedural, suas curvas de parâmetros, cor, pressão e inclinação. **Aplicar pincel atual ao contorno** reaplica a configuração atual ao objeto selecionado. O contorno passa pelo motor nativo de pincéis; preenchimentos fechados usam cor sólida. O pincel pinta durante o arraste; ao soltar, o editor ajusta a curva e renderiza o caminho editável.
+
+O arquivo `.esenho` preserva os caminhos e os pixels renderizados. Projetos anteriores continuam abrindo. No menu do documento, **Exportar curvas SVG** grava curvas convencionais e os metadados editáveis do Esenho; efeitos de pincel não equivalentes ao padrão SVG podem mudar de aparência em outros programas. **Exportar SVG com aparência** incorpora PNGs das camadas vetoriais e mantém os mesmos metadados. **Importar SVG Esenho** adiciona esses caminhos ao documento atual, preservando seus parâmetros. Essa importação aceita os SVGs exportados pelo próprio Esenho; importação geral de SVGs externos ainda não está disponível.
+
+**Rasterizar camada** permite continuar com ferramentas de pixels. Filtros raster, mesclagem de camadas e transformação raster exigem essa conversão. Undo/redo preserva geometria e aparência antes e depois da rasterização. O modo vetorial ainda não oferece gradientes editáveis, operações booleanas, texto ou rigging do editor web antigo.
+
+A barra de ferramentas existe nos dois espaços. O botão de seta no fim da barra a oculta; no menu **…**, escolha **Mostrar ferramentas** para reabri-la. A visibilidade é salva separadamente para Raster e Vetor. Linha usa arraste entre as extremidades; retângulo e elipse usam arraste entre os cantos da caixa delimitadora, com prévia da forma durante o gesto. A caneta mostra âncoras quadradas e alças circulares enquanto desenha. A edição de nós/alças usa prévia geométrica durante o arraste e atualiza a aparência do pincel ao soltar.
+
+Para medir o mesmo arraste de oito movimentos em uma camada com seis caminhos e pincel procedural semitransparente, execute o aplicativo com `--vector-benchmark`. A saída separa o tempo dos movimentos do tempo de confirmação.

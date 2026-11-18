@@ -525,7 +525,7 @@ class EsenhoEngine(
     private val redoStack = ArrayDeque<Bitmap>()
     // Keep metadata and retained cel bitmaps aligned with the JNI pixel
     // snapshot stack, which drops its oldest entry at depth 24.
-    private val maxUndoSteps = 24
+    internal val maxUndoSteps = 24
 
     // Animation / Raster Animator
     val animationTracks = linkedMapOf<Int, AnimationTrack>()
@@ -658,6 +658,7 @@ class EsenhoEngine(
     private val layerAddHistory = linkedMapOf<Long, LayerAddHistory>()
     private val redoLayerAddTokens = mutableSetOf<Long>()
     private val groupEdits = linkedMapOf<Long, GroupEdit>()
+    val vectors = VectorWorkspace(this)
     private var undoSnapshotSerial = 0L
 
     private fun activeAnimationTrack(): AnimationTrack {
@@ -1142,6 +1143,7 @@ class EsenhoEngine(
     }
 
     fun initEngine(w: Int, h: Int) {
+        vectors.reset()
         cancelActiveStroke()
         transformState?.release()
         transformState = null
@@ -1313,6 +1315,7 @@ class EsenhoEngine(
             return false
         }
 
+        if (resample) vectors.scaleGeometry(newWidth.toFloat() / width, newHeight.toFloat() / height)
         clearSelection()
         width = newWidth
         height = newHeight
@@ -2200,6 +2203,7 @@ class EsenhoEngine(
     // ── Filter Application ──
 
     fun applyFilter(filter: FilterModel, p1: Int = 0, p2: Int = 0): Boolean {
+        if (activeLayerIndex in vectors.layers) return false
         if (transformState != null) cancelTransform()
         pushUndoSnapshot()
         val ok = EsenhoNativeBridge.nativeApplyFilter(filter.id, p1, p2)
@@ -2212,6 +2216,7 @@ class EsenhoEngine(
 
     /** Apply web-compatible relative HSV adjustments to the active raster cel. */
     fun adjustActiveLayerHsv(hue: Int, saturationPercent: Int, valuePercent: Int) {
+        if (activeLayerIndex in vectors.layers) return
         if (transformState != null) cancelTransform()
         pushUndoSnapshot()
         EsenhoNativeBridge.nativeLayerAdjustHsv(activeLayerIndex, hue, saturationPercent, valuePercent)
@@ -2483,6 +2488,9 @@ class EsenhoEngine(
             EsenhoNativeBridge.nativeLayerSelect(previousActive)
             return newIdx
         }
+        vectors.layers[idx]?.let { objects ->
+            vectors.layers[newIdx] = objects.map { VectorObject.read(it.json()).copy(id=java.util.UUID.randomUUID().toString()) }.toMutableList()
+        }
         syncLayers()
         if (token != 0L) recordLayerAddHistory(token, newIdx, previousActive, previousTick, groupsBefore)
         applyAnimationTick(previousTick, captureActive = false)
@@ -2577,6 +2585,7 @@ class EsenhoEngine(
         )
         layerDeleteHistory[token] = history
         animationTracks.remove(idx)
+        vectors.layers.remove(idx)
         EsenhoNativeBridge.nativeLayerDelete(idx)
         syncLayers()
         history.groupLayerIdsAfter = rasterLayerGroups.mapValues { (_, group) -> group.layerIds.toList() }
@@ -2723,6 +2732,7 @@ class EsenhoEngine(
     }
 
     fun mergeDown(idx: Int) {
+        if (idx in vectors.layers || layers.getOrNull(layers.indexOfFirst { it.id == idx } - 1)?.id in vectors.layers) return
         if (layers.none { it.id == idx }) return
         if (transformState != null) cancelTransform()
         captureAllCurrentFrames()
@@ -2851,6 +2861,13 @@ class EsenhoEngine(
     }
 
     fun clearActiveLayer() {
+        if (activeLayerIndex in vectors.layers) {
+            beginVectorEdit()
+            vectors.layers[activeLayerIndex]?.clear()
+            vectors.selectedId = null
+            vectors.render()
+            return
+        }
         if (transformState != null) cancelTransform()
         pushUndoSnapshot()
         EsenhoNativeBridge.nativeLayerClear(activeLayerIndex)
@@ -3138,7 +3155,112 @@ class EsenhoEngine(
         return currentColor
     }
 
+    var vectorViewScale = 1f
+
+    internal fun beginVectorEdit(): Long = pushUndoSnapshot()
+
+    internal fun captureVectorStyle(): JSONObject {
+        val state =
+            selectedPreset?.let {
+                JSONObject()
+                    .put(
+                        "preset",
+                        it.toJson()
+                            .put(
+                                "curve_bindings",
+                                JSONArray().also { a ->
+                                    brushCurves.bindings.forEach { a.put(it.toJson()) }
+                                },
+                            ),
+                    )
+            }
+                ?: selectedBrush?.let { proceduralToolState(it).put("brushId", it.id) }
+                ?: JSONObject()
+        return state
+            .put("color", currentColor)
+            .put("size", brushSize)
+            .put("opacity", brushOpacity)
+            .put("hardness", brushHardness)
+            .put("smooth", brushSmooth)
+    }
+
+    internal fun restoreVectorStyle(state: JSONObject) {
+        state.optJSONObject("preset")?.let {
+            selectPreset(BrushPresetModel.fromJson(JSONObject(it.toString())), false)
+        }
+            ?: run {
+                val id = state.optString("brushId")
+                if (id.isNotEmpty()) {
+                    selectBrush(null)
+                    proceduralToolStates[id] = JSONObject(state.toString())
+                    selectBrush(brushCatalog.firstOrNull { it.id == id })
+                } else selectBrush(null)
+            }
+        currentColor = state.optInt("color", currentColor)
+        brushSize = state.optDouble("size", 14.0).toFloat()
+        brushOpacity = state.optDouble("opacity", 1.0).toFloat()
+        brushHardness = state.optInt("hardness", 100)
+        brushSmooth = state.optInt("smooth", 0)
+    }
+
+    internal fun previewVectorPoint(state: Int, point: VectorNode, previous: VectorNode = point) {
+        if (state == 0) curveRuntime.begin(point.x,point.y,point.pressure,point.tiltX,point.tiltY)
+        curveRuntime.event(point.x,point.y,point.pressure,point.tiltX,point.tiltY)
+        emitCurveStroke(state,point.x,point.y,previous.x,previous.y,toNativeColor(currentColor),0,
+            (point.pressure.coerceIn(.01f,1f)*1000).toInt(),point.tiltX,point.tiltY)
+        if (state == 2) endCurveStroke()
+    }
+
+    internal fun renderVectorStroke(style: JSONObject, points: List<VectorNode>, configure: Boolean = true) {
+        if (points.isEmpty()) return
+        if (configure) restoreVectorStyle(style)
+        val first = points.first()
+        EsenhoNativeBridge.nativeSetStrokeReplay(true)
+        try {
+            curveRuntime.begin(first.x, first.y, first.pressure, first.tiltX, first.tiltY)
+            var previous = first
+            points.forEachIndexed { index, point ->
+                curveRuntime.event(point.x, point.y, point.pressure, point.tiltX, point.tiltY)
+                emitCurveStroke(
+                    if (index == 0) 0 else 1,
+                    point.x,
+                    point.y,
+                    previous.x,
+                    previous.y,
+                    toNativeColor(currentColor),
+                    0,
+                    (point.pressure.coerceIn(.01f, 1f) * 1000).toInt(),
+                    point.tiltX,
+                    point.tiltY,
+                )
+                previous = point
+            }
+            val last = points.last()
+            emitCurveStroke(
+                2,
+                last.x,
+                last.y,
+                last.x,
+                last.y,
+                toNativeColor(currentColor),
+                0,
+                (last.pressure.coerceIn(.01f, 1f) * 1000).toInt(),
+                last.tiltX,
+                last.tiltY,
+            )
+        } finally {
+            endCurveStroke()
+            EsenhoNativeBridge.nativeSetStrokeReplay(false)
+        }
+    }
+
     fun onTouchDown(x: Float, y: Float, pressure: Float = 0.85f, tiltX: Int = 0, tiltY: Int = 0) {
+        if (vectors.enabled && currentTool != ToolMode.PAN && currentTool != ToolMode.EYEDROPPER) {
+            vectors.down(x, y, pressure, tiltX, tiltY)
+            return
+        }
+        if (!vectors.enabled && activeLayerIndex in vectors.layers && currentTool != ToolMode.PAN && currentTool != ToolMode.EYEDROPPER) addLayer()
+
         isAnimationPlaying = false
         endCurveStroke()
         strokeUsageHistory.cancel()
@@ -3251,6 +3373,10 @@ class EsenhoEngine(
     }
 
     fun onTouchMove(x: Float, y: Float, pressure: Float = 0.85f, tiltX: Int = 0, tiltY: Int = 0) {
+        if (vectors.enabled && currentTool != ToolMode.PAN && currentTool != ToolMode.EYEDROPPER) {
+            vectors.move(x, y, pressure, tiltX, tiltY)
+            return
+        }
         if (!isStrokeActive) return
         curveRuntime.event(x, y, pressure, tiltX, tiltY)
         curveRuntime.applyAt(strokeLastMidX, strokeLastMidY)
@@ -3354,6 +3480,10 @@ class EsenhoEngine(
     }
 
     fun onTouchUp(x: Float, y: Float, pressure: Float = 0f, tiltX: Int = 0, tiltY: Int = 0) {
+        if (vectors.enabled && currentTool != ToolMode.PAN && currentTool != ToolMode.EYEDROPPER) {
+            vectors.up(x, y, pressure, tiltX, tiltY)
+            return
+        }
         if (!isStrokeActive) return
         isStrokeActive = false
 
@@ -3799,6 +3929,7 @@ class EsenhoEngine(
 
     fun flipLayerH(layerIdx: Int = activeLayerIndex) {
         pushUndoSnapshot()
+        vectors.scaleGeometry(-1f,1f,layerIdx,offsetX=(width-1).toFloat())
         EsenhoNativeBridge.nativeLayerFlipH(layerIdx)
         captureCurrentFrame(layerIdx)
         getRenderBitmap()
@@ -3806,6 +3937,7 @@ class EsenhoEngine(
 
     fun flipLayerV(layerIdx: Int = activeLayerIndex) {
         pushUndoSnapshot()
+        vectors.scaleGeometry(1f,-1f,layerIdx,offsetY=(height-1).toFloat())
         EsenhoNativeBridge.nativeLayerFlipV(layerIdx)
         captureCurrentFrame(layerIdx)
         getRenderBitmap()
@@ -3813,6 +3945,7 @@ class EsenhoEngine(
 
     fun flipCanvasH() {
         pushUndoSnapshot()
+        vectors.scaleGeometry(-1f,1f,offsetX=(width-1).toFloat())
         EsenhoNativeBridge.nativeCanvasFlipH()
         captureAllCurrentFrames()
         getRenderBitmap()
@@ -3820,6 +3953,7 @@ class EsenhoEngine(
 
     fun flipCanvasV() {
         pushUndoSnapshot()
+        vectors.scaleGeometry(1f,-1f,offsetY=(height-1).toFloat())
         EsenhoNativeBridge.nativeCanvasFlipV()
         captureAllCurrentFrames()
         getRenderBitmap()
@@ -3950,7 +4084,7 @@ class EsenhoEngine(
             .keys.toList().forEach(::releaseLayerDeleteHistory)
         layerAddHistory.filterValues { undoSnapshotSerial - it.snapshotSerial >= maxUndoSteps }
             .keys.toList().forEach(::releaseLayerAddHistory)
-        return EsenhoNativeBridge.nativePushUndo()
+        return EsenhoNativeBridge.nativePushUndo().also { vectors.record(it) }
     }
 
     private fun restoreLayerResizeHistory(token: Long, redo: Boolean): Boolean {
@@ -4223,6 +4357,7 @@ class EsenhoEngine(
     }
 
     fun cancelActiveStroke() {
+        vectors.cancel()
         endCurveStroke()
         strokeUsageHistory.cancel()
         val hadActiveStroke = isStrokeActive
@@ -4256,6 +4391,7 @@ class EsenhoEngine(
         if (pendingDelete != null && pendingToken !in redoLayerDeleteTokens &&
             !restoreLayerDeleteUndoSlot(pendingDelete)) return false
         val token = EsenhoNativeBridge.nativeUndo()
+        if (token != 0L) vectors.restoreHistory(token, false)
         if (token != 0L) {
             if (!restoreGroupEdit(token, redo = false) && !restoreLayerMergeHistory(token, redo = false) &&
                 !restoreLayerDeleteHistory(token, redo = false) &&
@@ -4287,6 +4423,7 @@ class EsenhoEngine(
         if (pendingAdd != null && pendingToken in redoLayerAddTokens &&
             !restoreLayerAddRedoSlot(pendingAdd)) return false
         val token = EsenhoNativeBridge.nativeRedo()
+        if (token != 0L) vectors.restoreHistory(token, true)
         if (token != 0L) {
             if (!restoreGroupEdit(token, redo = true) && !restoreLayerMergeHistory(token, redo = true) &&
                 !restoreLayerDeleteHistory(token, redo = true) &&
@@ -4365,6 +4502,7 @@ class EsenhoEngine(
         }
 
     fun beginTransform(selectionOnly: Boolean = false): Boolean {
+        if (activeLayerIndex in vectors.layers) return false
         if (width <= 0 || height <= 0 || transformState != null) return false
 
         val fullLayerBackup = try {

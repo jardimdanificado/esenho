@@ -326,6 +326,13 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     val workspacePreferences = remember {
         context.getSharedPreferences("esenho_workspace", android.content.Context.MODE_PRIVATE)
     }
+    var rasterToolsVisible by remember { mutableStateOf(workspacePreferences.getBoolean("raster_tools_visible",true)) }
+    var vectorToolsVisible by remember { mutableStateOf(workspacePreferences.getBoolean("vector_tools_visible",true)) }
+    fun toggleTools() {
+        if (engine.vectors.enabled) vectorToolsVisible=!vectorToolsVisible else rasterToolsVisible=!rasterToolsVisible
+        workspacePreferences.edit().putBoolean("raster_tools_visible",rasterToolsVisible)
+            .putBoolean("vector_tools_visible",vectorToolsVisible).apply()
+    }
     var quickShelfVisible by remember {
         mutableStateOf(workspacePreferences.getBoolean("quick_shelf_visible", true))
     }
@@ -581,6 +588,24 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         }
     }
 
+    val openSvgLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) runCatching {
+            val svg = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                ?: error("Não foi possível abrir o SVG")
+            engine.vectors.importSvg(svg)
+            refreshState(false)
+        }.onFailure { Toast.makeText(context, "Falha ao abrir SVG: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+
+    var svgAppearance by remember { mutableStateOf(false) }
+    val saveSvgLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/svg+xml")) { uri ->
+        if (uri != null) runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { output ->
+                output.write(engine.vectors.exportSvg(svgAppearance).toByteArray(Charsets.UTF_8))
+            } ?: error("Não foi possível criar o SVG")
+        }.onFailure { Toast.makeText(context, "Falha ao exportar SVG: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+
     val saveProjectLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.CreateDocument("application/x-esenho")
@@ -751,10 +776,23 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             favoriteBrushIds = updated
                             storageManager.saveFavoriteBrushes(updated)
                         },
-                        onBrushUpdated = { refreshState() },
+                        onBrushUpdated = {
+                            if (engine.vectors.enabled) engine.vectors.applyStyleEdit()
+                            refreshState()
+                        },
                         onDismiss = { activePanel = null },
                     )
                 }
+            WorkspacePanel.VECTOR -> VectorObjectPanel(engine, engineRevision,
+                onChanged = { refreshState(false) },
+                onColor = { fill ->
+                    engine.vectors.editFillColor = fill
+                    val obj = engine.vectors.selected
+                    engine.currentColor = if (fill) obj?.fill ?: engine.currentColor else obj?.style?.optInt("color", engine.currentColor) ?: engine.currentColor
+                    refreshState(false)
+                    activePanel = WorkspacePanel.COLOR
+                },
+                onDismiss = { activePanel = null })
             WorkspacePanel.COLOR ->
                 ColorStudioModal(
                     engine = engine,
@@ -765,6 +803,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     onColorChanged = { c ->
                         currentColor = c
                         engine.currentColor = c
+                        if (engine.vectors.enabled) engine.vectors.setObjectColor(c)
                         refreshState()
                     },
                     onDismiss = { activePanel = null },
@@ -1292,6 +1331,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     }
     BackHandler(enabled = activePanel != null && scriptSession == null && !markingScriptPivot) { activePanel = null }
     LaunchedEffect(activePanel, showSelectMenu, showWorkspaceActions, brushPropertiesRequest) {
+        engine.vectors.finishAppearanceEdit()
         quickSlidersOpen = false
         canvasViewRef?.previewBrushSize = 0f
     }
@@ -1305,7 +1345,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         topBar = {
             Box(Modifier.blockScriptTouches(scriptSession != null || markingScriptPivot)) {
                 WorkspaceHeader(
-                    dimensions = "${engine.width} × ${engine.height} px",
+                    dimensions = "${if (engine.vectors.enabled) "Vetor · " else ""}${engine.width} × ${engine.height} px",
                     canUndo = canUndo,
                     canRedo = canRedo,
                     onUndo = {
@@ -1330,10 +1370,16 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         },
         bottomBar = {
                 Column(Modifier.blockScriptTouches(scriptSession != null || markingScriptPivot)) {
+                    val toolsVisible = if (engine.vectors.enabled) vectorToolsVisible else rasterToolsVisible
+                    if (toolsVisible) EditorToolStrip(engine, engineRevision, onTool = { chooseTool(it) }, onHide = { toggleTools() }) { refreshState(false) }
                     WorkspaceProperties(
-                        toolName = currentTool.displayName,
+                        vectorMode = engine.vectors.enabled,
+                        toolsVisible = toolsVisible,
+                        onToggleTools = { toggleTools() },
+                        toolName = if (engine.vectors.enabled) engine.vectors.tool.label else currentTool.displayName,
                         onToolOptions = {
-                            if (currentTool == ToolMode.BRUSH) {
+                            if (engine.vectors.enabled) activePanel = WorkspacePanel.VECTOR
+                            else if (currentTool == ToolMode.BRUSH) {
                                 brushPropertiesRequest++
                                 activePanel = WorkspacePanel.BRUSHES
                             } else if (isTransformActive) activePanel = WorkspacePanel.TRANSFORM
@@ -1380,10 +1426,16 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             if (paramId == 1)
                                 canvasViewRef?.previewBrushSize =
                                     if (active) engine.brushSize else 0f
+                            if (engine.vectors.enabled) {
+                                engine.vectors.applyStyleEdit()
+                                if (!active) engine.vectors.finishAppearanceEdit()
+                            }
                             if (!active) refreshState()
                         },
                         toolPicker = {
-                            WorkspaceToolPicker(
+                            if (engine.vectors.enabled) IconButton(onClick = { activePanel = WorkspacePanel.VECTOR }, modifier = Modifier.size(36.dp)) {
+                                Icon(Icons.Default.Polyline, "Objetos e propriedades vetoriais", Modifier.size(20.dp))
+                            } else WorkspaceToolPicker(
                                 currentTool,
                                 showSelectMenu,
                                 onOpen = {
@@ -1402,6 +1454,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 else WorkspacePanel.BRUSHES
                         },
                         onColor = {
+                            engine.vectors.editFillColor = false
                             activePanel =
                                 if (activePanel == WorkspacePanel.COLOR) null
                                 else WorkspacePanel.COLOR
@@ -1439,7 +1492,13 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             favoriteBrushIds = favoriteBrushIds,
                             recent = quickShelfRecent,
                             revision = engineRevision,
-                            onChanged = { refreshState() },
+                            onChanged = {
+                                if (engine.vectors.enabled) {
+                                    engine.vectors.applyStyleEdit()
+                                    engine.vectors.finishAppearanceEdit()
+                                }
+                                refreshState()
+                            },
                             onOpenCurrentBrush = {
                                 if (activePanel == WorkspacePanel.BRUSHES) {
                                     activePanel = null
@@ -1493,6 +1552,10 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                     this.onColorPicked = { c ->
                                         currentColor = c
                                         engine.currentColor = c
+                                        if (engine.vectors.enabled) {
+                                            engine.vectors.setObjectColor(c)
+                                            engine.vectors.finishAppearanceEdit()
+                                        }
                                     }
                                     canvasViewRef = this
                                 }
@@ -1597,6 +1660,31 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     )
                     when (documentTab) {
                         0 -> {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Espaço de trabalho", Modifier.align(Alignment.CenterVertically))
+                                listOf(false to "Raster", true to "Vetor").forEach { (vector, label) ->
+                                    FilterChip(selected = engine.vectors.enabled == vector, onClick = {
+                                        activePanel = null
+                                        showWorkspaceActions = false
+                                        engine.vectors.switchMode(vector)
+                                        refreshState(false)
+                                    }, label = { Text(label) })
+                                }
+                            }
+                            if (engine.vectors.enabled) {
+                                DropdownMenuItem(text = { Text("Importar SVG Esenho…") }, onClick = {
+                                    showWorkspaceActions = false
+                                    openSvgLauncher.launch(arrayOf("image/svg+xml"))
+                                })
+                                listOf(false to "Exportar curvas SVG…", true to "Exportar SVG com aparência…").forEach { (appearance, label) ->
+                                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                                        showWorkspaceActions = false
+                                        svgAppearance = appearance
+                                        saveSvgLauncher.launch(if (appearance) "esenho-aparencia.svg" else "esenho.svg")
+                                    })
+                                }
+                                HorizontalDivider()
+                            }
                             DropdownMenuItem(
                                 text = { Text("Nova tela") },
                                 leadingIcon = { Icon(Icons.Default.AddBox, null) },

@@ -33,12 +33,18 @@ for src in base.rglob('*'):
             "export" -> showExportDialog = true
             "undo" -> { engine.undo(); refreshState() }
             "redo" -> { engine.redo(); refreshState() }
+            "vector" -> { activePanel = null; engine.vectors.switchMode(true); refreshState(false) }
+            "raster" -> { activePanel = null; engine.vectors.switchMode(false); refreshState(false) }
+            "toggleTools" -> { toggleTools() }
+            "vectorObjects" -> { activePanel = WorkspacePanel.VECTOR; refreshState(false) }
+            "vectorColor" -> { activePanel = WorkspacePanel.COLOR; refreshState(false) }
+            "vectorNodes" -> { engine.vectors.tool = app.esenho.nativeengine.VectorTool.NODES; refreshState(false) }
             "layers" -> activePanel = WorkspacePanel.LAYERS
             "timeline" -> activePanel = WorkspacePanel.ANIMATION
             "scripts" -> activePanel = WorkspacePanel.SCRIPTS
             "filters" -> activePanel = WorkspacePanel.EFFECTS
-            "brush" -> chooseTool(ToolMode.BRUSH)
-            "eraser" -> chooseTool(ToolMode.ERASER)
+            "brush" -> { engine.vectors.tool = app.esenho.nativeengine.VectorTool.DRAW; chooseTool(ToolMode.BRUSH) }
+            "eraser" -> if (engine.vectors.enabled) { engine.vectors.deleteSelected(); refreshState(false) } else chooseTool(ToolMode.ERASER)
             "eyedropper" -> chooseTool(ToolMode.EYEDROPPER)
             "pan" -> chooseTool(ToolMode.PAN)
             "resetView" -> canvasViewRef?.resetView()

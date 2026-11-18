@@ -11,6 +11,7 @@ import javax.swing.JOptionPane
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 fun main(args: Array<String>) {
+    if (args.contains("--vector-benchmark")) { vectorBenchmark(); return }
     if (args.contains("--smoke-test")) {
         smokeTest()
         return
@@ -44,6 +45,7 @@ fun main(args: Array<String>) {
                             kotlinx.coroutines.delay(500)
                             captureEditor(window, File("desktop/build/ui-$panel.png"))
                         }
+                        exerciseDesktopVectors(window)
                         exitApplication()
                     }
                 }

@@ -39,6 +39,7 @@ import app.esenho.nativeengine.ToolMode
 enum class WorkspacePanel(val title: String, val icon: ImageVector) {
     BRUSHES("Pincéis", Icons.Default.Brush),
     COLOR("Cores", Icons.Default.Palette),
+    VECTOR("Objetos vetoriais", Icons.Default.Polyline),
     LAYERS("Camadas", Icons.Default.Layers),
     ANIMATION("Animar", Icons.Default.Movie),
     EFFECTS("Efeitos", Icons.Default.AutoAwesome),
@@ -98,11 +99,28 @@ fun WorkspaceHeader(
                 IconButton(onClick = onRedo, enabled = canRedo, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.AutoMirrored.Filled.Redo, "Refazer", Modifier.size(18.dp))
                 }
-
             }
         }
     }
 }
+
+internal fun workspaceToolIcon(mode: ToolMode) =
+    when (mode) {
+        ToolMode.BRUSH -> Icons.Default.Brush
+        ToolMode.ERASER -> Icons.Default.DeleteOutline
+        ToolMode.FILL -> Icons.Default.FormatColorFill
+        ToolMode.SMUDGE,
+        ToolMode.BLEND -> Icons.Default.WaterDrop
+        ToolMode.EYEDROPPER -> Icons.Default.Colorize
+        ToolMode.TRANSFORM -> Icons.Default.OpenWith
+        ToolMode.PAN -> Icons.Default.PanTool
+        ToolMode.LINE -> Icons.Default.HorizontalRule
+        ToolMode.RECTANGLE,
+        ToolMode.ERASE_RECTANGLE -> Icons.Default.CropSquare
+        ToolMode.ELLIPSE,
+        ToolMode.ERASE_ELLIPSE -> Icons.Default.Circle
+        else -> Icons.Default.CropFree
+    }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -142,27 +160,10 @@ fun WorkspaceToolPicker(
                 ),
             "Navegação" to listOf(ToolMode.TRANSFORM, ToolMode.EYEDROPPER, ToolMode.PAN),
         )
-    fun icon(mode: ToolMode) =
-        when (mode) {
-            ToolMode.BRUSH -> Icons.Default.Brush
-            ToolMode.ERASER -> Icons.Default.DeleteOutline
-            ToolMode.FILL -> Icons.Default.FormatColorFill
-            ToolMode.SMUDGE,
-            ToolMode.BLEND -> Icons.Default.WaterDrop
-            ToolMode.EYEDROPPER -> Icons.Default.Colorize
-            ToolMode.TRANSFORM -> Icons.Default.OpenWith
-            ToolMode.PAN -> Icons.Default.PanTool
-            ToolMode.LINE -> Icons.Default.HorizontalRule
-            ToolMode.RECTANGLE,
-            ToolMode.ERASE_RECTANGLE -> Icons.Default.CropSquare
-            ToolMode.ELLIPSE,
-            ToolMode.ERASE_ELLIPSE -> Icons.Default.Circle
-            else -> Icons.Default.CropFree
-        }
     Box {
         IconButton(onClick = onOpen, modifier = Modifier.size(36.dp)) {
             Icon(
-                icon(current),
+                workspaceToolIcon(current),
                 "Ferramentas: ${current.displayName}",
                 Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary,
@@ -205,7 +206,7 @@ fun WorkspaceToolPicker(
                                         null,
                                         Modifier.size(16.dp),
                                     )
-                                else Icon(icon(mode), null, Modifier.size(16.dp))
+                                else Icon(workspaceToolIcon(mode), null, Modifier.size(16.dp))
                                 Text(
                                     mode.displayName,
                                     style = MaterialTheme.typography.labelSmall,
@@ -252,6 +253,9 @@ fun WorkspaceProperties(
     quickScripts: List<app.esenho.scripting.NativeScriptPreset> = emptyList(),
     onRunQuickScript: (app.esenho.scripting.NativeScriptPreset) -> Unit = {},
     onOpenScripts: () -> Unit = onScripts,
+    vectorMode: Boolean = false,
+    toolsVisible: Boolean = true,
+    onToggleTools: () -> Unit = {},
 ) {
     var more by remember { mutableStateOf(false) }
     val relevantSliders = relevantQuickSliders(engine, configuredSliders)
@@ -314,20 +318,35 @@ fun WorkspaceProperties(
                     activePanel == WorkspacePanel.LAYERS,
                     onLayers,
                 )
-                CompactPanelButton(
-                    Icons.Default.Movie,
-                    "Animação",
-                    activePanel == WorkspacePanel.ANIMATION,
-                    onAnimation,
-                )
-                CompactPanelButton(
-                    Icons.Default.Code,
-                    "Scripts JavaScript",
-                    activePanel == WorkspacePanel.SCRIPTS,
-                    onScripts,
-                )
+                if (vectorMode)
+                    CompactPanelButton(
+                        Icons.Default.Tune,
+                        "Propriedades do objeto",
+                        activePanel == WorkspacePanel.VECTOR,
+                        onToolOptions,
+                    )
+                if (!vectorMode)
+                    CompactPanelButton(
+                        Icons.Default.Movie,
+                        "Animação",
+                        activePanel == WorkspacePanel.ANIMATION,
+                        onAnimation,
+                    )
+                if (!vectorMode)
+                    CompactPanelButton(
+                        Icons.Default.Code,
+                        "Scripts JavaScript",
+                        activePanel == WorkspacePanel.SCRIPTS,
+                        onScripts,
+                    )
                 Box {
-                    IconButton(onClick = { onDismissQuickSliders(); more = true }, modifier = Modifier.size(36.dp)) {
+                    IconButton(
+                        onClick = {
+                            onDismissQuickSliders()
+                            more = true
+                        },
+                        modifier = Modifier.size(36.dp),
+                    ) {
                         Icon(Icons.Default.MoreHoriz, "Efeitos e parâmetros", Modifier.size(19.dp))
                     }
                     AnchoredWorkspacePopup(
@@ -343,15 +362,35 @@ fun WorkspaceProperties(
                             },
                             leadingIcon = { Icon(Icons.Default.Settings, null) },
                         )
-                        DropdownMenuItem(
-                            text = { Text("Efeitos") },
-                            onClick = {
-                                more = false
-                                onEffects()
-                            },
-                            leadingIcon = { Icon(Icons.Default.AutoAwesome, null) },
-                        )
+                        if (!vectorMode)
+                            DropdownMenuItem(
+                                text = { Text("Efeitos") },
+                                onClick = {
+                                    more = false
+                                    onEffects()
+                                },
+                                leadingIcon = { Icon(Icons.Default.AutoAwesome, null) },
+                            )
                         HorizontalDivider()
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    if (toolsVisible) "Ocultar ferramentas"
+                                    else "Mostrar ferramentas"
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    if (toolsVisible) Icons.Default.VisibilityOff
+                                    else Icons.Default.Visibility,
+                                    null,
+                                )
+                            },
+                            onClick = {
+                                onToggleTools()
+                                more = false
+                            },
+                        )
                         DropdownMenuItem(
                             text = {
                                 Text(
@@ -391,7 +430,6 @@ fun WorkspaceProperties(
                                 if (quickShelfRecent) ({ Icon(Icons.Default.Check, null) })
                                 else null,
                         )
-
                     }
                 }
             }

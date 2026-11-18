@@ -21,7 +21,7 @@ rm -rf desktop/build/package/Esenho
   --input desktop/build/install/esenho-desktop/lib \
   --main-jar esenho-desktop.jar \
   --main-class app.esenho.desktop.MainKt \
-  --add-modules java.base,java.desktop,java.logging,java.prefs,java.sql,jdk.unsupported \
+  --add-modules java.base,java.desktop,java.xml,java.logging,java.prefs,java.sql,jdk.unsupported \
   --dest desktop/build/package
 tar -czf desktop/build/Esenho-linux.tar.gz -C desktop/build/package Esenho
 printf 'Pacote Linux: %s/desktop/build/Esenho-linux.tar.gz\n' "$PWD"

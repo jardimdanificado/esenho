@@ -267,6 +267,16 @@ class Path() {
 
     fun lineTo(x: Float, y: Float) = shape.lineTo(x.toDouble(), y.toDouble())
 
+    fun cubicTo(x1: Float, y1: Float, x2: Float, y2: Float, x: Float, y: Float) =
+        shape.curveTo(
+            x1.toDouble(),
+            y1.toDouble(),
+            x2.toDouble(),
+            y2.toDouble(),
+            x.toDouble(),
+            y.toDouble(),
+        )
+
     fun close() = shape.closePath()
 
     fun reset() = shape.reset()
