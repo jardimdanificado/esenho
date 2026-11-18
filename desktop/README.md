@@ -117,7 +117,7 @@ Ao editar nós, **Largura do nó** multiplica a espessura do traço naquele pont
 
 No painel do objeto, **Contorno em área** transforma a espessura do traço em uma área fechada preenchida, com o contorno interno preservado como furo quando aplicável. **Simplificar** reduz âncoras quase colineares com tolerância de 2 px, mantendo o caminho editável.
 
-**Vetorizar camada** lê os pixels opacos da camada ativa, usa o limiar de alfa informado e cria caminhos fechados preenchidos com marching squares. Imagens grandes são amostradas para manter a operação responsiva; contornos duplicados gerados em cantos ambíguos são descartados. Todas as conversões entram no desfazer/refazer.
+**Vetorizar camada** cria caminhos fechados com marching squares nos modos **Limiar** (pixels escuros opacos), **Silhueta** (alfa opaco) e **Cores** (quantização K-means de 2 a 16 cores, gerando um objeto por cor). Os controles ajustam limiar, número de cores, área mínima, suavização do contorno e ajuste de curvas Bézier. Imagens grandes são amostradas; contornos duplicados em cantos ambíguos são descartados e os contornos internos viram furos com `evenodd`. Todas as conversões entram no desfazer/refazer.
 
 ### Booleanas e SVG externo
 

@@ -651,22 +651,64 @@ fun VectorObjectPanel(
                     Text("Simplificar", style = MaterialTheme.typography.labelSmall)
                 }
             }
-            var threshold by remember { mutableStateOf("128") }
-            val thresholdValue = threshold.toIntOrNull()
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                VectorNumber("Limiar da vetorização", threshold, { threshold = it }, Modifier.weight(1f))
-                TextButton(
-                    enabled = thresholdValue != null && thresholdValue in 1..255,
-                    onClick = {
-                        vector.traceLayer(thresholdValue!!)
-                        onChanged()
-                    },
-                ) {
-                    Text("Vetorizar camada")
+            var traceMode by remember { mutableStateOf("threshold") }
+            Text("Modo da vetorização", style = MaterialTheme.typography.bodySmall)
+            Row {
+                listOf("threshold" to "Limiar", "silhouette" to "Silhueta", "color" to "Cores").forEach { (value, label) ->
+                    FilterChip(
+                        selected = traceMode == value,
+                        onClick = { traceMode = value },
+                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.padding(end = 4.dp),
+                    )
                 }
             }
+            var threshold by remember { mutableStateOf("128") }
+            var colorCount by remember { mutableStateOf("4") }
+            var minArea by remember { mutableStateOf("0") }
+            var smoothness by remember { mutableStateOf("1") }
+            var bezierFit by remember { mutableStateOf(true) }
+            val thresholdValue = threshold.toIntOrNull()
+            val colorCountValue = colorCount.toIntOrNull()
+            val minAreaValue = minArea.toFloatOrNull()
+            val smoothnessValue = smoothness.toFloatOrNull()
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                VectorNumber("Limiar", threshold, { threshold = it }, Modifier.weight(1f))
+                VectorNumber("Cores", colorCount, { colorCount = it }, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                VectorNumber("Área mínima", minArea, { minArea = it }, Modifier.weight(1f))
+                VectorNumber("Suavização", smoothness, { smoothness = it }, Modifier.weight(1f))
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = bezierFit, onCheckedChange = { bezierFit = it })
+                Text("Ajustar curvas Bézier", style = MaterialTheme.typography.bodySmall)
+            }
+            TextButton(
+                enabled =
+                    thresholdValue != null && thresholdValue in 1..255 &&
+                        colorCountValue != null && colorCountValue in 2..16 &&
+                        minAreaValue != null && minAreaValue >= 0 &&
+                        smoothnessValue != null && smoothnessValue > 0,
+                onClick = {
+                    vector.traceLayer(
+                        VectorTraceOptions(
+                            mode = traceMode,
+                            threshold = thresholdValue!!,
+                            colorCount = colorCountValue!!,
+                            minArea = minAreaValue!!,
+                            smoothness = smoothnessValue!!,
+                            bezierFit = bezierFit,
+                        ),
+                    )
+                    onChanged()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Vetorizar camada")
+            }
             Text(
-                "A vetorização lê os pixels opacos da camada ativa e cria caminhos fechados.",
+                "Limiar e silhueta usam o alfa/cor da camada ativa; cores quantiza até 16 cores.",
                 style = MaterialTheme.typography.bodySmall,
             )
             HorizontalDivider()

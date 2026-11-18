@@ -551,7 +551,8 @@ const objects = esenho.vector.list();
 `setStyle`, `setText`, `gradient`, `simplify`, `outline` e `remove` recebem o objeto
 ou seu `id`. `select` define a seleção; `boolean(op, objetos)` usa `union`,
 `subtract`, `intersect` ou `exclude`; `clip(objetos, release?)` cria ou libera um
-recorte. `trace(limiar, máximo)` vetoriza a camada ativa. `flip(objetos, horizontal?)`,
+recorte. `trace({mode,threshold,colorCount,minArea,smoothness,bezierFit,maxContours})`
+vetoriza a camada ativa nos modos `threshold`, `silhouette` e `color`. `flip(objetos, horizontal?)`,
 `moveZ(objetos, forward?)`, `group(objetos, nome?)` e `ungroup(objetos)` cobrem
 espelhamento, z-order relativo e grupos aninhados. `toSvg(appearance?)` exporta
 curvas ou aparência e `fromSvg(svg)` importa caminhos editáveis.

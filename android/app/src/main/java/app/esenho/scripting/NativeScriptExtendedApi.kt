@@ -516,7 +516,17 @@ class NativeScriptExtendedApi(private val e: EsenhoEngine, private val canvas: E
             e.vectors.selection.ungroup()
             null
         }
-        "vector.trace" -> e.vectors.traceLayer(a.optInt("threshold", 128), a.optInt("maxContours", 120))
+        "vector.trace" -> e.vectors.traceLayer(
+            VectorTraceOptions(
+                mode = a.optString("mode", "threshold"),
+                threshold = a.optInt("threshold", 128),
+                colorCount = a.optInt("colorCount", 4),
+                minArea = a.f("minArea", 0.0),
+                smoothness = a.f("smoothness", 1.0),
+                bezierFit = a.optBoolean("bezierFit", true),
+                maxContours = a.optInt("maxContours", 120),
+            )
+        )
         "vector.toSvg" -> e.vectors.exportSvg(a.optBoolean("appearance", false))
         "vector.fromSvg" -> {
             val objects = VectorSvgIO.readEditable(a.getString("svg"))

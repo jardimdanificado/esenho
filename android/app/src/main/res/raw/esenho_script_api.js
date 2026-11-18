@@ -296,7 +296,7 @@
     moveZ: (objects, forward = true) => call("vector.moveZ", {ids:objects.map(idOf),forward}),
     group: (objects, name = '') => call("vector.group", {ids:objects.map(idOf),name}),
     ungroup: objects => call("vector.ungroup", {ids:objects.map(idOf)}),
-    trace: (threshold = 128, maxContours = 120) => call("vector.trace", {threshold,maxContours}),
+    trace: (options = {}) => call("vector.trace", options),
     toSvg: (appearance = false) => call("vector.toSvg", {appearance}),
     fromSvg: svg => call("vector.fromSvg", {svg})
   };

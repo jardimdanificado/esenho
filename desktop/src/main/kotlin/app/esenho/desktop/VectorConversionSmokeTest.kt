@@ -66,7 +66,7 @@ fun vectorConversionSmokeTest(context: Context) {
     )
     EsenhoNativeBridge.nativeLayerDrawBitmap(raster, bitmap, 0, 0, 120, 120)
     bitmap.recycle()
-    val count = v.traceLayer(128)
+    val count = v.traceLayer(VectorTraceOptions())
     check(count >= 1) { "Tracer found no contours" }
     layer = engine.activeLayerIndex
     val traced = v.layers.getValue(layer)

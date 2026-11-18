@@ -1213,36 +1213,38 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     }
 
     /** Converts opaque pixels of the active layer into filled vector contours. */
-    fun traceLayer(threshold: Int = 128, maxContours: Int = 120): Int {
+    fun traceLayer(options: VectorTraceOptions = VectorTraceOptions()): Int {
         val index = engine.activeLayerIndex
         val bitmap = Bitmap.createBitmap(engine.width, engine.height, Bitmap.Config.ARGB_8888)
-        val contours =
+        val shapes =
             try {
                 if (!EsenhoNativeBridge.nativeLayerGetBitmap(index, bitmap)) return 0
-                VectorTracer.trace(bitmap, threshold.coerceIn(1, 255), maxContours.coerceIn(1, 500))
+                VectorTracer.trace(bitmap, options)
             } finally {
                 bitmap.recycle()
             }
-        if (contours.isEmpty()) return 0
+        if (shapes.isEmpty()) return 0
         engine.beginVectorEdit()
         switchMode(true)
         ensureLayer()
         val target = layers.getOrPut(engine.activeLayerIndex) { mutableListOf() }
-        contours.forEach { contour ->
+        shapes.forEach { shape ->
             val obj =
                 VectorObject(
                     java.util.UUID.randomUUID().toString(),
-                    contour.nodes,
+                    shape.contours.first().nodes,
                     engine.captureVectorStyle().apply { put("strokeEnabled", false) },
                     true,
-                    engine.currentColor,
+                    if (options.mode.lowercase() == "color") shape.color else engine.currentColor,
                     name = "Vetorizado",
+                    subPaths = shape.contours.drop(1).toMutableList(),
+                    evenOdd = true,
                 )
             target.add(obj)
         }
         selectedId = target.last().id
         render()
-        return contours.size
+        return shapes.size
     }
 
     fun convertTextToCurves() = changeSelected { obj ->
