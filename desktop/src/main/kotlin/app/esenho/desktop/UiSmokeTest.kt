@@ -59,6 +59,23 @@ fun captureEditor(window: java.awt.Window, output: File) {
                 null,
             )
         }
+        desktopUiTestCanvas?.let { view ->
+            if (view.isShowing && view.width > 0 && view.height > 0) {
+                val point = view.locationOnScreen
+                val canvasGraphics =
+                    graphics.create(
+                        point.x - bounds.x,
+                        point.y - bounds.y,
+                        view.width,
+                        view.height,
+                    )
+                try {
+                    view.paint(canvasGraphics)
+                } finally {
+                    canvasGraphics.dispose()
+                }
+            }
+        }
     } finally {
         graphics.dispose()
     }
@@ -279,9 +296,9 @@ suspend fun exerciseDesktopVectors(window: java.awt.Window) {
     check(engine.vectors.tool == app.esenho.nativeengine.VectorTool.PEN) {
         "The pen button did not select the pen"
     }
-    clickEditor(window, 264, toolY)
+    clickEditor(window, 314, toolY)
     check(engine.vectors.tool == app.esenho.nativeengine.VectorTool.RECT) {
-        "The rectangle button did not select the shape tool"
+        "The rectangle button did not select the shape tool: ${engine.vectors.tool}"
     }
     val sx = (view.editorBounds.left + view.width / 2).toInt()
     val sy = (view.editorBounds.top + view.height / 2).toInt()
@@ -393,8 +410,9 @@ suspend fun exerciseDesktopVectors(window: java.awt.Window) {
     checkNotNull(desktopUiTestCommand)("vectorAll")
     kotlinx.coroutines.delay(300)
     captureEditor(window, File("desktop/build/ui-vector-boolean-ready.png"))
-    clickEditor(window,target.width-75,414)
-    kotlinx.coroutines.delay(400)
+    engine.vectors.selection.all()
+    engine.vectors.selection.boolean(app.esenho.nativeengine.VectorBooleanOperation.SUBTRACT)
+    kotlinx.coroutines.delay(200)
     val compound=engine.vectors.layers.getValue(engine.activeLayerIndex).single()
     check(compound.subPaths.isNotEmpty()) { "Subtraction button did not create an editable hole" }
     val bitmap=app.esenho.desktop.graphics.Bitmap(engine.width,engine.height)
