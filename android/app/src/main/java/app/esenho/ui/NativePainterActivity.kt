@@ -339,6 +339,9 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         workspacePreferences.edit().putBoolean("raster_tools_visible",rasterToolsVisible)
             .putBoolean("vector_tools_visible",vectorToolsVisible).apply()
     }
+    var animationBarVisible by remember {
+        mutableStateOf(workspacePreferences.getBoolean("animation_bar_visible", true))
+    }
     var quickShelfVisible by remember {
         mutableStateOf(workspacePreferences.getBoolean("quick_shelf_visible", true))
     }
@@ -1409,12 +1412,28 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         },
         bottomBar = {
                 Column(Modifier.blockScriptTouches(scriptSession != null || markingScriptPivot)) {
+                    if (animationBarVisible)
+                        AnimationCompactBar(
+                            engine,
+                            engineRevision,
+                            onChanged = { refreshState(false) },
+                            onOpenFull = {
+                                activePanel = WorkspacePanel.ANIMATION
+                                animationBarVisible = false
+                            },
+                        )
                     val toolsVisible = if (engine.vectors.enabled) vectorToolsVisible else rasterToolsVisible
                     if (toolsVisible) EditorToolStrip(engine, engineRevision, onTool = { chooseTool(it) }) { refreshState(false) }
                     WorkspaceProperties(
                         vectorMode = engine.vectors.enabled,
                         toolsVisible = toolsVisible,
                         onToggleTools = { toggleTools() },
+                        animationBarVisible = animationBarVisible,
+                        onToggleAnimationBar = {
+                            animationBarVisible = !animationBarVisible
+                            workspacePreferences.edit()
+                                .putBoolean("animation_bar_visible", animationBarVisible).apply()
+                        },
                         toolName = if (engine.vectors.enabled) engine.vectors.tool.label else currentTool.displayName,
                         onToolOptions = {
                             if (engine.vectors.enabled) {

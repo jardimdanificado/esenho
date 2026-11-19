@@ -8,6 +8,10 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -408,19 +412,23 @@ fun BrushDrawer(
                     }
                 }
 
-                LazyColumn(
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 170.dp),
                     modifier =
                         Modifier.fillMaxWidth()
-                            .weight(1f, fill = false)
-                            .heightIn(min = 40.dp, max = 470.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                            .then(
+                                if (embedded) Modifier.weight(1f)
+                                else Modifier.heightIn(min = 40.dp, max = 470.dp)
+                            ),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     if (
                         (activeTab == BrushDrawerTab.PRESETS && filteredPresets.isEmpty()) ||
                             (activeTab == BrushDrawerTab.WASM_PROCEDURAL &&
                                 filteredWasmBrushes.isEmpty())
                     ) {
-                        item {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             Text(
                                 "Nenhum pincel encontrado. Tente outra busca ou categoria.",
                                 modifier = Modifier.padding(vertical = 24.dp),
@@ -505,12 +513,12 @@ fun PresetItemCard(
         tonalElevation = if (isSelected) 4.dp else 1.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier =
-                    Modifier.size(28.dp)
+                    Modifier.size(22.dp)
                         .clip(CircleShape)
                         .background(
                             if (isSelected) MaterialTheme.colorScheme.primary
@@ -524,11 +532,11 @@ fun PresetItemCard(
                     tint =
                         if (isSelected) MaterialTheme.colorScheme.onPrimary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(15.dp),
+                    modifier = Modifier.size(13.dp),
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(5.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -542,13 +550,13 @@ fun PresetItemCard(
                 )
                 Text(
                     text = "${preset.size}px • ${preset.opacity}%",
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                 )
             }
 
-            IconButton(onClick = onFavoriteClick, modifier = Modifier.size(28.dp)) {
+            IconButton(onClick = onFavoriteClick, modifier = Modifier.size(24.dp)) {
                 Icon(
                     imageVector = if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
                     contentDescription =
@@ -561,7 +569,7 @@ fun PresetItemCard(
             }
 
             if (isSelected) {
-                IconButton(onClick = onTuneClick, modifier = Modifier.size(28.dp)) {
+                IconButton(onClick = onTuneClick, modifier = Modifier.size(24.dp)) {
                     Icon(
                         imageVector = Icons.Default.Tune,
                         contentDescription = "Ajustar",
@@ -602,12 +610,12 @@ fun BrushItemCard(
         tonalElevation = if (isSelected) 4.dp else 1.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier =
-                    Modifier.size(28.dp)
+                    Modifier.size(22.dp)
                         .clip(CircleShape)
                         .background(
                             if (isSelected) MaterialTheme.colorScheme.primary
@@ -621,11 +629,11 @@ fun BrushItemCard(
                     tint =
                         if (isSelected) MaterialTheme.colorScheme.onPrimary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(15.dp),
+                    modifier = Modifier.size(13.dp),
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(5.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -663,7 +671,7 @@ fun BrushItemCard(
                 }
             }
 
-            IconButton(onClick = onFavoriteClick, modifier = Modifier.size(28.dp)) {
+            IconButton(onClick = onFavoriteClick, modifier = Modifier.size(24.dp)) {
                 Icon(
                     imageVector = if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
                     contentDescription =

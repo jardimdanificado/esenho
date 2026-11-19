@@ -255,6 +255,8 @@ fun WorkspaceProperties(
     vectorMode: Boolean = false,
     toolsVisible: Boolean = true,
     onToggleTools: () -> Unit = {},
+    animationBarVisible: Boolean = false,
+    onToggleAnimationBar: () -> Unit = {},
 ) {
     var more by remember { mutableStateOf(false) }
     val relevantSliders = relevantQuickSliders(engine, configuredSliders)
@@ -392,6 +394,25 @@ fun WorkspaceProperties(
                             },
                             onClick = {
                                 onToggleTools()
+                                more = false
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    if (animationBarVisible) "Ocultar barra de animação"
+                                    else "Mostrar barra de animação"
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    if (animationBarVisible) Icons.Default.VisibilityOff
+                                    else Icons.Default.Visibility,
+                                    null,
+                                )
+                            },
+                            onClick = {
+                                onToggleAnimationBar()
                                 more = false
                             },
                         )
