@@ -369,7 +369,7 @@ class EsenhoStorageManager(private val context: Context) {
     }
 
     fun loadSideSliders(): List<SideSliderSetting> {
-        val content = safeRead(sideSlidersFile) ?: return listOf(SideSliderSetting(1), SideSliderSetting(2))
+        val content = safeRead(sideSlidersFile) ?: return listOf(SideSliderSetting(1, pinned = true), SideSliderSetting(2, pinned = true))
         return try {
             val arr = JSONArray(content)
             val result = mutableListOf<SideSliderSetting>()
@@ -381,14 +381,14 @@ class EsenhoStorageManager(private val context: Context) {
                         item.optString("id", "").ifBlank { java.util.UUID.randomUUID().toString() },
                         item.optString("owner", if (item.optInt("paramId") >= 10000) "legacy-unscoped" else BrushParameterScope.owner(null, item.optInt("paramId"))),
                         item.optString("parameterName", ""),
-                        item.optBoolean("pinned", false),
+                        item.optBoolean("pinned", !item.has("pinned")),
                     ))
                 }
             }
             result
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load side sliders", e)
-            listOf(SideSliderSetting(1), SideSliderSetting(2))
+            listOf(SideSliderSetting(1, pinned = true), SideSliderSetting(2, pinned = true))
         }
     }
 

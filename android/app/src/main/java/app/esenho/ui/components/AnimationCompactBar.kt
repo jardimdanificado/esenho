@@ -23,7 +23,6 @@ fun AnimationCompactBar(
     engine: EsenhoEngine,
     revision: Int,
     onChanged: () -> Unit,
-    onOpenFull: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var currentIdx by remember { mutableIntStateOf(engine.currentFrameIndex) }
@@ -178,13 +177,6 @@ fun AnimationCompactBar(
                             engine.animationLoop = !engine.animationLoop
                             moreMenu = false
                             onChanged()
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Timeline completa") },
-                        onClick = {
-                            moreMenu = false
-                            onOpenFull()
                         },
                     )
                 }

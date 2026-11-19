@@ -257,10 +257,12 @@ fun WorkspaceProperties(
     onToggleTools: () -> Unit = {},
     animationBarVisible: Boolean = false,
     onToggleAnimationBar: () -> Unit = {},
+    layersBarVisible: Boolean = false,
+    onToggleLayersBar: () -> Unit = {},
 ) {
     var more by remember { mutableStateOf(false) }
     val relevantSliders = relevantQuickSliders(engine, configuredSliders)
-    val pinnedSliders = relevantSliders.filter { it.pinned || it.paramId == 1 }
+    val pinnedSliders = relevantSliders.filter { it.pinned }
     CompactControls {
         Surface(color = MaterialTheme.colorScheme.surface) {
             Row(
@@ -274,7 +276,19 @@ fun WorkspaceProperties(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    pinnedSliders.forEach { setting ->
+                    if (pinnedSliders.isEmpty())
+                        Box(Modifier.weight(1f).height(36.dp)) {
+                            QuickParameterTrigger(
+                                engine,
+                                null,
+                                revision,
+                                quickSlidersOpen,
+                                onToggleQuickSliders,
+                                onBrushProperties,
+                                onParameterChanged,
+                            )
+                        }
+                    else pinnedSliders.forEach { setting ->
                         Box(Modifier.weight(1f).height(36.dp)) {
                             QuickParameterTrigger(
                                 engine,
@@ -413,6 +427,25 @@ fun WorkspaceProperties(
                             },
                             onClick = {
                                 onToggleAnimationBar()
+                                more = false
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    if (layersBarVisible) "Ocultar barra de camadas"
+                                    else "Mostrar barra de camadas"
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    if (layersBarVisible) Icons.Default.VisibilityOff
+                                    else Icons.Default.Visibility,
+                                    null,
+                                )
+                            },
+                            onClick = {
+                                onToggleLayersBar()
                                 more = false
                             },
                         )

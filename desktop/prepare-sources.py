@@ -76,8 +76,6 @@ for src in base.rglob('*'):
     text = text.replace('import androidx.activity.result.contract.ActivityResultContracts', 'import app.esenho.desktop.platform.ActivityResultContracts')
     text = text.replace('import androidx.compose.ui.viewinterop.AndroidView', 'import app.esenho.desktop.platform.DesktopCanvasView')
     text = text.replace('AndroidView(', 'DesktopCanvasView(')
-    if src.name == 'AnimationTimelineBar.kt':
-        text = text.replace('canvas.nativeCanvas.drawText(', 'app.esenho.desktop.graphics.drawComposeText(canvas.nativeCanvas, ')
     target = out / src.relative_to(base)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text)

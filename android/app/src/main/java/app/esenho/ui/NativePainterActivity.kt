@@ -342,6 +342,9 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var animationBarVisible by remember {
         mutableStateOf(workspacePreferences.getBoolean("animation_bar_visible", true))
     }
+    var layersBarVisible by remember {
+        mutableStateOf(workspacePreferences.getBoolean("layers_bar_visible", true))
+    }
     var quickShelfVisible by remember {
         mutableStateOf(workspacePreferences.getBoolean("quick_shelf_visible", true))
     }
@@ -544,7 +547,11 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 workspacePreferences.edit().putBoolean("quick_shelf_visible",quickShelfVisible).putBoolean("quick_shelf_recent",quickShelfRecent).apply()
             } else {
                 vectorTabRequest = null
-                activePanel = if (args.isNull("name")) null else WorkspacePanel.values().firstOrNull {
+                if (args.optString("name").equals("animation", ignoreCase = true)) {
+                    animationBarVisible = true
+                    workspacePreferences.edit().putBoolean("animation_bar_visible", true).apply()
+                    activePanel = null
+                } else activePanel = if (args.isNull("name")) null else WorkspacePanel.values().firstOrNull {
                     it.name.equals(args.getString("name"), ignoreCase = true)
                 } ?: error("Painel desconhecido: ${args.optString("name")}")
             }
@@ -827,6 +834,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 },
                 onDismiss = { activePanel = null },
                 tabRequest = vectorTabRequest)
+            WorkspacePanel.ANIMATION -> Box(Modifier.fillMaxSize())
             WorkspacePanel.MESH -> MeshObjectPanel(
                 engine = engine,
                 revision = engineRevision,
@@ -858,19 +866,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     onLayersUpdated = { refreshState() },
                     onDismiss = { activePanel = null },
                 )
-            WorkspacePanel.ANIMATION ->
-                Column(Modifier.fillMaxSize()) {
-                    AnimationTimelineBar(
-                        engine = engine,
-                        revision = engineRevision,
-                        embedded = true,
-                        onFrameChanged = {
-                            refreshState(persistFavoriteTool = false)
-                        },
-                        onClose = { activePanel = null },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
             WorkspacePanel.EFFECTS ->
                 FilterModal(
                     engine = engine,
@@ -1417,10 +1412,12 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             engine,
                             engineRevision,
                             onChanged = { refreshState(false) },
-                            onOpenFull = {
-                                activePanel = WorkspacePanel.ANIMATION
-                                animationBarVisible = false
-                            },
+                        )
+                    if (layersBarVisible)
+                        LayersCompactBar(
+                            engine,
+                            engineRevision,
+                            onChanged = { refreshState(false) },
                         )
                     val toolsVisible = if (engine.vectors.enabled) vectorToolsVisible else rasterToolsVisible
                     if (toolsVisible) EditorToolStrip(engine, engineRevision, onTool = { chooseTool(it) }) { refreshState(false) }
@@ -1433,6 +1430,12 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             animationBarVisible = !animationBarVisible
                             workspacePreferences.edit()
                                 .putBoolean("animation_bar_visible", animationBarVisible).apply()
+                        },
+                        layersBarVisible = layersBarVisible,
+                        onToggleLayersBar = {
+                            layersBarVisible = !layersBarVisible
+                            workspacePreferences.edit()
+                                .putBoolean("layers_bar_visible", layersBarVisible).apply()
                         },
                         toolName = if (engine.vectors.enabled) engine.vectors.tool.label else currentTool.displayName,
                         onToolOptions = {
@@ -1529,14 +1532,14 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         },
                         activePanel = activePanel,
                         onLayers = {
-                            activePanel =
-                                if (activePanel == WorkspacePanel.LAYERS) null
-                                else WorkspacePanel.LAYERS
+                            layersBarVisible = !layersBarVisible
+                            workspacePreferences.edit()
+                                .putBoolean("layers_bar_visible", layersBarVisible).apply()
                         },
                         onAnimation = {
-                            activePanel =
-                                if (activePanel == WorkspacePanel.ANIMATION) null
-                                else WorkspacePanel.ANIMATION
+                            animationBarVisible = !animationBarVisible
+                            workspacePreferences.edit()
+                                .putBoolean("animation_bar_visible", animationBarVisible).apply()
                         },
                         quickScripts = savedScriptPresets,
                         onOpenScripts = { quickSlidersOpen = false; activePanel = WorkspacePanel.SCRIPTS },
