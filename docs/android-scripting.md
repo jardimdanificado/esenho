@@ -183,7 +183,7 @@ Cores aceitam `#RRGGBB`, `#AARRGGBB` ou números ARGB.
 `view.set()` define valores absolutos e preserva campos omitidos. O ponto do
 documento `(x,y)` fica centralizado na área visível.
 `ui.openPanel()` aceita `brushes`, `color`, `layers`, `animation`, `effects`,
-`selection`, `transform` e `scripts`. Abrir um painel ou diálogo solicita sua exibição;
+`selection`, `transform`, `vector`, `mesh`, `document` e `scripts`. Abrir um painel ou diálogo solicita sua exibição;
 isso não espera o fechamento. A API opera os componentes existentes.
 
 Confirme ou cancele uma transformação antes de editar outro recurso. Ao terminar

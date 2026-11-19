@@ -83,7 +83,8 @@ fun LayerDrawer(
                 Modifier.fillMaxWidth().height(32.dp).padding(start = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
+                if (embedded) Spacer(Modifier.weight(1f))
+                else Text(
                     "Camadas · ${layersList.size}",
                     Modifier.weight(1f),
                     style = MaterialTheme.typography.labelMedium,
@@ -100,7 +101,7 @@ fun LayerDrawer(
                 IconButton(onClick = { engine.editRasterGroups { engine.createRasterLayerGroup() }; refresh() }, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.CreateNewFolder,"Novo grupo",Modifier.size(19.dp))
                 }
-                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                if (!embedded) IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.Close, "Fechar camadas", Modifier.size(17.dp))
                 }
             }

@@ -288,9 +288,9 @@ fun BrushDrawer(
                     .padding(horizontal = 8.dp)
                     .padding(bottom = 4.dp)
         ) {
-            if (!showTuner) EditorPanelHeader("Pincéis", onDismiss)
             if (showTuner) {
                 BrushPropertiesPanel(
+                    embedded = embedded,
                     engine = engine,
                     preset = engine.selectedPreset,
                     onBack = { showTuner = false },
@@ -411,8 +411,10 @@ fun BrushDrawer(
                 LazyColumn(
                     modifier =
                         Modifier.fillMaxWidth()
-                            .weight(1f, fill = false)
-                            .heightIn(min = 40.dp, max = 470.dp),
+                            .then(
+                                if (embedded) Modifier.weight(1f)
+                                else Modifier.heightIn(min = 40.dp, max = 470.dp)
+                            ),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     if (
@@ -802,6 +804,7 @@ internal fun CompactOptionDropdown(
 
 @Composable
 fun BrushPropertiesPanel(
+    embedded: Boolean = false,
     engine: EsenhoEngine,
     preset: BrushPresetModel?,
     onBrushUpdated: () -> Unit,
@@ -879,7 +882,7 @@ fun BrushPropertiesPanel(
                     Text("Salvar", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
-            IconButton(onClose, Modifier.size(28.dp)) {
+            if (!embedded) IconButton(onClose, Modifier.size(28.dp)) {
                 Icon(Icons.Default.Close, "Fechar ajustes", Modifier.size(16.dp))
             }
         }

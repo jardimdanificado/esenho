@@ -103,7 +103,7 @@ fun NativeScriptEditor(
     val selected = presets.firstOrNull { it.id == selectedPresetId }
     val modified = selected != null && source != selected.source
     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        EditorPanelHeader("Scripts JavaScript", { releaseEditorFocus(); onDismiss() })
+        DisposableEffect(Unit) { onDispose { releaseEditorFocus() } }
         WorkspaceSectionTabs(listOf("Código", "API", "Pivots"),tab,{ tab=it })
         if (tab == 1) ScriptReferencePanel(Modifier.weight(1f))
         else if (tab == 2) Box(Modifier.weight(1f)) { ScriptPivotsPanel(pivots,onPickPivot,onUpdatePivot,onMovePivot,onRemovePivot) }
@@ -175,7 +175,7 @@ fun NativeScriptEditor(
         if (pivotNames.isNotEmpty()) Text("Pivots: ${pivotNames.joinToString()}", style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (output.isNotEmpty()) Text(
             output.joinToString("\n"),
-            Modifier.fillMaxWidth().heightIn(max = 64.dp).verticalScroll(rememberScrollState()),
+            Modifier.fillMaxWidth().weight(0.35f).verticalScroll(rememberScrollState()),
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
         )
     }

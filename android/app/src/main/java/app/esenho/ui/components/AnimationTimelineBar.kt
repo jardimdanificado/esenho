@@ -81,6 +81,12 @@ fun AnimationTimelineBar(
     var currentDuration by remember {
         mutableIntStateOf(engine.animationFrames.getOrNull(currentIdx)?.duration ?: 1)
     }
+    if (embedded) DisposableEffect(Unit) {
+        onDispose {
+            isPlaying = false
+            engine.isAnimationPlaying = false
+        }
+    }
     var showOnionSettings by remember { mutableStateOf(false) }
     var onionPrevCount by remember { mutableIntStateOf(engine.onionPrevFrames) }
     var onionNextCount by remember { mutableIntStateOf(engine.onionNextFrames) }
@@ -369,7 +375,7 @@ fun AnimationTimelineBar(
                         )
                     }
                 }
-                IconButton(
+                if (!embedded) IconButton(
                     onClick = {
                         isPlaying = false
                         engine.isAnimationPlaying = false

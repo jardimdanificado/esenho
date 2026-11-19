@@ -345,7 +345,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var vectorTabRequest by remember { mutableStateOf<VectorPanelTab?>(null) }
     var brushPresetRequest by remember { mutableIntStateOf(0) }
     var brushPropertiesRequest by remember { mutableIntStateOf(0) }
-    var showWorkspaceActions by remember { mutableStateOf(false) }
     var documentTab by remember { mutableIntStateOf(0) }
     var showAssistMenu by remember { mutableStateOf(false) }
 
@@ -375,13 +374,11 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var showSelectMenu by remember { mutableStateOf(false) }
     var toolMenuCategory by remember { mutableStateOf<String?>(null) }
     var showSelectionOpMenu by remember { mutableStateOf(false) }
-    var showSelectionFeatherDialog by remember { mutableStateOf(false) }
     var selectionFeatherRadius by remember { mutableFloatStateOf(4f) }
     var showCreateBrushTipDialog by remember { mutableStateOf(false) }
     var customBrushTipName by remember { mutableStateOf("") }
     var showCreateGrainDialog by remember { mutableStateOf(false) }
     var customGrainName by remember { mutableStateOf("") }
-    var showWandSettings by remember { mutableStateOf(false) }
     var showTransformModeMenu by remember { mutableStateOf(false) }
     var showTransformActions by remember { mutableStateOf(false) }
     var activeTransformMode by remember { mutableStateOf(engine.transformModePreference) }
@@ -447,7 +444,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             isTransformActive = false
             currentTool = mode
             engine.currentTool = mode
-            showWandSettings = true
         } else if (mode == ToolMode.TRANSFORM) {
             if (engine.beginTransform(selectionOnly = engine.selectionActive)) {
                 isTransformActive = true
@@ -760,6 +756,419 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
 
     val panelContent: @Composable () -> Unit = {
         when (activePanel) {
+            WorkspacePanel.DOCUMENT -> {
+                Column(
+                    Modifier.fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 14.dp)
+                        .padding(bottom = 12.dp),
+                ) {
+                    WorkspaceSectionTabs(
+                        listOf("Projeto", "Tela", "Seleção"),
+                        documentTab,
+                        { documentTab = it },
+                    )
+                    when (documentTab) {
+                        0 -> {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Espaço de trabalho", Modifier.align(Alignment.CenterVertically))
+                                listOf(0 to "Raster", 1 to "Vetor", 2 to "3D").forEach { (mode, label) ->
+                                    val selected =
+                                        when (mode) {
+                                            1 -> engine.vectors.enabled
+                                            2 -> engine.meshes.enabled
+                                            else -> !engine.vectors.enabled && !engine.meshes.enabled
+                                        }
+                                    FilterChip(selected = selected, onClick = {
+                                        activePanel = null
+                                        activePanel = null
+                                        if (mode == 2) {
+                                            engine.vectors.switchMode(false)
+                                            engine.meshes.switchMode(true)
+                                            activePanel = WorkspacePanel.MESH
+                                        } else {
+                                            engine.meshes.switchMode(false)
+                                            engine.vectors.switchMode(mode == 1)
+                                        }
+                                        refreshState(false)
+                                    }, label = { Text(label) })
+                                }
+                            }
+                            if (engine.vectors.enabled) {
+                                DropdownMenuItem(text = { Text("Importar SVG…") }, onClick = {
+                                    activePanel = null
+                                    openSvgLauncher.launch(arrayOf("image/svg+xml"))
+                                })
+                                listOf(false to "Exportar curvas SVG…", true to "Exportar SVG com aparência…").forEach { (appearance, label) ->
+                                    DropdownMenuItem(text = { Text(label) }, onClick = {
+                                        activePanel = null
+                                        svgAppearance = appearance
+                                        saveSvgLauncher.launch(if (appearance) "esenho-aparencia.svg" else "esenho.svg")
+                                    })
+                                }
+                                HorizontalDivider()
+                            }
+                            if (engine.meshes.enabled) {
+                                DropdownMenuItem(text = { Text("Importar OBJ…") }, onClick = {
+                                    activePanel = null
+                                    openObjLauncher.launch(arrayOf("*/*"))
+                                })
+                                DropdownMenuItem(text = { Text("Exportar OBJ…") }, onClick = {
+                                    activePanel = null
+                                    saveObjLauncher.launch("modelo.obj")
+                                })
+                                HorizontalDivider()
+                            }
+                            DropdownMenuItem(
+                                text = { Text("Nova tela") },
+                                leadingIcon = { Icon(Icons.Default.AddBox, null) },
+                                onClick = {
+                                    activePanel = null
+                                    showNewProjectDialog = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Salvar e abrir projetos") },
+                                leadingIcon = { Icon(Icons.Default.FolderOpen, null) },
+                                onClick = {
+                                    activePanel = null
+                                    showProjectManager = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Importar imagem") },
+                                leadingIcon = { Icon(Icons.Default.Image, null) },
+                                onClick = {
+                                    activePanel = null
+                                    imagePickerLauncher.launch("image/*")
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Exportar…") },
+                                leadingIcon = { Icon(Icons.Default.Share, null) },
+                                onClick = {
+                                    activePanel = null
+                                    showExportDialog = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "esenho v${context.getString(R.string.app_version).substringBefore('-')}"
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Default.Info, null) },
+                                enabled = false,
+                                onClick = {},
+                            )
+                        }
+                        1 -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "Guias, grade e simetria",
+                                    Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Box {
+                                    TooltipIconButton(
+                                        onClick = { showAssistMenu = true },
+                                        description = "Auxiliares: guias, grade e simetria",
+                                        modifier = Modifier.size(40.dp),
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Tune,
+                                            "Auxiliares",
+                                            modifier = Modifier.size(20.dp),
+                                            tint =
+                                                if (
+                                                    pixelArtGrid ||
+                                                        symmetryMode != SymmetryMode.OFF ||
+                                                        engine.guideSnapEnabled
+                                                )
+                                                    MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = showAssistMenu,
+                                        onDismissRequest = { showAssistMenu = false },
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Guias de traçado") },
+                                            leadingIcon = { Icon(Icons.Default.Straighten, null) },
+                                            onClick = {
+                                                showAssistMenu = false
+                                                showGuidesMenu = true
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Grade Pixel Art") },
+                                            leadingIcon = { Icon(Icons.Default.GridOn, null) },
+                                            trailingIcon =
+                                                if (pixelArtGrid) {
+                                                    { Icon(Icons.Default.Check, null) }
+                                                } else null,
+                                            onClick = {
+                                                engine.pixelArtGrid = !engine.pixelArtGrid
+                                                refreshState()
+                                                showAssistMenu = false
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text("Simetria · ${symmetryMode.displayName}")
+                                            },
+                                            leadingIcon = { Icon(Icons.Default.Stream, null) },
+                                            onClick = {
+                                                showAssistMenu = false
+                                                showSymmetryMenu = true
+                                            },
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = showGuidesMenu,
+                                        onDismissRequest = { showGuidesMenu = false },
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    if (engine.guideSnapEnabled)
+                                                        "Desativar aderência"
+                                                    else "Ativar aderência"
+                                                )
+                                            },
+                                            onClick = {
+                                                engine.guideSnapEnabled = !engine.guideSnapEnabled
+                                                showGuidesMenu = false
+                                                canvasViewRef?.invalidate()
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Aderir a todas as guias visíveis") },
+                                            leadingIcon = {
+                                                Icon(
+                                                    if (engine.snapToAllVisibleGuides)
+                                                        Icons.Default.CheckBox
+                                                    else Icons.Default.CheckBoxOutlineBlank,
+                                                    null,
+                                                )
+                                            },
+                                            onClick = {
+                                                engine.snapToAllVisibleGuides =
+                                                    !engine.snapToAllVisibleGuides
+                                                engine.guideSnapEnabled = true
+                                                showGuidesMenu = false
+                                                canvasViewRef?.invalidate()
+                                            },
+                                        )
+                                        HorizontalDivider()
+                                        listOf(
+                                                DrawingGuideType.LINE to "Criar linha",
+                                                DrawingGuideType.CURVE to "Criar curva livre",
+                                                DrawingGuideType.ELLIPSE to "Criar elipse",
+                                                DrawingGuideType.SPHERE to "Criar esfera",
+                                            )
+                                            .forEach { (type, label) ->
+                                                DropdownMenuItem(
+                                                    text = { Text(label) },
+                                                    onClick = {
+                                                        engine.guideCreationType = type
+                                                        engine.guideSnapEnabled = true
+                                                        showGuidesMenu = false
+                                                        canvasViewRef?.invalidate()
+                                                    },
+                                                )
+                                            }
+                                        key(guideMenuRevision) {
+                                            if (engine.canvasGuides.isNotEmpty()) {
+                                                HorizontalDivider()
+                                                engine.canvasGuides.indices.forEach { index ->
+                                                    val isGuideSelected =
+                                                        engine.snapToAllVisibleGuides ||
+                                                            index in engine.snapGuideIndices
+                                                    val guideTypeName =
+                                                        when (engine.canvasGuides[index].type) {
+                                                            DrawingGuideType.LINE -> "Linha"
+                                                            DrawingGuideType.CURVE -> "Curva"
+                                                            DrawingGuideType.ELLIPSE -> "Elipse"
+                                                            DrawingGuideType.SPHERE -> "Esfera"
+                                                        }
+                                                    DropdownMenuItem(
+                                                        text = {
+                                                            Text(
+                                                                "Guia ${index + 1} · $guideTypeName"
+                                                            )
+                                                        },
+                                                        leadingIcon = {
+                                                            Icon(
+                                                                if (isGuideSelected)
+                                                                    Icons.Default.CheckBox
+                                                                else
+                                                                    Icons.Default
+                                                                        .CheckBoxOutlineBlank,
+                                                                contentDescription =
+                                                                    if (isGuideSelected)
+                                                                        "Aderência ativada"
+                                                                    else "Aderência desativada",
+                                                            )
+                                                        },
+                                                        trailingIcon = {
+                                                            IconButton(
+                                                                onClick = {
+                                                                    engine.removeCanvasGuide(index)
+                                                                    guideMenuRevision++
+                                                                    canvasViewRef?.invalidate()
+                                                                },
+                                                                modifier = Modifier.size(32.dp),
+                                                            ) {
+                                                                Icon(
+                                                                    Icons.Default.DeleteOutline,
+                                                                    contentDescription =
+                                                                        "Apagar guia",
+                                                                    modifier = Modifier.size(18.dp),
+                                                                    tint =
+                                                                        MaterialTheme.colorScheme
+                                                                            .error,
+                                                                )
+                                                            }
+                                                        },
+                                                        onClick = {
+                                                            if (engine.snapToAllVisibleGuides) {
+                                                                engine.snapToAllVisibleGuides =
+                                                                    false
+                                                                engine.snapGuideIndices.clear()
+                                                                engine.snapGuideIndices.addAll(
+                                                                    engine.canvasGuides.indices
+                                                                )
+                                                            }
+                                                            if (isGuideSelected)
+                                                                engine.snapGuideIndices.remove(
+                                                                    index
+                                                                )
+                                                            else engine.snapGuideIndices.add(index)
+                                                            engine.activeCanvasGuideIndex = index
+                                                            engine.guideSnapEnabled = true
+                                                            guideMenuRevision++
+                                                            canvasViewRef?.invalidate()
+                                                        },
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    DropdownMenu(
+                                        expanded = showSymmetryMenu,
+                                        onDismissRequest = { showSymmetryMenu = false },
+                                    ) {
+                                        SymmetryMode.values().forEach { mode ->
+                                            DropdownMenuItem(
+                                                text = { Text(mode.displayName) },
+                                                trailingIcon =
+                                                    if (symmetryMode == mode) {
+                                                        { Icon(Icons.Default.Check, null) }
+                                                    } else null,
+                                                onClick = {
+                                                    showSymmetryMenu = false
+                                                    engine.symmetryMode = mode
+                                                    refreshState()
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            DropdownMenuItem(
+                                text = { Text("Redimensionar Tela...") },
+                                leadingIcon = { Icon(Icons.Default.AspectRatio, null) },
+                                onClick = {
+                                    activePanel = null
+                                    canvasResizeWidth = engine.width.toString()
+                                    canvasResizeHeight = engine.height.toString()
+                                    canvasResizeError = null
+                                    showCanvasResizeDialog = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Resetar Zoom & Posição") },
+                                leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) },
+                                onClick = {
+                                    activePanel = null
+                                    canvasViewRef?.resetView()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Espelhar Tela Horizontal") },
+                                leadingIcon = { Icon(Icons.Default.Flip, null) },
+                                onClick = {
+                                    activePanel = null
+                                    engine.flipCanvasH()
+                                    refreshState()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Espelhar Tela Vertical") },
+                                leadingIcon = { Icon(Icons.Default.FlipCameraAndroid, null) },
+                                onClick = {
+                                    activePanel = null
+                                    engine.flipCanvasV()
+                                    refreshState()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Remover todas as guias") },
+                                leadingIcon = { Icon(Icons.Default.DeleteOutline, null) },
+                                enabled = engine.canvasGuides.isNotEmpty(),
+                                onClick = {
+                                    activePanel = null
+                                    engine.canvasGuides.clear()
+                                    engine.snapGuideIndices.clear()
+                                    engine.snapToAllVisibleGuides = false
+                                    engine.activeCanvasGuideIndex = -1
+                                    canvasViewRef?.invalidate()
+                                },
+                            )
+                        }
+                        else -> {
+                            DropdownMenuItem(
+                                text = { Text("Selecionar Tudo") },
+                                leadingIcon = { Icon(Icons.Default.SelectAll, null) },
+                                onClick = {
+                                    activePanel = null
+                                    engine.selectAll()
+                                    refreshState()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Inverter Seleção") },
+                                leadingIcon = { Icon(Icons.Default.InvertColors, null) },
+                                onClick = {
+                                    activePanel = null
+                                    engine.invertSelection()
+                                    refreshState()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Colar seleção") },
+                                leadingIcon = { Icon(Icons.Default.ContentPaste, null) },
+                                enabled = canPasteSelection,
+                                onClick = {
+                                    activePanel = null
+                                    engine.pasteSelectionClipboard()
+                                    refreshState()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Limpar Camada Atual") },
+                                leadingIcon = { Icon(Icons.Default.DeleteSweep, null) },
+                                onClick = {
+                                    activePanel = null
+                                    showClearLayerConfirm = true
+                                },
+                            )
+                        }
+                    }
+                }
+            }
             WorkspacePanel.SCRIPTS ->
                 NativeScriptEditor(
                     source = scriptSource,
@@ -873,13 +1282,43 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)
                 ) {
-                    EditorPanelHeader("Seleção", { activePanel = null })
                     Text(
                         if (selectionActive) "Edite a área selecionada"
                         else "Desenhe uma seleção na tela ou use Selecionar tudo.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (currentTool == ToolMode.SELECT_WAND) {
+                        HorizontalDivider()
+                        Text("Varinha mágica", style = MaterialTheme.typography.labelMedium)
+                        Text("Tolerância: ${wandTolerance.toInt()}", style = MaterialTheme.typography.labelSmall)
+                        Slider(
+                            value = wandTolerance,
+                            onValueChange = { wandTolerance = it; engine.wandTolerance = it.toInt() },
+                            valueRange = 0f..255f,
+                            steps = 254,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = wandContiguous,
+                                onCheckedChange = { wandContiguous = it; engine.wandContiguous = it },
+                            )
+                            Text("Selecionar apenas pixels conectados", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    if (selectionActive) {
+                        HorizontalDivider()
+                        Text("Suavizar borda", style = MaterialTheme.typography.labelMedium)
+                        Text("Raio: ${selectionFeatherRadius.toInt()} px", style = MaterialTheme.typography.labelSmall)
+                        Slider(
+                            value = selectionFeatherRadius,
+                            onValueChange = { selectionFeatherRadius = it },
+                            valueRange = 0f..40f,
+                        )
+                        TextButton(onClick = { engine.featherSelection(selectionFeatherRadius.toInt()); refreshState() }) {
+                            Text("Aplicar")
+                        }
+                    }
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -923,7 +1362,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                             enabled = selectionActive,
                             description = "Copiar seleção",
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                         ) {
                             Icon(
                                 Icons.Default.ContentCopy,
@@ -938,7 +1377,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                             enabled = selectionActive,
                             description = "Recortar seleção",
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                         ) {
                             Icon(
                                 Icons.Default.ContentCut,
@@ -953,7 +1392,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                             enabled = selectionActive,
                             description = "Preencher",
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                         ) {
                             Icon(
                                 Icons.Default.FormatColorFill,
@@ -965,7 +1404,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             onClick = { if (engine.cropCanvasToSelection()) refreshState() },
                             enabled = selectionActive,
                             description = "Cortar tela",
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                         ) {
                             Icon(
                                 Icons.Default.Crop,
@@ -981,7 +1420,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                             enabled = selectionActive,
                             description = "Criar ponta",
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                         ) {
                             Icon(
                                 Icons.Default.Brush,
@@ -997,7 +1436,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                             enabled = selectionActive,
                             description = "Criar textura",
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                         ) {
                             Icon(
                                 Icons.Default.GridOn,
@@ -1012,7 +1451,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                             description = "Colar seleção",
                             enabled = canPasteSelection,
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                         ) {
                             Icon(
                                 Icons.Default.ContentPaste,
@@ -1027,7 +1466,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 refreshState()
                             },
                             description = "Selecionar Tudo",
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                         ) {
                             Icon(
                                 Icons.Default.SelectAll,
@@ -1044,7 +1483,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                             enabled = selectionActive,
                             description = "Inverter Seleção",
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                         ) {
                             Icon(
                                 Icons.Default.InvertColors,
@@ -1054,7 +1493,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         }
 
                         TextButton(
-                            onClick = { showSelectionFeatherDialog = true },
+                            onClick = { activePanel = WorkspacePanel.SELECTION },
                             contentPadding = PaddingValues(horizontal = 5.dp),
                             modifier = Modifier.height(32.dp),
                         ) {
@@ -1069,7 +1508,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                             enabled = selectionActive,
                             description = "Deselecionar",
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                         ) {
                             Icon(
                                 Icons.Default.Deselect,
@@ -1086,7 +1525,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                             enabled = selectionActive,
                             description = "Apagar Pixels Selecionados",
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                         ) {
                             Icon(
                                 Icons.Default.DeleteOutline,
@@ -1110,7 +1549,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                             enabled = selectionActive,
                             description = "Transformar Seleção",
-                            modifier = Modifier.width(140.dp),
+                            modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                         ) {
                             Icon(
                                 Icons.Default.OpenWith,
@@ -1124,7 +1563,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)
                 ) {
-                    EditorPanelHeader("Transformação", { activePanel = null })
                     if (!isTransformActive)
                         Text(
                             "Escolha uma área para transformar.",
@@ -1135,13 +1573,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text(
-                                text = "Transformar",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(end = 4.dp),
-                            )
                             Box {
                                 TextButton(
                                     onClick = { showTransformModeMenu = true },
@@ -1187,7 +1618,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 description =
                                     if (transformLockAspect) "Proporção bloqueada"
                                     else "Bloquear proporção",
-                                modifier = Modifier.width(140.dp),
+                                modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                             ) {
                                 Icon(
                                     if (transformLockAspect) Icons.Default.Lock
@@ -1227,7 +1658,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                     canvasViewRef?.invalidate()
                                 },
                                 description = "Espelhar Horizontal",
-                                modifier = Modifier.width(140.dp),
+                                modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                             ) {
                                 Icon(
                                     Icons.Default.Flip,
@@ -1242,7 +1673,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                     canvasViewRef?.invalidate()
                                 },
                                 description = "Girar 90°",
-                                modifier = Modifier.width(140.dp),
+                                modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                             ) {
                                 Icon(
                                     Icons.Default.RotateRight,
@@ -1255,7 +1686,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 WorkspaceActionButton(
                                     onClick = { showTransformActions = true },
                                     description = "Mais ações de transformação",
-                                    modifier = Modifier.width(140.dp),
+                                    modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                                 ) {
                                     Icon(
                                         Icons.Default.MoreVert,
@@ -1328,7 +1759,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                     refreshState()
                                 },
                                 description = "Cancelar Transformação",
-                                modifier = Modifier.width(140.dp),
+                                modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                             ) {
                                 Icon(
                                     Icons.Default.Close,
@@ -1348,7 +1779,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 },
                                 description = "Confirmar Transformação",
                                 emphasized = true,
-                                modifier = Modifier.width(140.dp),
+                                modifier = Modifier.widthIn(min = 100.dp, max = 160.dp),
                             ) {
                                 Icon(
                                     Icons.Default.Check,
@@ -1363,7 +1794,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         }
     }
     BackHandler(enabled = activePanel != null && scriptSession == null && !markingScriptPivot) { activePanel = null }
-    LaunchedEffect(activePanel, showSelectMenu, showWorkspaceActions, brushPropertiesRequest) {
+    LaunchedEffect(activePanel, showSelectMenu, brushPropertiesRequest) {
         engine.vectors.finishAppearanceEdit()
         quickSlidersOpen = false
         canvasViewRef?.previewBrushSize = 0f
@@ -1397,7 +1828,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         engine.redo()
                         refreshState()
                     },
-                    onDocument = { showWorkspaceActions = true },
+                    onDocument = { activePanel = WorkspacePanel.DOCUMENT },
                 )
             }
         },
@@ -1639,6 +2070,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             activePanel!!,
                             Modifier.fillMaxWidth().height(mobilePanelHeight).blockScriptTouches(scriptSession != null || markingScriptPivot),
                             panelContent,
+                            onClose = { activePanel = null },
                             onResize = { deltaPixels ->
                                 val delta = with(dockDensity) { deltaPixels.toDp() }
                                 bottomDockHeight =
@@ -1663,6 +2095,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         activePanel!!,
                         Modifier.width(inspectorWidth).fillMaxHeight().blockScriptTouches(scriptSession != null || markingScriptPivot),
                         panelContent,
+                        onClose = { activePanel = null },
                         sideDock = true,
                         onResize = { deltaPixels ->
                             val delta = with(dockDensity) { deltaPixels.toDp() }
@@ -1683,429 +2116,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             }
         }
 
-        if (showWorkspaceActions) {
-            ModalBottomSheet(
-                onDismissRequest = { showWorkspaceActions = false },
-                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-                containerColor = MaterialTheme.colorScheme.surface,
-            ) {
-                Column(
-                    Modifier.fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp)
-                        .padding(bottom = 20.dp)
-                ) {
-                    EditorPanelHeader(
-                        "Documento e espaço de trabalho",
-                        { showWorkspaceActions = false },
-                    )
-                    WorkspaceSectionTabs(
-                        listOf("Projeto", "Tela", "Seleção"),
-                        documentTab,
-                        { documentTab = it },
-                    )
-                    when (documentTab) {
-                        0 -> {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Espaço de trabalho", Modifier.align(Alignment.CenterVertically))
-                                listOf(0 to "Raster", 1 to "Vetor", 2 to "3D").forEach { (mode, label) ->
-                                    val selected =
-                                        when (mode) {
-                                            1 -> engine.vectors.enabled
-                                            2 -> engine.meshes.enabled
-                                            else -> !engine.vectors.enabled && !engine.meshes.enabled
-                                        }
-                                    FilterChip(selected = selected, onClick = {
-                                        activePanel = null
-                                        showWorkspaceActions = false
-                                        if (mode == 2) {
-                                            engine.vectors.switchMode(false)
-                                            engine.meshes.switchMode(true)
-                                            activePanel = WorkspacePanel.MESH
-                                        } else {
-                                            engine.meshes.switchMode(false)
-                                            engine.vectors.switchMode(mode == 1)
-                                        }
-                                        refreshState(false)
-                                    }, label = { Text(label) })
-                                }
-                            }
-                            if (engine.vectors.enabled) {
-                                DropdownMenuItem(text = { Text("Importar SVG…") }, onClick = {
-                                    showWorkspaceActions = false
-                                    openSvgLauncher.launch(arrayOf("image/svg+xml"))
-                                })
-                                listOf(false to "Exportar curvas SVG…", true to "Exportar SVG com aparência…").forEach { (appearance, label) ->
-                                    DropdownMenuItem(text = { Text(label) }, onClick = {
-                                        showWorkspaceActions = false
-                                        svgAppearance = appearance
-                                        saveSvgLauncher.launch(if (appearance) "esenho-aparencia.svg" else "esenho.svg")
-                                    })
-                                }
-                                HorizontalDivider()
-                            }
-                            if (engine.meshes.enabled) {
-                                DropdownMenuItem(text = { Text("Importar OBJ…") }, onClick = {
-                                    showWorkspaceActions = false
-                                    openObjLauncher.launch(arrayOf("*/*"))
-                                })
-                                DropdownMenuItem(text = { Text("Exportar OBJ…") }, onClick = {
-                                    showWorkspaceActions = false
-                                    saveObjLauncher.launch("modelo.obj")
-                                })
-                                HorizontalDivider()
-                            }
-                            DropdownMenuItem(
-                                text = { Text("Nova tela") },
-                                leadingIcon = { Icon(Icons.Default.AddBox, null) },
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    showNewProjectDialog = true
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Salvar e abrir projetos") },
-                                leadingIcon = { Icon(Icons.Default.FolderOpen, null) },
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    showProjectManager = true
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Importar imagem") },
-                                leadingIcon = { Icon(Icons.Default.Image, null) },
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    imagePickerLauncher.launch("image/*")
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Exportar…") },
-                                leadingIcon = { Icon(Icons.Default.Share, null) },
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    showExportDialog = true
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "esenho v${context.getString(R.string.app_version).substringBefore('-')}"
-                                    )
-                                },
-                                leadingIcon = { Icon(Icons.Default.Info, null) },
-                                enabled = false,
-                                onClick = {},
-                            )
-                        }
-                        1 -> {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    "Guias, grade e simetria",
-                                    Modifier.weight(1f),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                                Box {
-                                    TooltipIconButton(
-                                        onClick = { showAssistMenu = true },
-                                        description = "Auxiliares: guias, grade e simetria",
-                                        modifier = Modifier.size(40.dp),
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Tune,
-                                            "Auxiliares",
-                                            modifier = Modifier.size(20.dp),
-                                            tint =
-                                                if (
-                                                    pixelArtGrid ||
-                                                        symmetryMode != SymmetryMode.OFF ||
-                                                        engine.guideSnapEnabled
-                                                )
-                                                    MaterialTheme.colorScheme.primary
-                                                else MaterialTheme.colorScheme.onSurface,
-                                        )
-                                    }
-                                    DropdownMenu(
-                                        expanded = showAssistMenu,
-                                        onDismissRequest = { showAssistMenu = false },
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text("Guias de traçado") },
-                                            leadingIcon = { Icon(Icons.Default.Straighten, null) },
-                                            onClick = {
-                                                showAssistMenu = false
-                                                showGuidesMenu = true
-                                            },
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("Grade Pixel Art") },
-                                            leadingIcon = { Icon(Icons.Default.GridOn, null) },
-                                            trailingIcon =
-                                                if (pixelArtGrid) {
-                                                    { Icon(Icons.Default.Check, null) }
-                                                } else null,
-                                            onClick = {
-                                                engine.pixelArtGrid = !engine.pixelArtGrid
-                                                refreshState()
-                                                showAssistMenu = false
-                                            },
-                                        )
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text("Simetria · ${symmetryMode.displayName}")
-                                            },
-                                            leadingIcon = { Icon(Icons.Default.Stream, null) },
-                                            onClick = {
-                                                showAssistMenu = false
-                                                showSymmetryMenu = true
-                                            },
-                                        )
-                                    }
-                                    DropdownMenu(
-                                        expanded = showGuidesMenu,
-                                        onDismissRequest = { showGuidesMenu = false },
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(
-                                                    if (engine.guideSnapEnabled)
-                                                        "Desativar aderência"
-                                                    else "Ativar aderência"
-                                                )
-                                            },
-                                            onClick = {
-                                                engine.guideSnapEnabled = !engine.guideSnapEnabled
-                                                showGuidesMenu = false
-                                                canvasViewRef?.invalidate()
-                                            },
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("Aderir a todas as guias visíveis") },
-                                            leadingIcon = {
-                                                Icon(
-                                                    if (engine.snapToAllVisibleGuides)
-                                                        Icons.Default.CheckBox
-                                                    else Icons.Default.CheckBoxOutlineBlank,
-                                                    null,
-                                                )
-                                            },
-                                            onClick = {
-                                                engine.snapToAllVisibleGuides =
-                                                    !engine.snapToAllVisibleGuides
-                                                engine.guideSnapEnabled = true
-                                                showGuidesMenu = false
-                                                canvasViewRef?.invalidate()
-                                            },
-                                        )
-                                        HorizontalDivider()
-                                        listOf(
-                                                DrawingGuideType.LINE to "Criar linha",
-                                                DrawingGuideType.CURVE to "Criar curva livre",
-                                                DrawingGuideType.ELLIPSE to "Criar elipse",
-                                                DrawingGuideType.SPHERE to "Criar esfera",
-                                            )
-                                            .forEach { (type, label) ->
-                                                DropdownMenuItem(
-                                                    text = { Text(label) },
-                                                    onClick = {
-                                                        engine.guideCreationType = type
-                                                        engine.guideSnapEnabled = true
-                                                        showGuidesMenu = false
-                                                        canvasViewRef?.invalidate()
-                                                    },
-                                                )
-                                            }
-                                        key(guideMenuRevision) {
-                                            if (engine.canvasGuides.isNotEmpty()) {
-                                                HorizontalDivider()
-                                                engine.canvasGuides.indices.forEach { index ->
-                                                    val isGuideSelected =
-                                                        engine.snapToAllVisibleGuides ||
-                                                            index in engine.snapGuideIndices
-                                                    val guideTypeName =
-                                                        when (engine.canvasGuides[index].type) {
-                                                            DrawingGuideType.LINE -> "Linha"
-                                                            DrawingGuideType.CURVE -> "Curva"
-                                                            DrawingGuideType.ELLIPSE -> "Elipse"
-                                                            DrawingGuideType.SPHERE -> "Esfera"
-                                                        }
-                                                    DropdownMenuItem(
-                                                        text = {
-                                                            Text(
-                                                                "Guia ${index + 1} · $guideTypeName"
-                                                            )
-                                                        },
-                                                        leadingIcon = {
-                                                            Icon(
-                                                                if (isGuideSelected)
-                                                                    Icons.Default.CheckBox
-                                                                else
-                                                                    Icons.Default
-                                                                        .CheckBoxOutlineBlank,
-                                                                contentDescription =
-                                                                    if (isGuideSelected)
-                                                                        "Aderência ativada"
-                                                                    else "Aderência desativada",
-                                                            )
-                                                        },
-                                                        trailingIcon = {
-                                                            IconButton(
-                                                                onClick = {
-                                                                    engine.removeCanvasGuide(index)
-                                                                    guideMenuRevision++
-                                                                    canvasViewRef?.invalidate()
-                                                                },
-                                                                modifier = Modifier.size(32.dp),
-                                                            ) {
-                                                                Icon(
-                                                                    Icons.Default.DeleteOutline,
-                                                                    contentDescription =
-                                                                        "Apagar guia",
-                                                                    modifier = Modifier.size(18.dp),
-                                                                    tint =
-                                                                        MaterialTheme.colorScheme
-                                                                            .error,
-                                                                )
-                                                            }
-                                                        },
-                                                        onClick = {
-                                                            if (engine.snapToAllVisibleGuides) {
-                                                                engine.snapToAllVisibleGuides =
-                                                                    false
-                                                                engine.snapGuideIndices.clear()
-                                                                engine.snapGuideIndices.addAll(
-                                                                    engine.canvasGuides.indices
-                                                                )
-                                                            }
-                                                            if (isGuideSelected)
-                                                                engine.snapGuideIndices.remove(
-                                                                    index
-                                                                )
-                                                            else engine.snapGuideIndices.add(index)
-                                                            engine.activeCanvasGuideIndex = index
-                                                            engine.guideSnapEnabled = true
-                                                            guideMenuRevision++
-                                                            canvasViewRef?.invalidate()
-                                                        },
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                    DropdownMenu(
-                                        expanded = showSymmetryMenu,
-                                        onDismissRequest = { showSymmetryMenu = false },
-                                    ) {
-                                        SymmetryMode.values().forEach { mode ->
-                                            DropdownMenuItem(
-                                                text = { Text(mode.displayName) },
-                                                trailingIcon =
-                                                    if (symmetryMode == mode) {
-                                                        { Icon(Icons.Default.Check, null) }
-                                                    } else null,
-                                                onClick = {
-                                                    showSymmetryMenu = false
-                                                    engine.symmetryMode = mode
-                                                    refreshState()
-                                                },
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            DropdownMenuItem(
-                                text = { Text("Redimensionar Tela...") },
-                                leadingIcon = { Icon(Icons.Default.AspectRatio, null) },
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    canvasResizeWidth = engine.width.toString()
-                                    canvasResizeHeight = engine.height.toString()
-                                    canvasResizeError = null
-                                    showCanvasResizeDialog = true
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Resetar Zoom & Posição") },
-                                leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) },
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    canvasViewRef?.resetView()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Espelhar Tela Horizontal") },
-                                leadingIcon = { Icon(Icons.Default.Flip, null) },
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    engine.flipCanvasH()
-                                    refreshState()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Espelhar Tela Vertical") },
-                                leadingIcon = { Icon(Icons.Default.FlipCameraAndroid, null) },
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    engine.flipCanvasV()
-                                    refreshState()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Remover todas as guias") },
-                                leadingIcon = { Icon(Icons.Default.DeleteOutline, null) },
-                                enabled = engine.canvasGuides.isNotEmpty(),
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    engine.canvasGuides.clear()
-                                    engine.snapGuideIndices.clear()
-                                    engine.snapToAllVisibleGuides = false
-                                    engine.activeCanvasGuideIndex = -1
-                                    canvasViewRef?.invalidate()
-                                },
-                            )
-                        }
-                        else -> {
-                            DropdownMenuItem(
-                                text = { Text("Selecionar Tudo") },
-                                leadingIcon = { Icon(Icons.Default.SelectAll, null) },
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    engine.selectAll()
-                                    refreshState()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Inverter Seleção") },
-                                leadingIcon = { Icon(Icons.Default.InvertColors, null) },
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    engine.invertSelection()
-                                    refreshState()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Colar seleção") },
-                                leadingIcon = { Icon(Icons.Default.ContentPaste, null) },
-                                enabled = canPasteSelection,
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    engine.pasteSelectionClipboard()
-                                    refreshState()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Limpar Camada Atual") },
-                                leadingIcon = { Icon(Icons.Default.DeleteSweep, null) },
-                                onClick = {
-                                    showWorkspaceActions = false
-                                    showClearLayerConfirm = true
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-        }
 
         // Modals & Drawers
         if (showClearLayerConfirm) {
@@ -2126,42 +2136,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 },
                 dismissButton = {
                     TextButton(onClick = { showClearLayerConfirm = false }) { Text("Cancelar") }
-                },
-            )
-        }
-        if (showWandSettings) {
-            AlertDialog(
-                onDismissRequest = { showWandSettings = false },
-                title = { Text("Varinha mágica") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            "Tolerância: ${wandTolerance.toInt()}",
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                        Slider(
-                            value = wandTolerance,
-                            onValueChange = {
-                                wandTolerance = it
-                                engine.wandTolerance = it.toInt()
-                            },
-                            valueRange = 0f..255f,
-                            steps = 254,
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = wandContiguous,
-                                onCheckedChange = {
-                                    wandContiguous = it
-                                    engine.wandContiguous = it
-                                },
-                            )
-                            Text("Selecionar apenas pixels conectados")
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showWandSettings = false }) { Text("Pronto") }
                 },
             )
         }
@@ -2260,42 +2234,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 },
                 dismissButton = {
                     TextButton(onClick = { showCreateGrainDialog = false }) { Text("Cancelar") }
-                },
-            )
-        }
-        if (showSelectionFeatherDialog) {
-            AlertDialog(
-                onDismissRequest = { showSelectionFeatherDialog = false },
-                title = { Text("Suavizar borda da seleção") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            "Raio: ${selectionFeatherRadius.toInt()} px",
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                        Slider(
-                            value = selectionFeatherRadius,
-                            onValueChange = { selectionFeatherRadius = it },
-                            valueRange = 1f..16f,
-                            steps = 14,
-                        )
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            engine.featherSelection(selectionFeatherRadius.toInt())
-                            showSelectionFeatherDialog = false
-                            refreshState()
-                        }
-                    ) {
-                        Text("Aplicar")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showSelectionFeatherDialog = false }) {
-                        Text("Cancelar")
-                    }
                 },
             )
         }

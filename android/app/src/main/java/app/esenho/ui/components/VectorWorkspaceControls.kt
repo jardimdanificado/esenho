@@ -192,34 +192,25 @@ fun VectorObjectPanel(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        EditorPanelHeader("Objetos vetoriais", onDismiss)
         Text(
             "${vector.tool.label} · ${vector.layers.values.sumOf { it.size }} objetos",
             style = MaterialTheme.typography.labelMedium,
         )
         var tab by remember { mutableStateOf(tabRequest ?: initialVectorTab(vector.tool)) }
-        var lastTool by remember { mutableStateOf(vector.tool) }
         LaunchedEffect(tabRequest) { tabRequest?.let { tab = it } }
-        LaunchedEffect(vector.tool) {
-            if (vector.tool != lastTool) {
-                tab = initialVectorTab(vector.tool)
-                lastTool = vector.tool
-            }
-        }
-        ScrollableTabRow(selectedTabIndex = tab.ordinal, edgePadding = 0.dp) {
-            VectorPanelTab.entries.forEach { item ->
-                Tab(
-                    selected = item == tab,
-                    onClick = { tab = item },
-                    text = { Text(item.label) },
-                )
-            }
-        }
+        if (
+            tab != VectorPanelTab.OBJETOS &&
+            tab != VectorPanelTab.AVANCADO &&
+            (selected == null || selected.locked || !selected.visible)
+        ) NoVectorSelection()
+        WorkspaceSectionTabs(
+            VectorPanelTab.entries.map { it.label },
+            tab.ordinal,
+            { tab = VectorPanelTab.entries[it] },
+        )
         when (tab) {
             VectorPanelTab.APARENCIA -> {
-                if (selected == null || selected.locked || !selected.visible) {
-                    NoVectorSelection()
-                } else {
+                if (selected != null && !selected.locked && selected.visible) {
                 Text("Aparência do objeto", style = MaterialTheme.typography.titleSmall)
                 if (selected.text != null) {
                     Text("Texto vetorial", style = MaterialTheme.typography.titleSmall)
@@ -651,9 +642,7 @@ fun VectorObjectPanel(
                 }
             }
             VectorPanelTab.AVANCADO -> {
-                if (selected == null || selected.locked || !selected.visible) {
-                    NoVectorSelection()
-                } else {
+                if (selected != null && !selected.locked && selected.visible) {
                 Text("Conversões", style = MaterialTheme.typography.titleSmall)
                 Row {
                     TextButton(
@@ -738,9 +727,7 @@ fun VectorObjectPanel(
                 }
             }
             VectorPanelTab.ANIMAR -> {
-                if (selected == null || selected.locked || !selected.visible) {
-                    NoVectorSelection()
-                } else {
+                if (selected != null && !selected.locked && selected.visible) {
                 Text("Animação vetorial", style = MaterialTheme.typography.titleSmall)
                 val animation = vector.animation
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1155,9 +1142,7 @@ fun VectorObjectPanel(
                         Text("Novo caminho")
                     }
                 }
-                if (selected == null || selected.locked || !selected.visible) {
-                    NoVectorSelection()
-                } else {
+                if (selected != null && !selected.locked && selected.visible) {
                 if (vector.tool == VectorTool.NODES || vector.tool == VectorTool.PEN) {
                     Text("Nós e alças", style = MaterialTheme.typography.titleSmall)
                     Text(
@@ -1244,6 +1229,12 @@ fun VectorObjectPanel(
                         )
                     }
                 }
+                }
+            }
+            VectorPanelTab.OBJETOS -> {
+                if (vector.tool == VectorTool.SELECT) VectorSelectionPanel(engine, revision, onChanged)
+                HorizontalDivider()
+                Text("Objetos", style = MaterialTheme.typography.titleSmall)
                 Row {
                     TextButton(
                         onClick = {
@@ -1262,12 +1253,6 @@ fun VectorObjectPanel(
                         Text("Excluir")
                     }
                 }
-                }
-            }
-            VectorPanelTab.OBJETOS -> {
-                if (vector.tool == VectorTool.SELECT) VectorSelectionPanel(engine, revision, onChanged)
-                HorizontalDivider()
-                Text("Objetos", style = MaterialTheme.typography.titleSmall)
             vector.layers.forEach { (_, objects) ->
                 objects.asReversed().forEachIndexed { index, obj ->
                     Surface(
