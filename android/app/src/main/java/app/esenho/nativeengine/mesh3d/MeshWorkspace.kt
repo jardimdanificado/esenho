@@ -64,6 +64,7 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
             .put("layerId", layerId)
             .put("scene", scene.json())
             .put("selectedId", selectedId)
+            .put("animation", animation.json())
             .toString()
 
     fun restore(value: String) {
@@ -71,6 +72,7 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         scene = Scene3D.read(j.getJSONObject("scene"))
         layerId = j.optInt("layerId", -1)
         selectedId = j.optString("selectedId").takeIf { it.isNotEmpty() }
+        animation.load(j.optJSONObject("animation"))
         enabled = j.optBoolean("enabled")
     }
 
@@ -109,7 +111,39 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         return engine.beginVectorEdit()
     }
 
+    val animation = app.esenho.nativeengine.VectorAnimation(this)
     var previewScale = 1f
+
+    companion object {
+        const val CAMERA_TRACK = "__camera__"
+        const val LIGHT_TRACK = "__light__"
+    }
+
+    fun keyframeObject(frame: Int, easing: String = "linear") {
+        val obj = selected ?: return
+        val t = obj.transform
+        animation.addKeyframe(
+            obj.id, frame, t.position.x, t.position.y, t.rotation.x, t.scale.x, 1f, easing,
+        )
+        render()
+    }
+
+    fun keyframeCamera(frame: Int, easing: String = "linear") {
+        val camera = scene.camera
+        animation.addKeyframe(CAMERA_TRACK, frame, camera.position.x, camera.position.y, 0f, camera.fov, 1f, easing)
+        render()
+    }
+
+    fun keyframeLight(frame: Int, easing: String = "linear") {
+        val light = scene.lights.firstOrNull() ?: return
+        animation.addKeyframe(LIGHT_TRACK, frame, 0f, 0f, 0f, 1f, light.intensity, easing, light.color)
+        render()
+    }
+
+    fun seekFrame(frame: Int) {
+        animation.currentFrame = frame.coerceIn(0, animation.duration - 1)
+        render()
+    }
 
     private var renderBitmap: Bitmap? = null
     private var pixelBuffer: IntArray? = null
@@ -125,6 +159,41 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         }
     }
 
+    private fun animatedScene(): Scene3D {
+        val frame = animation.currentFrame
+        val copy = Scene3D()
+        copy.name = scene.name
+        copy.camera = scene.camera.copy()
+        copy.lights = scene.lights.map { it.copy() }.toMutableList()
+        copy.ambient = scene.ambient
+        copy.background = scene.background
+        copy.wireframe = scene.wireframe
+        copy.cullBackfaces = scene.cullBackfaces
+        animation.tracks[CAMERA_TRACK]?.let { track ->
+            animation.valueAt(track, frame)?.let { value ->
+                copy.camera.position = Vec3(value.x, value.y, copy.camera.position.z)
+                if (value.scale in 5f..150f) copy.camera.fov = value.scale
+            }
+        }
+        animation.tracks[LIGHT_TRACK]?.let { track ->
+            animation.valueAt(track, frame)?.let { value ->
+                value.fill?.let { copy.lights.firstOrNull()?.color = it }
+                copy.lights.firstOrNull()?.intensity = value.opacity
+            }
+        }
+        copy.objects.addAll(
+            scene.objects.map { obj ->
+                val value = animation.evaluate(obj.id, frame) ?: return@map obj
+                val animated = obj.copy(transform = obj.transform.copy())
+                animated.transform.position = Vec3(value.x, value.y, obj.transform.position.z)
+                animated.transform.rotation = Vec3(value.rotation, obj.transform.rotation.y, obj.transform.rotation.z)
+                animated.transform.scale = Vec3(value.scale, value.scale, value.scale)
+                animated
+            },
+        )
+        return copy
+    }
+
     fun render() {
         if (!enabled || layerId < 0) return
         val width = maxOf(1, (engine.width * previewScale).toInt())
@@ -133,7 +202,7 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         val bitmap = renderBitmap!!
         val pixels = pixelBuffer!!
         val depth = depthBuffer!!
-        MeshRasterizer.render(scene, width, height, pixels, depth)
+        MeshRasterizer.render(animatedScene(), width, height, pixels, depth)
         bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
         EsenhoNativeBridge.nativeBeginLayerUpdate()
         EsenhoNativeBridge.nativeLayerClear(layerId)
@@ -376,6 +445,21 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         obj.faces.addAll(sides)
         selectedFace = index
         render()
+    }
+
+    fun boolean(operation: MeshBooleanOp, secondId: String): Boolean {
+        val first = selected ?: return false
+        val second = scene.objectById(secondId) ?: return false
+        val result = MeshBoolean.combine(first, second, operation) ?: return false
+        edit()
+        scene.objects.remove(first)
+        scene.objects.remove(second)
+        scene.objects += result
+        selectedId = result.id
+        selectedFace = -1
+        selectedVertex = -1
+        render()
+        return true
     }
 
     fun setMaterial(color: Int? = null, opacity: Float? = null, shininess: Float? = null) {

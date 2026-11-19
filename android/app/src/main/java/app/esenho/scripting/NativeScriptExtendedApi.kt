@@ -637,6 +637,31 @@ class NativeScriptExtendedApi(private val e: EsenhoEngine, private val canvas: E
             e.meshes.setSmooth(a.optBoolean("enabled", true))
             null
         }
+        "mesh.boolean" -> {
+            val op =
+                runCatching {
+                    app.esenho.nativeengine.mesh3d.MeshBooleanOp.valueOf(a.getString("op").uppercase())
+                }.getOrDefault(app.esenho.nativeengine.mesh3d.MeshBooleanOp.UNION)
+            e.meshes.boolean(op, a.getString("target"))
+        }
+        "mesh.keyframe" -> {
+            val frame = a.optInt("frame", e.meshes.animation.currentFrame)
+            when (a.optString("target", "object")) {
+                "camera" -> e.meshes.keyframeCamera(frame)
+                "light" -> e.meshes.keyframeLight(frame)
+                else -> e.meshes.keyframeObject(frame)
+            }
+            null
+        }
+        "mesh.seek" -> {
+            e.meshes.seekFrame(a.getInt("frame"))
+            null
+        }
+        "mesh.stats" ->
+            JSONObject()
+                .put("ms", app.esenho.nativeengine.mesh3d.MeshProfiler.lastFrameMs.toDouble())
+                .put("triangles", app.esenho.nativeengine.mesh3d.MeshProfiler.triangles)
+                .put("pixels", app.esenho.nativeengine.mesh3d.MeshProfiler.shadedPixels)
         "mesh.remove" -> {
             e.meshes.selectedId = a.optString("id").takeIf { it.isNotEmpty() }
             e.meshes.removeSelected()

@@ -36,6 +36,8 @@ fun WorkspaceQuickShelf(
     revision: Int,
     onChanged: () -> Unit,
     onOpenCurrentBrush: () -> Unit,
+    onColor: () -> Unit,
+    onPresets: () -> Unit,
 ) {
     val selected = engine.selectedPreset?.let { "preset:${it.id}" }
         ?: engine.selectedBrush?.let { "brush:${it.id}" }
@@ -63,6 +65,15 @@ fun WorkspaceQuickShelf(
     LaunchedEffect(selected) { brushScroll.scrollToItem(0) }
     val colorStrip: @Composable (Modifier) -> Unit = { modifier ->
         Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onColor, modifier = Modifier.size(26.dp)) {
+                Box(
+                    Modifier.size(18.dp)
+                        .clip(CircleShape)
+                        .background(Color(engine.currentColor))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                        .semantics { contentDescription = "Abrir estúdio de cores" }
+                )
+            }
             if (colors.isEmpty())
                 Text(
                     "As cores usadas nos traços aparecem aqui",
@@ -103,6 +114,13 @@ fun WorkspaceQuickShelf(
     }
     val brushStrip: @Composable (Modifier) -> Unit = { modifier ->
         Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onPresets, modifier = Modifier.size(26.dp)) {
+                Icon(
+                    Icons.Default.CollectionsBookmark,
+                    "Pincéis e presets",
+                    Modifier.size(16.dp),
+                )
+            }
             if (brushes.isEmpty())
                 Text(
                     "Selecione um pincel",

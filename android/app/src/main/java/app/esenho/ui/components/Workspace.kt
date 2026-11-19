@@ -240,6 +240,7 @@ fun WorkspaceProperties(
     onParameterChanged: (Int, Boolean) -> Unit,
     onMoveParameter: (String, Int) -> Unit,
     onReorderFinished: () -> Unit,
+    onTogglePin: (String) -> Unit,
     toolPicker: @Composable () -> Unit,
     onBrush: () -> Unit,
     onColor: () -> Unit,
@@ -258,6 +259,7 @@ fun WorkspaceProperties(
 ) {
     var more by remember { mutableStateOf(false) }
     val relevantSliders = relevantQuickSliders(engine, configuredSliders)
+    val pinnedSliders = relevantSliders.filter { it.pinned || it.paramId == 1 }
     CompactControls {
         Surface(color = MaterialTheme.colorScheme.surface) {
             Row(
@@ -266,16 +268,24 @@ fun WorkspaceProperties(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 toolPicker()
-                Box(Modifier.weight(1f).height(36.dp)) {
-                    QuickParameterTrigger(
-                        engine,
-                        relevantSliders.firstOrNull(),
-                        revision,
-                        quickSlidersOpen,
-                        onToggleQuickSliders,
-                        onBrushProperties,
-                        onParameterChanged,
-                    )
+                Row(
+                    Modifier.weight(1f).height(36.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    pinnedSliders.forEach { setting ->
+                        Box(Modifier.weight(1f).height(36.dp)) {
+                            QuickParameterTrigger(
+                                engine,
+                                setting,
+                                revision,
+                                quickSlidersOpen,
+                                onToggleQuickSliders,
+                                onBrushProperties,
+                                onParameterChanged,
+                            )
+                        }
+                    }
                     AnchoredWorkspacePopup(
                         quickSlidersOpen,
                         {},
@@ -290,26 +300,12 @@ fun WorkspaceProperties(
                             onParameterChanged,
                             onMoveParameter,
                             onReorderFinished,
+                            onTogglePin,
                             quickScripts,
                             onRunQuickScript,
                             onOpenScripts,
                         )
                     }
-                }
-                CompactPanelButton(
-                    Icons.Default.CollectionsBookmark,
-                    "Presets: $brushName",
-                    activePanel == WorkspacePanel.BRUSHES,
-                    onBrush,
-                )
-                IconButton(onClick = onColor, modifier = Modifier.size(36.dp)) {
-                    Box(
-                        Modifier.size(22.dp)
-                            .clip(CircleShape)
-                            .background(Color(color))
-                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                            .semantics { contentDescription = "Cor atual; abrir cores" }
-                    )
                 }
                 CompactPanelButton(
                     Icons.Default.Layers,
@@ -360,6 +356,16 @@ fun WorkspaceProperties(
                                 onToolOptions()
                             },
                             leadingIcon = { Icon(Icons.Default.Settings, null) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Cores") },
+                            onClick = { more = false; onColor() },
+                            leadingIcon = { Icon(Icons.Default.Palette, null) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Pincéis e presets") },
+                            onClick = { more = false; onBrush() },
+                            leadingIcon = { Icon(Icons.Default.Brush, null) },
                         )
                         if (!vectorMode)
                             DropdownMenuItem(

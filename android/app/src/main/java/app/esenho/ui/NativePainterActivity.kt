@@ -310,6 +310,12 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     val storageManager = remember { EsenhoStorageManager(context) }
     var sideSliderSettings by remember { mutableStateOf(storageManager.loadSideSliders()) }
     var favoriteBrushIds by remember { mutableStateOf(storageManager.loadFavoriteBrushes()) }
+    fun toggleQuickParameterPin(id: String) {
+        sideSliderSettings = sideSliderSettings.map {
+            if (it.id == id) it.copy(pinned = !it.pinned) else it
+        }
+        storageManager.saveSideSliders(sideSliderSettings)
+    }
     fun moveQuickParameter(id: String, steps: Int) {
         val visible = relevantQuickSliders(engine, sideSliderSettings)
         val from = visible.indexOfFirst { it.id == id }
@@ -1875,6 +1881,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         configuredSliders = sideSliderSettings,
                         onMoveParameter = { id, steps -> moveQuickParameter(id, steps) },
                         onReorderFinished = { storageManager.saveSideSliders(sideSliderSettings) },
+                        onTogglePin = { id -> toggleQuickParameterPin(id) },
                         revision = engineRevision,
                         quickSlidersOpen = quickSlidersOpen,
                         onDismissQuickSliders = {
@@ -1899,29 +1906,21 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             if (!active) refreshState()
                         },
                         toolPicker = {
-                            if (engine.vectors.enabled) IconButton(
+                            IconButton(
                                 onClick = {
-                                    vectorTabRequest = VectorPanelTab.OBJETOS
-                                    activePanel = WorkspacePanel.VECTOR
+                                    quickSlidersOpen = !quickSlidersOpen
+                                    if (!quickSlidersOpen) canvasViewRef?.previewBrushSize = 0f
                                 },
                                 modifier = Modifier.size(36.dp),
                             ) {
                                 Icon(
-                                    Icons.Default.Polyline,
-                                    "Objetos vetoriais",
-                                    Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    Icons.Default.Tune,
+                                    "Parâmetros rápidos",
+                                    Modifier.size(19.dp),
+                                    tint = if (quickSlidersOpen) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                            } else WorkspaceToolPicker(
-                                currentTool,
-                                showSelectMenu,
-                                onOpen = {
-                                    quickSlidersOpen = false
-                                    showSelectMenu = !showSelectMenu
-                                },
-                                onDismiss = { showSelectMenu = false },
-                                onTool = { chooseTool(it) },
-                            )
+                            }
                         },
                         onBrush = {
                             brushPropertiesRequest = 0
@@ -1983,6 +1982,14 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                     brushPropertiesRequest++
                                     activePanel = WorkspacePanel.BRUSHES
                                 }
+                            },
+                            onColor = { activePanel = WorkspacePanel.COLOR },
+                            onPresets = {
+                                brushPropertiesRequest = 0
+                                brushPresetRequest = 0
+                                activePanel =
+                                    if (activePanel == WorkspacePanel.BRUSHES) null
+                                    else WorkspacePanel.BRUSHES
                             },
                         )
                 }

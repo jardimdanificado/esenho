@@ -4,7 +4,7 @@
 
 Tornar `.obj` para modelagem 3D o que `.svg` é para o modo vetorial: geometria editável é a fonte da verdade, pixels na camada nativa são cache de renderização. O modelo 3D deve passar pelo mesmo pipeline de camadas, undo, projeto e exportação que o vetor usa hoje.
 
-**Estado:** Fases 1 a 3 implementadas. Veja "Fases e critério de parada" — os itens 1 a 3 estão prontos; o item 4 permanece como plano.
+**Estado:** Fases 1 a 4 implementadas. A portagem do rasterizador para C foi avaliada e adiada: a perfilagem no desktop dá ~9 ms para um frame completo de 512×512 com 352 triângulos e ~39 ms para 30 frames de preview em meia resolução. Em 1080p o preview fica perto de 18 ms/frame, aceitável sem JNI extra. O contínuo `MeshProfiler` e o comando `esenho.mesh.stats()` permitem reavaliar se modelos maiores mudarem esse quadro.
 
 ## Principio de integração
 

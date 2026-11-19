@@ -82,6 +82,60 @@ fun MeshObjectPanel(
             "Clique seleciona. Arraste o eixo colorido ou o quadrado central do gizmo.",
             style = MaterialTheme.typography.bodySmall,
         )
+        if (selected != null && mesh.scene.objects.size > 1) {
+            Text("Booleanas de malha", style = MaterialTheme.typography.titleSmall)
+            val others = mesh.scene.objects.filter { it.id != selected.id }
+            var target by remember(selected.id) { mutableStateOf(others.firstOrNull()?.id ?: "") }
+            TextButton(onClick = { target = others.firstOrNull { it.id != target }?.id ?: target }) {
+                Text("Outro objeto: ${others.firstOrNull { it.id == target }?.name ?: "nenhum"}")
+            }
+            Row {
+                app.esenho.nativeengine.mesh3d.MeshBooleanOp.values().forEach { op ->
+                    TextButton(
+                        enabled = target.isNotBlank(),
+                        onClick = { mesh.boolean(op, target); onChanged() },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(2.dp),
+                    ) {
+                        Text(op.name.take(3), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
+        HorizontalDivider()
+        Text("Animação", style = MaterialTheme.typography.titleSmall)
+        var playing by remember { mutableStateOf(false) }
+        LaunchedEffect(playing) {
+            while (playing) {
+                kotlinx.coroutines.delay(1000L / 24)
+                mesh.seekFrame(mesh.animation.currentFrame + 1)
+            }
+        }
+        Row {
+            TextButton(onClick = { playing = !playing }, modifier = Modifier.weight(1f)) {
+                Text(if (playing) "Pausar" else "Reproduzir")
+            }
+            TextButton(onClick = { mesh.seekFrame(mesh.animation.currentFrame - 1) }) { Text("◀") }
+            TextButton(onClick = { mesh.seekFrame(mesh.animation.currentFrame + 1) }) { Text("▶") }
+        }
+        Text("Quadro ${mesh.animation.currentFrame + 1} / ${mesh.animation.duration}")
+        Slider(
+            value = mesh.animation.currentFrame.toFloat(),
+            valueRange = 0f..mesh.animation.duration.toFloat().coerceAtLeast(1f),
+            onValueChange = { mesh.seekFrame(it.toInt()) },
+        )
+        Row {
+            TextButton(onClick = { mesh.keyframeObject(mesh.animation.currentFrame); onChanged() }, modifier = Modifier.weight(1f)) {
+                Text("Keyframe objeto")
+            }
+            TextButton(onClick = { mesh.keyframeCamera(mesh.animation.currentFrame); onChanged() }, modifier = Modifier.weight(1f)) {
+                Text("Câmera")
+            }
+            TextButton(onClick = { mesh.keyframeLight(mesh.animation.currentFrame); onChanged() }, modifier = Modifier.weight(1f)) {
+                Text("Luz")
+            }
+        }
+        HorizontalDivider()
         if (mesh.tool == app.esenho.nativeengine.mesh3d.MeshTool.FACE && mesh.selectedFace >= 0) {
             Row {
                 Button(onClick = { mesh.extrudeFace(mesh.selectedFace); onChanged() }, modifier = Modifier.weight(1f)) {

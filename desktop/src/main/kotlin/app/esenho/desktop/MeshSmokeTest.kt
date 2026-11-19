@@ -103,5 +103,41 @@ fun meshSmokeTest(context: Context) {
     mesh.previewScale = 1f
     mesh.render()
     println("Mesh preview: 30 orbit frames in ${elapsed.toInt()} ms")
+
+    val firstCube = mesh.scene.objects.first { it.name == "Cubo" }
+    mesh.addCube(2f)
+    val secondCube = mesh.selected!!
+    mesh.setTransform(position = Vec3(.8f, 0f, 0f))
+    mesh.selectedId = firstCube.id
+    check(mesh.boolean(app.esenho.nativeengine.mesh3d.MeshBooleanOp.UNION, secondCube.id))
+    check(mesh.selected!!.name == "Booleana" && mesh.scene.objects.none { it.id == secondCube.id })
+    check(mesh.selected!!.faces.isNotEmpty())
+
+    val meshId = mesh.selected!!.id
+    mesh.keyframeObject(0)
+    mesh.setTransform(position = Vec3(2f, 0f, 0f))
+    mesh.keyframeObject(10)
+    check(mesh.animation.track(meshId).keyframes.size == 2)
+    mesh.seekFrame(5)
+    check(mesh.animation.currentFrame == 5)
+    check(app.esenho.nativeengine.mesh3d.MeshProfiler.triangles >= 0)
+    check(app.esenho.nativeengine.mesh3d.MeshProfiler.lastFrameMs >= 0f)
+
+    val animated = ByteArrayOutputStream()
+    EsenhoProjectIO.save(engine, animated)
+    EsenhoProjectIO.load(engine, animated.toByteArray().inputStream())
+    check(engine.meshes.animation.tracks.isNotEmpty())
+    val large = EsenhoEngine(context, 512, 512)
+    large.meshes.switchMode(true)
+    large.meshes.addSphere(1f, 16, 12)
+    val renderStart = System.nanoTime()
+    large.meshes.render()
+    val fullMs = (System.nanoTime() - renderStart) / 1_000_000f
+    println(
+        "Mesh profile 512x512: ${fullMs.toInt()} ms, " +
+            "${app.esenho.nativeengine.mesh3d.MeshProfiler.triangles} triangles, " +
+            "${app.esenho.nativeengine.mesh3d.MeshProfiler.shadedPixels} shaded pixels"
+    )
+    println("Mesh phase 4: booleans, keyframes, profiler and project OK")
     println("Mesh phases 1-3: raster, camera, picking, gizmos, primitives, editing and OBJ OK")
 }

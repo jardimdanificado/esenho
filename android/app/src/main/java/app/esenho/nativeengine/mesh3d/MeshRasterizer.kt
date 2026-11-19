@@ -10,6 +10,13 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 
+object MeshProfiler {
+    var lastFrameMs: Float = 0f
+    var triangles: Int = 0
+    var shadedPixels: Int = 0
+    var culled: Int = 0
+}
+
 /** Software triangle rasterizer with z-buffer. Runs on both Android and JVM. */
 object MeshRasterizer {
     private data class Projected(
@@ -23,6 +30,10 @@ object MeshRasterizer {
 
     fun render(scene: Scene3D, width: Int, height: Int, pixels: IntArray, zBuffer: FloatArray) {
         if (width <= 0 || height <= 0) return
+        val started = System.nanoTime()
+        MeshProfiler.triangles = 0
+        MeshProfiler.shadedPixels = 0
+        MeshProfiler.culled = 0
         pixels.fill(scene.background)
         zBuffer.fill(Float.POSITIVE_INFINITY)
         val view = scene.camera.view()
@@ -66,7 +77,11 @@ object MeshRasterizer {
                         val c = projected[2]!!
                         val area = edge(a.x, a.y, b.x, b.y, c.x, c.y)
                         if (abs(area) < .0001f) return@forEach
-                        if (scene.cullBackfaces && area > 0f) return@forEach
+                        MeshProfiler.triangles++
+                        if (scene.cullBackfaces && area > 0f) {
+                            MeshProfiler.culled++
+                            return@forEach
+                        }
                         rasterize(
                             a, b, c, area, scene, obj, face, width, height, pixels, zBuffer, textures,
                         )
@@ -80,6 +95,7 @@ object MeshRasterizer {
             }
         } finally {
             textures.values.forEach { it?.recycle() }
+            MeshProfiler.lastFrameMs = (System.nanoTime() - started) / 1_000_000f
         }
     }
 
@@ -137,6 +153,7 @@ object MeshRasterizer {
                 val index = y * width + x
                 if (z >= zBuffer[index]) continue
                 zBuffer[index] = z
+                MeshProfiler.shadedPixels++
                 pixels[index] = shade(wa, wb, wc, a, b, c, scene, material, texture, obj.smooth)
             }
         }

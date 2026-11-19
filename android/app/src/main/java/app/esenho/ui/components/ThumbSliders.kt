@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -233,6 +234,7 @@ fun QuickParameterSliders(
     onParameterChanged: (Int, Boolean) -> Unit,
     onMoveParameter: (String, Int) -> Unit,
     onReorderFinished: () -> Unit,
+    onTogglePin: (String) -> Unit,
     quickScripts: List<app.esenho.scripting.NativeScriptPreset> = emptyList(),
     onRunScript: (app.esenho.scripting.NativeScriptPreset) -> Unit = {},
     onOpenScripts: () -> Unit = {},
@@ -273,6 +275,19 @@ fun QuickParameterSliders(
                             onReorderFinished()
                         },
                     )
+                    IconButton(
+                        onClick = { onTogglePin(setting.id) },
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.PushPin,
+                            if (setting.pinned) "Desafixar ${resolvedQuickParameter(setting, engine).name}"
+                            else "Fixar ${resolvedQuickParameter(setting, engine).name} na barra",
+                            Modifier.size(16.dp),
+                            tint = if (setting.pinned) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Box(Modifier.weight(1f)) {
                         QuickParameterRow(engine, setting, revision, onParameterChanged)
                     }

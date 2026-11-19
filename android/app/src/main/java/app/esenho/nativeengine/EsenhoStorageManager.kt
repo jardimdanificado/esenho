@@ -348,6 +348,7 @@ class EsenhoStorageManager(private val context: Context) {
         val id: String = java.util.UUID.randomUUID().toString(),
         val ownerBrushId: String = BrushParameterScope.owner(null, paramId),
         val parameterName: String = "",
+        val pinned: Boolean = false,
     )
 
     fun saveSideSliders(settings: List<SideSliderSetting>): Boolean {
@@ -357,6 +358,7 @@ class EsenhoStorageManager(private val context: Context) {
                 arr.put(JSONObject().put("paramId", setting.paramId).put("id", setting.id).apply {
                     put("owner", setting.ownerBrushId)
                     put("parameterName", setting.parameterName)
+                    put("pinned", setting.pinned)
                 })
             }
             atomicWrite(sideSlidersFile, arr.toString())
@@ -379,6 +381,7 @@ class EsenhoStorageManager(private val context: Context) {
                         item.optString("id", "").ifBlank { java.util.UUID.randomUUID().toString() },
                         item.optString("owner", if (item.optInt("paramId") >= 10000) "legacy-unscoped" else BrushParameterScope.owner(null, item.optInt("paramId"))),
                         item.optString("parameterName", ""),
+                        item.optBoolean("pinned", false),
                     ))
                 }
             }

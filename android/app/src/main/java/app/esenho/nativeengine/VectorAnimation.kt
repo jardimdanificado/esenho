@@ -107,7 +107,7 @@ data class VectorEasingCurve(
 }
 
 /** Per-object property tracks. Geometry stays authoritative; transforms are applied at render time. */
-class VectorAnimation(private val workspace: VectorWorkspace) {
+class VectorAnimation(private val workspace: Any) {
     val tracks = linkedMapOf<String, VectorAnimationTrack>()
     val customEasings = mutableListOf<VectorEasingCurve>()
     val clips = mutableListOf<VectorAnimationClip>()
@@ -220,8 +220,10 @@ class VectorAnimation(private val workspace: VectorWorkspace) {
         )
     }
 
-    fun evaluate(obj: VectorObject, frame: Int): VectorAnimatedValue? =
-        tracks[obj.id]?.let { valueAt(it, frame) }
+    fun evaluate(obj: VectorObject, frame: Int): VectorAnimatedValue? = evaluate(obj.id, frame)
+
+    fun evaluate(objectId: String, frame: Int): VectorAnimatedValue? =
+        tracks[objectId]?.let { valueAt(it, frame) }
 
     fun json() =
         JSONObject()
