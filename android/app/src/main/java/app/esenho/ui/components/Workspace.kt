@@ -35,7 +35,6 @@ import app.esenho.nativeengine.EsenhoStorageManager.SideSliderSetting
 import app.esenho.nativeengine.ToolMode
 
 enum class WorkspacePanel(val title: String, val icon: ImageVector) {
-    DOCUMENT("Documento", Icons.Default.Description),
     BRUSHES("Pincéis", Icons.Default.Brush),
     COLOR("Cores", Icons.Default.Palette),
     VECTOR("Objetos vetoriais", Icons.Default.Polyline),
@@ -470,7 +469,6 @@ fun WorkspaceInspector(
     panel: WorkspacePanel,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
-    onClose: () -> Unit,
     onResize: ((Float) -> Unit)? = null,
     sideDock: Boolean = false,
     onToggleResize: (() -> Unit)? = null,
@@ -489,15 +487,11 @@ fun WorkspaceInspector(
             if (sideDock) {
                 Row(Modifier.fillMaxSize()) {
                     if (onResize != null) DockResizeHandle(true, onResize, onToggleResize)
-                    Column(Modifier.weight(1f).fillMaxHeight()) {
-                        EditorPanelHeader(panel.title, onClose)
-                        Box(Modifier.weight(1f)) { key(panel) { content() } }
-                    }
+                    Box(Modifier.weight(1f).fillMaxHeight()) { key(panel) { content() } }
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
                     if (onResize != null) DockResizeHandle(false, onResize, onToggleResize)
-                    EditorPanelHeader(panel.title, onClose)
                     Box(Modifier.weight(1f)) { key(panel) { content() } }
                 }
             }
@@ -592,12 +586,15 @@ fun WorkspaceDialogContainer(
 
 @Composable
 fun WorkspaceSectionTabs(labels: List<String>, active: Int, onSelect: (Int) -> Unit) {
-    ScrollableTabRow(selectedTabIndex = active.coerceIn(labels.indices), edgePadding = 0.dp) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         labels.forEachIndexed { index, label ->
-            Tab(
+            FilterChip(
                 selected = active == index,
                 onClick = { onSelect(index) },
-                text = { Text(label) },
+                label = { Text(label) },
             )
         }
     }

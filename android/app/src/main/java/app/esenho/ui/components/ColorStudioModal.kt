@@ -84,8 +84,7 @@ fun ColorStudioModal(
     WorkspaceDialogContainer(embedded, onDismiss) {
         Surface(modifier = if (embedded) Modifier.fillMaxSize() else Modifier.width(320.dp)) {
             Column(
-                Modifier.then(if (embedded) Modifier.fillMaxSize() else Modifier)
-                    .verticalScroll(rememberScrollState())
+                Modifier.verticalScroll(rememberScrollState())
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -93,8 +92,7 @@ fun ColorStudioModal(
                     Modifier.fillMaxWidth().height(28.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (embedded) Spacer(Modifier.weight(1f))
-                    else Text("Cores", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
+                    Text("Cores", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
                     Box {
                         TextButton(
                             { modesOpen = true },
@@ -138,7 +136,7 @@ fun ColorStudioModal(
                             style = MaterialTheme.typography.labelSmall,
                         )
                     }
-                    if (!embedded) IconButton(onDismiss, Modifier.size(28.dp)) {
+                    IconButton(onDismiss, Modifier.size(28.dp)) {
                         Icon(Icons.Default.Close, "Fechar cores", Modifier.size(16.dp))
                     }
                 }

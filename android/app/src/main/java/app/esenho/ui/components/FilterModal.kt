@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,18 +46,15 @@ fun FilterModal(
     var value by remember { mutableFloatStateOf(0f) }
 
     WorkspacePanelContainer(embedded = embedded, onDismiss = onDismiss) {
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 96.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(if (embedded) Modifier.fillMaxHeight() else Modifier.heightIn(max = 620.dp))
+                .then(if (embedded) Modifier.fillMaxHeight() else Modifier)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 14.dp)
-                .padding(bottom = 12.dp),
+                .padding(bottom = 12.dp)
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            EditorPanelHeader("Filtros · ${engine.filterCatalog.size}", onDismiss)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip(
                     selected = !showHsvAdjustment,
@@ -167,28 +163,32 @@ fun FilterModal(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-                if (!showHsvAdjustment) {
-                    OutlinedTextField(
-                        value = search,
-                        onValueChange = { search = it },
-                        label = { Text("Buscar filtro por nome ou ID") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        "${visibleFilters.size} de ${engine.filterCatalog.size} filtros · camada ativa",
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                    if (visibleFilters.isEmpty()) {
-                        Text("Nenhum filtro encontrado.", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-            }
             if (!showHsvAdjustment) {
-                items(visibleFilters, key = { it.id }) { filter ->
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = { search = it },
+                    label = { Text("Buscar filtro por nome ou ID") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    "${visibleFilters.size} de ${engine.filterCatalog.size} filtros · camada ativa",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                if (visibleFilters.isEmpty()) {
+                    Text("Nenhum filtro encontrado.", style = MaterialTheme.typography.bodySmall)
+                }
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 96.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(320.dp)
+                ) {
+                    items(visibleFilters, key = { it.id }) { filter ->
                         val isSelected = selectedFilter?.id == filter.id
 
                     Surface(
@@ -232,6 +232,7 @@ fun FilterModal(
                     }
                     }
                 }
+            }
         }
     }
 }

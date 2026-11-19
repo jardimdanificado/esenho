@@ -25,6 +25,7 @@ fun MeshObjectPanel(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        EditorPanelHeader("Modelos 3D", onDismiss)
         Text("${mesh.scene.objects.size} objeto(s) · ${mesh.scene.objects.sumOf { it.triangleCount() }} triângulos")
         Row {
             Button(onClick = { mesh.addCube(); onChanged() }, modifier = Modifier.weight(1f)) {
