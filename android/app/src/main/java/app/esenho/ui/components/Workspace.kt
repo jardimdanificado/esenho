@@ -38,6 +38,7 @@ enum class WorkspacePanel(val title: String, val icon: ImageVector) {
     BRUSHES("Pincéis", Icons.Default.Brush),
     COLOR("Cores", Icons.Default.Palette),
     VECTOR("Objetos vetoriais", Icons.Default.Polyline),
+    MESH("Modelos 3D", Icons.Default.ViewInAr),
     LAYERS("Camadas", Icons.Default.Layers),
     ANIMATION("Animar", Icons.Default.Movie),
     EFFECTS("Efeitos", Icons.Default.AutoAwesome),

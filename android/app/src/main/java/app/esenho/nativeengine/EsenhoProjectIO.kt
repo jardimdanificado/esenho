@@ -67,7 +67,8 @@ object EsenhoProjectIO {
         val transformMode: TransformState.Mode,
         val transformInterpolation: TransformState.Interpolation,
         val transformLockAspect: Boolean,
-        val vectorWorkspace: String = "{}"
+        val vectorWorkspace: String = "{}",
+        val meshWorkspace: String = "{}"
     )
 
     fun capture(engine: EsenhoEngine): Snapshot {
@@ -145,7 +146,8 @@ object EsenhoProjectIO {
                 activeTransform?.mode ?: engine.transformModePreference,
                 engine.transformInterpolation,
                 engine.transformLockAspect,
-                engine.vectors.projectJson().toString()
+                engine.vectors.projectJson().toString(),
+                engine.meshes.projectJson().toString()
             )
         } catch (failure: Throwable) {
             layers.forEach { it.bitmap.recycle() }
@@ -224,6 +226,7 @@ object EsenhoProjectIO {
             .put("transformInterpolation", snapshot.transformInterpolation.name)
             .put("transformLockAspect", snapshot.transformLockAspect)
             .put("vectorWorkspace", org.json.JSONObject(snapshot.vectorWorkspace))
+            .put("meshWorkspace", org.json.JSONObject(snapshot.meshWorkspace))
         zip.putNextEntry(ZipEntry("project.json"))
         zip.write(metadata.toString().toByteArray(Charsets.UTF_8))
         zip.closeEntry()
@@ -458,6 +461,7 @@ object EsenhoProjectIO {
         engine.currentAnimationTick = json.optInt("currentTick", 0).coerceIn(0, engine.totalAnimationTicks() - 1)
         engine.applyAnimationTick(engine.currentAnimationTick, captureActive = false)
         engine.vectors.loadProject(json.optJSONObject("vectorWorkspace"))
+        engine.meshes.loadProject(json.optJSONObject("meshWorkspace"))
         engine.getRenderBitmap()
     }
 }

@@ -608,6 +608,23 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         }.onFailure { Toast.makeText(context, "Falha ao exportar SVG: ${it.message}", Toast.LENGTH_LONG).show() }
     }
 
+    val openObjLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) runCatching {
+            val obj = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                ?: error("Não foi possível abrir o OBJ")
+            engine.meshes.importObj(obj)
+            activePanel = WorkspacePanel.MESH
+            refreshState(false)
+        }.onFailure { Toast.makeText(context, "Falha ao abrir OBJ: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+    val saveObjLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        if (uri != null) runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { output ->
+                output.write(engine.meshes.exportObj().toByteArray(Charsets.UTF_8))
+            } ?: error("Não foi possível criar o OBJ")
+        }.onFailure { Toast.makeText(context, "Falha ao exportar OBJ: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+
     val saveProjectLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.CreateDocument("application/x-esenho")
@@ -801,6 +818,14 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 },
                 onDismiss = { activePanel = null },
                 tabRequest = vectorTabRequest)
+            WorkspacePanel.MESH -> MeshObjectPanel(
+                engine = engine,
+                revision = engineRevision,
+                onChanged = { refreshState(false) },
+                onImport = { openObjLauncher.launch(arrayOf("*/*")) },
+                onExport = { saveObjLauncher.launch("modelo.obj") },
+                onDismiss = { activePanel = null },
+            )
             WorkspacePanel.COLOR ->
                 ColorStudioModal(
                     engine = engine,
@@ -1683,11 +1708,24 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         0 -> {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text("Espaço de trabalho", Modifier.align(Alignment.CenterVertically))
-                                listOf(false to "Raster", true to "Vetor").forEach { (vector, label) ->
-                                    FilterChip(selected = engine.vectors.enabled == vector, onClick = {
+                                listOf(0 to "Raster", 1 to "Vetor", 2 to "3D").forEach { (mode, label) ->
+                                    val selected =
+                                        when (mode) {
+                                            1 -> engine.vectors.enabled
+                                            2 -> engine.meshes.enabled
+                                            else -> !engine.vectors.enabled && !engine.meshes.enabled
+                                        }
+                                    FilterChip(selected = selected, onClick = {
                                         activePanel = null
                                         showWorkspaceActions = false
-                                        engine.vectors.switchMode(vector)
+                                        if (mode == 2) {
+                                            engine.vectors.switchMode(false)
+                                            engine.meshes.switchMode(true)
+                                            activePanel = WorkspacePanel.MESH
+                                        } else {
+                                            engine.meshes.switchMode(false)
+                                            engine.vectors.switchMode(mode == 1)
+                                        }
                                         refreshState(false)
                                     }, label = { Text(label) })
                                 }
@@ -1704,6 +1742,17 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                         saveSvgLauncher.launch(if (appearance) "esenho-aparencia.svg" else "esenho.svg")
                                     })
                                 }
+                                HorizontalDivider()
+                            }
+                            if (engine.meshes.enabled) {
+                                DropdownMenuItem(text = { Text("Importar OBJ…") }, onClick = {
+                                    showWorkspaceActions = false
+                                    openObjLauncher.launch(arrayOf("*/*"))
+                                })
+                                DropdownMenuItem(text = { Text("Exportar OBJ…") }, onClick = {
+                                    showWorkspaceActions = false
+                                    saveObjLauncher.launch("modelo.obj")
+                                })
                                 HorizontalDivider()
                             }
                             DropdownMenuItem(
