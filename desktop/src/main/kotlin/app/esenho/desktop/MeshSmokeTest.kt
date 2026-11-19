@@ -35,11 +35,27 @@ fun meshSmokeTest(context: Context) {
     check(opaquePixels() > painted)
     mesh.setRenderSettings(wireframe = false)
 
-    val before = mesh.scene.camera.position
+    val center = mesh.projectPoint(Vec3.ZERO)!!
+    val hit = mesh.pick(center.first, center.second)
+    check(hit != null && hit.objectId == mesh.selected!!.id) { "Ray pick missed the cube" }
+
+    val cameraBefore = mesh.scene.camera.position
+    val targetBefore = mesh.scene.camera.target
+    mesh.dragMode = "pan"
     engine.onTouchDown(40f, 40f)
-    engine.onTouchMove(70f, 55f)
-    engine.onTouchUp(70f, 55f)
-    check(mesh.scene.camera.position != before) { "Orbit gesture did not move the camera" }
+    engine.onTouchMove(70f, 40f)
+    engine.onTouchUp(70f, 40f)
+    check(mesh.scene.camera.position != cameraBefore && mesh.scene.camera.target != targetBefore)
+    mesh.dragMode = "orbit"
+
+    val positionBefore = mesh.selected!!.transform.position
+    mesh.gizmoMode = "move"
+    val origin = mesh.projectPoint(positionBefore)!!
+    engine.onTouchDown(origin.first, origin.second)
+    engine.onTouchMove(origin.first + 20f, origin.second)
+    engine.onTouchUp(origin.first + 20f, origin.second)
+    check(mesh.selected!!.transform.position != positionBefore) { "Move gizmo did not transform the object" }
+    mesh.gizmoMode = "move"
 
     val obj = mesh.exportObj(withMetadata = false)
     val parsed = ObjReader.read(obj)

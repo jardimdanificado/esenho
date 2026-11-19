@@ -42,6 +42,30 @@ fun MeshObjectPanel(
             Button(onClick = onExport, modifier = Modifier.weight(1f)) { Text("Exportar OBJ") }
         }
         HorizontalDivider()
+        Text("Navegação", style = MaterialTheme.typography.titleSmall)
+        Row {
+            listOf("orbit" to "Órbita", "pan" to "Mover tela").forEach { (value, label) ->
+                FilterChip(
+                    selected = mesh.dragMode == value,
+                    onClick = { mesh.dragMode = value; onChanged() },
+                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                    modifier = Modifier.padding(end = 4.dp),
+                )
+            }
+        }
+        Text("Gizmo", style = MaterialTheme.typography.bodySmall)
+        Row {
+            listOf("move" to "Mover", "rotate" to "Girar", "scale" to "Escalar").forEach { (value, label) ->
+                FilterChip(
+                    selected = mesh.gizmoMode == value,
+                    onClick = { mesh.gizmoMode = value; onChanged() },
+                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                    modifier = Modifier.padding(end = 4.dp),
+                )
+            }
+        }
+        Text("Clique para selecionar; arraste o eixo desejado no gizmo.", style = MaterialTheme.typography.bodySmall)
+        HorizontalDivider()
         Text("Câmera", style = MaterialTheme.typography.titleSmall)
         Text("Campo de visão: ${mesh.scene.camera.fov.toInt()}°")
         Slider(

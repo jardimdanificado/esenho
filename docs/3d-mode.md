@@ -4,7 +4,7 @@
 
 Tornar `.obj` para modelagem 3D o que `.svg` é para o modo vetorial: geometria editável é a fonte da verdade, pixels na camada nativa são cache de renderização. O modelo 3D deve passar pelo mesmo pipeline de camadas, undo, projeto e exportação que o vetor usa hoje.
 
-**Estado:** Fase 1 implementada. Veja a seção "Fases e critério de parada" — o item 1 está pronto; os itens 2 a 4 permanecem como plano.
+**Estado:** Fases 1 e 2 implementadas. Veja "Fases e critério de parada" — os itens 1 e 2 estão prontos; os itens 3 e 4 permanecem como plano.
 
 ## Principio de integração
 

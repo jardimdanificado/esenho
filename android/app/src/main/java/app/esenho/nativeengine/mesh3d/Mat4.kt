@@ -144,4 +144,30 @@ class Mat4(private val values: FloatArray = identityValues()) {
             values[1] * vector.x + values[5] * vector.y + values[9] * vector.z,
             values[2] * vector.x + values[6] * vector.y + values[10] * vector.z,
         )
+
+    fun invert(): Mat4? {
+        val rows = Array(4) { r -> DoubleArray(8) { c ->
+            if (c < 4) values[c * 4 + r].toDouble() else if (c - 4 == r) 1.0 else 0.0
+        } }
+        for (column in 0 until 4) {
+            var pivot = column
+            for (row in column + 1 until 4) if (kotlin.math.abs(rows[row][column]) > kotlin.math.abs(rows[pivot][column])) pivot = row
+            if (kotlin.math.abs(rows[pivot][column]) < 1e-12) return null
+            if (pivot != column) {
+                val temp = rows[column]
+                rows[column] = rows[pivot]
+                rows[pivot] = temp
+            }
+            val divisor = rows[column][column]
+            for (c in 0 until 8) rows[column][c] /= divisor
+            for (row in 0 until 4) {
+                if (row == column) continue
+                val factor = rows[row][column]
+                for (c in 0 until 8) rows[row][c] -= factor * rows[column][c]
+            }
+        }
+        val result = FloatArray(16)
+        for (r in 0 until 4) for (c in 0 until 4) result[c * 4 + r] = rows[r][c + 4].toFloat()
+        return Mat4(result)
+    }
 }
