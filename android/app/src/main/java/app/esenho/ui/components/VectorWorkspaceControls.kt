@@ -96,14 +96,12 @@ private fun VectorToolButton(
     }
 }
 
-/** Tools occupy the existing bottom dock; document actions live in the project menu. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** Tools occupy the existing bottom dock; visibility is toggled from the overflow menu. */
 @Composable
 fun EditorToolStrip(
     engine: EsenhoEngine,
     revision: Int,
     onTool: (ToolMode) -> Unit,
-    onHide: () -> Unit,
     onChanged: () -> Unit,
 ) {
     val groups: List<List<ToolbarTool>> =
@@ -149,11 +147,6 @@ fun EditorToolStrip(
                 listOf(ToolMode.EYEDROPPER, ToolMode.TRANSFORM, ToolMode.PAN).map(rasterTool),
             )
         }
-    val activeLabel =
-        if (engine.vectors.enabled && engine.currentTool == ToolMode.BRUSH)
-            engine.vectors.tool.label
-        else engine.currentTool.displayName
-
     Surface(color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(
@@ -178,25 +171,6 @@ fun EditorToolStrip(
                     group.forEach { tool ->
                         VectorToolButton(tool.selected, tool.label, tool.icon, tool.onClick)
                     }
-                }
-            }
-            Text(
-                activeLabel,
-                modifier =
-                    Modifier.padding(start = 6.dp, end = 2.dp)
-                        .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(6.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                maxLines = 1,
-            )
-            TooltipBox(
-                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                tooltip = { PlainTooltip { Text("Ocultar ferramentas") } },
-                state = rememberTooltipState(),
-            ) {
-                IconButton(onClick = onHide, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Default.ExpandMore, "Ocultar ferramentas", Modifier.size(19.dp))
                 }
             }
         }

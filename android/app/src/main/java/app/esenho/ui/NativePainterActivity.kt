@@ -1404,7 +1404,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         bottomBar = {
                 Column(Modifier.blockScriptTouches(scriptSession != null || markingScriptPivot)) {
                     val toolsVisible = if (engine.vectors.enabled) vectorToolsVisible else rasterToolsVisible
-                    if (toolsVisible) EditorToolStrip(engine, engineRevision, onTool = { chooseTool(it) }, onHide = { toggleTools() }) { refreshState(false) }
+                    if (toolsVisible) EditorToolStrip(engine, engineRevision, onTool = { chooseTool(it) }) { refreshState(false) }
                     WorkspaceProperties(
                         vectorMode = engine.vectors.enabled,
                         toolsVisible = toolsVisible,

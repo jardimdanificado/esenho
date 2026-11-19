@@ -59,23 +59,6 @@ fun captureEditor(window: java.awt.Window, output: File) {
                 null,
             )
         }
-        desktopUiTestCanvas?.let { view ->
-            if (view.isShowing && view.width > 0 && view.height > 0) {
-                val point = view.locationOnScreen
-                val canvasGraphics =
-                    graphics.create(
-                        point.x - bounds.x,
-                        point.y - bounds.y,
-                        view.width,
-                        view.height,
-                    )
-                try {
-                    view.paint(canvasGraphics)
-                } finally {
-                    canvasGraphics.dispose()
-                }
-            }
-        }
     } finally {
         graphics.dispose()
     }
