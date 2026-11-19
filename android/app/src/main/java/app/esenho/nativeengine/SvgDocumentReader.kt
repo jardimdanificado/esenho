@@ -378,7 +378,7 @@ internal class SvgDocumentReader(private val root: Element) {
         if (v == "none") return null
         if (v == "currentColor") return paint(current, alpha, "black")
         if (v.startsWith("url("))
-            fail("Gradientes e padrões de preenchimento ainda não são suportados.")
+            fail("Gradientes de contorno e padrões de preenchimento ainda não são suportados.")
         val basic =
             mapOf(
                 "black" to 0x000000,

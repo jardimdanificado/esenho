@@ -36,7 +36,7 @@ for src in base.rglob('*'):
             "vector" -> { activePanel = null; engine.vectors.switchMode(true); refreshState(false) }
             "raster" -> { activePanel = null; engine.vectors.switchMode(false); refreshState(false) }
             "toggleTools" -> { toggleTools() }
-            "vectorObjects" -> { activePanel = WorkspacePanel.VECTOR; refreshState(false) }
+            "vectorObjects" -> { vectorTabRequest = null; activePanel = WorkspacePanel.VECTOR; refreshState(false) }
             "vectorColor" -> { activePanel = WorkspacePanel.COLOR; refreshState(false) }
             "vectorSelect" -> { engine.cancelActiveStroke(); engine.vectors.tool = app.esenho.nativeengine.VectorTool.SELECT; engine.currentTool = ToolMode.BRUSH; refreshState(false) }
             "vectorAll" -> { engine.vectors.selection.all(); refreshState(false) }

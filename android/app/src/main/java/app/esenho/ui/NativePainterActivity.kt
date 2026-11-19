@@ -342,6 +342,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
 
     var quickSlidersOpen by remember { mutableStateOf(false) }
     var activePanel by remember { mutableStateOf<WorkspacePanel?>(null) }
+    var vectorTabRequest by remember { mutableStateOf<VectorPanelTab?>(null) }
     var brushPresetRequest by remember { mutableIntStateOf(0) }
     var brushPropertiesRequest by remember { mutableIntStateOf(0) }
     var showWorkspaceActions by remember { mutableStateOf(false) }
@@ -533,6 +534,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 if (args.has("quickParameters")) quickSlidersOpen = args.getBoolean("quickParameters")
                 workspacePreferences.edit().putBoolean("quick_shelf_visible",quickShelfVisible).putBoolean("quick_shelf_recent",quickShelfRecent).apply()
             } else {
+                vectorTabRequest = null
                 activePanel = if (args.isNull("name")) null else WorkspacePanel.values().firstOrNull {
                     it.name.equals(args.getString("name"), ignoreCase = true)
                 } ?: error("Painel desconhecido: ${args.optString("name")}")
@@ -797,7 +799,8 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     refreshState(false)
                     activePanel = WorkspacePanel.COLOR
                 },
-                onDismiss = { activePanel = null })
+                onDismiss = { activePanel = null },
+                tabRequest = vectorTabRequest)
             WorkspacePanel.COLOR ->
                 ColorStudioModal(
                     engine = engine,
@@ -1383,8 +1386,10 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         onToggleTools = { toggleTools() },
                         toolName = if (engine.vectors.enabled) engine.vectors.tool.label else currentTool.displayName,
                         onToolOptions = {
-                            if (engine.vectors.enabled) activePanel = WorkspacePanel.VECTOR
-                            else if (currentTool == ToolMode.BRUSH) {
+                            if (engine.vectors.enabled) {
+                                vectorTabRequest = VectorPanelTab.APARENCIA
+                                activePanel = WorkspacePanel.VECTOR
+                            } else if (currentTool == ToolMode.BRUSH) {
                                 brushPropertiesRequest++
                                 activePanel = WorkspacePanel.BRUSHES
                             } else if (isTransformActive) activePanel = WorkspacePanel.TRANSFORM
@@ -1438,8 +1443,19 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             if (!active) refreshState()
                         },
                         toolPicker = {
-                            if (engine.vectors.enabled) IconButton(onClick = { activePanel = WorkspacePanel.VECTOR }, modifier = Modifier.size(36.dp)) {
-                                Icon(Icons.Default.Polyline, "Objetos e propriedades vetoriais", Modifier.size(20.dp))
+                            if (engine.vectors.enabled) IconButton(
+                                onClick = {
+                                    vectorTabRequest = VectorPanelTab.OBJETOS
+                                    activePanel = WorkspacePanel.VECTOR
+                                },
+                                modifier = Modifier.size(36.dp),
+                            ) {
+                                Icon(
+                                    Icons.Default.Polyline,
+                                    "Objetos vetoriais",
+                                    Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
                             } else WorkspaceToolPicker(
                                 currentTool,
                                 showSelectMenu,
