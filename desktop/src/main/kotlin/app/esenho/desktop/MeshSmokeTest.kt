@@ -118,6 +118,26 @@ fun meshSmokeTest(context: Context) {
     mesh.setTransform(position = Vec3(2f, 0f, 0f))
     mesh.keyframeObject(10)
     check(mesh.animation.track(meshId).keyframes.size == 2)
+    mesh.seekFrame(10)
+    check(mesh.animation.currentFrame == 10)
+    val animatedObj = mesh.scene.objectById(meshId)!!
+    val animatedCenter =
+        mesh.projectPoint(app.esenho.nativeengine.mesh3d.Vec3(2f, 0f, animatedObj.transform.position.z))
+    if (animatedCenter != null) {
+        val animatedHit = mesh.pick(animatedCenter.first, animatedCenter.second)
+        check(animatedHit?.objectId == meshId) { "Picking did not follow the animated mesh" }
+    }
+    val orbitRadius =
+        (mesh.scene.camera.position - mesh.scene.camera.target).length()
+    repeat(40) { mesh.orbit(0f, 30f) }
+    check(
+        mesh.scene.camera.position.y.isFinite() &&
+            mesh.scene.camera.position.y <= orbitRadius + .01f &&
+            mesh.scene.camera.position.y > 0f
+    ) {
+        "Orbit pitch drifted: ${mesh.scene.camera.position.y}"
+    }
+    mesh.resetCamera()
     mesh.seekFrame(5)
     check(mesh.animation.currentFrame == 5)
     check(app.esenho.nativeengine.mesh3d.MeshProfiler.triangles >= 0)

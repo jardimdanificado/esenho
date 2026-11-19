@@ -121,7 +121,9 @@ O modo 3D ocupa uma camada nativa própria, criada por `switchMode(3D)` da mesma
 
 - Rasterizar só a bbox projetada de cada objeto, não o canvas inteiro.
 - Reutilizar `zBuffer` e `IntArray` entre renders; realocar só quando o documento muda de tamanho.
-- Durante órbita, renderizar em meia resolução com buffers de pixels/profundidade reaproveitados, e fazer o render final ao soltar. O undo é gravado uma vez no início do gesto, nunca a cada movimento — snapshots nativos por movimento eram o maior custo.
+- A resolução do preview é fixa (100% até 1 MP, 66% acima disso) para evitar salto visual ao soltar. Buffers de pixels/profundidade são reaproveitados. O undo é gravado uma vez no início do gesto, nunca a cada movimento — snapshots nativos por movimento eram o maior custo.
+- Órbita usa coordenadas esféricas com polar limitada; pan e gizmo convertem pixels em unidades de mundo pela base da câmera (`2 * distância * tan(fov/2) / altura`). A edição de vértice aplica a inversa da matriz do objeto para converter o delta de mundo em coordenada local.
+- `renderedScene` guarda a cena já animada do último frame; overlay, picking e gizmos usam essa cena, não a geometria base, para que a malha acompanhe o modelo animado.
 - Ordenar triângulos por profundidade média como otimização secundária; o z-buffer já garante correção.
 - Se perfilagem mostrar gargalo, portar o loop de rasterização para `w_mesh3d_render` em `src/quadro.c` e expor via JNI — a ABI e o modelo de dados já estarão estáveis.
 

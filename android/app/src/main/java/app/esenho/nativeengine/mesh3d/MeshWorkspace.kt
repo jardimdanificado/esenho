@@ -8,8 +8,14 @@ import app.esenho.nativeengine.EsenhoEngine
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
+import kotlin.math.PI
+import kotlin.math.acos
+import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.tan
 
 enum class MeshTool { SELECT, ORBIT, PAN, MOVE, ROTATE, SCALE, VERTEX, FACE }
 
@@ -112,7 +118,9 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     }
 
     val animation = app.esenho.nativeengine.VectorAnimation(this)
-    var previewScale = 1f
+    var previewScale =
+        if (engine.width.toLong() * engine.height > 1_000_000L) .66f else 1f
+    private var renderedScene: Scene3D = scene
 
     companion object {
         const val CAMERA_TRACK = "__camera__"
@@ -202,16 +210,15 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         val bitmap = renderBitmap!!
         val pixels = pixelBuffer!!
         val depth = depthBuffer!!
-        MeshRasterizer.render(animatedScene(), width, height, pixels, depth)
+        renderedScene = animatedScene()
+        MeshRasterizer.render(renderedScene, width, height, pixels, depth)
         bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
         EsenhoNativeBridge.nativeBeginLayerUpdate()
         EsenhoNativeBridge.nativeLayerClear(layerId)
         EsenhoNativeBridge.nativeLayerDrawBitmap(layerId, bitmap, 0, 0, engine.width, engine.height)
         EsenhoNativeBridge.nativeEndLayerUpdate()
-        if (previewScale >= 1f) {
-            engine.captureCurrentFrame()
-            engine.getRenderBitmap()
-        }
+        engine.captureCurrentFrame()
+        engine.getRenderBitmap()
     }
 
     fun releaseBuffers() {
@@ -372,9 +379,10 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     }
 
     fun pickVertex(x: Float, y: Float): Int {
-        val obj = selected ?: return -1
+        val id = selectedId ?: return -1
+        val obj = renderedScene.objectById(id) ?: return -1
         var best = -1
-        var bestDistance = 14f
+        var bestDistance = 16f
         obj.vertices.forEachIndexed { index, vertex ->
             val matrix = obj.transform.matrix()
             val screen = projectPoint(matrix.transform(vertex).projected()) ?: return@forEachIndexed
@@ -495,8 +503,10 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     private var gizmoAxis: Int = -1
     private var gizmoStart = Vec3.ZERO
 
-    private fun viewProjection(width: Int, height: Int): Mat4 =
-        scene.camera.projection(width.toFloat() / height.toFloat()) * scene.camera.view()
+    private fun viewProjection(width: Int, height: Int): Mat4 {
+        val camera = renderedScene.camera
+        return camera.projection(width.toFloat() / height.toFloat()) * camera.view()
+    }
 
     fun projectPoint(point: Vec3): Pair<Float, Float>? {
         if (engine.width <= 0 || engine.height <= 0) return null
@@ -521,7 +531,7 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         val origin = ray.first
         val direction = ray.second
         var best: MeshHit? = null
-        scene.objects.filter { it.visible }.forEachIndexed { objectIndex, obj ->
+        renderedScene.objects.filter { it.visible }.forEachIndexed { objectIndex, obj ->
             val matrix = obj.transform.matrix()
             obj.faces.forEachIndexed { faceIndex, face ->
                 for (i in 1 until face.vertices.size - 1) {
@@ -564,12 +574,11 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         lastPointerX = x
         lastPointerY = y
         gizmoAxis = -1
-        previewScale = .5f
         when (tool) {
             MeshTool.VERTEX -> {
                 selectedVertex = pickVertex(x, y)
                 if (selectedVertex >= 0) {
-                    gizmoAxis = 0
+                    gizmoAxis = 3
                     edit()
                 }
             }
@@ -615,15 +624,13 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
 
     fun pointerUp() {
         gizmoAxis = -1
-        previewScale = 1f
-        render()
     }
 
     private fun hitGizmoAxis(x: Float, y: Float): Int {
         val obj = selected ?: return -1
         val origin = obj.transform.position
         val center = projectPoint(origin) ?: return -1
-        if (kotlin.math.hypot(center.first - x, center.second - y) < 18f) return 0
+        if (kotlin.math.hypot(center.first - x, center.second - y) < 18f) return 3
         val length = (scene.camera.position - origin).length() * .12f
         listOf(Vec3(length, 0f, 0f), Vec3(0f, length, 0f), Vec3(0f, 0f, length)).forEachIndexed { axis, delta ->
             val end = projectPoint(origin + delta) ?: return@forEachIndexed
@@ -634,55 +641,93 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
 
     private fun applyGizmo(dx: Float, dy: Float) {
         val obj = selected ?: return
-        val factor = (scene.camera.position - obj.transform.position).length() * .004f
-        if (tool == MeshTool.VERTEX && selectedVertex >= 0) {
-            val current = obj.vertices[selectedVertex]
-            setVertexInternal(
-                selectedVertex,
-                when (gizmoAxis) {
-                    0 -> Vec3(current.x + dx * factor, current.y, current.z)
-                    1 -> Vec3(current.x, current.y - dy * factor, current.z)
-                    else -> Vec3(current.x, current.y, current.z + (dx - dy) * factor)
-                },
-            )
+        val vertexMode = tool == MeshTool.VERTEX && selectedVertex >= 0
+        val currentLocal =
+            if (vertexMode) obj.vertices.getOrNull(selectedVertex) ?: Vec3.ZERO else Vec3.ZERO
+        val origin =
+            if (vertexMode) obj.transform.matrix().transform(currentLocal).projected()
+            else obj.transform.position
+        val (right, up) = cameraBasis()
+        val perPixel = worldPerPixel((renderedScene.camera.position - origin).length())
+        val worldDelta = right * (dx * perPixel) + up * (-dy * perPixel)
+
+        if (vertexMode) {
+            val localDelta =
+                obj.transform.matrix().invert()?.transformDirection(worldDelta) ?: worldDelta
+            setVertexInternal(selectedVertex, currentLocal + localDelta)
             return
         }
+
+        val axisVector =
+            when (gizmoAxis) {
+                0 -> Vec3(1f, 0f, 0f)
+                1 -> Vec3(0f, 1f, 0f)
+                2 -> Vec3(0f, 0f, 1f)
+                else -> null
+            }
         when (tool) {
             MeshTool.ROTATE -> {
+                val center = projectPoint(origin) ?: return
+                val axisScreen =
+                    if (axisVector != null) {
+                        val end = projectPoint(origin + axisVector * 1f) ?: center
+                        val ax = end.first - center.first
+                        val ay = end.second - center.second
+                        val length = kotlin.math.hypot(ax, ay).coerceAtLeast(.001f)
+                        ax / length to ay / length
+                    } else 0f to 1f
+                val angle = (axisScreen.first * dy - axisScreen.second * dx) * .6f
                 val rotation = obj.transform.rotation
-                val delta = (dx + dy) * .5f
                 obj.transform.rotation =
                     when (gizmoAxis) {
-                        0 -> Vec3(rotation.x + delta, rotation.y, rotation.z)
-                        1 -> Vec3(rotation.x, rotation.y + delta, rotation.z)
-                        else -> Vec3(rotation.x, rotation.y, rotation.z + delta)
+                        0 -> Vec3(rotation.x + angle, rotation.y, rotation.z)
+                        1 -> Vec3(rotation.x, rotation.y + angle, rotation.z)
+                        2 -> Vec3(rotation.x, rotation.y, rotation.z + angle)
+                        else -> Vec3(rotation.x, rotation.y + angle, rotation.z)
                     }
             }
             MeshTool.SCALE -> {
-                val amount = 1f + (dx + dy) * .005f
+                val amount =
+                    if (axisVector == null) 1f + (dx - dy) * .008f
+                    else 1f + worldDelta.dot(axisVector) * .8f
                 val scale = obj.transform.scale
-                obj.transform.scale = Vec3(scale.x * amount, scale.y * amount, scale.z * amount)
+                obj.transform.scale =
+                    when (gizmoAxis) {
+                        0 -> Vec3(scale.x * amount, scale.y, scale.z)
+                        1 -> Vec3(scale.x, scale.y * amount, scale.z)
+                        2 -> Vec3(scale.x, scale.y, scale.z * amount)
+                        else -> Vec3(scale.x * amount, scale.y * amount, scale.z * amount)
+                    }
             }
             else -> {
                 val position = obj.transform.position
                 obj.transform.position =
-                    when (gizmoAxis) {
-                        0 -> Vec3(position.x + dx * factor, position.y, position.z)
-                        1 -> Vec3(position.x, position.y - dy * factor, position.z)
-                        else -> Vec3(position.x, position.y, position.z + (dx - dy) * factor)
-                    }
+                    if (axisVector == null) position + worldDelta
+                    else position + axisVector * worldDelta.dot(axisVector)
             }
         }
         render()
     }
 
-    fun pan(dx: Float, dy: Float) {
+    private fun cameraBasis(): Triple<Vec3, Vec3, Vec3> {
         val camera = scene.camera
         val forward = (camera.target - camera.position).normalize()
         val right = forward.cross(camera.up).normalize()
         val up = right.cross(forward).normalize()
-        val scale = (camera.position - camera.target).length() * .002f
-        val offset = right * (-dx * scale) + up * (dy * scale)
+        return Triple(right, up, forward)
+    }
+
+    private fun worldPerPixel(distance: Float): Float {
+        val fov = scene.camera.fov.coerceIn(5f, 150f)
+        return 2f * distance * tan(fov * Math.PI.toFloat() / 360f) /
+            max(1, engine.height).toFloat()
+    }
+
+    fun pan(dx: Float, dy: Float) {
+        val camera = scene.camera
+        val (right, up) = cameraBasis()
+        val amount = worldPerPixel((camera.position - camera.target).length())
+        val offset = right * (-dx * amount) + up * (dy * amount)
         camera.position = camera.position + offset
         camera.target = camera.target + offset
         render()
@@ -691,17 +736,41 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     fun orbit(dx: Float, dy: Float) {
         val camera = scene.camera
         val offset = camera.position - camera.target
-        val yaw = dx * .01f
-        val pitch = dy * .01f
-        val cosY = cos(yaw)
-        val sinY = sin(yaw)
-        val rotated =
-            Vec3(
-                offset.x * cosY - offset.z * sinY,
-                offset.y + pitch * offset.length(),
-                offset.x * sinY + offset.z * cosY,
-            )
-        camera.position = camera.target + rotated
+        val radius = offset.length().coerceAtLeast(.001f)
+        val theta = atan2(offset.x, offset.z) - dx * .008f
+        val phi =
+            acos((offset.y / radius).coerceIn(-1f, 1f))
+                .minus(dy * .008f)
+                .coerceIn(.05f, Math.PI.toFloat() - .05f)
+        camera.position =
+            camera.target +
+                Vec3(
+                    radius * sin(phi) * sin(theta),
+                    radius * cos(phi),
+                    radius * sin(phi) * cos(theta),
+                )
+        render()
+    }
+
+    fun resetCamera() {
+        scene.camera = MeshCamera()
+        render()
+    }
+
+    fun frameSelected() {
+        val obj = selected ?: return
+        if (obj.vertices.isEmpty()) return
+        val minX = obj.vertices.minOf { it.x }
+        val maxX = obj.vertices.maxOf { it.x }
+        val minY = obj.vertices.minOf { it.y }
+        val maxY = obj.vertices.maxOf { it.y }
+        val minZ = obj.vertices.minOf { it.z }
+        val maxZ = obj.vertices.maxOf { it.z }
+        val center = Vec3((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2)
+        val radius = maxOf(maxX - minX, maxY - minY, maxZ - minZ, 1f)
+        val distance = radius * 2.2f
+        scene.camera.target = center
+        scene.camera.position = center + Vec3(0f, distance * .35f, distance)
         render()
     }
 
@@ -724,7 +793,8 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     fun exportObj(withMetadata: Boolean = true) = ObjIO.write(scene, withMetadata)
 
     fun drawOverlay(canvas: Canvas) {
-        val obj = selected ?: return
+        val id = selectedId ?: return
+        val obj = renderedScene.objectById(id) ?: return
         val scale = engine.vectorViewScale.coerceAtLeast(.01f)
         val line =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {

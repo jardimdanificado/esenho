@@ -87,8 +87,20 @@ fun MeshObjectPanel(
             Text("Booleanas de malha", style = MaterialTheme.typography.titleSmall)
             val others = mesh.scene.objects.filter { it.id != selected.id }
             var target by remember(selected.id) { mutableStateOf(others.firstOrNull()?.id ?: "") }
-            TextButton(onClick = { target = others.firstOrNull { it.id != target }?.id ?: target }) {
+            var targetMenu by remember { mutableStateOf(false) }
+            Button(onClick = { targetMenu = true }, modifier = Modifier.fillMaxWidth()) {
                 Text("Outro objeto: ${others.firstOrNull { it.id == target }?.name ?: "nenhum"}")
+            }
+            DropdownMenu(expanded = targetMenu, onDismissRequest = { targetMenu = false }) {
+                others.forEach { other ->
+                    DropdownMenuItem(
+                        text = { Text(other.name.ifBlank { other.id }) },
+                        onClick = {
+                            target = other.id
+                            targetMenu = false
+                        },
+                    )
+                }
             }
             Row {
                 app.esenho.nativeengine.mesh3d.MeshBooleanOp.values().forEach { op ->
@@ -189,6 +201,15 @@ fun MeshObjectPanel(
                 Text("Afastar")
             }
         }
+        Row {
+            Button(onClick = { mesh.frameSelected(); onChanged() }, modifier = Modifier.weight(1f)) {
+                Text("Enquadrar (F)")
+            }
+            Spacer(Modifier.width(6.dp))
+            Button(onClick = { mesh.resetCamera(); onChanged() }, modifier = Modifier.weight(1f)) {
+                Text("Camera inicial (0)")
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(
                 checked = mesh.scene.wireframe,
@@ -239,6 +260,36 @@ fun MeshObjectPanel(
                 },
             ) {
                 Text("Aplicar posição")
+            }
+            var rx by remember(selected.id) { mutableStateOf(fmt(selected.transform.rotation.x)) }
+            var ry by remember(selected.id) { mutableStateOf(fmt(selected.transform.rotation.y)) }
+            var rz by remember(selected.id) { mutableStateOf(fmt(selected.transform.rotation.z)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                MeshNumber("Rot X", rx, { rx = it }, Modifier.weight(1f))
+                MeshNumber("Rot Y", ry, { ry = it }, Modifier.weight(1f))
+                MeshNumber("Rot Z", rz, { rz = it }, Modifier.weight(1f))
+            }
+            var sx by remember(selected.id) { mutableStateOf(fmt(selected.transform.scale.x)) }
+            var sy by remember(selected.id) { mutableStateOf(fmt(selected.transform.scale.y)) }
+            var sz by remember(selected.id) { mutableStateOf(fmt(selected.transform.scale.z)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                MeshNumber("Esc X", sx, { sx = it }, Modifier.weight(1f))
+                MeshNumber("Esc Y", sy, { sy = it }, Modifier.weight(1f))
+                MeshNumber("Esc Z", sz, { sz = it }, Modifier.weight(1f))
+            }
+            val rotationValues = listOf(rx, ry, rz).map { it.replace(',', '.').toFloatOrNull() }
+            val scaleValues = listOf(sx, sy, sz).map { it.replace(',', '.').toFloatOrNull() }
+            TextButton(
+                enabled = rotationValues.all { it != null } && scaleValues.all { it != null },
+                onClick = {
+                    mesh.setTransform(
+                        rotation = Vec3(rotationValues[0]!!, rotationValues[1]!!, rotationValues[2]!!),
+                        scale = Vec3(scaleValues[0]!!, scaleValues[1]!!, scaleValues[2]!!),
+                    )
+                    onChanged()
+                },
+            ) {
+                Text("Aplicar rotação e escala")
             }
             TextButton(onClick = { mesh.removeSelected(); onChanged() }) {
                 Text("Excluir objeto")

@@ -48,6 +48,17 @@ for src in base.rglob('*'):
             "vectorUngroup" -> { engine.vectors.selection.ungroup(); refreshState(false) }
             "vectorDelete" -> { engine.vectors.selection.delete(); refreshState(false) }
             "vectorNodes" -> { engine.vectors.tool = app.esenho.nativeengine.VectorTool.NODES; refreshState(false) }
+            "meshSelect" -> { engine.meshes.tool = app.esenho.nativeengine.mesh3d.MeshTool.SELECT; refreshState(false) }
+            "meshOrbit" -> { engine.meshes.tool = app.esenho.nativeengine.mesh3d.MeshTool.ORBIT; refreshState(false) }
+            "meshPan" -> { engine.meshes.tool = app.esenho.nativeengine.mesh3d.MeshTool.PAN; refreshState(false) }
+            "meshMove" -> { engine.meshes.tool = app.esenho.nativeengine.mesh3d.MeshTool.MOVE; refreshState(false) }
+            "meshRotate" -> { engine.meshes.tool = app.esenho.nativeengine.mesh3d.MeshTool.ROTATE; refreshState(false) }
+            "meshScale" -> { engine.meshes.tool = app.esenho.nativeengine.mesh3d.MeshTool.SCALE; refreshState(false) }
+            "meshVertex" -> { engine.meshes.tool = app.esenho.nativeengine.mesh3d.MeshTool.VERTEX; refreshState(false) }
+            "meshFace" -> { engine.meshes.tool = app.esenho.nativeengine.mesh3d.MeshTool.FACE; refreshState(false) }
+            "meshFrame" -> { engine.meshes.frameSelected(); refreshState(false) }
+            "meshResetCamera" -> { engine.meshes.resetCamera(); refreshState(false) }
+            "meshRemove" -> { engine.meshes.removeSelected(); refreshState(false) }
             "layers" -> activePanel = WorkspacePanel.LAYERS
             "timeline" -> activePanel = WorkspacePanel.ANIMATION
             "scripts" -> activePanel = WorkspacePanel.SCRIPTS

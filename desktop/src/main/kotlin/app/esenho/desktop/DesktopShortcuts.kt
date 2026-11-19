@@ -40,6 +40,22 @@ fun DesktopShortcuts(canvas: EsenhoCanvasView?, onCommand: (String) -> Unit) {
                             control && canvas.hasEditorFocus && canvas.engine?.vectors?.enabled == true && event.keyCode == KeyEvent.VK_V -> "vectorPaste"
                             control && canvas.hasEditorFocus && canvas.engine?.vectors?.enabled == true && event.keyCode == KeyEvent.VK_D -> "vectorDuplicate"
                             control && canvas.hasEditorFocus && canvas.engine?.vectors?.enabled == true && event.keyCode == KeyEvent.VK_G -> if (event.isShiftDown) "vectorUngroup" else "vectorGroup"
+                            canvas.hasEditorFocus && !control && !event.isAltDown &&
+                                canvas.engine?.meshes?.enabled == true ->
+                                when (event.keyCode) {
+                                    KeyEvent.VK_Q -> "meshSelect"
+                                    KeyEvent.VK_W -> "meshOrbit"
+                                    KeyEvent.VK_E -> "meshPan"
+                                    KeyEvent.VK_R -> "meshMove"
+                                    KeyEvent.VK_T -> "meshRotate"
+                                    KeyEvent.VK_Y -> "meshScale"
+                                    KeyEvent.VK_U -> "meshVertex"
+                                    KeyEvent.VK_I -> "meshFace"
+                                    KeyEvent.VK_F -> "meshFrame"
+                                    KeyEvent.VK_0 -> "meshResetCamera"
+                                    KeyEvent.VK_DELETE -> "meshRemove"
+                                    else -> null
+                                }
                             event.keyCode == KeyEvent.VK_F6 -> "layers"
                             event.keyCode == KeyEvent.VK_F7 -> "timeline"
                             event.keyCode == KeyEvent.VK_F8 -> "scripts"

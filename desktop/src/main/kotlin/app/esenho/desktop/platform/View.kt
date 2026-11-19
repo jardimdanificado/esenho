@@ -146,6 +146,12 @@ open class View(val context: Context, attrs: AttributeSet? = null, style: Int = 
 
                 override fun mouseWheelMoved(e: MouseWheelEvent) {
                     val view = this@View as? app.esenho.ui.EsenhoCanvasView ?: return
+                    val meshes = view.engine?.meshes
+                    if (meshes?.enabled == true) {
+                        meshes.zoom(Math.pow(0.9, -e.preciseWheelRotation).toFloat())
+                        repaint()
+                        return
+                    }
                     if (e.isShiftDown)
                         view.transformMatrix.postRotate(
                             (-e.preciseWheelRotation * 5).toFloat(),
