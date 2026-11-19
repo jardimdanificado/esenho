@@ -52,15 +52,7 @@ fun AnimationCompactBar(
         sync()
     }
 
-    Surface(
-        modifier = modifier.fillMaxWidth().height(40.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-    ) {
-        Row(
-            Modifier.fillMaxSize().padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
+    CompactBarSurface(modifier) {
             Text(
                 if (frameCount > 0) "${currentIdx + 1}/$frameCount" else "—/0",
                 style = MaterialTheme.typography.labelSmall,
@@ -103,17 +95,11 @@ fun AnimationCompactBar(
             ) {
                 (0 until frameCount).forEach { index ->
                     Box(
-                        Modifier.size(26.dp)
+                        Modifier.size(28.dp)
                             .clip(RoundedCornerShape(3.dp))
                             .background(
                                 if (index == currentIdx) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surfaceVariant
-                            )
-                            .border(
-                                1.dp,
-                                if (index == currentIdx) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.outlineVariant,
-                                RoundedCornerShape(3.dp),
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                             )
                             .clickable { goTo(index) },
                         contentAlignment = Alignment.Center,
@@ -182,6 +168,5 @@ fun AnimationCompactBar(
                     )
                 }
             }
-        }
     }
 }

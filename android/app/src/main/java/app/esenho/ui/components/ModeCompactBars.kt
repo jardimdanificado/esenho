@@ -22,21 +22,6 @@ import kotlinx.coroutines.delay
 private val BarHeight = 40.dp
 
 @Composable
-private fun BarSurface(content: @Composable RowScope.() -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().height(BarHeight),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-    ) {
-        Row(
-            Modifier.fillMaxSize().padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            content = content,
-        )
-    }
-}
-
-@Composable
 private fun RowScope.FrameStrip(frameCount: Int, current: Int, onSeek: (Int) -> Unit) {
     Row(
         Modifier.weight(1f).horizontalScroll(rememberScrollState()),
@@ -44,17 +29,11 @@ private fun RowScope.FrameStrip(frameCount: Int, current: Int, onSeek: (Int) -> 
     ) {
         (0 until frameCount).forEach { index ->
             Box(
-                Modifier.size(26.dp)
+                Modifier.size(28.dp)
                     .clip(RoundedCornerShape(3.dp))
                     .background(
                         if (index == current) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    .border(
-                        1.dp,
-                        if (index == current) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.outlineVariant,
-                        RoundedCornerShape(3.dp),
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                     )
                     .clickable { onSeek(index) },
                 contentAlignment = Alignment.Center,
@@ -97,7 +76,7 @@ fun VectorAnimationCompactBar(
         engine.vectors.render()
         sync()
     }
-    BarSurface {
+    CompactBarSurface {
         Text(
             "${current + 1}/$duration",
             style = MaterialTheme.typography.labelSmall,
@@ -187,7 +166,7 @@ fun VectorObjectsCompactBar(
         objects = vector.layers.values.flatten().asReversed()
         onChanged()
     }
-    BarSurface {
+    CompactBarSurface {
         Text(
             "Objetos",
             style = MaterialTheme.typography.labelSmall,
@@ -204,15 +183,9 @@ fun VectorObjectsCompactBar(
                     shape = RoundedCornerShape(4.dp),
                     color =
                         if (selected) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceVariant,
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
                     modifier =
                         Modifier.height(28.dp)
-                            .border(
-                                1.dp,
-                                if (selected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.outlineVariant,
-                                RoundedCornerShape(4.dp),
-                            )
                             .clip(RoundedCornerShape(4.dp))
                             .clickable { vector.selectObject(obj.id); refresh() },
                 ) {
@@ -277,7 +250,7 @@ fun MeshAnimationCompactBar(
         mesh.seekFrame(frame.coerceIn(0, (duration - 1).coerceAtLeast(0)))
         sync()
     }
-    BarSurface {
+    CompactBarSurface {
         Text(
             "${current + 1}/$duration",
             style = MaterialTheme.typography.labelSmall,
@@ -342,7 +315,7 @@ fun MeshObjectsCompactBar(
         objects = mesh.scene.objects.toList()
         onChanged()
     }
-    BarSurface {
+    CompactBarSurface {
         Text(
             "Objetos 3D",
             style = MaterialTheme.typography.labelSmall,
@@ -359,15 +332,9 @@ fun MeshObjectsCompactBar(
                     shape = RoundedCornerShape(4.dp),
                     color =
                         if (selected) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceVariant,
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
                     modifier =
                         Modifier.height(28.dp)
-                            .border(
-                                1.dp,
-                                if (selected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.outlineVariant,
-                                RoundedCornerShape(4.dp),
-                            )
                             .clip(RoundedCornerShape(4.dp))
                             .clickable { mesh.selectedId = obj.id; refresh() },
                 ) {

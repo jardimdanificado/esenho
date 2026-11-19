@@ -75,13 +75,12 @@ fun WorkspaceQuickShelf(
     }
 
     val colorStrip: @Composable (List<Int>, String) -> Unit = { colors, label ->
-        Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+        CompactBarSurface {
             IconButton(onClick = onColor, modifier = Modifier.size(36.dp)) {
                 Box(
                     Modifier.size(20.dp)
                         .clip(CircleShape)
                         .background(Color(engine.currentColor))
-                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
                         .semantics { contentDescription = "Abrir ou fechar estúdio de cores" }
                 )
             }
@@ -105,13 +104,6 @@ fun WorkspaceQuickShelf(
                             Modifier.size(26.dp)
                                 .clip(RoundedCornerShape(4.dp))
                                 .background(Color(color))
-                                .border(
-                                    if (engine.currentColor == color) 2.dp else 1.dp,
-                                    if (engine.currentColor == color)
-                                        MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.outline,
-                                    RoundedCornerShape(4.dp),
-                                )
                                 .clickable {
                                     engine.currentColor = color
                                     onChanged()
@@ -125,7 +117,7 @@ fun WorkspaceQuickShelf(
         }
     }
     val brushStrip: @Composable (List<ShelfBrush>, String, androidx.compose.foundation.lazy.LazyListState) -> Unit = { brushes, label, scrollState ->
-        Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+        CompactBarSurface {
             IconButton(onClick = onPresets, modifier = Modifier.size(36.dp)) {
                 Icon(
                     Icons.Default.CollectionsBookmark,
@@ -149,13 +141,13 @@ fun WorkspaceQuickShelf(
                 ) {
                     items(brushes, key = { it.id }) { brush ->
                         Row(
-                            Modifier.height(30.dp)
+                            Modifier.height(28.dp)
                                 .widthIn(max = 116.dp)
                                 .clip(RoundedCornerShape(4.dp))
                                 .background(
                                     if (brush.id == selected)
                                         MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surfaceVariant
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                                 )
                                 .clickable {
                                     if (brush.id == selected) onOpenCurrentBrush()
@@ -195,16 +187,10 @@ fun WorkspaceQuickShelf(
         }
     }
 
-    Surface(color = MaterialTheme.colorScheme.surface) {
-        Column {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            if (showFavoriteColors) colorStrip(colorsFor(false), "Cores favoritas")
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            if (showRecentColors) colorStrip(colorsFor(true), "Cores recentes")
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            if (showFavoriteBrushes) brushStrip(brushesFor(false), "Pincéis favoritos", favoriteBrushScroll)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            if (showRecentBrushes) brushStrip(brushesFor(true), "Pincéis recentes", recentBrushScroll)
-        }
+    Column {
+        if (showFavoriteColors) colorStrip(colorsFor(false), "Cores favoritas")
+        if (showRecentColors) colorStrip(colorsFor(true), "Cores recentes")
+        if (showFavoriteBrushes) brushStrip(brushesFor(false), "Pincéis favoritos", favoriteBrushScroll)
+        if (showRecentBrushes) brushStrip(brushesFor(true), "Pincéis recentes", recentBrushScroll)
     }
 }

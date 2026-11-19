@@ -40,15 +40,7 @@ fun LayersCompactBar(
         onChanged()
     }
 
-    Surface(
-        modifier = modifier.fillMaxWidth().height(40.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-    ) {
-        Row(
-            Modifier.fillMaxSize().padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
+    CompactBarSurface(modifier) {
             IconButton(
                 onClick = { engine.addLayer(); refresh() },
                 modifier = Modifier.size(28.dp),
@@ -64,15 +56,9 @@ fun LayersCompactBar(
                         shape = RoundedCornerShape(4.dp),
                         color =
                             if (layer.id == activeId) MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surfaceVariant,
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
                         modifier =
                             Modifier.height(28.dp)
-                                .border(
-                                    1.dp,
-                                    if (layer.id == activeId) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.outlineVariant,
-                                    RoundedCornerShape(4.dp),
-                                )
                                 .clip(RoundedCornerShape(4.dp))
                                 .clickable {
                                     engine.selectLayer(layer.id)
@@ -146,6 +132,5 @@ fun LayersCompactBar(
                     }
                 }
             }
-        }
     }
 }

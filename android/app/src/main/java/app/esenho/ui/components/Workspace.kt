@@ -57,6 +57,21 @@ private fun CompactControls(content: @Composable () -> Unit) {
 }
 
 @Composable
+fun CompactBarSurface(
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Surface(color = MaterialTheme.colorScheme.surface, modifier = modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
 fun WorkspaceHeader(
     dimensions: String,
     canUndo: Boolean,
@@ -261,12 +276,7 @@ fun WorkspaceProperties(
     val relevantSliders = relevantQuickSliders(engine, configuredSliders)
     val pinnedSliders = relevantSliders.filter { it.pinned }
     CompactControls {
-        Surface(color = MaterialTheme.colorScheme.surface) {
-            Row(
-                Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
+        CompactBarSurface {
                 toolPicker()
                 Row(
                     Modifier.weight(1f).height(36.dp),
@@ -326,7 +336,6 @@ fun WorkspaceProperties(
                         activePanel == WorkspacePanel.VECTOR,
                         onToolOptions,
                     )
-            }
         }
     }
 }

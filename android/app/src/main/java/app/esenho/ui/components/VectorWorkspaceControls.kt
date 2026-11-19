@@ -174,19 +174,7 @@ fun EditorToolStrip(
         }
     Surface(color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Row(
-                Modifier
-                    .weight(1f)
-                    .padding(vertical = 3.dp, horizontal = 4.dp)
-                    .background(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                        RoundedCornerShape(10.dp),
-                    )
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 3.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
+            CompactBarSurface(Modifier.weight(1f)) {
                 groups.forEachIndexed { index, group ->
                     if (index > 0)
                         VerticalDivider(
