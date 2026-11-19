@@ -93,7 +93,7 @@ Cada objeto pode ter faixas de propriedades com keyframes de posição, rotaçã
 
 O painel do objeto oferece um esqueleto simples: **Criar esqueleto** coloca o osso raiz no centro do documento e **Adicionar osso filho** encadeia ossos na ponta do último. Cada osso tem um ângulo local ajustável; a hierarquia é resolvida por cinemática direta e desenhada sobre o canvas.
 
-**Vincular objeto selecionado** prende o objeto ao osso ativo nos modos rígido (`cutout`), por caminho (`path`) ou com pesos suaves (`smooth_path`). Os pesos combinam a transformação de vários ossos por interpolação linear. **Resolver IK** usa CCD para levar a ponta do osso ativo até X/Y informados. Esqueleto, ossos, vínculos e pesos ficam no projeto e no desfazer/refazer. A deformação é aplicada só na renderização.
+**Vincular objeto selecionado** prende o objeto ao osso ativo nos modos rígido (`cutout`), por caminho (`path`) ou com pesos suaves (`smooth_path`). Os pesos combinam a transformação de vários ossos por interpolação linear. **Resolver IK** usa CCD para levar a ponta do osso ativo até X/Y informados. **Apontar** aplica uma constraint de alvo e **Livre** a remove. Cada osso pode usar modo cinemático, ragdoll ou **secundário**, com massa, rigidez, ângulo de repouso e limites de rotação. **Simular ragdoll** roda Verlet com gravidade e amortecimento por passos, mantendo o comprimento dos ossos e aplicando as constraints configuradas. **Bakear para animação** converte a simulação em keyframes de transform dos objetos vinculados. Esqueleto, ossos, constraints, vínculos e pesos ficam no projeto e no desfazer/refazer. A deformação é aplicada só na renderização.
 
 ### Recortes, réguas e guias
 

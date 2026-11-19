@@ -54,9 +54,26 @@ fun vectorRigSmokeTest(context: Context) {
     check(rig.bindings.single().weights.size == 2)
     v.render()
 
+    v.setAim(child.id, 200f, 50f)
+    check(rig.bone(child.id)?.constraint == "aim")
+    check(rig.bone(child.id)?.worldAngle!! < 0f) { "Aim constraint did not rotate the bone" }
+    v.clearConstraint(child.id)
+    check(rig.bone(child.id)?.constraint == "none")
+
+    v.configureBonePhysics(child.id, "secondary", 10f, .5f, -90f, 90f, 2f)
+    check(rig.bone(child.id)!!.physicsMode == "secondary" && rig.bone(child.id)!!.mass == 2f)
+    val beforeRagdoll = rig.bone(child.id)!!.worldAngle
+    v.stepRagdoll(1f, .98f, 12)
+    check(rig.bone(child.id)!!.worldAngle != beforeRagdoll) { "Ragdoll did not move the bone" }
+    v.bakeRig(4, 2)
+    check(v.animation.track("skin").keyframes.size == 4)
+
     val project = v.snapshot()
     v.restore(project)
     check(v.skeleton!!.bones.size == 2 && v.skeleton!!.bindings.size == 1)
     check(v.skeleton!!.bindings.single().weights.size == 2)
-    println("Vector rig: FK, IK, cutout/smooth binding, render and project roundtrip OK")
+    check(v.skeleton!!.bone(child.id)!!.physicsMode == "secondary")
+    check(v.skeleton!!.bone(child.id)!!.mass == 2f)
+    check(v.animation.track("skin").keyframes.size == 4)
+    println("Vector rig: FK, IK, aim, ragdoll, bake, bindings and project roundtrip OK")
 }

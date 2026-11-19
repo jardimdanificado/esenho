@@ -305,6 +305,11 @@
     pose: (bone, angle) => call("vector.rig.pose", {id:idOf(bone),angle}),
     ik: (bone, x, y) => call("vector.rig.ik", {id:idOf(bone),x,y}),
     bind: (object, bone, type = 'cutout') => call("vector.rig.bind", {id:idOf(object),boneId:idOf(bone),type}),
+    aim: (bone, x, y) => call("vector.rig.aim", {id:idOf(bone),x,y}),
+    free: bone => call("vector.rig.free", {id:idOf(bone)}),
+    physics: (bone, options = {}) => call("vector.rig.physics", {...options,id:idOf(bone)}),
+    ragdoll: (options = {}) => call("vector.rig.ragdoll", options),
+    bake: (options = {}) => call("vector.rig.bake", options),
     clear: () => call("vector.rig.clear", {})
   };
   esenho.help = () => Object.fromEntries(Object.entries(esenho).filter(([,v]) => v && typeof v === "object").map(([k,v]) => [k,Object.getOwnPropertyNames(v)]));

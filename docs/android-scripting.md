@@ -574,7 +574,11 @@ esenho.rig.clear();
 
 `bone` retorna o `id` do osso. `bind(objeto, osso, tipo)` aceita `cutout`,
 `path` e `smooth_path`; `pose` define o ângulo local em graus; `ik` resolve
-CCD até o alvo e retorna o erro residual em pixels.
+CCD até o alvo e retorna o erro residual em pixels. `aim` fixa uma constraint
+de alvo, `free` a remove, `physics(bone,{mode,restAngle,stiffness,minAngle,maxAngle,mass})` configura
+cinemática, ragdoll ou mola secundária com limites de ângulo.
+`ragdoll({gravity,damping,steps})` avança a simulação Verlet e
+`bake({frames,stepsPerFrame})` grava keyframes da deformação.
 
 ## Filtros: cor, detalhe, desenho e distorção
 

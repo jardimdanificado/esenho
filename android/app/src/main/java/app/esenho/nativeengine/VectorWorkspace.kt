@@ -625,6 +625,27 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         render()
     }
 
+    fun configureBonePhysics(
+        id: String,
+        mode: String,
+        restAngle: Float,
+        stiffness: Float,
+        minAngle: Float,
+        maxAngle: Float,
+        mass: Float,
+    ) {
+        val bone = skeleton?.bone(id) ?: return
+        bone.physicsMode = mode
+        bone.restAngle = restAngle
+        bone.stiffness = stiffness.coerceIn(.01f, 5f)
+        bone.minAngle = minAngle.coerceIn(-180f, 180f)
+        bone.maxAngle = maxAngle.coerceIn(-180f, 180f)
+        bone.mass = mass.coerceIn(.1f, 100f)
+        engine.beginVectorEdit()
+        skeleton?.updateFk()
+        render()
+    }
+
     fun solveRigIk(id: String, x: Float, y: Float): Float {
         val rig = skeleton ?: return Float.MAX_VALUE
         val error = rig.solveIk(id, x, y)
@@ -641,6 +662,37 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         engine.beginVectorEdit()
         render()
         return true
+    }
+
+    fun setAim(boneId: String, x: Float, y: Float) {
+        val bone = skeleton?.bone(boneId) ?: return
+        bone.constraint = "aim"
+        bone.aimX = x
+        bone.aimY = y
+        engine.beginVectorEdit()
+        skeleton?.updateFk()
+        render()
+    }
+
+    fun clearConstraint(boneId: String) {
+        val bone = skeleton?.bone(boneId) ?: return
+        bone.constraint = "none"
+        engine.beginVectorEdit()
+        skeleton?.updateFk()
+        render()
+    }
+
+    fun stepRagdoll(gravity: Float, damping: Float, steps: Int) {
+        engine.beginVectorEdit()
+        skeleton?.stepRagdoll(gravity, damping, steps)
+        render()
+    }
+
+    fun bakeRig(frames: Int, stepsPerFrame: Int) {
+        val rig = skeleton ?: return
+        engine.beginVectorEdit()
+        rig.bakeToAnimation(animation, layers.values.flatten(), frames, stepsPerFrame)
+        render()
     }
 
     fun clearSkeleton() {

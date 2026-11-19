@@ -537,6 +537,34 @@ class NativeScriptExtendedApi(private val e: EsenhoEngine, private val canvas: E
             }
             null
         }
+        "vector.rig.aim" -> {
+            e.vectors.setAim(a.getString("id"), a.f("x"), a.f("y"))
+            null
+        }
+        "vector.rig.free" -> {
+            e.vectors.clearConstraint(a.getString("id"))
+            null
+        }
+        "vector.rig.physics" -> {
+            e.vectors.configureBonePhysics(
+                a.getString("id"),
+                a.optString("mode", "kinematic"),
+                a.f("restAngle", 0.0),
+                a.f("stiffness", .5),
+                a.f("minAngle", -180.0),
+                a.f("maxAngle", 180.0),
+                a.f("mass", 1.0),
+            )
+            null
+        }
+        "vector.rig.ragdoll" -> {
+            e.vectors.stepRagdoll(a.f("gravity", 1.0), a.f("damping", .98), a.optInt("steps", 12))
+            null
+        }
+        "vector.rig.bake" -> {
+            e.vectors.bakeRig(a.optInt("frames", 60), a.optInt("stepsPerFrame", 2))
+            null
+        }
         "vector.rig.clear" -> {
             e.vectors.clearSkeleton()
             null

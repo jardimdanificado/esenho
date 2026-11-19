@@ -991,6 +991,42 @@ fun VectorObjectPanel(
                         )
                     }
                 }
+                var physicsMode by remember { mutableStateOf("kinematic") }
+                var restAngle by remember { mutableStateOf("0") }
+                var stiffness by remember { mutableStateOf("0.5") }
+                var mass by remember { mutableStateOf("1") }
+                Row {
+                    listOf("kinematic" to "Cinemático", "ragdoll" to "Ragdoll", "secondary" to "Secundário").forEach { (value, label) ->
+                        FilterChip(
+                            selected = physicsMode == value,
+                            onClick = { physicsMode = value },
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                            modifier = Modifier.padding(end = 4.dp),
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    VectorNumber("Repouso", restAngle, { restAngle = it }, Modifier.weight(1f))
+                    VectorNumber("Rigidez", stiffness, { stiffness = it }, Modifier.weight(1f))
+                    VectorNumber("Massa", mass, { mass = it }, Modifier.weight(1f))
+                }
+                TextButton(
+                    enabled = boneId.isNotBlank(),
+                    onClick = {
+                        vector.configureBonePhysics(
+                            boneId,
+                            physicsMode,
+                            restAngle.replace(',', '.').toFloatOrNull() ?: 0f,
+                            stiffness.replace(',', '.').toFloatOrNull() ?: .5f,
+                            -180f,
+                            180f,
+                            mass.replace(',', '.').toFloatOrNull() ?: 1f,
+                        )
+                        onChanged()
+                    },
+                ) {
+                    Text("Aplicar física ao osso")
+                }
                 Row {
                     listOf("cutout" to "Rígido", "path" to "Caminho", "smooth_path" to "Suave").forEach { (value, label) ->
                         FilterChip(
@@ -1025,6 +1061,65 @@ fun VectorObjectPanel(
                     },
                 ) {
                     Text("Resolver IK")
+                }
+                var aimX by remember { mutableStateOf("0") }
+                var aimY by remember { mutableStateOf("0") }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    VectorNumber("Alvo X", aimX, { aimX = it }, Modifier.weight(1f))
+                    VectorNumber("Alvo Y", aimY, { aimY = it }, Modifier.weight(1f))
+                }
+                val aimXValue = aimX.replace(',', '.').toFloatOrNull()
+                val aimYValue = aimY.replace(',', '.').toFloatOrNull()
+                Row {
+                    TextButton(
+                        enabled = boneId.isNotBlank() && aimXValue != null && aimYValue != null,
+                        onClick = {
+                            vector.setAim(boneId, aimXValue!!, aimYValue!!)
+                            onChanged()
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Apontar", style = MaterialTheme.typography.labelSmall)
+                    }
+                    TextButton(
+                        enabled = boneId.isNotBlank(),
+                        onClick = {
+                            vector.clearConstraint(boneId)
+                            onChanged()
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Livre", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                var gravity by remember { mutableStateOf("1") }
+                var ragdollSteps by remember { mutableStateOf("12") }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    VectorNumber("Gravidade", gravity, { gravity = it }, Modifier.weight(1f))
+                    VectorNumber("Passos", ragdollSteps, { ragdollSteps = it }, Modifier.weight(1f))
+                }
+                val gravityValue = gravity.replace(',', '.').toFloatOrNull()
+                val stepsValue = ragdollSteps.toIntOrNull()
+                TextButton(
+                    enabled = gravityValue != null && stepsValue != null && stepsValue in 1..120,
+                    onClick = {
+                        vector.stepRagdoll(gravityValue!!, .98f, stepsValue!!)
+                        onChanged()
+                    },
+                ) {
+                    Text("Simular ragdoll")
+                }
+                var bakeFrames by remember { mutableStateOf("60") }
+                VectorNumber("Quadros para bakear", bakeFrames, { bakeFrames = it }, Modifier.fillMaxWidth())
+                val framesValue = bakeFrames.toIntOrNull()
+                TextButton(
+                    enabled = framesValue != null && framesValue in 1..600,
+                    onClick = {
+                        vector.bakeRig(framesValue!!, 2)
+                        onChanged()
+                    },
+                ) {
+                    Text("Bakear para animação")
                 }
                 TextButton(onClick = {
                     vector.clearSkeleton()
