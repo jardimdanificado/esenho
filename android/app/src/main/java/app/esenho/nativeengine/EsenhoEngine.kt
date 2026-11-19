@@ -2898,8 +2898,11 @@ class EsenhoEngine(
         val track = animationTracks[layerId] ?: return
         if (track.activeCelIndex in track.frames.indices) {
             val cel = track.frames[track.activeCelIndex]
-            if (cel.bitmap.width != width || cel.bitmap.height != height) {
-                val replacement = resizeBitmapToCanvas(cel.bitmap, width, height, true)
+            if (cel.bitmap.isRecycled || cel.bitmap.width != width || cel.bitmap.height != height) {
+                val replacement =
+                    if (cel.bitmap.isRecycled)
+                        Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                    else resizeBitmapToCanvas(cel.bitmap, width, height, true)
                 if (!cel.bitmap.isRecycled) cel.bitmap.recycle()
                 cel.bitmap = replacement
             } else {

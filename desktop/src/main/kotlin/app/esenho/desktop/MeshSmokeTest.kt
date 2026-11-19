@@ -74,5 +74,26 @@ fun meshSmokeTest(context: Context) {
     check(engine.meshes.scene.camera.position == Vec3(1f, 2f, 3f))
     check(engine.undo())
     check(engine.redo())
-    println("Mesh phase 1: raster, orbit, wireframe, OBJ metadata and project OK")
+
+    mesh.addCylinder(1f, 2f, 8)
+    check(mesh.selected!!.name == "Cilindro" && mesh.selected!!.faces.size == 32)
+    mesh.addSphere(1f, 8, 6)
+    check(mesh.selected!!.name == "Esfera" && mesh.selected!!.smooth)
+
+    mesh.editMode = "object"
+    mesh.selectedId = mesh.scene.objects.first { it.name == "Cubo" }.id
+    val cube = mesh.selected!!
+    val faceCount = cube.faces.size
+    val vertexCount = cube.vertices.size
+    mesh.extrudeFace(0, .5f)
+    check(cube.faces.size > faceCount && cube.vertices.size > vertexCount)
+    val originalVertex = cube.vertices[0]
+    mesh.setVertex(0, Vec3(originalVertex.x + .5f, originalVertex.y, originalVertex.z))
+    check(cube.vertices[0] == Vec3(originalVertex.x + .5f, originalVertex.y, originalVertex.z))
+    mesh.setMaterial(color = 0xff00ff00.toInt(), opacity = .5f)
+    check(cube.materials.first().diffuse == 0xff00ff00.toInt())
+    mesh.setSmooth(true)
+    check(cube.smooth)
+    check(ObjReader.read(mesh.exportObj()).objects.size == mesh.scene.objects.size)
+    println("Mesh phases 1-3: raster, camera, picking, gizmos, primitives, editing and OBJ OK")
 }

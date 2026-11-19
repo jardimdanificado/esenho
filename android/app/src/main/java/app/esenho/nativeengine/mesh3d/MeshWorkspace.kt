@@ -177,11 +177,192 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         render()
     }
 
+    fun addCylinder(radius: Float = 1f, height: Float = 2f, segments: Int = 16) {
+        edit()
+        switchMode(true)
+        val sides = segments.coerceIn(3, 64)
+        val vertices = mutableListOf<Vec3>()
+        val normals = mutableListOf<Vec3>()
+        repeat(sides) { i ->
+            val angle = i.toFloat() / sides * 2f * Math.PI.toFloat()
+            vertices += Vec3(cos(angle) * radius, -height / 2, sin(angle) * radius)
+            normals += Vec3(cos(angle), 0f, sin(angle))
+        }
+        repeat(sides) { i ->
+            val angle = i.toFloat() / sides * 2f * Math.PI.toFloat()
+            vertices += Vec3(cos(angle) * radius, height / 2, sin(angle) * radius)
+            normals += Vec3(cos(angle), 0f, sin(angle))
+        }
+        val faces = mutableListOf<MeshFace>()
+        repeat(sides) { i ->
+            val next = (i + 1) % sides
+            faces += MeshFace(intArrayOf(i, next, sides + next), intArrayOf(), intArrayOf(i, next, sides + next))
+            faces += MeshFace(intArrayOf(i, sides + next, sides + i), intArrayOf(), intArrayOf(i, sides + next, sides + i))
+        }
+        val bottomCenter = vertices.size
+        vertices += Vec3(0f, -height / 2, 0f)
+        normals += Vec3(0f, -1f, 0f)
+        val topCenter = vertices.size
+        vertices += Vec3(0f, height / 2, 0f)
+        normals += Vec3(0f, 1f, 0f)
+        repeat(sides) { i ->
+            val next = (i + 1) % sides
+            faces += MeshFace(intArrayOf(bottomCenter, next, i))
+            faces += MeshFace(intArrayOf(topCenter, sides + i, sides + next))
+        }
+        val obj =
+            Mesh3DObject(
+                UUID.randomUUID().toString(),
+                vertices,
+                normals,
+                name = "Cilindro",
+                faces = faces,
+            )
+        scene.objects += obj
+        selectedId = obj.id
+        selectedFace = -1
+        selectedVertex = -1
+        render()
+    }
+
+    fun addSphere(radius: Float = 1f, segments: Int = 16, rings: Int = 12) {
+        edit()
+        switchMode(true)
+        val cols = segments.coerceIn(3, 64)
+        val rows = rings.coerceIn(2, 48)
+        val vertices = mutableListOf<Vec3>()
+        val normals = mutableListOf<Vec3>()
+        val uvs = mutableListOf<Pair<Float, Float>>()
+        for (row in 0..rows) {
+            val v = row.toFloat() / rows
+            val phi = v * Math.PI.toFloat()
+            for (col in 0..cols) {
+                val u = col.toFloat() / cols
+                val theta = u * 2f * Math.PI.toFloat()
+                val normal = Vec3(sin(phi) * cos(theta), cos(phi), sin(phi) * sin(theta))
+                normals += normal
+                vertices += normal * radius
+                uvs += u to v
+            }
+        }
+        val faces = mutableListOf<MeshFace>()
+        for (row in 0 until rows) {
+            for (col in 0 until cols) {
+                val a = row * (cols + 1) + col
+                val b = a + cols + 1
+                faces += MeshFace(intArrayOf(a, b, a + 1), intArrayOf(a, b, a + 1), intArrayOf(a, b, a + 1))
+                faces += MeshFace(intArrayOf(a + 1, b, b + 1), intArrayOf(a + 1, b, b + 1), intArrayOf(a + 1, b, b + 1))
+            }
+        }
+        val obj =
+            Mesh3DObject(
+                UUID.randomUUID().toString(),
+                vertices,
+                normals,
+                uvs,
+                faces,
+                name = "Esfera",
+                smooth = true,
+            )
+        scene.objects += obj
+        selectedId = obj.id
+        render()
+    }
+
     fun removeSelected() {
         val obj = selected ?: return
         edit()
         scene.objects.remove(obj)
         selectedId = null
+        render()
+    }
+
+    fun pickVertex(x: Float, y: Float): Int {
+        val obj = selected ?: return -1
+        var best = -1
+        var bestDistance = 14f
+        obj.vertices.forEachIndexed { index, vertex ->
+            val matrix = obj.transform.matrix()
+            val screen = projectPoint(matrix.transform(vertex).projected()) ?: return@forEachIndexed
+            val distance = kotlin.math.hypot(screen.first - x, screen.second - y)
+            if (distance < bestDistance) {
+                bestDistance = distance
+                best = index
+            }
+        }
+        return best
+    }
+
+    fun setVertex(index: Int, position: Vec3) {
+        val obj = selected ?: return
+        if (index !in obj.vertices.indices) return
+        edit()
+        obj.vertices[index] = position
+        obj.normals.clear()
+        render()
+    }
+
+    fun deleteFace(index: Int) {
+        val obj = selected ?: return
+        if (index !in obj.faces.indices || obj.faces.size <= 1) return
+        edit()
+        obj.faces.removeAt(index)
+        selectedFace = -1
+        render()
+    }
+
+    fun extrudeFace(index: Int, distance: Float = .5f) {
+        val obj = selected ?: return
+        val face = obj.faces.getOrNull(index) ?: return
+        edit()
+        val matrix = obj.transform.matrix()
+        val world =
+            face.vertices.map { obj.vertices.getOrNull(it)?.let { v -> matrix.transform(v).projected() } }
+        if (world.any { it == null }) return
+        val a = world[0]!!
+        val b = world.getOrNull(1) ?: a
+        val c = world.getOrNull(2) ?: b
+        val normal = (b - a).cross(c - a).normalize()
+        val duplicated = mutableListOf<Int>()
+        face.vertices.forEach { source ->
+            val original = obj.vertices[source]
+            val offset = normal * distance
+            duplicated += obj.vertices.size
+            obj.vertices += original + offset
+            obj.normals += normal
+        }
+        val top = MeshFace(duplicated.toIntArray(), face.texCoords.copyOf(), face.normals.copyOf(), face.material)
+        val sides = mutableListOf<MeshFace>()
+        for (i in face.vertices.indices) {
+            val next = (i + 1) % face.vertices.size
+            sides +=
+                MeshFace(
+                    intArrayOf(face.vertices[i], face.vertices[next], duplicated[next], duplicated[i]),
+                    intArrayOf(),
+                    intArrayOf(),
+                    face.material,
+                )
+        }
+        obj.faces[index] = top
+        obj.faces.addAll(sides)
+        selectedFace = index
+        render()
+    }
+
+    fun setMaterial(color: Int? = null, opacity: Float? = null, shininess: Float? = null) {
+        val obj = selected ?: return
+        edit()
+        val material = obj.materials.firstOrNull() ?: MeshMaterial().also { obj.materials += it }
+        color?.let { material.diffuse = it }
+        opacity?.let { material.opacity = it.coerceIn(0f, 1f) }
+        shininess?.let { material.shininess = it.coerceIn(1f, 200f) }
+        render()
+    }
+
+    fun setSmooth(enabled: Boolean) {
+        val obj = selected ?: return
+        edit()
+        obj.smooth = enabled
         render()
     }
 
@@ -198,6 +379,8 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     var gizmoMode = "move"
     var selectedFace: Int = -1
         private set
+    var selectedVertex: Int = -1
+    var editMode = "object"
     private var gizmoAxis: Int = -1
     private var gizmoStart = Vec3.ZERO
 
@@ -269,6 +452,12 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     fun pointerDown(x: Float, y: Float) {
         lastPointerX = x
         lastPointerY = y
+        if (editMode == "vertex") {
+            selectedVertex = pickVertex(x, y)
+            gizmoAxis = if (selectedVertex >= 0) 0 else -1
+            gizmoStart = selected?.vertices?.getOrNull(selectedVertex) ?: Vec3.ZERO
+            return
+        }
         val hit = pick(x, y)
         if (hit != null) {
             selectedId = hit.objectId
@@ -311,6 +500,18 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     private fun applyGizmo(dx: Float, dy: Float) {
         val obj = selected ?: return
         val factor = (scene.camera.position - obj.transform.position).length() * .004f
+        if (editMode == "vertex" && selectedVertex >= 0) {
+            val current = obj.vertices[selectedVertex]
+            setVertex(
+                selectedVertex,
+                when (gizmoAxis) {
+                    0 -> Vec3(current.x + dx * factor, current.y, current.z)
+                    1 -> Vec3(current.x, current.y - dy * factor, current.z)
+                    else -> Vec3(current.x, current.y, current.z + (dx - dy) * factor)
+                },
+            )
+            return
+        }
         when (gizmoMode) {
             "rotate" -> {
                 val rotation = obj.transform.rotation

@@ -85,7 +85,7 @@ Ative **Encaixar** no painel para alinhar movimentos e alças à grade de 8/16/3
 
 ### Modelagem 3D (fase 1)
 
-O modo **3D** usa `.obj` como o vetorial usa `.svg`: a malha editável é a fonte da verdade e a camada nativa guarda só o bitmap renderizado. O painel **Modelos 3D** cria cubos e planos, importa/exporta `.obj`, ajusta câmera (campo de visão, aproximar/afastar), alterna arame e ocultação de faces traseiras e edita a posição do objeto. Clicar seleciona por ray-casting; os modos **Órbita**/**Mover tela** definem o arraste, e o gizmo no objeto permite mover, girar e escalar pelos eixos X/Y/Z.
+O modo **3D** usa `.obj` como o vetorial usa `.svg`: a malha editável é a fonte da verdade e a camada nativa guarda só o bitmap renderizado. O painel **Modelos 3D** cria cubos, planos, cilindros e esferas, importa/exporta `.obj`, ajusta câmera (campo de visão, aproximar/afastar), alterna arame e ocultação de faces traseiras e edita material e transformação. Clicar seleciona por ray-casting; os modos **Órbita**/**Mover tela** definem o arraste, e o gizmo no objeto permite mover, girar e escalar pelos eixos X/Y/Z. Nos modos **Vértice** e **Face**, é possível mover âncoras, extrudar a face selecionada e excluir faces; normais suaves e cor/opacidade do material também são editáveis.
 
 O rasterizador roda em Kotlin com z-buffer, iluminação difusa/especular, textura `map_Kd` e desenho de arestas. O `.obj` exportado leva um comentário `# esenho3d <base64>` com o estado completo, permitindo reabrir câmera, luzes, materiais e transformações sem perda. Malhas, câmera e configurações ficam no projeto `.esenho` e participam do desfazer/refazer. Veja `docs/3d-mode.md` para a arquitetura e as próximas fases.
 

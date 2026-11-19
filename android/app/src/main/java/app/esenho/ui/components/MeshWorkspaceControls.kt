@@ -37,9 +37,65 @@ fun MeshObjectPanel(
             }
         }
         Row {
+            Button(onClick = { mesh.addCylinder(); onChanged() }, modifier = Modifier.weight(1f)) {
+                Text("Cilindro")
+            }
+            Spacer(Modifier.width(6.dp))
+            Button(onClick = { mesh.addSphere(); onChanged() }, modifier = Modifier.weight(1f)) {
+                Text("Esfera")
+            }
+        }
+        Row {
             Button(onClick = onImport, modifier = Modifier.weight(1f)) { Text("Importar OBJ") }
             Spacer(Modifier.width(6.dp))
             Button(onClick = onExport, modifier = Modifier.weight(1f)) { Text("Exportar OBJ") }
+        }
+        HorizontalDivider()
+        Text("Modo de edição", style = MaterialTheme.typography.titleSmall)
+        Row {
+            listOf("object" to "Objeto", "vertex" to "Vértice", "face" to "Face").forEach { (value, label) ->
+                FilterChip(
+                    selected = mesh.editMode == value,
+                    onClick = {
+                        mesh.editMode = value
+                        if (value != "vertex") mesh.selectedVertex = -1
+                        onChanged()
+                    },
+                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                    modifier = Modifier.padding(end = 4.dp),
+                )
+            }
+        }
+        if (mesh.editMode == "face" && mesh.selectedFace >= 0) {
+            Row {
+                Button(onClick = { mesh.extrudeFace(mesh.selectedFace); onChanged() }, modifier = Modifier.weight(1f)) {
+                    Text("Extrudar")
+                }
+                Spacer(Modifier.width(6.dp))
+                Button(onClick = { mesh.deleteFace(mesh.selectedFace); onChanged() }, modifier = Modifier.weight(1f)) {
+                    Text("Excluir face")
+                }
+            }
+        }
+        if (selected != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = selected.smooth,
+                    onCheckedChange = { mesh.setSmooth(it); onChanged() },
+                )
+                Text("Normais suaves", style = MaterialTheme.typography.bodySmall)
+            }
+            Button(onClick = { mesh.setMaterial(color = engine.currentColor); onChanged() }) {
+                Text("Aplicar cor atual ao material")
+            }
+            var opacity by remember(selected.id) { mutableStateOf(fmt(selected.materials.firstOrNull()?.opacity ?: 1f)) }
+            MeshNumber("Opacidade", opacity, { opacity = it }, Modifier.fillMaxWidth())
+            TextButton(onClick = {
+                mesh.setMaterial(opacity = opacity.replace(',', '.').toFloatOrNull())
+                onChanged()
+            }) {
+                Text("Aplicar opacidade")
+            }
         }
         HorizontalDivider()
         Text("Navegação", style = MaterialTheme.typography.titleSmall)

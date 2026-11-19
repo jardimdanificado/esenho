@@ -601,6 +601,40 @@ class NativeScriptExtendedApi(private val e: EsenhoEngine, private val canvas: E
             e.meshes.addPlane(a.f("size", 4.0))
             null
         }
+        "mesh.cylinder" -> {
+            e.meshes.addCylinder(a.f("radius", 1.0), a.f("height", 2.0), a.optInt("segments", 16))
+            null
+        }
+        "mesh.sphere" -> {
+            e.meshes.addSphere(a.f("radius", 1.0), a.optInt("segments", 16), a.optInt("rings", 12))
+            null
+        }
+        "mesh.mode" -> {
+            e.meshes.editMode = a.optString("mode", "object")
+            null
+        }
+        "mesh.vertex" -> {
+            val index = a.getInt("index")
+            val p = a.getJSONArray("position")
+            e.meshes.setVertex(index, Vec3(p.getDouble(0).toFloat(), p.getDouble(1).toFloat(), p.getDouble(2).toFloat()))
+            null
+        }
+        "mesh.extrude" -> {
+            e.meshes.extrudeFace(a.getInt("face"), a.f("distance", .5))
+            null
+        }
+        "mesh.material" -> {
+            e.meshes.setMaterial(
+                color = if (a.has("color")) color(a.get("color")) else null,
+                opacity = if (a.has("opacity")) a.f("opacity", 1.0) else null,
+                shininess = if (a.has("shininess")) a.f("shininess", 24.0) else null,
+            )
+            null
+        }
+        "mesh.smooth" -> {
+            e.meshes.setSmooth(a.optBoolean("enabled", true))
+            null
+        }
         "mesh.remove" -> {
             e.meshes.selectedId = a.optString("id").takeIf { it.isNotEmpty() }
             e.meshes.removeSelected()
