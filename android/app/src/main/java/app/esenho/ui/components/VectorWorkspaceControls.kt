@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import app.esenho.nativeengine.*
+import app.esenho.nativeengine.mesh3d.MeshTool
 import java.util.Locale
 
 enum class VectorPanelTab(val label: String) {
@@ -96,6 +97,18 @@ private fun VectorToolButton(
     }
 }
 
+private fun meshToolIcon(tool: MeshTool): ImageVector =
+    when (tool) {
+        MeshTool.SELECT -> Icons.Default.NearMe
+        MeshTool.ORBIT -> Icons.Default.Public
+        MeshTool.PAN -> Icons.Default.PanTool
+        MeshTool.MOVE -> Icons.Default.OpenWith
+        MeshTool.ROTATE -> Icons.Default.RotateRight
+        MeshTool.SCALE -> Icons.Default.ZoomIn
+        MeshTool.VERTEX -> Icons.Default.Circle
+        MeshTool.FACE -> Icons.Default.Hexagon
+    }
+
 /** Tools occupy the existing bottom dock; visibility is toggled from the overflow menu. */
 @Composable
 fun EditorToolStrip(
@@ -105,7 +118,17 @@ fun EditorToolStrip(
     onChanged: () -> Unit,
 ) {
     val groups: List<List<ToolbarTool>> =
-        if (engine.vectors.enabled) {
+        when {
+            engine.meshes.enabled -> {
+                val meshTool = { tool: MeshTool ->
+                    ToolbarTool(tool.name, meshToolIcon(tool), engine.meshes.tool == tool) {
+                        engine.meshes.tool = tool
+                        onChanged()
+                    }
+                }
+                listOf(MeshTool.entries.map(meshTool))
+            }
+            engine.vectors.enabled -> {
             val vectorTool = { tool: VectorTool ->
                 ToolbarTool(
                     tool.label,
@@ -134,7 +157,8 @@ fun EditorToolStrip(
                     navTool(ToolMode.PAN, Icons.Default.PanTool),
                 ),
             )
-        } else {
+        }
+        else -> {
             val rasterTool = { tool: ToolMode ->
                 ToolbarTool(tool.displayName, workspaceToolIcon(tool), engine.currentTool == tool) {
                     onTool(tool)
@@ -146,6 +170,7 @@ fun EditorToolStrip(
                 listOf(ToolMode.LINE, ToolMode.RECTANGLE, ToolMode.ELLIPSE, ToolMode.ERASE_RECTANGLE, ToolMode.ERASE_ELLIPSE).map(rasterTool),
                 listOf(ToolMode.EYEDROPPER, ToolMode.TRANSFORM, ToolMode.PAN).map(rasterTool),
             )
+            }
         }
     Surface(color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

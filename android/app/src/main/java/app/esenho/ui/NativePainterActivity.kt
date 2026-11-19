@@ -334,10 +334,16 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     }
     var rasterToolsVisible by remember { mutableStateOf(workspacePreferences.getBoolean("raster_tools_visible",true)) }
     var vectorToolsVisible by remember { mutableStateOf(workspacePreferences.getBoolean("vector_tools_visible",true)) }
+    var meshToolsVisible by remember { mutableStateOf(workspacePreferences.getBoolean("mesh_tools_visible",true)) }
     fun toggleTools() {
-        if (engine.vectors.enabled) vectorToolsVisible=!vectorToolsVisible else rasterToolsVisible=!rasterToolsVisible
+        when {
+            engine.meshes.enabled -> meshToolsVisible = !meshToolsVisible
+            engine.vectors.enabled -> vectorToolsVisible = !vectorToolsVisible
+            else -> rasterToolsVisible = !rasterToolsVisible
+        }
         workspacePreferences.edit().putBoolean("raster_tools_visible",rasterToolsVisible)
-            .putBoolean("vector_tools_visible",vectorToolsVisible).apply()
+            .putBoolean("vector_tools_visible",vectorToolsVisible)
+            .putBoolean("mesh_tools_visible",meshToolsVisible).apply()
     }
     var animationBarVisible by remember {
         mutableStateOf(workspacePreferences.getBoolean("animation_bar_visible", true))
@@ -1407,19 +1413,51 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         },
         bottomBar = {
                 Column(Modifier.blockScriptTouches(scriptSession != null || markingScriptPivot)) {
-                    if (animationBarVisible)
-                        AnimationCompactBar(
-                            engine,
-                            engineRevision,
-                            onChanged = { refreshState(false) },
-                        )
-                    if (layersBarVisible)
-                        LayersCompactBar(
-                            engine,
-                            engineRevision,
-                            onChanged = { refreshState(false) },
-                        )
-                    val toolsVisible = if (engine.vectors.enabled) vectorToolsVisible else rasterToolsVisible
+                    val meshMode = engine.meshes.enabled
+                    val vectorMode = engine.vectors.enabled
+                    if (animationBarVisible) {
+                        when {
+                            meshMode -> MeshAnimationCompactBar(
+                                engine,
+                                engineRevision,
+                                onChanged = { refreshState(false) },
+                            )
+                            vectorMode -> VectorAnimationCompactBar(
+                                engine,
+                                engineRevision,
+                                onChanged = { refreshState(false) },
+                            )
+                            else -> AnimationCompactBar(
+                                engine,
+                                engineRevision,
+                                onChanged = { refreshState(false) },
+                            )
+                        }
+                    }
+                    if (layersBarVisible) {
+                        when {
+                            meshMode -> MeshObjectsCompactBar(
+                                engine,
+                                engineRevision,
+                                onChanged = { refreshState(false) },
+                            )
+                            vectorMode -> VectorObjectsCompactBar(
+                                engine,
+                                engineRevision,
+                                onChanged = { refreshState(false) },
+                            )
+                            else -> LayersCompactBar(
+                                engine,
+                                engineRevision,
+                                onChanged = { refreshState(false) },
+                            )
+                        }
+                    }
+                    val toolsVisible = when {
+                        meshMode -> meshToolsVisible
+                        vectorMode -> vectorToolsVisible
+                        else -> rasterToolsVisible
+                    }
                     if (toolsVisible) EditorToolStrip(engine, engineRevision, onTool = { chooseTool(it) }) { refreshState(false) }
                     WorkspaceProperties(
                         vectorMode = engine.vectors.enabled,
