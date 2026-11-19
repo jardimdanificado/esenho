@@ -11,6 +11,8 @@ import java.util.UUID
 import kotlin.math.cos
 import kotlin.math.sin
 
+enum class MeshTool { SELECT, ORBIT, PAN, MOVE, ROTATE, SCALE, VERTEX, FACE }
+
 data class MeshHit(val objectId: String, val faceIndex: Int, val distance: Float, val point: Vec3)
 
 /** Editable triangle scenes. Geometry stays authoritative; the native layer holds rendered pixels. */
@@ -29,6 +31,7 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         get() = selectedId?.let { scene.objectById(it) }
 
     fun reset() {
+        releaseBuffers()
         scene = Scene3D()
         selectedId = null
         layerId = -1
@@ -106,25 +109,47 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         return engine.beginVectorEdit()
     }
 
+    var previewScale = 1f
+
+    private var renderBitmap: Bitmap? = null
+    private var pixelBuffer: IntArray? = null
+    private var depthBuffer: FloatArray? = null
+
+    private fun ensureBuffers(width: Int, height: Int) {
+        val current = renderBitmap
+        if (current == null || current.isRecycled || current.width != width || current.height != height) {
+            renderBitmap?.recycle()
+            renderBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            pixelBuffer = IntArray(width * height)
+            depthBuffer = FloatArray(width * height)
+        }
+    }
+
     fun render() {
         if (!enabled || layerId < 0) return
-        val width = engine.width
-        val height = engine.height
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val pixels = IntArray(width * height)
-        val depth = FloatArray(width * height)
-        try {
-            MeshRasterizer.render(scene, width, height, pixels, depth)
-            bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
-            EsenhoNativeBridge.nativeBeginLayerUpdate()
-            EsenhoNativeBridge.nativeLayerClear(layerId)
-            EsenhoNativeBridge.nativeLayerDrawBitmap(layerId, bitmap, 0, 0, width, height)
-            EsenhoNativeBridge.nativeEndLayerUpdate()
-        } finally {
-            bitmap.recycle()
+        val width = maxOf(1, (engine.width * previewScale).toInt())
+        val height = maxOf(1, (engine.height * previewScale).toInt())
+        ensureBuffers(width, height)
+        val bitmap = renderBitmap!!
+        val pixels = pixelBuffer!!
+        val depth = depthBuffer!!
+        MeshRasterizer.render(scene, width, height, pixels, depth)
+        bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
+        EsenhoNativeBridge.nativeBeginLayerUpdate()
+        EsenhoNativeBridge.nativeLayerClear(layerId)
+        EsenhoNativeBridge.nativeLayerDrawBitmap(layerId, bitmap, 0, 0, engine.width, engine.height)
+        EsenhoNativeBridge.nativeEndLayerUpdate()
+        if (previewScale >= 1f) {
+            engine.captureCurrentFrame()
+            engine.getRenderBitmap()
         }
-        engine.captureCurrentFrame()
-        engine.getRenderBitmap()
+    }
+
+    fun releaseBuffers() {
+        renderBitmap?.recycle()
+        renderBitmap = null
+        pixelBuffer = null
+        depthBuffer = null
     }
 
     fun addCube(size: Float = 2f) {
@@ -293,13 +318,17 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         return best
     }
 
-    fun setVertex(index: Int, position: Vec3) {
+    private fun setVertexInternal(index: Int, position: Vec3) {
         val obj = selected ?: return
         if (index !in obj.vertices.indices) return
-        edit()
         obj.vertices[index] = position
         obj.normals.clear()
         render()
+    }
+
+    fun setVertex(index: Int, position: Vec3) {
+        edit()
+        setVertexInternal(index, position)
     }
 
     fun deleteFace(index: Int) {
@@ -375,12 +404,10 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
         render()
     }
 
-    var dragMode = "orbit"
-    var gizmoMode = "move"
+    var tool = MeshTool.SELECT
     var selectedFace: Int = -1
         private set
     var selectedVertex: Int = -1
-    var editMode = "object"
     private var gizmoAxis: Int = -1
     private var gizmoStart = Vec3.ZERO
 
@@ -452,19 +479,37 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     fun pointerDown(x: Float, y: Float) {
         lastPointerX = x
         lastPointerY = y
-        if (editMode == "vertex") {
-            selectedVertex = pickVertex(x, y)
-            gizmoAxis = if (selectedVertex >= 0) 0 else -1
-            gizmoStart = selected?.vertices?.getOrNull(selectedVertex) ?: Vec3.ZERO
-            return
+        gizmoAxis = -1
+        previewScale = .5f
+        when (tool) {
+            MeshTool.VERTEX -> {
+                selectedVertex = pickVertex(x, y)
+                if (selectedVertex >= 0) {
+                    gizmoAxis = 0
+                    edit()
+                }
+            }
+            MeshTool.FACE -> {
+                val hit = pick(x, y)
+                if (hit != null) {
+                    selectedId = hit.objectId
+                    selectedFace = hit.faceIndex
+                }
+            }
+            MeshTool.ORBIT, MeshTool.PAN -> Unit
+            else -> {
+                val hit = pick(x, y)
+                if (hit != null) {
+                    selectedId = hit.objectId
+                    selectedFace = hit.faceIndex
+                }
+                gizmoAxis = hitGizmoAxis(x, y)
+                if (gizmoAxis >= 0) {
+                    edit()
+                    gizmoStart = selected?.transform?.position ?: Vec3.ZERO
+                }
+            }
         }
-        val hit = pick(x, y)
-        if (hit != null) {
-            selectedId = hit.objectId
-            selectedFace = hit.faceIndex
-        }
-        gizmoAxis = hitGizmoAxis(x, y)
-        if (gizmoAxis >= 0) gizmoStart = selected?.transform?.position ?: Vec3.ZERO
     }
 
     fun pointerMove(x: Float, y: Float) {
@@ -477,22 +522,28 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
             applyGizmo(dx, dy)
             return
         }
-        if (dragMode == "pan") pan(dx, dy) else orbit(dx, dy)
+        when (tool) {
+            MeshTool.PAN -> pan(dx, dy)
+            MeshTool.ORBIT -> orbit(dx, dy)
+            else -> Unit
+        }
     }
 
     fun pointerUp() {
         gizmoAxis = -1
+        previewScale = 1f
+        render()
     }
 
     private fun hitGizmoAxis(x: Float, y: Float): Int {
         val obj = selected ?: return -1
         val origin = obj.transform.position
         val center = projectPoint(origin) ?: return -1
-        if (kotlin.math.hypot(center.first - x, center.second - y) < 14f) return 0
+        if (kotlin.math.hypot(center.first - x, center.second - y) < 18f) return 0
         val length = (scene.camera.position - origin).length() * .12f
         listOf(Vec3(length, 0f, 0f), Vec3(0f, length, 0f), Vec3(0f, 0f, length)).forEachIndexed { axis, delta ->
             val end = projectPoint(origin + delta) ?: return@forEachIndexed
-            if (kotlin.math.hypot(end.first - x, end.second - y) < 12f) return axis
+            if (kotlin.math.hypot(end.first - x, end.second - y) < 16f) return axis
         }
         return -1
     }
@@ -500,9 +551,9 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     private fun applyGizmo(dx: Float, dy: Float) {
         val obj = selected ?: return
         val factor = (scene.camera.position - obj.transform.position).length() * .004f
-        if (editMode == "vertex" && selectedVertex >= 0) {
+        if (tool == MeshTool.VERTEX && selectedVertex >= 0) {
             val current = obj.vertices[selectedVertex]
-            setVertex(
+            setVertexInternal(
                 selectedVertex,
                 when (gizmoAxis) {
                     0 -> Vec3(current.x + dx * factor, current.y, current.z)
@@ -512,8 +563,8 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
             )
             return
         }
-        when (gizmoMode) {
-            "rotate" -> {
+        when (tool) {
+            MeshTool.ROTATE -> {
                 val rotation = obj.transform.rotation
                 val delta = (dx + dy) * .5f
                 obj.transform.rotation =
@@ -523,7 +574,7 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
                         else -> Vec3(rotation.x, rotation.y, rotation.z + delta)
                     }
             }
-            "scale" -> {
+            MeshTool.SCALE -> {
                 val amount = 1f + (dx + dy) * .005f
                 val scale = obj.transform.scale
                 obj.transform.scale = Vec3(scale.x * amount, scale.y * amount, scale.z * amount)
@@ -542,7 +593,6 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     }
 
     fun pan(dx: Float, dy: Float) {
-        edit()
         val camera = scene.camera
         val forward = (camera.target - camera.position).normalize()
         val right = forward.cross(camera.up).normalize()
@@ -555,7 +605,6 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     }
 
     fun orbit(dx: Float, dy: Float) {
-        edit()
         val camera = scene.camera
         val offset = camera.position - camera.target
         val yaw = dx * .01f
@@ -573,7 +622,6 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
     }
 
     fun zoom(factor: Float) {
-        edit()
         val camera = scene.camera
         val offset = camera.position - camera.target
         camera.position = camera.target + offset * factor.coerceIn(.2f, 5f)
@@ -598,7 +646,7 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = 0xff4ba3ff.toInt()
                 style = Paint.Style.STROKE
-                strokeWidth = 1.5f / scale
+                strokeWidth = 2.5f / scale
             }
         val dot =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -625,8 +673,10 @@ class MeshWorkspace(private val engine: EsenhoEngine) {
             val end = projectPoint(origin + delta) ?: return@forEachIndexed
             line.color = colors[index]
             canvas.drawLine(center.first, center.second, end.first, end.second, line)
-            canvas.drawCircle(end.first, end.second, 5f / scale, line)
+            canvas.drawCircle(end.first, end.second, 7f / scale, line)
         }
+        line.color = 0xffffffff.toInt()
+        canvas.drawRect(center.first - 6f / scale, center.second - 6f / scale, center.first + 6f / scale, center.second + 6f / scale, line)
     }
 
     fun setRenderSettings(wireframe: Boolean? = null, cull: Boolean? = null, background: Int? = null) {

@@ -41,21 +41,21 @@ fun meshSmokeTest(context: Context) {
 
     val cameraBefore = mesh.scene.camera.position
     val targetBefore = mesh.scene.camera.target
-    mesh.dragMode = "pan"
+    mesh.tool = app.esenho.nativeengine.mesh3d.MeshTool.PAN
     engine.onTouchDown(40f, 40f)
     engine.onTouchMove(70f, 40f)
     engine.onTouchUp(70f, 40f)
     check(mesh.scene.camera.position != cameraBefore && mesh.scene.camera.target != targetBefore)
-    mesh.dragMode = "orbit"
+    mesh.tool = app.esenho.nativeengine.mesh3d.MeshTool.ORBIT
 
     val positionBefore = mesh.selected!!.transform.position
-    mesh.gizmoMode = "move"
+    mesh.tool = app.esenho.nativeengine.mesh3d.MeshTool.MOVE
     val origin = mesh.projectPoint(positionBefore)!!
     engine.onTouchDown(origin.first, origin.second)
     engine.onTouchMove(origin.first + 20f, origin.second)
     engine.onTouchUp(origin.first + 20f, origin.second)
     check(mesh.selected!!.transform.position != positionBefore) { "Move gizmo did not transform the object" }
-    mesh.gizmoMode = "move"
+    mesh.tool = app.esenho.nativeengine.mesh3d.MeshTool.SELECT
 
     val obj = mesh.exportObj(withMetadata = false)
     val parsed = ObjReader.read(obj)
@@ -80,7 +80,7 @@ fun meshSmokeTest(context: Context) {
     mesh.addSphere(1f, 8, 6)
     check(mesh.selected!!.name == "Esfera" && mesh.selected!!.smooth)
 
-    mesh.editMode = "object"
+    mesh.tool = app.esenho.nativeengine.mesh3d.MeshTool.SELECT
     mesh.selectedId = mesh.scene.objects.first { it.name == "Cubo" }.id
     val cube = mesh.selected!!
     val faceCount = cube.faces.size
@@ -95,5 +95,13 @@ fun meshSmokeTest(context: Context) {
     mesh.setSmooth(true)
     check(cube.smooth)
     check(ObjReader.read(mesh.exportObj()).objects.size == mesh.scene.objects.size)
+
+    mesh.previewScale = .5f
+    val started = System.nanoTime()
+    repeat(30) { mesh.orbit(2f, 1f) }
+    val elapsed = (System.nanoTime() - started) / 1_000_000
+    mesh.previewScale = 1f
+    mesh.render()
+    println("Mesh preview: 30 orbit frames in ${elapsed.toInt()} ms")
     println("Mesh phases 1-3: raster, camera, picking, gizmos, primitives, editing and OBJ OK")
 }

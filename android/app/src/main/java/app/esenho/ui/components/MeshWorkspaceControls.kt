@@ -51,22 +51,39 @@ fun MeshObjectPanel(
             Button(onClick = onExport, modifier = Modifier.weight(1f)) { Text("Exportar OBJ") }
         }
         HorizontalDivider()
-        Text("Modo de edição", style = MaterialTheme.typography.titleSmall)
-        Row {
-            listOf("object" to "Objeto", "vertex" to "Vértice", "face" to "Face").forEach { (value, label) ->
-                FilterChip(
-                    selected = mesh.editMode == value,
-                    onClick = {
-                        mesh.editMode = value
-                        if (value != "vertex") mesh.selectedVertex = -1
-                        onChanged()
-                    },
-                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                    modifier = Modifier.padding(end = 4.dp),
-                )
+        Text("Ferramentas", style = MaterialTheme.typography.titleSmall)
+        val tools =
+            listOf(
+                app.esenho.nativeengine.mesh3d.MeshTool.SELECT to "Sel",
+                app.esenho.nativeengine.mesh3d.MeshTool.ORBIT to "Girar",
+                app.esenho.nativeengine.mesh3d.MeshTool.PAN to "Mover tela",
+                app.esenho.nativeengine.mesh3d.MeshTool.MOVE to "Mover",
+                app.esenho.nativeengine.mesh3d.MeshTool.ROTATE to "Rot",
+                app.esenho.nativeengine.mesh3d.MeshTool.SCALE to "Esc",
+                app.esenho.nativeengine.mesh3d.MeshTool.VERTEX to "Vértice",
+                app.esenho.nativeengine.mesh3d.MeshTool.FACE to "Face",
+            )
+        tools.chunked(4).forEach { row ->
+            Row {
+                row.forEach { (value, label) ->
+                    FilterChip(
+                        selected = mesh.tool == value,
+                        onClick = {
+                            mesh.tool = value
+                            if (value != app.esenho.nativeengine.mesh3d.MeshTool.VERTEX) mesh.selectedVertex = -1
+                            onChanged()
+                        },
+                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.padding(end = 4.dp).weight(1f),
+                    )
+                }
             }
         }
-        if (mesh.editMode == "face" && mesh.selectedFace >= 0) {
+        Text(
+            "Clique seleciona. Arraste o eixo colorido ou o quadrado central do gizmo.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        if (mesh.tool == app.esenho.nativeengine.mesh3d.MeshTool.FACE && mesh.selectedFace >= 0) {
             Row {
                 Button(onClick = { mesh.extrudeFace(mesh.selectedFace); onChanged() }, modifier = Modifier.weight(1f)) {
                     Text("Extrudar")
@@ -97,30 +114,6 @@ fun MeshObjectPanel(
                 Text("Aplicar opacidade")
             }
         }
-        HorizontalDivider()
-        Text("Navegação", style = MaterialTheme.typography.titleSmall)
-        Row {
-            listOf("orbit" to "Órbita", "pan" to "Mover tela").forEach { (value, label) ->
-                FilterChip(
-                    selected = mesh.dragMode == value,
-                    onClick = { mesh.dragMode = value; onChanged() },
-                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                    modifier = Modifier.padding(end = 4.dp),
-                )
-            }
-        }
-        Text("Gizmo", style = MaterialTheme.typography.bodySmall)
-        Row {
-            listOf("move" to "Mover", "rotate" to "Girar", "scale" to "Escalar").forEach { (value, label) ->
-                FilterChip(
-                    selected = mesh.gizmoMode == value,
-                    onClick = { mesh.gizmoMode = value; onChanged() },
-                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                    modifier = Modifier.padding(end = 4.dp),
-                )
-            }
-        }
-        Text("Clique para selecionar; arraste o eixo desejado no gizmo.", style = MaterialTheme.typography.bodySmall)
         HorizontalDivider()
         Text("Câmera", style = MaterialTheme.typography.titleSmall)
         Text("Campo de visão: ${mesh.scene.camera.fov.toInt()}°")

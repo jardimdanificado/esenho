@@ -87,6 +87,15 @@ class Bitmap(val width: Int, val height: Int) {
     }
 
     fun setPixels(input: IntArray, offset: Int, stride: Int, x: Int, y: Int, w: Int, h: Int) {
+        check(!isRecycled)
+        if (offset == 0 && stride == width && x == 0 && y == 0 && w == width && h == height) {
+            val premultiplied = IntArray(width * height)
+            for (i in premultiplied.indices) premultiplied[i] = premultiply(input[i])
+            rgbaBuffer.position(0)
+            rgbaBuffer.asIntBuffer().put(premultiplied)
+            markDirty()
+            return
+        }
         for (row in 0 until h) for (col in 0 until w) setPixel(
             x + col,
             y + row,
@@ -94,8 +103,22 @@ class Bitmap(val width: Int, val height: Int) {
         )
     }
 
+    private fun premultiply(color: Int): Int {
+        val alpha = Color.alpha(color)
+        if (alpha == 255) return color
+        return (alpha shl 24) or
+            ((Color.red(color) * alpha + 127) / 255) or
+            (((Color.green(color) * alpha + 127) / 255) shl 8) or
+            (((Color.blue(color) * alpha + 127) / 255) shl 16)
+    }
+
     fun eraseColor(color: Int) {
-        for (y in 0 until height) for (x in 0 until width) setPixel(x, y, color)
+        check(!isRecycled)
+        val premultiplied = premultiply(color)
+        rgbaBuffer.position(0)
+        val buffer = rgbaBuffer.asIntBuffer()
+        repeat(width * height) { buffer.put(premultiplied) }
+        markDirty()
     }
 
     fun copy(config: Config, mutable: Boolean): Bitmap =

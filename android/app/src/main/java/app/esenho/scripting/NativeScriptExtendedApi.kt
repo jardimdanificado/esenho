@@ -610,7 +610,9 @@ class NativeScriptExtendedApi(private val e: EsenhoEngine, private val canvas: E
             null
         }
         "mesh.mode" -> {
-            e.meshes.editMode = a.optString("mode", "object")
+            val name = a.optString("mode", "select").uppercase()
+            e.meshes.tool = runCatching { app.esenho.nativeengine.mesh3d.MeshTool.valueOf(name) }
+                .getOrDefault(app.esenho.nativeengine.mesh3d.MeshTool.SELECT)
             null
         }
         "mesh.vertex" -> {

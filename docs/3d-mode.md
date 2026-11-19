@@ -121,7 +121,7 @@ O modo 3D ocupa uma camada nativa própria, criada por `switchMode(3D)` da mesma
 
 - Rasterizar só a bbox projetada de cada objeto, não o canvas inteiro.
 - Reutilizar `zBuffer` e `IntArray` entre renders; realocar só quando o documento muda de tamanho.
-- Durante órbita, renderizar em resolução reduzida (equivalente a `vectorViewScale`) e fazer o render final ao soltar.
+- Durante órbita, renderizar em meia resolução com buffers de pixels/profundidade reaproveitados, e fazer o render final ao soltar. O undo é gravado uma vez no início do gesto, nunca a cada movimento — snapshots nativos por movimento eram o maior custo.
 - Ordenar triângulos por profundidade média como otimização secundária; o z-buffer já garante correção.
 - Se perfilagem mostrar gargalo, portar o loop de rasterização para `w_mesh3d_render` em `src/quadro.c` e expor via JNI — a ABI e o modelo de dados já estarão estáveis.
 
