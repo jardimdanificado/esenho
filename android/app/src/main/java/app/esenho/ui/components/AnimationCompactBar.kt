@@ -66,6 +66,7 @@ fun AnimationCompactBar(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
+                modifier = Modifier.padding(start = 6.dp),
             )
             IconButton(onClick = { goTo(currentIdx - 1) }, modifier = Modifier.size(28.dp)) {
                 Icon(Icons.Default.SkipPrevious, "Quadro anterior", Modifier.size(18.dp))

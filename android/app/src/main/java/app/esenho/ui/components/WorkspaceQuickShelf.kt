@@ -27,63 +27,75 @@ import app.esenho.nativeengine.EsenhoEngine
 
 private data class ShelfBrush(val id: String, val name: String, val group: String)
 
-/** Separate color and brush strips; the current brush is always first. */
+/** Four independent strips: favorite/recent colors and favorite/recent brushes. */
 @Composable
 fun WorkspaceQuickShelf(
     engine: EsenhoEngine,
     favoriteBrushIds: Set<String>,
-    recent: Boolean,
     revision: Int,
     onChanged: () -> Unit,
     onOpenCurrentBrush: () -> Unit,
     onColor: () -> Unit,
     onPresets: () -> Unit,
+    showFavoriteColors: Boolean,
+    showRecentColors: Boolean,
+    showFavoriteBrushes: Boolean,
+    showRecentBrushes: Boolean,
 ) {
     val selected = engine.selectedPreset?.let { "preset:${it.id}" }
         ?: engine.selectedBrush?.let { "brush:${it.id}" }
-    val brushes =
-        remember(revision, favoriteBrushIds, recent, selected) {
-            val catalog =
-                engine.presetCatalog.map {
-                    ShelfBrush("preset:${it.id}", it.name, mapPresetCategory(it.category))
-                } +
-                    engine.brushCatalog.map {
-                        ShelfBrush("brush:${it.id}", it.title, mapWasmCategory(it.category))
-                    }
-            val byId = catalog.associateBy { it.id }
-            val remaining = if (recent) engine.recentBrushIds.mapNotNull { byId[it] }
-                else catalog.filter { it.id in favoriteBrushIds }
-            listOfNotNull(byId[selected]) + remaining.filter { it.id != selected }
+    val catalog =
+        remember(revision) {
+            engine.presetCatalog.map {
+                ShelfBrush("preset:${it.id}", it.name, mapPresetCategory(it.category))
+            } +
+                engine.brushCatalog.map {
+                    ShelfBrush("brush:${it.id}", it.title, mapWasmCategory(it.category))
+                }
         }
-    val colors =
+    val byId = catalog.associateBy { it.id }
+    val favoriteBrushScroll = rememberLazyListState()
+    val recentBrushScroll = rememberLazyListState()
+    LaunchedEffect(selected) {
+        favoriteBrushScroll.scrollToItem(0)
+        recentBrushScroll.scrollToItem(0)
+    }
+
+    fun colorsFor(recent: Boolean): List<Int> =
         if (recent) engine.recentColors
         else
             engine.palettes.firstOrNull { it.id == engine.activePaletteId }?.colors
                 ?: engine.palettes.firstOrNull()?.colors.orEmpty()
-    val colorScroll = rememberLazyListState()
-    val brushScroll = rememberLazyListState()
-    LaunchedEffect(selected) { brushScroll.scrollToItem(0) }
-    val colorStrip: @Composable (Modifier) -> Unit = { modifier ->
-        Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onColor, modifier = Modifier.size(26.dp)) {
+
+    fun brushesFor(recent: Boolean): List<ShelfBrush> {
+        val remaining =
+            if (recent) engine.recentBrushIds.mapNotNull { byId[it] }
+            else catalog.filter { it.id in favoriteBrushIds }
+        return listOfNotNull(byId[selected]) + remaining.filter { it.id != selected }
+    }
+
+    val colorStrip: @Composable (List<Int>, String) -> Unit = { colors, label ->
+        Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onColor, modifier = Modifier.size(36.dp)) {
                 Box(
-                    Modifier.size(18.dp)
+                    Modifier.size(20.dp)
                         .clip(CircleShape)
                         .background(Color(engine.currentColor))
                         .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                        .semantics { contentDescription = "Abrir estúdio de cores" }
+                        .semantics { contentDescription = "Abrir ou fechar estúdio de cores" }
                 )
             }
             if (colors.isEmpty())
                 Text(
-                    "As cores usadas nos traços aparecem aqui",
+                    label,
                     Modifier.weight(1f).padding(horizontal = 6.dp),
                     style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             else
                 LazyRow(
                     Modifier.weight(1f),
-                    state = colorScroll,
+                    state = rememberLazyListState(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     contentPadding = PaddingValues(end = 4.dp),
                 ) {
@@ -112,31 +124,32 @@ fun WorkspaceQuickShelf(
                 }
         }
     }
-    val brushStrip: @Composable (Modifier) -> Unit = { modifier ->
-        Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onPresets, modifier = Modifier.size(26.dp)) {
+    val brushStrip: @Composable (List<ShelfBrush>, String, androidx.compose.foundation.lazy.LazyListState) -> Unit = { brushes, label, scrollState ->
+        Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onPresets, modifier = Modifier.size(36.dp)) {
                 Icon(
                     Icons.Default.CollectionsBookmark,
-                    "Pincéis e presets",
-                    Modifier.size(16.dp),
+                    "Abrir ou fechar presets de pincel",
+                    Modifier.size(20.dp),
                 )
             }
             if (brushes.isEmpty())
                 Text(
-                    "Selecione um pincel",
+                    label,
                     Modifier.weight(1f).padding(horizontal = 6.dp),
                     style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             else
                 LazyRow(
                     Modifier.weight(1f),
-                    state = brushScroll,
+                    state = scrollState,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     contentPadding = PaddingValues(end = 4.dp),
                 ) {
                     items(brushes, key = { it.id }) { brush ->
                         Row(
-                            Modifier.height(27.dp)
+                            Modifier.height(30.dp)
                                 .widthIn(max = 116.dp)
                                 .clip(RoundedCornerShape(4.dp))
                                 .background(
@@ -152,13 +165,13 @@ fun WorkspaceQuickShelf(
                                             ?.let { engine.selectPreset(it) }
                                     else
                                         engine.brushCatalog
-                                            .firstOrNull { "brush:${it.id}" == brush.id }
+                                            .firstOrNull { "brush:${brush.id}" == brush.id }
                                             ?.let { engine.selectBrush(it) }
                                     onChanged()
                                 }
                                 .semantics {
                                     contentDescription = if (brush.id == selected) "Pincel atual ${brush.name}; abrir parâmetros"
-                                        else "Usar pincel ${brush.name}"
+                                    else "Usar pincel ${brush.name}"
                                 }
                                 .padding(horizontal = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -181,12 +194,17 @@ fun WorkspaceQuickShelf(
                 }
         }
     }
+
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            colorStrip(Modifier.fillMaxWidth().height(35.dp))
+            if (showFavoriteColors) colorStrip(colorsFor(false), "Cores favoritas")
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            brushStrip(Modifier.fillMaxWidth().height(35.dp))
+            if (showRecentColors) colorStrip(colorsFor(true), "Cores recentes")
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (showFavoriteBrushes) brushStrip(brushesFor(false), "Pincéis favoritos", favoriteBrushScroll)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (showRecentBrushes) brushStrip(brushesFor(true), "Pincéis recentes", recentBrushScroll)
         }
     }
 }

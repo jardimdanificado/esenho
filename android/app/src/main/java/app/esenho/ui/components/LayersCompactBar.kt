@@ -49,12 +49,6 @@ fun LayersCompactBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            Text(
-                "Camadas",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
             IconButton(
                 onClick = { engine.addLayer(); refresh() },
                 modifier = Modifier.size(28.dp),

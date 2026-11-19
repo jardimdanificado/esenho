@@ -64,6 +64,7 @@ fun WorkspaceHeader(
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onDocument: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {},
 ) {
     CompactControls {
         Surface(color = MaterialTheme.colorScheme.background) {
@@ -98,6 +99,7 @@ fun WorkspaceHeader(
                 IconButton(onClick = onRedo, enabled = canRedo, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.AutoMirrored.Filled.Redo, "Refazer", Modifier.size(18.dp))
                 }
+                actions()
             }
         }
     }
@@ -225,10 +227,6 @@ fun WorkspaceProperties(
     toolName: String,
     onToolOptions: () -> Unit,
     brushName: String,
-    quickShelfVisible: Boolean,
-    quickShelfRecent: Boolean,
-    onToggleQuickShelf: () -> Unit,
-    onQuickShelfRecentChange: (Boolean) -> Unit,
     color: Int,
     engine: EsenhoEngine,
     configuredSliders: List<SideSliderSetting>,
@@ -260,7 +258,6 @@ fun WorkspaceProperties(
     layersBarVisible: Boolean = false,
     onToggleLayersBar: () -> Unit = {},
 ) {
-    var more by remember { mutableStateOf(false) }
     val relevantSliders = relevantQuickSliders(engine, configuredSliders)
     val pinnedSliders = relevantSliders.filter { it.pinned }
     CompactControls {
@@ -322,12 +319,6 @@ fun WorkspaceProperties(
                         )
                     }
                 }
-                CompactPanelButton(
-                    Icons.Default.Layers,
-                    "Camadas",
-                    activePanel == WorkspacePanel.LAYERS,
-                    onLayers,
-                )
                 if (vectorMode)
                     CompactPanelButton(
                         Icons.Default.Tune,
@@ -335,162 +326,80 @@ fun WorkspaceProperties(
                         activePanel == WorkspacePanel.VECTOR,
                         onToolOptions,
                     )
-                if (!vectorMode)
-                    CompactPanelButton(
-                        Icons.Default.Movie,
-                        "Animação",
-                        activePanel == WorkspacePanel.ANIMATION,
-                        onAnimation,
-                    )
-                if (!vectorMode)
-                    CompactPanelButton(
-                        Icons.Default.Code,
-                        "Scripts JavaScript",
-                        activePanel == WorkspacePanel.SCRIPTS,
-                        onScripts,
-                    )
-                Box {
-                    IconButton(
-                        onClick = {
-                            onDismissQuickSliders()
-                            more = true
-                        },
-                        modifier = Modifier.size(36.dp),
-                    ) {
-                        Icon(Icons.Default.MoreHoriz, "Efeitos e parâmetros", Modifier.size(19.dp))
-                    }
-                    AnchoredWorkspacePopup(
-                        more,
-                        { more = false },
-                        modifier = Modifier.width(260.dp),
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Opções: $toolName") },
-                            onClick = {
-                                more = false
-                                onToolOptions()
-                            },
-                            leadingIcon = { Icon(Icons.Default.Settings, null) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Cores") },
-                            onClick = { more = false; onColor() },
-                            leadingIcon = { Icon(Icons.Default.Palette, null) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Pincéis e presets") },
-                            onClick = { more = false; onBrush() },
-                            leadingIcon = { Icon(Icons.Default.Brush, null) },
-                        )
-                        if (!vectorMode)
-                            DropdownMenuItem(
-                                text = { Text("Efeitos") },
-                                onClick = {
-                                    more = false
-                                    onEffects()
-                                },
-                                leadingIcon = { Icon(Icons.Default.AutoAwesome, null) },
-                            )
-                        HorizontalDivider()
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    if (toolsVisible) "Ocultar ferramentas"
-                                    else "Mostrar ferramentas"
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    if (toolsVisible) Icons.Default.VisibilityOff
-                                    else Icons.Default.Visibility,
-                                    null,
-                                )
-                            },
-                            onClick = {
-                                onToggleTools()
-                                more = false
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    if (animationBarVisible) "Ocultar barra de animação"
-                                    else "Mostrar barra de animação"
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    if (animationBarVisible) Icons.Default.VisibilityOff
-                                    else Icons.Default.Visibility,
-                                    null,
-                                )
-                            },
-                            onClick = {
-                                onToggleAnimationBar()
-                                more = false
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    if (layersBarVisible) "Ocultar barra de camadas"
-                                    else "Mostrar barra de camadas"
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    if (layersBarVisible) Icons.Default.VisibilityOff
-                                    else Icons.Default.Visibility,
-                                    null,
-                                )
-                            },
-                            onClick = {
-                                onToggleLayersBar()
-                                more = false
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    if (quickShelfVisible) "Ocultar barra de cores e pincéis"
-                                    else "Mostrar barra de cores e pincéis"
-                                )
-                            },
-                            onClick = {
-                                onToggleQuickShelf()
-                                more = false
-                            },
-                            trailingIcon = {
-                                Icon(
-                                    if (quickShelfVisible) Icons.Default.Visibility
-                                    else Icons.Default.VisibilityOff,
-                                    null,
-                                )
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Paleta e pincéis favoritos") },
-                            onClick = {
-                                onQuickShelfRecentChange(false)
-                                more = false
-                            },
-                            trailingIcon =
-                                if (!quickShelfRecent) ({ Icon(Icons.Default.Check, null) })
-                                else null,
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Cores e pincéis recentes") },
-                            onClick = {
-                                onQuickShelfRecentChange(true)
-                                more = false
-                            },
-                            trailingIcon =
-                                if (quickShelfRecent) ({ Icon(Icons.Default.Check, null) })
-                                else null,
-                        )
-                    }
-                }
             }
+        }
+    }
+}
+
+@Composable
+fun WorkspaceOverflowMenu(
+    toolName: String,
+    vectorMode: Boolean,
+    toolsVisible: Boolean,
+    onToggleTools: () -> Unit,
+    animationBarVisible: Boolean,
+    onToggleAnimationBar: () -> Unit,
+    layersBarVisible: Boolean,
+    onToggleLayersBar: () -> Unit,
+    favoriteColorsVisible: Boolean,
+    onToggleFavoriteColors: () -> Unit,
+    recentColorsVisible: Boolean,
+    onToggleRecentColors: () -> Unit,
+    favoriteBrushesVisible: Boolean,
+    onToggleFavoriteBrushes: () -> Unit,
+    recentBrushesVisible: Boolean,
+    onToggleRecentBrushes: () -> Unit,
+    onToolOptions: () -> Unit,
+    onColor: () -> Unit,
+    onBrush: () -> Unit,
+    onEffects: () -> Unit,
+) {
+    var more by remember { mutableStateOf(false) }
+    IconButton(onClick = { more = true }, modifier = Modifier.size(36.dp)) {
+        Icon(Icons.Default.MoreHoriz, "Opções da interface", Modifier.size(19.dp))
+    }
+    AnchoredWorkspacePopup(more, { more = false }, modifier = Modifier.width(260.dp)) {
+        DropdownMenuItem(
+            text = { Text("Opções: $toolName") },
+            onClick = { more = false; onToolOptions() },
+            leadingIcon = { Icon(Icons.Default.Settings, null) },
+        )
+        DropdownMenuItem(
+            text = { Text("Cores") },
+            onClick = { more = false; onColor() },
+            leadingIcon = { Icon(Icons.Default.Palette, null) },
+        )
+        DropdownMenuItem(
+            text = { Text("Pincéis e presets") },
+            onClick = { more = false; onBrush() },
+            leadingIcon = { Icon(Icons.Default.Brush, null) },
+        )
+        if (!vectorMode)
+            DropdownMenuItem(
+                text = { Text("Efeitos") },
+                onClick = { more = false; onEffects() },
+                leadingIcon = { Icon(Icons.Default.AutoAwesome, null) },
+            )
+        HorizontalDivider()
+        listOf(
+            Triple(if (toolsVisible) "Ocultar ferramentas" else "Mostrar ferramentas", toolsVisible, onToggleTools),
+            Triple(if (animationBarVisible) "Ocultar barra de animação" else "Mostrar barra de animação", animationBarVisible, onToggleAnimationBar),
+            Triple(if (layersBarVisible) "Ocultar barra de objetos" else "Mostrar barra de objetos", layersBarVisible, onToggleLayersBar),
+            Triple(if (favoriteColorsVisible) "Ocultar cores favoritas" else "Mostrar cores favoritas", favoriteColorsVisible, onToggleFavoriteColors),
+            Triple(if (recentColorsVisible) "Ocultar cores recentes" else "Mostrar cores recentes", recentColorsVisible, onToggleRecentColors),
+            Triple(if (favoriteBrushesVisible) "Ocultar pincéis favoritos" else "Mostrar pincéis favoritos", favoriteBrushesVisible, onToggleFavoriteBrushes),
+            Triple(if (recentBrushesVisible) "Ocultar pincéis recentes" else "Mostrar pincéis recentes", recentBrushesVisible, onToggleRecentBrushes),
+        ).forEach { (label, visible, toggle) ->
+            DropdownMenuItem(
+                text = { Text(label) },
+                onClick = { toggle(); more = false },
+                leadingIcon = {
+                    Icon(
+                        if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        null,
+                    )
+                },
+            )
         }
     }
 }
