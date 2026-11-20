@@ -83,7 +83,7 @@ private fun VectorToolButton(
             checked = checked,
             onCheckedChange = { onClick() },
             modifier = Modifier.size(36.dp),
-            shape = RoundedCornerShape(9.dp),
+            shape = CircleShape,
             colors =
                 IconButtonDefaults.filledIconToggleButtonColors(
                     containerColor = Color.Transparent,

@@ -117,7 +117,7 @@ fun WorkspaceQuickShelf(
         Row(
             Modifier.weight(1f).fillMaxHeight(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalArrangement = Arrangement.End,
         ) {
             if (brushes.isEmpty())
                 Text(
@@ -128,12 +128,12 @@ fun WorkspaceQuickShelf(
                 )
             else
                 LazyRow(
-                    Modifier.weight(1f),
+                    Modifier.widthIn(max = 600.dp),
                     state = brushScroll,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     contentPadding = PaddingValues(end = 4.dp),
                 ) {
-                    items(brushes, key = { it.id }) { brush ->
+                    items(brushes.asReversed(), key = { it.id }) { brush ->
                         Row(
                             Modifier.height(28.dp)
                                 .widthIn(max = 116.dp)

@@ -43,7 +43,7 @@ fun LayersCompactBar(
     CompactBarSurface(modifier) {
             IconButton(
                 onClick = { engine.addLayer(); refresh() },
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(36.dp),
             ) {
                 Icon(Icons.Default.Add, "Adicionar camada", Modifier.size(18.dp))
             }
@@ -94,7 +94,7 @@ fun LayersCompactBar(
                 }
             }
             Box {
-                IconButton(onClick = { menu = true }, modifier = Modifier.size(28.dp)) {
+                IconButton(onClick = { menu = true }, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Default.MoreVert, "Opções de camadas", Modifier.size(18.dp))
                 }
                 DropdownMenu(menu, { menu = false }) {

@@ -60,7 +60,7 @@ fun AnimationCompactBar(
                 maxLines = 1,
                 modifier = Modifier.padding(start = 6.dp),
             )
-            IconButton(onClick = { goTo(currentIdx - 1) }, modifier = Modifier.size(28.dp)) {
+            IconButton(onClick = { goTo(currentIdx - 1) }, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Default.SkipPrevious, "Quadro anterior", Modifier.size(18.dp))
             }
             FilledIconButton(
@@ -77,7 +77,7 @@ fun AnimationCompactBar(
                     Modifier.size(16.dp),
                 )
             }
-            IconButton(onClick = { goTo(currentIdx + 1) }, modifier = Modifier.size(28.dp)) {
+            IconButton(onClick = { goTo(currentIdx + 1) }, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Default.SkipNext, "Próximo quadro", Modifier.size(18.dp))
             }
             IconButton(
@@ -85,7 +85,7 @@ fun AnimationCompactBar(
                     engine.addAnimationFrame()
                     sync()
                 },
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(36.dp),
             ) {
                 Icon(Icons.Default.Add, "Adicionar quadro", Modifier.size(18.dp))
             }
@@ -137,7 +137,7 @@ fun AnimationCompactBar(
                 }
             }
             Box {
-                IconButton(onClick = { moreMenu = true }, modifier = Modifier.size(28.dp)) {
+                IconButton(onClick = { moreMenu = true }, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Default.MoreVert, "Opções de animação", Modifier.size(18.dp))
                 }
                 DropdownMenu(moreMenu, { moreMenu = false }) {

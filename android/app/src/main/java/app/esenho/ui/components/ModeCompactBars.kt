@@ -84,7 +84,7 @@ fun VectorAnimationCompactBar(
             maxLines = 1,
             modifier = Modifier.padding(start = 6.dp),
         )
-        IconButton(onClick = { seek(current - 1) }, modifier = Modifier.size(28.dp)) {
+        IconButton(onClick = { seek(current - 1) }, modifier = Modifier.size(36.dp)) {
             Icon(Icons.Default.SkipPrevious, "Quadro anterior", Modifier.size(18.dp))
         }
         FilledIconButton(
@@ -101,7 +101,7 @@ fun VectorAnimationCompactBar(
                 Modifier.size(16.dp),
             )
         }
-        IconButton(onClick = { seek(current + 1) }, modifier = Modifier.size(28.dp)) {
+        IconButton(onClick = { seek(current + 1) }, modifier = Modifier.size(36.dp)) {
             Icon(Icons.Default.SkipNext, "Próximo quadro", Modifier.size(18.dp))
         }
         IconButton(
@@ -123,13 +123,13 @@ fun VectorAnimationCompactBar(
                 engine.vectors.render()
                 sync()
             },
-            modifier = Modifier.size(28.dp),
+            modifier = Modifier.size(36.dp),
         ) {
             Icon(Icons.Default.Add, "Adicionar keyframe", Modifier.size(18.dp))
         }
         FrameStrip(duration, current, ::seek)
         Box {
-            IconButton(onClick = { menu = true }, modifier = Modifier.size(28.dp)) {
+            IconButton(onClick = { menu = true }, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Default.MoreVert, "Opções de animação vetorial", Modifier.size(18.dp))
             }
             DropdownMenu(menu, { menu = false }) {
@@ -258,7 +258,7 @@ fun MeshAnimationCompactBar(
             maxLines = 1,
             modifier = Modifier.padding(start = 6.dp),
         )
-        IconButton(onClick = { seek(current - 1) }, modifier = Modifier.size(28.dp)) {
+        IconButton(onClick = { seek(current - 1) }, modifier = Modifier.size(36.dp)) {
             Icon(Icons.Default.SkipPrevious, "Quadro anterior", Modifier.size(18.dp))
         }
         FilledIconButton(
@@ -275,12 +275,12 @@ fun MeshAnimationCompactBar(
                 Modifier.size(16.dp),
             )
         }
-        IconButton(onClick = { seek(current + 1) }, modifier = Modifier.size(28.dp)) {
+        IconButton(onClick = { seek(current + 1) }, modifier = Modifier.size(36.dp)) {
             Icon(Icons.Default.SkipNext, "Próximo quadro", Modifier.size(18.dp))
         }
         FrameStrip(duration, current, ::seek)
         Box {
-            IconButton(onClick = { menu = true }, modifier = Modifier.size(28.dp)) {
+            IconButton(onClick = { menu = true }, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Default.Add, "Criar keyframe", Modifier.size(18.dp))
             }
             DropdownMenu(menu, { menu = false }) {
