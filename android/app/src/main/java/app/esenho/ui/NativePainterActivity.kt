@@ -351,24 +351,16 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var layersBarVisible by remember {
         mutableStateOf(workspacePreferences.getBoolean("layers_bar_visible", true))
     }
-    var favoriteColorsVisible by remember {
-        mutableStateOf(workspacePreferences.getBoolean("favorite_colors_visible", true))
+    var quickShelfVisible by remember {
+        mutableStateOf(workspacePreferences.getBoolean("quick_shelf_visible", true))
     }
-    var recentColorsVisible by remember {
-        mutableStateOf(workspacePreferences.getBoolean("recent_colors_visible", true))
-    }
-    var favoriteBrushesVisible by remember {
-        mutableStateOf(workspacePreferences.getBoolean("favorite_brushes_visible", true))
-    }
-    var recentBrushesVisible by remember {
-        mutableStateOf(workspacePreferences.getBoolean("recent_brushes_visible", true))
+    var quickShelfRecent by remember {
+        mutableStateOf(workspacePreferences.getBoolean("quick_shelf_recent", false))
     }
     fun persistShelfVisibility() {
         workspacePreferences.edit()
-            .putBoolean("favorite_colors_visible", favoriteColorsVisible)
-            .putBoolean("recent_colors_visible", recentColorsVisible)
-            .putBoolean("favorite_brushes_visible", favoriteBrushesVisible)
-            .putBoolean("recent_brushes_visible", recentBrushesVisible)
+            .putBoolean("quick_shelf_visible", quickShelfVisible)
+            .putBoolean("quick_shelf_recent", quickShelfRecent)
             .apply()
     }
 
@@ -561,14 +553,8 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         val api = NativeScriptApi(engine, canvas, { refreshState(persistFavoriteTool = false) }, ::chooseTool) { operation, args ->
             if (operation == "ui.export") showExportDialog = true
             else if (operation == "ui.configure") {
-                if (args.has("quickShelfVisible")) {
-                    favoriteColorsVisible = args.getBoolean("quickShelfVisible")
-                    favoriteBrushesVisible = favoriteColorsVisible
-                }
-                if (args.has("quickShelfRecent")) {
-                    recentColorsVisible = args.getBoolean("quickShelfRecent")
-                    recentBrushesVisible = recentColorsVisible
-                }
+                if (args.has("quickShelfVisible")) quickShelfVisible = args.getBoolean("quickShelfVisible")
+                if (args.has("quickShelfRecent")) quickShelfRecent = args.getBoolean("quickShelfRecent")
                 if (args.has("quickParameters")) quickSlidersOpen = args.getBoolean("quickParameters")
                 persistShelfVisibility()
             } else {
@@ -1458,14 +1444,8 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 layersBarVisible = !layersBarVisible
                                 workspacePreferences.edit().putBoolean("layers_bar_visible", layersBarVisible).apply()
                             },
-                            favoriteColorsVisible = favoriteColorsVisible,
-                            onToggleFavoriteColors = { favoriteColorsVisible = !favoriteColorsVisible; persistShelfVisibility() },
-                            recentColorsVisible = recentColorsVisible,
-                            onToggleRecentColors = { recentColorsVisible = !recentColorsVisible; persistShelfVisibility() },
-                            favoriteBrushesVisible = favoriteBrushesVisible,
-                            onToggleFavoriteBrushes = { favoriteBrushesVisible = !favoriteBrushesVisible; persistShelfVisibility() },
-                            recentBrushesVisible = recentBrushesVisible,
-                            onToggleRecentBrushes = { recentBrushesVisible = !recentBrushesVisible; persistShelfVisibility() },
+                            quickShelfVisible = quickShelfVisible,
+                            onToggleQuickShelf = { quickShelfVisible = !quickShelfVisible; persistShelfVisibility() },
                             onToolOptions = {
                                 if (engine.vectors.enabled) {
                                     vectorTabRequest = VectorPanelTab.APARENCIA
@@ -1650,7 +1630,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 else WorkspacePanel.EFFECTS
                         },
                     )
-                    WorkspaceQuickShelf(
+                    if (quickShelfVisible) WorkspaceQuickShelf(
                             engine = engine,
                             favoriteBrushIds = favoriteBrushIds,
                             revision = engineRevision,
@@ -1681,10 +1661,11 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                     if (activePanel == WorkspacePanel.BRUSHES) null
                                     else WorkspacePanel.BRUSHES
                             },
-                            showFavoriteColors = favoriteColorsVisible,
-                            showRecentColors = recentColorsVisible,
-                            showFavoriteBrushes = favoriteBrushesVisible,
-                            showRecentBrushes = recentBrushesVisible,
+                            recent = quickShelfRecent,
+                            onToggleRecent = {
+                                quickShelfRecent = !quickShelfRecent
+                                persistShelfVisibility()
+                            },
                         )
                 }
         },
