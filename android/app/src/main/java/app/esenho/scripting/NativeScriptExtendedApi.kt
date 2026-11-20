@@ -6,7 +6,6 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.net.Uri
 import app.esenho.nativeengine.*
-import app.esenho.nativeengine.mesh3d.Vec3
 import app.esenho.ui.*
 import app.esenho.ui.components.*
 import org.json.JSONArray
@@ -587,123 +586,6 @@ class NativeScriptExtendedApi(private val e: EsenhoEngine, private val canvas: E
             objects.forEach { e.vectors.addObject(it) }
             JSONArray(objects.map { it.id })
         }
-        "mesh.enable" -> {
-            val active = a.optBoolean("enabled", true)
-            e.vectors.switchMode(false)
-            e.meshes.switchMode(active)
-            null
-        }
-        "mesh.cube" -> {
-            e.meshes.addCube(a.f("size", 2.0))
-            null
-        }
-        "mesh.plane" -> {
-            e.meshes.addPlane(a.f("size", 4.0))
-            null
-        }
-        "mesh.cylinder" -> {
-            e.meshes.addCylinder(a.f("radius", 1.0), a.f("height", 2.0), a.optInt("segments", 16))
-            null
-        }
-        "mesh.sphere" -> {
-            e.meshes.addSphere(a.f("radius", 1.0), a.optInt("segments", 16), a.optInt("rings", 12))
-            null
-        }
-        "mesh.mode" -> {
-            val name = a.optString("mode", "select").uppercase()
-            e.meshes.tool = runCatching { app.esenho.nativeengine.mesh3d.MeshTool.valueOf(name) }
-                .getOrDefault(app.esenho.nativeengine.mesh3d.MeshTool.SELECT)
-            null
-        }
-        "mesh.vertex" -> {
-            val index = a.getInt("index")
-            val p = a.getJSONArray("position")
-            e.meshes.setVertex(index, Vec3(p.getDouble(0).toFloat(), p.getDouble(1).toFloat(), p.getDouble(2).toFloat()))
-            null
-        }
-        "mesh.extrude" -> {
-            e.meshes.extrudeFace(a.getInt("face"), a.f("distance", .5))
-            null
-        }
-        "mesh.material" -> {
-            e.meshes.setMaterial(
-                color = if (a.has("color")) color(a.get("color")) else null,
-                opacity = if (a.has("opacity")) a.f("opacity", 1.0) else null,
-                shininess = if (a.has("shininess")) a.f("shininess", 24.0) else null,
-            )
-            null
-        }
-        "mesh.smooth" -> {
-            e.meshes.setSmooth(a.optBoolean("enabled", true))
-            null
-        }
-        "mesh.boolean" -> {
-            val op =
-                runCatching {
-                    app.esenho.nativeengine.mesh3d.MeshBooleanOp.valueOf(a.getString("op").uppercase())
-                }.getOrDefault(app.esenho.nativeengine.mesh3d.MeshBooleanOp.UNION)
-            e.meshes.boolean(op, a.getString("target"))
-        }
-        "mesh.keyframe" -> {
-            val frame = a.optInt("frame", e.meshes.animation.currentFrame)
-            when (a.optString("target", "object")) {
-                "camera" -> e.meshes.keyframeCamera(frame)
-                "light" -> e.meshes.keyframeLight(frame)
-                else -> e.meshes.keyframeObject(frame)
-            }
-            null
-        }
-        "mesh.seek" -> {
-            e.meshes.seekFrame(a.getInt("frame"))
-            null
-        }
-        "mesh.stats" ->
-            JSONObject()
-                .put("ms", app.esenho.nativeengine.mesh3d.MeshProfiler.lastFrameMs.toDouble())
-                .put("triangles", app.esenho.nativeengine.mesh3d.MeshProfiler.triangles)
-                .put("pixels", app.esenho.nativeengine.mesh3d.MeshProfiler.shadedPixels)
-        "mesh.remove" -> {
-            e.meshes.selectedId = a.optString("id").takeIf { it.isNotEmpty() }
-            e.meshes.removeSelected()
-            null
-        }
-        "mesh.transform" -> {
-            val position = a.optJSONArray("position")?.let { Vec3(it.getDouble(0).toFloat(), it.getDouble(1).toFloat(), it.getDouble(2).toFloat()) }
-            val rotation = a.optJSONArray("rotation")?.let { Vec3(it.getDouble(0).toFloat(), it.getDouble(1).toFloat(), it.getDouble(2).toFloat()) }
-            val scale = a.optJSONArray("scale")?.let { Vec3(it.getDouble(0).toFloat(), it.getDouble(1).toFloat(), it.getDouble(2).toFloat()) }
-            if (a.has("id")) e.meshes.selectedId = a.getString("id")
-            e.meshes.setTransform(position, rotation, scale)
-            null
-        }
-        "mesh.camera" -> {
-            val camera = e.meshes.scene.camera
-            a.optJSONArray("position")?.let { camera.position = Vec3(it.getDouble(0).toFloat(), it.getDouble(1).toFloat(), it.getDouble(2).toFloat()) }
-            a.optJSONArray("target")?.let { camera.target = Vec3(it.getDouble(0).toFloat(), it.getDouble(1).toFloat(), it.getDouble(2).toFloat()) }
-            if (a.has("fov")) camera.fov = a.f("fov", 50.0)
-            if (a.has("orthographic")) camera.orthographic = a.getBoolean("orthographic")
-            e.meshes.render()
-            null
-        }
-        "mesh.orbit" -> {
-            e.meshes.orbit(a.f("dx"), a.f("dy"))
-            null
-        }
-        "mesh.zoom" -> {
-            e.meshes.zoom(a.f("factor", 1.0))
-            null
-        }
-        "mesh.settings" -> {
-            e.meshes.setRenderSettings(
-                wireframe = if (a.has("wireframe")) a.getBoolean("wireframe") else null,
-                cull = if (a.has("cull")) a.getBoolean("cull") else null,
-            )
-            null
-        }
-        "mesh.import" -> {
-            e.meshes.importObj(a.getString("obj"))
-            null
-        }
-        "mesh.export" -> e.meshes.exportObj(a.optBoolean("metadata", true))
         else -> error("Comando desconhecido: $op")
     }
 

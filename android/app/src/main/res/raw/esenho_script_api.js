@@ -312,30 +312,6 @@
     bake: (options = {}) => call("vector.rig.bake", options),
     clear: () => call("vector.rig.clear", {})
   };
-  esenho.mesh = {
-    enable: (enabled = true) => call("mesh.enable", {enabled}),
-    cube: (size = 2) => call("mesh.cube", {size}),
-    plane: (size = 4) => call("mesh.plane", {size}),
-    cylinder: (options = {}) => call("mesh.cylinder", options),
-    sphere: (options = {}) => call("mesh.sphere", options),
-    mode: mode => call("mesh.mode", {mode}),
-    vertex: (index, position) => call("mesh.vertex", {index,position}),
-    extrude: (face, distance = 0.5) => call("mesh.extrude", {face,distance}),
-    material: options => call("mesh.material", options),
-    smooth: (enabled = true) => call("mesh.smooth", {enabled}),
-    boolean: (op, target) => call("mesh.boolean", {op,target:idOf(target)}),
-    keyframe: (options = {}) => call("mesh.keyframe", options),
-    seek: frame => call("mesh.seek", {frame}),
-    stats: () => call("mesh.stats", {}),
-    remove: object => call("mesh.remove", object == null ? {} : {id:idOf(object)}),
-    transform: (object, options = {}) => call("mesh.transform", {...options,...(object == null ? {} : {id:idOf(object)})}),
-    camera: options => call("mesh.camera", options),
-    orbit: (dx, dy) => call("mesh.orbit", {dx,dy}),
-    zoom: factor => call("mesh.zoom", {factor}),
-    settings: options => call("mesh.settings", options),
-    import: obj => call("mesh.import", {obj}),
-    export: (metadata = true) => call("mesh.export", {metadata})
-  };
   esenho.help = () => Object.fromEntries(Object.entries(esenho).filter(([,v]) => v && typeof v === "object").map(([k,v]) => [k,Object.getOwnPropertyNames(v)]));
   const print = (...args) => call("log", { message: args.map(value =>
     typeof value === "string" ? value : JSON.stringify(value) ?? String(value)).join(" ") });

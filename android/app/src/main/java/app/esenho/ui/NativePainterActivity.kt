@@ -334,16 +334,13 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     }
     var rasterToolsVisible by remember { mutableStateOf(workspacePreferences.getBoolean("raster_tools_visible",true)) }
     var vectorToolsVisible by remember { mutableStateOf(workspacePreferences.getBoolean("vector_tools_visible",true)) }
-    var meshToolsVisible by remember { mutableStateOf(workspacePreferences.getBoolean("mesh_tools_visible",true)) }
     fun toggleTools() {
         when {
-            engine.meshes.enabled -> meshToolsVisible = !meshToolsVisible
             engine.vectors.enabled -> vectorToolsVisible = !vectorToolsVisible
             else -> rasterToolsVisible = !rasterToolsVisible
         }
         workspacePreferences.edit().putBoolean("raster_tools_visible",rasterToolsVisible)
-            .putBoolean("vector_tools_visible",vectorToolsVisible)
-            .putBoolean("mesh_tools_visible",meshToolsVisible).apply()
+            .putBoolean("vector_tools_visible",vectorToolsVisible).apply()
     }
     var animationBarVisible by remember {
         mutableStateOf(workspacePreferences.getBoolean("animation_bar_visible", true))
@@ -636,23 +633,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         }.onFailure { Toast.makeText(context, "Falha ao exportar SVG: ${it.message}", Toast.LENGTH_LONG).show() }
     }
 
-    val openObjLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) runCatching {
-            val obj = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                ?: error("Não foi possível abrir o OBJ")
-            engine.meshes.importObj(obj)
-            activePanel = WorkspacePanel.MESH
-            refreshState(false)
-        }.onFailure { Toast.makeText(context, "Falha ao abrir OBJ: ${it.message}", Toast.LENGTH_LONG).show() }
-    }
-    val saveObjLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
-        if (uri != null) runCatching {
-            context.contentResolver.openOutputStream(uri)?.use { output ->
-                output.write(engine.meshes.exportObj().toByteArray(Charsets.UTF_8))
-            } ?: error("Não foi possível criar o OBJ")
-        }.onFailure { Toast.makeText(context, "Falha ao exportar OBJ: ${it.message}", Toast.LENGTH_LONG).show() }
-    }
-
     val saveProjectLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.CreateDocument("application/x-esenho")
@@ -847,14 +827,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 onDismiss = { activePanel = null },
                 tabRequest = vectorTabRequest)
             WorkspacePanel.ANIMATION -> Box(Modifier.fillMaxSize())
-            WorkspacePanel.MESH -> MeshObjectPanel(
-                engine = engine,
-                revision = engineRevision,
-                onChanged = { refreshState(false) },
-                onImport = { openObjLauncher.launch(arrayOf("*/*")) },
-                onExport = { saveObjLauncher.launch("modelo.obj") },
-                onDismiss = { activePanel = null },
-            )
             WorkspacePanel.COLOR ->
                 ColorStudioModal(
                     engine = engine,
@@ -1432,7 +1404,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         WorkspaceOverflowMenu(
                             toolName = if (engine.vectors.enabled) engine.vectors.tool.label else currentTool.displayName,
                             vectorMode = engine.vectors.enabled,
-                            toolsVisible = if (engine.meshes.enabled) meshToolsVisible else if (engine.vectors.enabled) vectorToolsVisible else rasterToolsVisible,
+                            toolsVisible = if (engine.vectors.enabled) vectorToolsVisible else rasterToolsVisible,
                             onToggleTools = { toggleTools() },
                             animationBarVisible = animationBarVisible,
                             onToggleAnimationBar = {
@@ -1468,15 +1440,9 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         },
         bottomBar = {
                 Column(Modifier.blockScriptTouches(scriptSession != null || markingScriptPivot)) {
-                    val meshMode = engine.meshes.enabled
                     val vectorMode = engine.vectors.enabled
                     if (animationBarVisible) {
                         when {
-                            meshMode -> MeshAnimationCompactBar(
-                                engine,
-                                engineRevision,
-                                onChanged = { refreshState(false) },
-                            )
                             vectorMode -> VectorAnimationCompactBar(
                                 engine,
                                 engineRevision,
@@ -1491,11 +1457,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     }
                     if (layersBarVisible) {
                         when {
-                            meshMode -> MeshObjectsCompactBar(
-                                engine,
-                                engineRevision,
-                                onChanged = { refreshState(false) },
-                            )
                             vectorMode -> VectorObjectsCompactBar(
                                 engine,
                                 engineRevision,
@@ -1508,11 +1469,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             )
                         }
                     }
-                    val toolsVisible = when {
-                        meshMode -> meshToolsVisible
-                        vectorMode -> vectorToolsVisible
-                        else -> rasterToolsVisible
-                    }
+                    val toolsVisible = if (vectorMode) vectorToolsVisible else rasterToolsVisible
                     if (toolsVisible) EditorToolStrip(engine, engineRevision, onTool = { chooseTool(it) }) { refreshState(false) }
                     WorkspaceProperties(
                         vectorMode = engine.vectors.enabled,
@@ -1829,26 +1786,11 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                listOf(0 to "Raster", 1 to "Vetor", 2 to "3D").forEach { (mode, label) ->
-                                    val selected =
-                                        when (mode) {
-                                            1 -> engine.vectors.enabled
-                                            2 -> engine.meshes.enabled
-                                            else -> !engine.vectors.enabled && !engine.meshes.enabled
-                                        }
-                                    FilterChip(
-                                        selected = selected,
-                                        modifier = Modifier.weight(1f),
-                                        onClick = {
+                                listOf(false to "Raster", true to "Vetor").forEach { (vector, label) ->
+                                    FilterChip(selected = engine.vectors.enabled == vector, onClick = {
+                                        activePanel = null
                                         showWorkspaceActions = false
-                                        if (mode == 2) {
-                                            engine.vectors.switchMode(false)
-                                            engine.meshes.switchMode(true)
-                                            activePanel = WorkspacePanel.MESH
-                                        } else {
-                                            engine.meshes.switchMode(false)
-                                            engine.vectors.switchMode(mode == 1)
-                                        }
+                                        engine.vectors.switchMode(vector)
                                         refreshState(false)
                                     }, label = { Text(label) })
                                 }
@@ -1865,17 +1807,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                         saveSvgLauncher.launch(if (appearance) "esenho-aparencia.svg" else "esenho.svg")
                                     })
                                 }
-                                HorizontalDivider()
-                            }
-                            if (engine.meshes.enabled) {
-                                DropdownMenuItem(text = { Text("Importar OBJ…") }, onClick = {
-                                    showWorkspaceActions = false
-                                    openObjLauncher.launch(arrayOf("*/*"))
-                                })
-                                DropdownMenuItem(text = { Text("Exportar OBJ…") }, onClick = {
-                                    showWorkspaceActions = false
-                                    saveObjLauncher.launch("modelo.obj")
-                                })
                                 HorizontalDivider()
                             }
                             DropdownMenuItem(

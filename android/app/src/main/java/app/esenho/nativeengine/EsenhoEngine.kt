@@ -7,7 +7,6 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RectF
-import app.esenho.nativeengine.mesh3d.MeshWorkspace
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.ArrayDeque
@@ -660,7 +659,6 @@ class EsenhoEngine(
     private val redoLayerAddTokens = mutableSetOf<Long>()
     private val groupEdits = linkedMapOf<Long, GroupEdit>()
     val vectors = VectorWorkspace(this)
-    val meshes = MeshWorkspace(this)
     private var undoSnapshotSerial = 0L
 
     private fun activeAnimationTrack(): AnimationTrack {
@@ -1146,7 +1144,6 @@ class EsenhoEngine(
 
     fun initEngine(w: Int, h: Int) {
         vectors.reset()
-        meshes.reset()
         cancelActiveStroke()
         transformState?.release()
         transformState = null
@@ -3264,10 +3261,6 @@ class EsenhoEngine(
     }
 
     fun onTouchDown(x: Float, y: Float, pressure: Float = 0.85f, tiltX: Int = 0, tiltY: Int = 0) {
-        if (meshes.enabled && currentTool != ToolMode.PAN && currentTool != ToolMode.EYEDROPPER) {
-            meshes.pointerDown(x, y)
-            return
-        }
         if (vectors.enabled && currentTool != ToolMode.PAN && currentTool != ToolMode.EYEDROPPER) {
             vectors.down(x, y, pressure, tiltX, tiltY)
             return
@@ -3386,10 +3379,6 @@ class EsenhoEngine(
     }
 
     fun onTouchMove(x: Float, y: Float, pressure: Float = 0.85f, tiltX: Int = 0, tiltY: Int = 0) {
-        if (meshes.enabled && currentTool != ToolMode.PAN && currentTool != ToolMode.EYEDROPPER) {
-            meshes.pointerMove(x, y)
-            return
-        }
         if (vectors.enabled && currentTool != ToolMode.PAN && currentTool != ToolMode.EYEDROPPER) {
             vectors.move(x, y, pressure, tiltX, tiltY)
             return
@@ -3497,10 +3486,6 @@ class EsenhoEngine(
     }
 
     fun onTouchUp(x: Float, y: Float, pressure: Float = 0f, tiltX: Int = 0, tiltY: Int = 0) {
-        if (meshes.enabled && currentTool != ToolMode.PAN && currentTool != ToolMode.EYEDROPPER) {
-            meshes.pointerUp()
-            return
-        }
         if (vectors.enabled && currentTool != ToolMode.PAN && currentTool != ToolMode.EYEDROPPER) {
             vectors.up(x, y, pressure, tiltX, tiltY)
             return
@@ -4105,10 +4090,7 @@ class EsenhoEngine(
             .keys.toList().forEach(::releaseLayerDeleteHistory)
         layerAddHistory.filterValues { undoSnapshotSerial - it.snapshotSerial >= maxUndoSteps }
             .keys.toList().forEach(::releaseLayerAddHistory)
-        return EsenhoNativeBridge.nativePushUndo().also {
-            vectors.record(it)
-            meshes.record(it)
-        }
+        return EsenhoNativeBridge.nativePushUndo().also { vectors.record(it) }
     }
 
     private fun restoreLayerResizeHistory(token: Long, redo: Boolean): Boolean {
@@ -4416,7 +4398,6 @@ class EsenhoEngine(
             !restoreLayerDeleteUndoSlot(pendingDelete)) return false
         val token = EsenhoNativeBridge.nativeUndo()
         if (token != 0L) vectors.restoreHistory(token, false)
-        if (token != 0L) meshes.restoreHistory(token, false)
         if (token != 0L) {
             if (!restoreGroupEdit(token, redo = false) && !restoreLayerMergeHistory(token, redo = false) &&
                 !restoreLayerDeleteHistory(token, redo = false) &&
@@ -4449,7 +4430,6 @@ class EsenhoEngine(
             !restoreLayerAddRedoSlot(pendingAdd)) return false
         val token = EsenhoNativeBridge.nativeRedo()
         if (token != 0L) vectors.restoreHistory(token, true)
-        if (token != 0L) meshes.restoreHistory(token, true)
         if (token != 0L) {
             if (!restoreGroupEdit(token, redo = true) && !restoreLayerMergeHistory(token, redo = true) &&
                 !restoreLayerDeleteHistory(token, redo = true) &&

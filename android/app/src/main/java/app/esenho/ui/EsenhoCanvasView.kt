@@ -710,17 +710,6 @@ class EsenhoCanvasView @JvmOverloads constructor(
                         rawScaleDelta
                     }
 
-                    if (engine?.meshes?.enabled == true) {
-                        if (rawScaleDelta != 1f) engine?.meshes?.zoom(1f / rawScaleDelta)
-                        if (panDx != 0f || panDy != 0f) engine?.meshes?.pan(panDx, panDy)
-                        lastMidX = currMidX
-                        lastMidY = currMidY
-                        lastSpan = currSpan
-                        lastAngle = currAngle
-                        invalidate()
-                        return true
-                    }
-
                     var angleDelta = currAngle - lastAngle
                     while (angleDelta > 180f) angleDelta -= 360f
                     while (angleDelta < -180f) angleDelta += 360f
@@ -941,7 +930,6 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
         eng.vectorViewScale = gridScale.coerceAtLeast(.01f)
         if (eng.vectors.enabled) eng.vectors.drawOverlay(canvas)
-        if (eng.meshes.enabled) eng.meshes.drawOverlay(canvas)
 
         // 3. Onion skin must be drawn over the flattened composite: that
         // bitmap includes the opaque background layer and would hide ghosts
