@@ -31,12 +31,14 @@ fun NativeExportDialog(
                 NativeExportRequest.Format.WEBP,
             )
 
-    WorkspacePanelContainer(false, onDismiss) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        text = {
         Column(
             Modifier.fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 20.dp)
+                .padding(horizontal = 8.dp)
         ) {
             EditorPanelHeader("Exportar criação", onDismiss)
             Text(
@@ -125,5 +127,6 @@ fun NativeExportDialog(
                 Text("Exportar ${selectedFormat.name}")
             }
         }
-    }
+        }
+    )
 }

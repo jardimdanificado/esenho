@@ -44,12 +44,14 @@ fun NewProjectDialog(
     val valid =
         w != null && h != null && w in 32..8192 && h in 32..8192 && w.toLong() * h <= 32_000_000L
 
-    WorkspacePanelContainer(false, onDismiss) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        text = {
         Column(
             Modifier.fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 20.dp)
+                .padding(horizontal = 8.dp)
         ) {
             EditorPanelHeader("Nova tela", onDismiss)
             Surface(
@@ -157,5 +159,6 @@ fun NewProjectDialog(
                 Text("Criar tela")
             }
         }
-    }
+        }
+    )
 }
