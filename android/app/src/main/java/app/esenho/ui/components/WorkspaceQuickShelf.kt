@@ -121,15 +121,16 @@ fun WorkspaceQuickShelf(
                     items(colors.size) { index ->
                         val color = colors[index]
                         Box(
-                            Modifier.size(26.dp)
-                                .clip(RoundedCornerShape(4.dp))
+                            Modifier.size(24.dp)
+                                .clip(RoundedCornerShape(3.dp))
                                 .background(Color(color))
                                 .border(
                                     if (engine.currentColor == color) 2.dp else 1.dp,
                                     if (engine.currentColor == color)
-                                        MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.outline,
-                                    RoundedCornerShape(4.dp),
+                                        MaterialTheme.colorScheme.onSurface
+                                    else
+                                        MaterialTheme.colorScheme.outlineVariant,
+                                    RoundedCornerShape(3.dp),
                                 )
                                 .clickable { engine.currentColor = color; onChanged() }
                                 .semantics {
@@ -194,7 +195,7 @@ fun WorkspaceQuickShelf(
                         Row(
                             Modifier.height(28.dp)
                                 .widthIn(max = 116.dp)
-                                .clip(RoundedCornerShape(4.dp))
+                                .clip(RoundedCornerShape(3.dp))
                                 .background(
                                     if (brush.id == selected)
                                         MaterialTheme.colorScheme.primaryContainer
@@ -253,9 +254,9 @@ fun WorkspaceQuickShelf(
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxWidth()) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            colorStrip(Modifier.fillMaxWidth().height(36.dp))
+            colorStrip(Modifier.fillMaxWidth().height(40.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            brushStrip(Modifier.fillMaxWidth().height(36.dp))
+            brushStrip(Modifier.fillMaxWidth().height(40.dp))
         }
     }
 }

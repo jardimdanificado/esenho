@@ -180,13 +180,13 @@ fun VectorObjectsCompactBar(
             objects.forEach { obj ->
                 val selected = obj.id == vector.selectedId
                 Surface(
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(3.dp),
                     color =
                         if (selected) MaterialTheme.colorScheme.primaryContainer
                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
                     modifier =
                         Modifier.height(28.dp)
-                            .clip(RoundedCornerShape(4.dp))
+                            .clip(RoundedCornerShape(3.dp))
                             .clickable { vector.selectObject(obj.id); refresh() },
                 ) {
                     Row(

@@ -1,6 +1,7 @@
 package app.esenho.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -54,7 +55,7 @@ fun NativeExportDialog(
             Text("Formato de saída", style = MaterialTheme.typography.titleSmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 formats.forEach { format ->
-                    FilterChip(
+                    WorkspaceChoiceChip(
                         selected = selectedFormat == format,
                         onClick = { selectedFormat = format },
                         label = { Text(format.name) },
@@ -93,7 +94,7 @@ fun NativeExportDialog(
                         Switch(loop, { loop = it })
                     }
             }
-            Button(
+            Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
                 onClick = {
                     val request =
                         when (selectedFormat) {

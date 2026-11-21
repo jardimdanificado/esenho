@@ -18,6 +18,11 @@ fun main(args: Array<String>) {
     }
     val uiTest = args.contains("--ui-smoke-test") || args.contains("--shelf-test")
     System.setProperty("esenho.uiSmoke", uiTest.toString())
+    if (uiTest) {
+        // Every run starts from the compact default layout, not from the previous test leftovers.
+        File(Context().filesDir, "esenho_workspace.json").delete()
+        File(Context().filesDir, "esenho_session_state.json").delete()
+    }
     application {
         val state = rememberWindowState(width = 1440.dp, height = 960.dp)
         val defaultErrors = LocalWindowExceptionHandlerFactory.current
@@ -53,8 +58,34 @@ fun main(args: Array<String>) {
                             checkNotNull(desktopUiTestCommand)(panel)
                             kotlinx.coroutines.delay(500)
                             captureEditor(window, File("desktop/build/ui-$panel.png"))
+                            checkNotNull(desktopUiTestCommand)("compact")
+                            kotlinx.coroutines.delay(300)
                         }
                         exerciseDesktopVectors(window)
+                        checkNotNull(desktopUiTestCommand)("raster")
+                        kotlinx.coroutines.delay(300)
+                        for ((command, name) in
+                            listOf(
+                                "quickParams" to "ui-quick-params",
+                                "brushes" to "ui-brushes",
+                                "vectorColor" to "ui-color",
+                            )) {
+                            checkNotNull(desktopUiTestCommand)(command)
+                            kotlinx.coroutines.delay(500)
+                            captureEditor(window, File("desktop/build/$name.png"))
+                            checkNotNull(desktopUiTestCommand)("compact")
+                            kotlinx.coroutines.delay(300)
+                        }
+                        checkNotNull(desktopUiTestCommand)("newProject")
+                        kotlinx.coroutines.delay(500)
+                        captureEditor(window, File("desktop/build/ui-new-dialog.png"))
+                        checkNotNull(desktopUiTestCommand)("dismissDialogs")
+                        kotlinx.coroutines.delay(300)
+                        checkNotNull(desktopUiTestCommand)("exportDialog")
+                        kotlinx.coroutines.delay(500)
+                        captureEditor(window, File("desktop/build/ui-export-dialog.png"))
+                        checkNotNull(desktopUiTestCommand)("dismissDialogs")
+                        kotlinx.coroutines.delay(300)
                         exitApplication()
                     }
                 }

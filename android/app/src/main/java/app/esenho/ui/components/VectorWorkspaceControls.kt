@@ -232,7 +232,7 @@ fun VectorObjectPanel(
                                 "monospace" to "Monoespaçada",
                             )
                             .forEach { (value, label) ->
-                                FilterChip(
+                                WorkspaceChoiceChip(
                                     selected = selected.fontFamily == value,
                                     onClick = {
                                         vector.setFontFamily(value)
@@ -244,7 +244,7 @@ fun VectorObjectPanel(
                             }
                     }
                     Row {
-                        FilterChip(
+                        WorkspaceChoiceChip(
                             selected = selected.fontWeight == "bold",
                             onClick = {
                                 vector.setFontWeight(if (selected.fontWeight == "bold") "normal" else "bold")
@@ -253,7 +253,7 @@ fun VectorObjectPanel(
                             label = { Text("Negrito", style = MaterialTheme.typography.labelSmall) },
                             modifier = Modifier.padding(end = 4.dp),
                         )
-                        FilterChip(
+                        WorkspaceChoiceChip(
                             selected = selected.fontStyle == "italic",
                             onClick = {
                                 vector.setFontStyle(if (selected.fontStyle == "italic") "normal" else "italic")
@@ -293,7 +293,7 @@ fun VectorObjectPanel(
                     Row {
                         listOf("left" to "Esquerda", "center" to "Centro", "right" to "Direita")
                             .forEach { (value, label) ->
-                                FilterChip(
+                                WorkspaceChoiceChip(
                                     selected = selected.textAlign == value,
                                     onClick = {
                                         vector.setTextAlign(value)
@@ -313,7 +313,7 @@ fun VectorObjectPanel(
                         selected.pathId?.let { id ->
                             paths.firstOrNull { it.id == id }?.name?.ifBlank { "Caminho" } ?: id
                         } ?: "Nenhum"
-                    Button(onClick = { pathMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius), onClick = { pathMenu = true }, modifier = Modifier.fillMaxWidth()) {
                         Text("Texto sobre caminho: $pathLabel")
                     }
                     DropdownMenu(expanded = pathMenu, onDismissRequest = { pathMenu = false }) {
@@ -465,7 +465,7 @@ fun VectorObjectPanel(
                     selected.fillGradient?.let { gradient ->
                         Row {
                             listOf("linear" to "Linear", "radial" to "Radial").forEach { (value, label) ->
-                                FilterChip(
+                                WorkspaceChoiceChip(
                                     selected = gradient.type == value,
                                     onClick = {
                                         vector.updateGradient { it.type = value }
@@ -531,7 +531,7 @@ fun VectorObjectPanel(
                     @Composable
                     fun FilterPicker(label: String, current: VectorFilter?, apply: (VectorFilter?) -> Unit) {
                         var expanded by remember { mutableStateOf(false) }
-                        Button(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+                        Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius), onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
                             Text("$label: ${current?.id ?: "Nenhum"}")
                         }
                         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -577,7 +577,7 @@ fun VectorObjectPanel(
                     Row {
                         listOf("butt" to "Butt", "round" to "Redonda", "square" to "Quadrada")
                             .forEach { (value, label) ->
-                                FilterChip(
+                                WorkspaceChoiceChip(
                                     selected = selected.style.optString("cap", "round") == value,
                                     onClick = {
                                         vector.setObjectCap(value)
@@ -592,7 +592,7 @@ fun VectorObjectPanel(
                     Row {
                         listOf("miter" to "Mitre", "round" to "Redonda", "bevel" to "Chanfro")
                             .forEach { (value, label) ->
-                                FilterChip(
+                                WorkspaceChoiceChip(
                                     selected = selected.style.optString("join", "round") == value,
                                     onClick = {
                                         vector.setObjectJoin(value)
@@ -670,7 +670,7 @@ fun VectorObjectPanel(
                 Text("Modo da vetorização", style = MaterialTheme.typography.bodySmall)
                 Row {
                     listOf("threshold" to "Limiar", "silhouette" to "Silhueta", "color" to "Cores").forEach { (value, label) ->
-                        FilterChip(
+                        WorkspaceChoiceChip(
                             selected = traceMode == value,
                             onClick = { traceMode = value },
                             label = { Text(label, style = MaterialTheme.typography.labelSmall) },
@@ -766,7 +766,7 @@ fun VectorObjectPanel(
                     VectorNumber("Opacidade %", opacity, { opacity = it }, Modifier.weight(1f))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Button(onClick = { keyframeFill = engine.currentColor }) {
+                    Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius), onClick = { keyframeFill = engine.currentColor }) {
                         Text("Cor do keyframe")
                     }
                     keyframeFill?.let {
@@ -782,7 +782,7 @@ fun VectorObjectPanel(
                     VectorNumber("Tamanho da fonte", keyframeFont, { keyframeFont = it }, Modifier.fillMaxWidth())
                 Row {
                     (listOf("linear", "ease-in", "ease-out", "ease-in-out") + animation.customEasings.map { it.name }).forEach { type ->
-                        FilterChip(
+                        WorkspaceChoiceChip(
                             selected = easing == type,
                             onClick = { easing = type },
                             label = { Text(type, style = MaterialTheme.typography.labelSmall) },
@@ -910,7 +910,7 @@ fun VectorObjectPanel(
                 }
                 if (animation.clips.isNotEmpty()) {
                     var clipMenu by remember { mutableStateOf(false) }
-                    Button(onClick = { clipMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius), onClick = { clipMenu = true }, modifier = Modifier.fillMaxWidth()) {
                         Text("Clipe ativo: ${animation.activeClip ?: "Nenhum"}")
                     }
                     DropdownMenu(expanded = clipMenu, onDismissRequest = { clipMenu = false }) {
@@ -938,7 +938,7 @@ fun VectorObjectPanel(
                 Text("Rigging", style = MaterialTheme.typography.titleSmall)
                 val rig = vector.skeleton
                 if (rig == null) {
-                    Button(
+                    Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
                         onClick = {
                             vector.createBone("Raiz", null, 80f, 0f)
                             onChanged()
@@ -962,7 +962,7 @@ fun VectorObjectPanel(
                             },
                         )
                     }
-                    Button(
+                    Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
                         onClick = {
                             val parent = rig.bones.lastOrNull()?.id
                             vector.createBone("Filho", parent, 60f, 0f)
@@ -977,7 +977,7 @@ fun VectorObjectPanel(
                     var ikX by remember { mutableStateOf("0") }
                     var ikY by remember { mutableStateOf("0") }
                     var boneMenu by remember { mutableStateOf(false) }
-                    Button(onClick = { boneMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius), onClick = { boneMenu = true }, modifier = Modifier.fillMaxWidth()) {
                         Text("Osso ativo: ${rig.bones.firstOrNull { it.id == boneId }?.name ?: "Nenhum"}")
                     }
                     DropdownMenu(expanded = boneMenu, onDismissRequest = { boneMenu = false }) {
@@ -997,7 +997,7 @@ fun VectorObjectPanel(
                     var mass by remember { mutableStateOf("1") }
                     Row {
                         listOf("kinematic" to "Cinemático", "ragdoll" to "Ragdoll", "secondary" to "Secundário").forEach { (value, label) ->
-                            FilterChip(
+                            WorkspaceChoiceChip(
                                 selected = physicsMode == value,
                                 onClick = { physicsMode = value },
                                 label = { Text(label, style = MaterialTheme.typography.labelSmall) },
@@ -1029,7 +1029,7 @@ fun VectorObjectPanel(
                     }
                     Row {
                         listOf("cutout" to "Rígido", "path" to "Caminho", "smooth_path" to "Suave").forEach { (value, label) ->
-                            FilterChip(
+                            WorkspaceChoiceChip(
                                 selected = bindType == value,
                                 onClick = { bindType = value },
                                 label = { Text(label, style = MaterialTheme.typography.labelSmall) },
@@ -1037,7 +1037,7 @@ fun VectorObjectPanel(
                             )
                         }
                     }
-                    Button(
+                    Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
                         enabled = boneId.isNotBlank() && selected != null,
                         onClick = {
                             vector.bindSelected(boneId, bindType)
@@ -1177,7 +1177,7 @@ fun VectorObjectPanel(
                     Text("Tipo do nó", style = MaterialTheme.typography.bodySmall)
                     Row {
                         VectorNodeType.values().forEach { type ->
-                            FilterChip(
+                            WorkspaceChoiceChip(
                                 enabled = vector.selectedNode != null,
                                 selected = vector.selectedNode?.type == type,
                                 onClick = {

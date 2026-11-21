@@ -71,6 +71,8 @@ suspend fun exerciseDesktopCanvas(window: java.awt.Window) {
     val view = checkNotNull(desktopUiTestCanvas)
     check(view.width > 0 && view.height > 0)
     val engine = checkNotNull(view.engine)
+    // The session may restore any color; the stroke checks need a known ink against the page.
+    engine.currentColor = 0xFF102030.toInt()
     val before =
         engine
             .getRenderBitmap()!!
@@ -109,7 +111,7 @@ suspend fun exerciseDesktopCanvas(window: java.awt.Window) {
             0,
         )
     )
-    kotlinx.coroutines.delay(100)
+    kotlinx.coroutines.delay(400)
     val during =
         engine
             .getRenderBitmap()!!
@@ -138,7 +140,7 @@ suspend fun exerciseDesktopCanvas(window: java.awt.Window) {
             1,
         )
     )
-    kotlinx.coroutines.delay(100)
+    kotlinx.coroutines.delay(400)
     val after =
         engine
             .getRenderBitmap()!!
@@ -253,7 +255,9 @@ suspend fun exerciseProjectMenu(window: java.awt.Window) {
 suspend fun exerciseDesktopVectors(window: java.awt.Window) {
     val target = children(window).filterIsInstance<SkiaLayer>().first { it.isShowing }.canvas
     clickEditor(window, 20, 20)
-    clickEditor(window, target.width / 2 - 57, target.height - 272)
+    checkNotNull(desktopUiTestCommand)("vector")
+    kotlinx.coroutines.delay(400)
+    clickEditor(window, 20, 20)
     val view = checkNotNull(desktopUiTestCanvas)
     val engine = checkNotNull(view.engine)
     check(engine.vectors.enabled) { "The document menu did not switch to the vector workspace" }
@@ -296,18 +300,19 @@ suspend fun exerciseDesktopVectors(window: java.awt.Window) {
     kotlinx.coroutines.delay(500)
     captureEditor(window, File("desktop/build/ui-vector-color.png"))
     val colorBefore = engine.vectors.selected!!.style.getInt("color")
-    clickEditor(window, target.width - 180, 110)
+    // Classic palette swatch inside the color studio dock (red, not the restored white).
+    clickEditor(window, target.width - 198, 223)
     kotlinx.coroutines.delay(200)
     check(engine.currentColor != colorBefore) { "The color studio did not accept the pointer" }
     check(engine.vectors.selected!!.style.getInt("color") == engine.currentColor) {
         "The color studio did not update the selected vector"
     }
-    val toolY = view.editorBounds.bottom.toInt() + 19
-    clickEditor(window, 64, toolY)
+    val toolY = view.editorBounds.bottom.toInt() + 60
+    clickEditor(window, 60, toolY)
     check(engine.vectors.tool == app.esenho.nativeengine.VectorTool.PEN) {
-        "The pen button did not select the pen"
+        "The pen button did not select the pen (got ${engine.vectors.tool})"
     }
-    clickEditor(window, 314, toolY)
+    clickEditor(window, 295, toolY)
     check(engine.vectors.tool == app.esenho.nativeengine.VectorTool.RECT) {
         "The rectangle button did not select the shape tool: ${engine.vectors.tool}"
     }
@@ -323,7 +328,7 @@ suspend fun exerciseDesktopVectors(window: java.awt.Window) {
         "The shape tool did not draw a rectangle"
     }
     // Capture the pen before release, including its anchor and two handles.
-    clickEditor(window, 64, view.editorBounds.bottom.toInt() + 19)
+    clickEditor(window, 60, view.editorBounds.bottom.toInt() + 60)
     event(java.awt.event.MouseEvent.MOUSE_PRESSED, sx, sy, true)
     kotlinx.coroutines.delay(50)
     event(java.awt.event.MouseEvent.MOUSE_DRAGGED, sx + 35, sy - 25, true)
@@ -332,7 +337,7 @@ suspend fun exerciseDesktopVectors(window: java.awt.Window) {
     event(java.awt.event.MouseEvent.MOUSE_RELEASED, sx + 35, sy - 25, false)
     kotlinx.coroutines.delay(200)
     // Use the real selection tool, marquee and resize handle through Compose pointer events.
-    clickEditor(window, 144, view.editorBounds.bottom.toInt() + 19)
+    clickEditor(window, 136, view.editorBounds.bottom.toInt() + 60)
     check(engine.vectors.tool == app.esenho.nativeengine.VectorTool.SELECT)
     checkNotNull(desktopUiTestCommand)("vectorObjects")
     checkNotNull(desktopUiTestCommand)("vectorClear")
@@ -376,7 +381,8 @@ suspend fun exerciseDesktopVectors(window: java.awt.Window) {
     checkNotNull(desktopUiTestCommand)("undo")
     kotlinx.coroutines.delay(200)
     val vectorBottom = view.editorBounds.bottom
-    clickEditor(window, target.width - 19, vectorBottom.toInt() + 19)
+    checkNotNull(desktopUiTestCommand)("toggleTools")
+    kotlinx.coroutines.delay(300)
     check(view.editorBounds.bottom >= vectorBottom + 35f) { "Vector tools did not hide" }
     val prefs = app.esenho.desktop.platform.Context().getSharedPreferences("esenho_workspace", 0)
     check(!prefs.getBoolean("vector_tools_visible", true))
@@ -386,12 +392,13 @@ suspend fun exerciseDesktopVectors(window: java.awt.Window) {
     check(prefs.getBoolean("raster_tools_visible", true)) {
         "Hiding vector tools also hid raster tools"
     }
-    clickEditor(window, 64, view.editorBounds.bottom.toInt() + 19)
+    clickEditor(window, 60, view.editorBounds.bottom.toInt() + 60)
     check(engine.currentTool == app.esenho.nativeengine.ToolMode.ERASER) {
         "Raster tool buttons do not choose raster tools"
     }
     val rasterBottom = view.editorBounds.bottom
-    clickEditor(window, target.width - 19, rasterBottom.toInt() + 19)
+    checkNotNull(desktopUiTestCommand)("toggleTools")
+    kotlinx.coroutines.delay(300)
     check(view.editorBounds.bottom >= rasterBottom + 35f) { "Raster tools did not hide" }
     captureEditor(window, File("desktop/build/ui-raster-tools-hidden.png"))
     checkNotNull(desktopUiTestCommand)("vector")

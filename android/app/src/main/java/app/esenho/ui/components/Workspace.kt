@@ -40,7 +40,6 @@ enum class WorkspacePanel(val title: String, val icon: ImageVector) {
     COLOR("Cores", Icons.Default.Palette),
     VECTOR("Objetos vetoriais", Icons.Default.Polyline),
     LAYERS("Camadas", Icons.Default.Layers),
-    ANIMATION("Animar", Icons.Default.Movie),
     EFFECTS("Efeitos", Icons.Default.AutoAwesome),
     SELECTION("Seleção", Icons.Default.CropFree),
     TRANSFORM("Transformação", Icons.Default.OpenWith),
@@ -64,10 +63,10 @@ fun CompactBarSurface(
 ) {
     Surface(color = MaterialTheme.colorScheme.surface, modifier = modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 4.dp)
+            Modifier.fillMaxWidth().height(WorkspaceStyle.BarHeight).padding(horizontal = WorkspaceStyle.BarPadding)
                 .then(if (scrollable) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalArrangement = Arrangement.spacedBy(WorkspaceStyle.ItemGap),
             content = content,
         )
     }
@@ -84,9 +83,9 @@ fun WorkspaceHeader(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     CompactControls {
-        Surface(color = MaterialTheme.colorScheme.background) {
+        Surface(color = MaterialTheme.colorScheme.surface) {
             Row(
-                Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 4.dp),
+                Modifier.fillMaxWidth().height(WorkspaceStyle.BarHeight).padding(horizontal = WorkspaceStyle.BarPadding),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
@@ -213,7 +212,7 @@ fun WorkspaceToolPicker(
                         Surface(
                             onClick = { onTool(mode) },
                             modifier = Modifier.width(96.dp).heightIn(min = 40.dp),
-                            shape = RoundedCornerShape(5.dp),
+                            shape = RoundedCornerShape(3.dp),
                             color =
                                 if (mode == current) MaterialTheme.colorScheme.primaryContainer
                                 else MaterialTheme.colorScheme.surfaceVariant,
@@ -281,24 +280,16 @@ fun WorkspaceProperties(
         CompactBarSurface {
                 toolPicker()
                 Row(
-                    Modifier.weight(1f).height(36.dp),
+                    Modifier.weight(1f).height(WorkspaceStyle.ItemHeight),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(WorkspaceStyle.ItemGap),
                 ) {
-                    if (pinnedSliders.isEmpty())
-                        Box(Modifier.weight(1f).height(36.dp)) {
-                            QuickParameterTrigger(
-                                engine,
-                                null,
-                                revision,
-                                quickSlidersOpen,
-                                onToggleQuickSliders,
-                                onBrushProperties,
-                                onParameterChanged,
-                            )
-                        }
-                    else pinnedSliders.forEach { setting ->
-                        Box(Modifier.weight(1f).height(36.dp)) {
+                    val cells: List<app.esenho.nativeengine.EsenhoStorageManager.SideSliderSetting?> =
+                        if (pinnedSliders.isEmpty()) listOf(null) else pinnedSliders
+                    cells.forEachIndexed { index, setting ->
+                        // The popup is anchored to the first cell, so it opens next to the parameters
+                        // instead of at the far edge of a full-width row.
+                        Box(Modifier.width(WorkspaceStyle.ParameterWidth).height(WorkspaceStyle.ItemHeight)) {
                             QuickParameterTrigger(
                                 engine,
                                 setting,
@@ -308,27 +299,27 @@ fun WorkspaceProperties(
                                 onBrushProperties,
                                 onParameterChanged,
                             )
+                            if (index == 0) AnchoredWorkspacePopup(
+                                quickSlidersOpen,
+                                {},
+                                modifier = Modifier.width(264.dp),
+                                persistent = true,
+                                scrollContent = false,
+                            ) {
+                                QuickParameterSliders(
+                                    engine,
+                                    relevantSliders,
+                                    revision,
+                                    onParameterChanged,
+                                    onMoveParameter,
+                                    onReorderFinished,
+                                    onTogglePin,
+                                    quickScripts,
+                                    onRunQuickScript,
+                                    onOpenScripts,
+                                )
+                            }
                         }
-                    }
-                    AnchoredWorkspacePopup(
-                        quickSlidersOpen,
-                        {},
-                        modifier = Modifier.width(264.dp),
-                        persistent = true,
-                        scrollContent = false,
-                    ) {
-                        QuickParameterSliders(
-                            engine,
-                            relevantSliders,
-                            revision,
-                            onParameterChanged,
-                            onMoveParameter,
-                            onReorderFinished,
-                            onTogglePin,
-                            quickScripts,
-                            onRunQuickScript,
-                            onOpenScripts,
-                        )
                     }
                 }
                 if (vectorMode)
@@ -360,7 +351,8 @@ fun WorkspaceOverflowMenu(
     onEffects: () -> Unit,
 ) {
     var more by remember { mutableStateOf(false) }
-    IconButton(onClick = { more = true }, modifier = Modifier.size(36.dp)) {
+    Box {
+    IconButton(onClick = { more = true }, modifier = Modifier.size(WorkspaceStyle.ButtonSize)) {
         Icon(Icons.Default.MoreHoriz, "Opções da interface", Modifier.size(19.dp))
     }
     AnchoredWorkspacePopup(more, { more = false }, modifier = Modifier.width(260.dp)) {
@@ -403,6 +395,7 @@ fun WorkspaceOverflowMenu(
                 },
             )
         }
+    }
     }
 }
 
@@ -534,7 +527,7 @@ fun WorkspacePanelContainer(
     else
         androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(8.dp),
                 color = MaterialTheme.colorScheme.surface,
             ) {
                 Column(
@@ -558,14 +551,27 @@ fun WorkspaceDialogContainer(
 fun WorkspaceSectionTabs(labels: List<String>, active: Int, onSelect: (Int) -> Unit) {
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(WorkspaceStyle.ItemGap),
     ) {
         labels.forEachIndexed { index, label ->
-            FilterChip(
-                selected = active == index,
+            val selected = active == index
+            Surface(
                 onClick = { onSelect(index) },
-                label = { Text(label) },
-            )
+                shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
+                color =
+                    if (selected) MaterialTheme.colorScheme.surfaceVariant
+                    else Color.Transparent,
+                contentColor =
+                    if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            ) {
+                Text(
+                    label,
+                    Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }
@@ -583,7 +589,7 @@ fun WorkspaceActionButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.heightIn(min = 36.dp),
-        shape = RoundedCornerShape(5.dp),
+        shape = RoundedCornerShape(3.dp),
         color =
             if (emphasized) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.7f else 0.3f),

@@ -120,7 +120,7 @@ fun LayerDrawer(
                     Row(
                         Modifier.fillMaxWidth().padding(start = (entry.depth * 12).dp)
                             .height(40.dp)
-                            .clip(RoundedCornerShape(4.dp))
+                            .clip(RoundedCornerShape(3.dp))
                             .background(
                                 if (selected) MaterialTheme.colorScheme.primaryContainer
                                 else Color.Transparent
@@ -554,12 +554,12 @@ fun LayerDrawer(
                         )
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
+                        WorkspaceChoiceChip(
                             selected = resizeResample,
                             onClick = { resizeResample = true },
                             label = { Text("Escalar") },
                         )
-                        FilterChip(
+                        WorkspaceChoiceChip(
                             selected = !resizeResample,
                             onClick = { resizeResample = false },
                             label = { Text("Centralizar") },

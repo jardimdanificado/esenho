@@ -260,7 +260,7 @@ fun ColorStudioModal(
                 ) {
                     Text(
                         if (recent) "Recentes" else "Paleta",
-                        Modifier.clip(RoundedCornerShape(4.dp))
+                        Modifier.clip(RoundedCornerShape(3.dp))
                             .clickable {
                                 recent = !recent
                                 removing = false
@@ -383,13 +383,13 @@ fun ColorStudioModal(
                         itemsIndexed(colors) { index, color ->
                             Box(
                                 Modifier.size(28.dp)
-                                    .clip(RoundedCornerShape(4.dp))
+                                    .clip(RoundedCornerShape(3.dp))
                                     .background(Color(color))
                                     .border(
                                         if (color == current) 2.dp else 1.dp,
                                         if (color == current) MaterialTheme.colorScheme.primary
                                         else MaterialTheme.colorScheme.outline,
-                                        RoundedCornerShape(4.dp),
+                                        RoundedCornerShape(3.dp),
                                     )
                                     .clickable {
                                         if (
@@ -530,7 +530,7 @@ private fun ColorTrack(
     val change by rememberUpdatedState(onChange)
     Canvas(
         modifier
-            .clip(RoundedCornerShape(4.dp))
+            .clip(RoundedCornerShape(3.dp))
             .semantics { contentDescription = label }
             .pointerInput(vertical) {
                 detectTapGestures {
@@ -583,7 +583,7 @@ private fun SaturationValuePlane(
     val change by rememberUpdatedState(onChange)
     Canvas(
         modifier
-            .clip(RoundedCornerShape(4.dp))
+            .clip(RoundedCornerShape(3.dp))
             .semantics { contentDescription = "Saturação e valor" }
             .pointerInput(Unit) {
                 detectTapGestures {

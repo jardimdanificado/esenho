@@ -310,7 +310,7 @@ fun BrushDrawer(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    FilterChip(
+                    WorkspaceChoiceChip(
                         selected = activeTab == BrushDrawerTab.PRESETS,
                         onClick = { activeTab = BrushDrawerTab.PRESETS },
                         label = {
@@ -318,7 +318,7 @@ fun BrushDrawer(
                         },
                         modifier = Modifier.weight(1f).height(32.dp),
                     )
-                    FilterChip(
+                    WorkspaceChoiceChip(
                         selected = activeTab == BrushDrawerTab.WASM_PROCEDURAL,
                         onClick = { activeTab = BrushDrawerTab.WASM_PROCEDURAL },
                         label = {
@@ -383,7 +383,7 @@ fun BrushDrawer(
                             Box(
                                 Modifier.fillMaxWidth()
                                     .height(32.dp)
-                                    .clip(RoundedCornerShape(5.dp))
+                                    .clip(RoundedCornerShape(3.dp))
                                     .background(MaterialTheme.colorScheme.surfaceVariant)
                                     .padding(horizontal = 8.dp),
                                 contentAlignment = Alignment.CenterStart,
@@ -499,18 +499,12 @@ fun PresetItemCard(
     Surface(
         modifier =
             Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .clickable { onClick() }
-                .border(
-                    width = 1.dp,
-                    color =
-                        if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                    shape = RoundedCornerShape(4.dp),
-                ),
+                .clip(RoundedCornerShape(3.dp))
+                .clickable { onClick() },
         color =
-            if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+            if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
-        tonalElevation = if (isSelected) 4.dp else 1.dp,
+        tonalElevation = 0.dp,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
@@ -596,18 +590,12 @@ fun BrushItemCard(
     Surface(
         modifier =
             Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .clickable { onClick() }
-                .border(
-                    width = 1.dp,
-                    color =
-                        if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                    shape = RoundedCornerShape(4.dp),
-                ),
+                .clip(RoundedCornerShape(3.dp))
+                .clickable { onClick() },
         color =
-            if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+            if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
-        tonalElevation = if (isSelected) 4.dp else 1.dp,
+        tonalElevation = 0.dp,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
@@ -650,7 +638,7 @@ fun BrushItemCard(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(3.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                     ) {
                         Text(
@@ -773,7 +761,7 @@ internal fun CompactOptionDropdown(
     Box(modifier = Modifier.fillMaxWidth()) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(3.dp),
             modifier = Modifier.fillMaxWidth().clickable { expanded = true },
         ) {
             Row(
@@ -928,7 +916,7 @@ fun BrushPropertiesPanel(
                     }
                 },
                 confirmButton = {
-                    Button(
+                    Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
                         onClick = {
                             val trimmed = presetNameInput.trim()
                             if (trimmed.isEmpty()) {
@@ -966,7 +954,7 @@ fun BrushPropertiesPanel(
                     )
                 },
                 confirmButton = {
-                    Button(
+                    Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
                         onClick = {
                             engine.deleteCustomPreset(preset.id)
                             tunerVersion++
@@ -1567,7 +1555,7 @@ fun TunerSliderCard(
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
             ),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(8.dp),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -2018,7 +2006,7 @@ fun TunerSwitchCard(label: String, checked: Boolean, onCheckedChange: (Boolean) 
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
             ),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(8.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),

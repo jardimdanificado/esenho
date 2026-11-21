@@ -56,12 +56,12 @@ fun FilterModal(
         ) {
             EditorPanelHeader("Filtros · ${engine.filterCatalog.size}", onDismiss)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(
+                WorkspaceChoiceChip(
                     selected = !showHsvAdjustment,
                     onClick = { showHsvAdjustment = false },
                     label = { Text("Filtros") }
                 )
-                FilterChip(
+                WorkspaceChoiceChip(
                     selected = showHsvAdjustment,
                     onClick = { showHsvAdjustment = true },
                     label = { Text("Cor HSV") }
@@ -71,7 +71,7 @@ fun FilterModal(
 
             if (showHsvAdjustment) {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -91,7 +91,7 @@ fun FilterModal(
                             TextButton(onClick = { hue = 0f; saturation = 0f; value = 0f }) {
                                 Text("Redefinir")
                             }
-                            Button(onClick = {
+                            Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius), onClick = {
                                 engine.adjustActiveLayerHsv(hue.toInt(), saturation.toInt(), value.toInt())
                                 onFilterApplied()
                                 onDismiss()
@@ -107,7 +107,7 @@ fun FilterModal(
             if (!showHsvAdjustment && selectedFilter != null) {
                 val f = selectedFilter!!
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -125,7 +125,7 @@ fun FilterModal(
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            Button(
+                            Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
                                 onClick = {
                                     engine.applyFilter(f, param1.toInt(), param2.toInt())
                                     onFilterApplied()
@@ -195,18 +195,13 @@ fun FilterModal(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(78.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(6.dp))
                             .clickable {
                                 selectedFilter = filter
                                 param1 = if (filter.params.isNotEmpty()) filter.params[0].defaultVal.toFloat() else 10f
                                 param2 = if (filter.params.size > 1) filter.params[1].defaultVal.toFloat() else 1f
-                            }
-                            .border(
-                                width = if (isSelected) 2.dp else 0.dp,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                shape = RoundedCornerShape(10.dp)
-                            ),
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                            },
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                     ) {
                         Column(
                             modifier = Modifier.padding(6.dp),

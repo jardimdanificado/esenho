@@ -73,7 +73,7 @@ internal fun VectorSelectionPanel(engine: EsenhoEngine, revision: Int, onChanged
     if (selection.snapEnabled) {
         Row {
             listOf(8f, 16f, 32f).forEach { size ->
-                FilterChip(
+                WorkspaceChoiceChip(
                     selected = selection.gridSize == size,
                     onClick = {
                         selection.gridSize = size

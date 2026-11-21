@@ -55,7 +55,7 @@ fun NewProjectDialog(
         ) {
             EditorPanelHeader("Nova tela", onDismiss)
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(8.dp),
                 color = MaterialTheme.colorScheme.background,
             ) {
                 Row(
@@ -94,7 +94,7 @@ fun NewProjectDialog(
             Text("Formato", style = MaterialTheme.typography.titleSmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 presets.forEach { preset ->
-                    FilterChip(
+                    WorkspaceChoiceChip(
                         selected = w == preset.width && h == preset.height,
                         onClick = {
                             width = preset.width.toString()
@@ -144,14 +144,14 @@ fun NewProjectDialog(
                         "Transparente" to 0,
                     )
                     .forEach { (label, color) ->
-                        FilterChip(
+                        WorkspaceChoiceChip(
                             selected = background == color,
                             onClick = { background = color },
                             label = { Text(label) },
                         )
                     }
             }
-            Button(
+            Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
                 onClick = { if (valid) onConfirm(w!!, h!!, background) },
                 enabled = valid,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(48.dp),

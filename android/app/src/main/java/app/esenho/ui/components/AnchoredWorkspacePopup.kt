@@ -17,24 +17,40 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 
-/** Anchor to the trigger's actual bounds, with no menu baseline/transition offset. */
-internal class AboveButtonPositionProvider(private val gap: Int, private val margin: Int) :
-    PopupPositionProvider {
+/**
+ * Anchors the popup to the trigger bounds. The trigger must be wrapped in a small
+ * layout (for example a Box) so the reported bounds are the trigger itself, not
+ * the whole toolbar row.
+ *
+ * Placement order: above the trigger, below it when there is no room, then
+ * clamped to the window. Horizontal alignment follows the trigger edge that has
+ * room, so menus on the right edge never jump to the opposite side.
+ */
+internal class AnchoredPositionProvider(
+    private val gap: Int,
+    private val margin: Int,
+) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
     ): IntOffset {
-        val preferredX =
-            if (layoutDirection == LayoutDirection.Ltr) anchorBounds.left
-            else anchorBounds.right - popupContentSize.width
         val maxX = (windowSize.width - popupContentSize.width - margin).coerceAtLeast(margin)
-        val maxY = (windowSize.height - popupContentSize.height - margin).coerceAtLeast(margin)
-        return IntOffset(
-            preferredX.coerceIn(margin, maxX),
-            (anchorBounds.top - popupContentSize.height - gap).coerceIn(margin, maxY),
-        )
+        val above = anchorBounds.top - popupContentSize.height - gap
+        val below = anchorBounds.bottom + gap
+        val y =
+            when {
+                above >= margin -> above
+                below <= windowSize.height - popupContentSize.height - margin -> below
+                else -> above.coerceIn(margin, (windowSize.height - popupContentSize.height - margin).coerceAtLeast(margin))
+            }
+        val alignRight = layoutDirection == LayoutDirection.Rtl ||
+            anchorBounds.right + popupContentSize.width > windowSize.width - margin
+        val rawX =
+            if (alignRight) anchorBounds.right - popupContentSize.width
+            else anchorBounds.left
+        return IntOffset(rawX.coerceIn(margin, maxX), y)
     }
 }
 
@@ -51,7 +67,7 @@ internal fun AnchoredWorkspacePopup(
     val density = LocalDensity.current
     val gap = with(density) { 2.dp.roundToPx() }
     val margin = with(density) { 4.dp.roundToPx() }
-    val position = remember(gap, margin) { AboveButtonPositionProvider(gap, margin) }
+    val position = remember(gap, margin) { AnchoredPositionProvider(gap, margin) }
     val maxHeight = (LocalConfiguration.current.screenHeightDp.dp - 88.dp).coerceAtLeast(80.dp)
     Popup(
         popupPositionProvider = position,
@@ -65,14 +81,15 @@ internal fun AnchoredWorkspacePopup(
     ) {
         Surface(
             modifier = modifier.heightIn(max = maxHeight),
-            shape = RoundedCornerShape(6.dp),
-            shadowElevation = 4.dp,
+            shape = RoundedCornerShape(WorkspaceStyle.PanelRadius),
+            shadowElevation = 6.dp,
             color = MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
             val scrollState = rememberScrollState()
             Column(
-                Modifier.then(if (scrollContent) Modifier.verticalScroll(scrollState) else Modifier).padding(vertical = 4.dp),
+                Modifier.then(if (scrollContent) Modifier.verticalScroll(scrollState) else Modifier)
+                    .padding(vertical = 4.dp),
                 content = content,
             )
         }

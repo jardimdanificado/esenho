@@ -399,7 +399,7 @@ private fun ParameterDragHandle(
             }
             .background(
                 if (dragging) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                RoundedCornerShape(4.dp),
+                RoundedCornerShape(3.dp),
             )
             .pointerInput(id, pixels) {
                 var distance = 0f
@@ -466,7 +466,7 @@ fun QuickParameterTrigger(
     val fraction = ((raw - config.minVal) / (config.maxVal - config.minVal)).coerceIn(0f, 1f)
     Box(
         Modifier.fillMaxSize()
-            .clip(RoundedCornerShape(5.dp))
+            .clip(RoundedCornerShape(3.dp))
             .background(
                 if (expanded) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.surfaceVariant
@@ -506,7 +506,8 @@ fun QuickParameterTrigger(
         contentAlignment = Alignment.Center,
     ) {
         val trackColor = MaterialTheme.colorScheme.surfaceVariant
-        val activeColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+        // Neutral fill: the value reads as a filled chip, never as a colored outline.
+        val activeColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
         Canvas(Modifier.matchParentSize()) {
             drawRect(trackColor)
             drawRect(activeColor, size = androidx.compose.ui.geometry.Size(size.width * fraction, size.height))

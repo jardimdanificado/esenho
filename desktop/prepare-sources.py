@@ -49,7 +49,13 @@ for src in base.rglob('*'):
             "vectorDelete" -> { engine.vectors.selection.delete(); refreshState(false) }
             "vectorNodes" -> { engine.vectors.tool = app.esenho.nativeengine.VectorTool.NODES; refreshState(false) }
             "layers" -> activePanel = WorkspacePanel.LAYERS
-            "timeline" -> activePanel = WorkspacePanel.ANIMATION
+            "timeline" -> { activePanel = null; animationBarVisible = true; refreshState(false) }
+            "compact" -> { activePanel = null; animationBarVisible = false; layersBarVisible = false; quickSlidersOpen = false; refreshState(false) }
+            "quickParams" -> { activePanel = null; quickSlidersOpen = true; refreshState(false) }
+            "brushes" -> { activePanel = WorkspacePanel.BRUSHES; refreshState(false) }
+            "newProject" -> { showNewProjectDialog = true }
+            "exportDialog" -> { showExportDialog = true }
+            "dismissDialogs" -> { showNewProjectDialog = false; showExportDialog = false; refreshState(false) }
             "scripts" -> activePanel = WorkspacePanel.SCRIPTS
             "filters" -> activePanel = WorkspacePanel.EFFECTS
             "brush" -> { engine.vectors.tool = app.esenho.nativeengine.VectorTool.DRAW; chooseTool(ToolMode.BRUSH) }

@@ -110,7 +110,7 @@ fun NativeScriptEditor(
         else {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
-                OutlinedButton(onClick = { scriptsExpanded = true }, shape=androidx.compose.foundation.shape.RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                OutlinedButton(onClick = { scriptsExpanded = true }, shape=androidx.compose.foundation.shape.RoundedCornerShape(3.dp), modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 8.dp)) {
                     Text((selected?.name ?: "Rascunho") + if (modified) " *" else "", Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Icon(Icons.Default.ArrowDropDown, "Escolher script")
                 }
@@ -121,7 +121,7 @@ fun NativeScriptEditor(
                         label = { Text("Buscar exemplo ou preset") },
                         singleLine = true,
                         modifier = Modifier.width(280.dp).padding(horizontal = 8.dp, vertical = 4.dp),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(3.dp)
                     )
                     DropdownMenuItem(text = { Text("Novo script") }, onClick = {
                         scriptsExpanded = false

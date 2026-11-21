@@ -66,7 +66,7 @@ internal fun BrushCurveLinkButton(engine: EsenhoEngine, config: SliderParamConfi
 private fun CurveWindow(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
     val height = (LocalConfiguration.current.screenHeightDp - 64).coerceAtLeast(240).dp
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxWidth(.96f).widthIn(max = 640.dp).heightIn(max = height), shape = RoundedCornerShape(14.dp)) {
+        Surface(Modifier.fillMaxWidth(.96f).widthIn(max = 640.dp).heightIn(max = height), shape = RoundedCornerShape(8.dp)) {
             Column(Modifier.padding(12.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
@@ -211,7 +211,7 @@ private fun formatCurveNumber(value: Float): String = java.lang.String.format(ja
 @Composable
 private fun CurvePreview(curve: SavedBrushCurve, modifier: Modifier) {
     val color = MaterialTheme.colorScheme.primary
-    Canvas(modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))) {
+    Canvas(modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))) {
         val pad = 12.dp.toPx(); val w = size.width-2*pad; val h = size.height-2*pad
         for (i in 0..4) {
             drawLine(Color.Gray.copy(alpha = .25f), Offset(pad+w*i/4, pad), Offset(pad+w*i/4, pad+h))
@@ -241,7 +241,7 @@ private fun CurveEditorDialog(source: SavedBrushCurve, copy: Boolean, onDismiss:
         OutlinedTextField(name, { name = it.take(64) }, label = { Text("Nome da curva") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         CompactOptionDropdown("Interpolação", interpolation, CURVE_INTERPOLATIONS) { interpolation = it }
         Text("Arraste os pontos. Toque no gráfico para adicionar ou selecionar um ponto. Os extremos mantêm a posição horizontal.", style = MaterialTheme.typography.bodySmall)
-        Canvas(Modifier.fillMaxWidth().height(210.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+        Canvas(Modifier.fillMaxWidth().height(210.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
             .semantics { contentDescription = "Editor de curva com ${points.size} pontos; entrada e saída de zero a cem por cento" }
             .pointerInput(source.id) {
                 val pad = 12.dp.toPx()

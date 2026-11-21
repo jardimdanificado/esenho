@@ -291,9 +291,11 @@ fun EsenhoNativeTheme(content: @Composable () -> Unit) {
             ),
         shapes =
             Shapes(
-                small = RoundedCornerShape(8.dp),
-                medium = RoundedCornerShape(12.dp),
-                large = RoundedCornerShape(16.dp),
+                extraSmall = RoundedCornerShape(2.dp),
+                small = RoundedCornerShape(3.dp),
+                medium = RoundedCornerShape(6.dp),
+                large = RoundedCornerShape(8.dp),
+                extraLarge = RoundedCornerShape(8.dp),
             ),
         content = content,
     )
@@ -342,11 +344,12 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         workspacePreferences.edit().putBoolean("raster_tools_visible",rasterToolsVisible)
             .putBoolean("vector_tools_visible",vectorToolsVisible).apply()
     }
+    // Default to the compact layout: the canvas keeps the space, the bars open on demand.
     var animationBarVisible by remember {
-        mutableStateOf(workspacePreferences.getBoolean("animation_bar_visible", true))
+        mutableStateOf(workspacePreferences.getBoolean("animation_bar_visible", false))
     }
     var layersBarVisible by remember {
-        mutableStateOf(workspacePreferences.getBoolean("layers_bar_visible", true))
+        mutableStateOf(workspacePreferences.getBoolean("layers_bar_visible", false))
     }
     var quickShelfVisible by remember {
         mutableStateOf(workspacePreferences.getBoolean("quick_shelf_visible", true))
@@ -830,7 +833,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 },
                 onDismiss = { activePanel = null },
                 tabRequest = vectorTabRequest)
-            WorkspacePanel.ANIMATION -> Box(Modifier.fillMaxSize())
             WorkspacePanel.COLOR ->
                 ColorStudioModal(
                     engine = engine,
@@ -1638,8 +1640,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     ) { paddingValues ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(paddingValues)) {
             val useSideInspector =
-                activePanel != WorkspacePanel.ANIMATION &&
-                    (maxWidth >= 700.dp || (maxWidth >= 600.dp && maxWidth > maxHeight * 1.4f))
+                maxWidth >= 700.dp || (maxWidth >= 600.dp && maxWidth > maxHeight * 1.4f)
             val dockDensity = LocalDensity.current
             var bottomDockHeight by remember { mutableStateOf<Dp?>(null) }
             var sideDockWidth by remember { mutableStateOf<Dp?>(null) }
@@ -1690,7 +1691,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         if (scriptStatus != null) {
                             Surface(
                                 Modifier.align(Alignment.TopCenter).padding(8.dp),
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(6.dp),
                                 color = MaterialTheme.colorScheme.surface,
                             ) {
                                 Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1764,16 +1765,14 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
 
 
         if (showWorkspaceActions) {
-            ModalBottomSheet(
+            AlertDialog(
                 onDismissRequest = { showWorkspaceActions = false },
-                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-                containerColor = MaterialTheme.colorScheme.surface,
-            ) {
+                confirmButton = {},
+                text = {
                 Column(
-                    Modifier.fillMaxWidth()
+                    Modifier.widthIn(max = 440.dp)
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp)
-                        .padding(bottom = 20.dp)
+                        .padding(horizontal = 4.dp)
                 ) {
                     EditorPanelHeader(
                         "Documento e espaço de trabalho",
@@ -1796,7 +1795,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 listOf(false to "Raster", true to "Vetor").forEach { (vector, label) ->
-                                    FilterChip(selected = engine.vectors.enabled == vector, onClick = {
+                                    WorkspaceChoiceChip(selected = engine.vectors.enabled == vector, onClick = {
                                         activePanel = null
                                         showWorkspaceActions = false
                                         engine.vectors.switchMode(vector)
@@ -2168,7 +2167,8 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     }
                 }
                 }
-            }
+            )
+        }
         }
 
         // Modals & Drawers
@@ -2604,7 +2604,7 @@ fun ToolNavButton(
                         if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
                         else MaterialTheme.colorScheme.onSurface,
                 ),
-            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)),
+            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)),
         ) {
             if (icon != null) {
                 Icon(icon, contentDescription = description, modifier = Modifier.size(19.dp))
