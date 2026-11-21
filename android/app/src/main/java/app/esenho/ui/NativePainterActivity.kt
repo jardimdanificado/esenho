@@ -391,6 +391,10 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     LaunchedEffect(showWorkspaceActions, pendingAction) {
         if (!showWorkspaceActions && pendingAction != null) {
+            // Let the ModalBottomSheet finish its dismiss animation before the
+            // next dialog is composed. Overlapping sheets/dialogs make the new
+            // one get consumed by the outgoing one's dismiss request.
+            delay(350L)
             pendingAction?.invoke()
             pendingAction = null
         }
