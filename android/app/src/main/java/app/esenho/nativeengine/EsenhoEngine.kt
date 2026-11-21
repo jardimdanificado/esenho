@@ -847,6 +847,7 @@ class EsenhoEngine(
 
     var currentColor: Int = Color.rgb(24, 24, 24)
         set(value) {
+            if (value == field) return
             field = value
             try {
                 storageManager.saveSessionState(selectedPreset?.id, activePaletteId, value)

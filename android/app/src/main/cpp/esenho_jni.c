@@ -58,6 +58,10 @@ static size_t g_procedural_before_capacity = 0;
 static int g_procedural_symmetry = 0;
 static int g_procedural_last_pressure = 1000;
 static int64_t g_procedural_last_ns = 0;
+static int g_brush_accept_pressure = 1;
+static int g_brush_accept_tilt = 1;
+static int g_brush_accept_angle = 1;
+static int g_brush_accept_speed = 1;
 
 JNIEXPORT void JNICALL Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeBrushSetPressureMap(JNIEnv *env, jobject thiz, jint min, jint max, jint curve, jfloat gamma) {
     g_pressure_min = min < 0 ? 0 : (min > 99 ? 99 : min);
@@ -96,6 +100,86 @@ static int procedural_accepts(const char *input) {
     char token[40]; snprintf(token, sizeof(token), "\"%s\"", input);
     const char *found = strstr(open, token);
     return found && found < close;
+}
+
+/* Conservative box around every pixel a procedural dab can touch. Kernels may
+ * reach well past the nominal radius (curtains, trails, tentacles), so allow a
+ * fixed margin in addition to the radius. Symmetry transforms are applied to
+ * the whole box, not to each dab, to keep this O(1) per pointer event. */
+static void procedural_reach_box(float x0, float y0, float x1, float y1, float reach,
+    int cw, int ch, int *out_x0, int *out_y0, int *out_x1, int *out_y1) {
+    float bx0 = fminf(x0, x1) - reach, bx1 = fmaxf(x0, x1) + reach;
+    float by0 = fminf(y0, y1) - reach, by1 = fmaxf(y0, y1) + reach;
+    float min_x = bx0, min_y = by0, max_x = bx1, max_y = by1;
+
+    if (g_procedural_symmetry == 1 || g_procedural_symmetry == 3) {
+        float mx0 = (float)(cw - 1) - bx1, mx1 = (float)(cw - 1) - bx0;
+        if (mx0 < min_x) min_x = mx0;
+        if (mx1 > max_x) max_x = mx1;
+    }
+    if (g_procedural_symmetry == 2 || g_procedural_symmetry == 3) {
+        float my0 = (float)(ch - 1) - by1, my1 = (float)(ch - 1) - by0;
+        if (my0 < min_y) min_y = my0;
+        if (my1 > max_y) max_y = my1;
+    }
+    if (g_procedural_symmetry == 4) {
+        float cx = ((float)cw - 1) * 0.5f, cy = ((float)ch - 1) * 0.5f;
+        float corners[4][2] = {{bx0, by0}, {bx1, by0}, {bx0, by1}, {bx1, by1}};
+        for (int i = 0; i < 8; ++i) {
+            float a = (float)i * 0.7853981634f, ca = cosf(a), sa = sinf(a);
+            for (int k = 0; k < 4; ++k) {
+                float dx = corners[k][0] - cx, dy = corners[k][1] - cy;
+                float rx = cx + dx * ca - dy * sa, ry = cy + dx * sa + dy * ca;
+                if (rx < min_x) min_x = rx;
+                if (rx > max_x) max_x = rx;
+                if (ry < min_y) min_y = ry;
+                if (ry > max_y) max_y = ry;
+            }
+        }
+    }
+
+    int x0i = (int)floorf(min_x) - 1, y0i = (int)floorf(min_y) - 1;
+    int x1i = (int)ceilf(max_x) + 1, y1i = (int)ceilf(max_y) + 1;
+    if (x0i < 0) x0i = 0;
+    if (y0i < 0) y0i = 0;
+    if (x1i >= cw) x1i = cw - 1;
+    if (y1i >= ch) y1i = ch - 1;
+    *out_x0 = x0i; *out_y0 = y0i; *out_x1 = x1i; *out_y1 = y1i;
+}
+
+static int procedural_capture_region(uint32_t *pixels, int cw,
+    int x0, int y0, int x1, int y1) {
+    int rw = x1 - x0 + 1, rh = y1 - y0 + 1;
+    size_t need = (size_t)rw * (size_t)rh;
+    if (need > g_procedural_before_capacity) {
+        uint32_t *buffer = realloc(g_procedural_before, need * sizeof(uint32_t));
+        if (!buffer) return 0;
+        g_procedural_before = buffer;
+        g_procedural_before_capacity = need;
+    }
+    for (int y = 0; y < rh; ++y) {
+        memcpy(g_procedural_before + (size_t)y * rw,
+            pixels + (size_t)(y0 + y) * cw + x0, (size_t)rw * sizeof(uint32_t));
+    }
+    return 1;
+}
+
+static void procedural_apply_region(uint32_t *pixels, int cw,
+    int x0, int y0, int x1, int y1, uint32_t coverage) {
+    int rw = x1 - x0 + 1;
+    for (int y = y0; y <= y1; ++y) {
+        w_brush_apply_coverage(pixels + (size_t)y * cw + x0,
+            g_procedural_before + (size_t)(y - y0) * rw, (size_t)rw, coverage);
+    }
+}
+
+/* Brush metadata is immutable for the life of a selection. Parse its JSON
+ * once here instead of once per dab (eight times per dab under radial symmetry). */
+static void refresh_procedural_inputs(void) {
+    g_brush_accept_pressure = procedural_accepts("pressure");
+    g_brush_accept_tilt = procedural_accepts("tilt");
+    g_brush_accept_angle = procedural_accepts("angle");
+    g_brush_accept_speed = procedural_accepts("speed");
 }
 
 static void render_procedural_dab(uint32_t *pixels, int cw, int ch, float x, float y, float radius,
@@ -455,6 +539,7 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeSelectBrush(
 
     if (b) {
         g_current_brush = b;
+        refresh_procedural_inputs();
         if (b->init) {
             b->init(get_width(), get_height());
         }
@@ -532,19 +617,14 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
         if (radius < 0.5f) radius = 0.5f;
         uint32_t procedural_color = (uint32_t)color;
         uint32_t coverage = (uint32_t)(g_procedural_opacity * g_procedural_flow * 255.0f + 0.5f);
-        size_t pixel_count = (size_t)cw * (size_t)ch;
-        // Capture once per submitted stroke segment, not once per dab. Reuse
-        // storage; full-strength painting keeps the direct kernel fast path.
-        // A whole-layer capture also supports effects that extend beyond the tip.
-        if (coverage < 255) {
-            if (pixel_count > g_procedural_before_capacity) {
-                uint32_t *buffer = realloc(g_procedural_before, pixel_count * sizeof(uint32_t));
-                if (!buffer) return;
-                g_procedural_before = buffer;
-                g_procedural_before_capacity = pixel_count;
-            }
-            memcpy(g_procedural_before, pixels, pixel_count * sizeof(uint32_t));
-        }
+        /* Capture only the region this segment can touch. Whole-layer copies
+         * cost ~8 MB per move event on a phone screen at partial opacity. */
+        int box_x0 = 0, box_y0 = 0, box_x1 = -1, box_y1 = -1;
+        int dirty_x0 = 0, dirty_y0 = 0, dirty_x1 = -1, dirty_y1 = -1;
+        float reach = radius * 1.5f + 256.0f;
+        /* Radial symmetry used to mark the whole layer, so keep a wider margin
+         * there; other modes keep the original tight radius+4 dirty box. */
+        float dirty_reach = (g_procedural_symmetry == 4) ? reach : radius + 4.0f;
 
         float spacing = g_procedural_spacing >= 0.0f ? g_procedural_spacing : g_current_brush->default_spacing;
         if (spacing < 0.02f) spacing = 0.05f;
@@ -556,15 +636,19 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
             struct timespec now; clock_gettime(CLOCK_MONOTONIC, &now);
             g_procedural_last_ns = (int64_t)now.tv_sec * 1000000000LL + now.tv_nsec;
             if (g_current_brush->stroke_begin) {
-                g_current_brush->stroke_begin(x1, y1, procedural_accepts("pressure") ? pNorm : 1.0f,
-                    procedural_accepts("tilt") ? (float)tilt_x : 0.0f, procedural_accepts("tilt") ? (float)tilt_y : 0.0f,
+                g_current_brush->stroke_begin(x1, y1, g_brush_accept_pressure ? pNorm : 1.0f,
+                    g_brush_accept_tilt ? (float)tilt_x : 0.0f, g_brush_accept_tilt ? (float)tilt_y : 0.0f,
                     procedural_color, eraser);
             }
-            render_procedural_dab(pixels, cw, ch, x1, y1, radius, procedural_accepts("pressure") ? pNorm : 1.0f, 0.0f, 0.0f, procedural_color, eraser);
+            procedural_reach_box(x1, y1, x1, y1, dirty_reach, cw, ch, &dirty_x0, &dirty_y0, &dirty_x1, &dirty_y1);
+            if (coverage < 255) {
+                procedural_reach_box(x1, y1, x1, y1, reach, cw, ch, &box_x0, &box_y0, &box_x1, &box_y1);
+                if (!procedural_capture_region(pixels, cw, box_x0, box_y0, box_x1, box_y1)) return;
+            }
+            render_procedural_dab(pixels, cw, ch, x1, y1, radius, g_brush_accept_pressure ? pNorm : 1.0f, 0.0f, 0.0f, procedural_color, eraser);
             g_last_dab_x = x1;
             g_last_dab_y = y1;
-            int r_int = (int)radius + 4;
-            w_mark_dirty_rect((int)x1 - r_int, (int)y1 - r_int, (int)x1 + r_int, (int)y1 + r_int);
+            w_mark_dirty_rect(dirty_x0, dirty_y0, dirty_x1, dirty_y1);
             w_invalidate_layers();
         } else if (state == 1) { // Move / drag
             float dx = x1 - g_last_dab_x;
@@ -572,6 +656,11 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
             float dist = sqrtf(dx * dx + dy * dy);
 
             if (dist >= step) {
+                procedural_reach_box(g_last_dab_x, g_last_dab_y, x1, y1, dirty_reach, cw, ch, &dirty_x0, &dirty_y0, &dirty_x1, &dirty_y1);
+                if (coverage < 255) {
+                    procedural_reach_box(g_last_dab_x, g_last_dab_y, x1, y1, reach, cw, ch, &box_x0, &box_y0, &box_x1, &box_y1);
+                    if (!procedural_capture_region(pixels, cw, box_x0, box_y0, box_x1, box_y1)) return;
+                }
                 struct timespec now; clock_gettime(CLOCK_MONOTONIC, &now);
                 int64_t now_ns = (int64_t)now.tv_sec * 1000000000LL + now.tv_nsec;
                 float dt = g_procedural_last_ns > 0 ? (float)(now_ns - g_procedural_last_ns) / 1000000000.0f : 1.0f / 60.0f;
@@ -586,21 +675,15 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
                     float dab_pressure = ((float)g_procedural_last_pressure +
                         ((float)stroke_pressure - (float)g_procedural_last_pressure) * t) / 1000.0f;
                     render_procedural_dab(pixels, cw, ch, ix, iy, radius,
-                        procedural_accepts("pressure") ? dab_pressure : 1.0f,
-                        procedural_accepts("angle") ? angle_deg : 0.0f,
-                        procedural_accepts("speed") ? speed : 0.0f, procedural_color, eraser);
+                        g_brush_accept_pressure ? dab_pressure : 1.0f,
+                        g_brush_accept_angle ? angle_deg : 0.0f,
+                        g_brush_accept_speed ? speed : 0.0f, procedural_color, eraser);
                 }
                 g_last_dab_x = x1;
                 g_last_dab_y = y1;
                 g_procedural_last_pressure = stroke_pressure;
                 g_procedural_last_ns = now_ns;
-                int r_int = (int)radius + 4;
-                int min_x = (int)(x0 < x1 ? x0 : x1) - r_int;
-                int min_y = (int)(y0 < y1 ? y0 : y1) - r_int;
-                int max_x = (int)(x0 > x1 ? x0 : x1) + r_int;
-                int max_y = (int)(y0 > y1 ? y0 : y1) + r_int;
-                if (g_procedural_symmetry) w_mark_dirty_rect(0, 0, cw - 1, ch - 1);
-                else w_mark_dirty_rect(min_x, min_y, max_x, max_y);
+                w_mark_dirty_rect(dirty_x0, dirty_y0, dirty_x1, dirty_y1);
                 w_invalidate_layers();
             }
         } else if (state == 2) { // Up / end
@@ -611,10 +694,9 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
             w_invalidate_layers();
             g_procedural_last_ns = 0;
         }
-        if (coverage < 255) {
-            w_brush_apply_coverage(pixels, g_procedural_before, pixel_count, coverage);
+        if (coverage < 255 && box_x1 >= box_x0 && box_y1 >= box_y0) {
+            procedural_apply_region(pixels, cw, box_x0, box_y0, box_x1, box_y1, coverage);
             w_invalidate_layers();
-            if (state == 2) force_composite();
         }
         return;
     }
@@ -999,11 +1081,12 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeRenderDisplayBitmap(
     if (AndroidBitmap_getInfo(env, bitmap, &info) < 0 ||
         info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return JNI_FALSE;
     int same = g_display_bitmap && (*env)->IsSameObject(env, g_display_bitmap, bitmap);
+    // Do not composite or lock an unchanged bitmap: desktop unlock invalidates
+    // its cached BufferedImage, and Android would mark unchanged GPU pixels dirty.
+    // Check before w_render() so clean frames skip the compositor entirely.
+    if (same && !w_has_dirty_rect()) return JNI_TRUE;
     uint32_t *src = w_render();
     if (!src) return JNI_FALSE;
-    // Do not lock/unlock an unchanged bitmap: desktop unlock invalidates its
-    // cached BufferedImage, and Android would mark unchanged GPU pixels dirty.
-    if (same && !w_has_dirty_rect()) return JNI_TRUE;
     if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return JNI_FALSE;
     if (!pixels) {
         AndroidBitmap_unlockPixels(env, bitmap);

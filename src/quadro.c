@@ -2965,6 +2965,31 @@ static void render_stroke_dab(uint32_t *pix, int w, int h, float cx, float cy, f
     }
 }
 
+/* Radial symmetry (mode 4) mirrors a dab through the eight elements of the
+ * square's symmetry group: identity, x/y flips and their diagonal transposes.
+ * Marking the whole document here forced a full composite and full bitmap blit
+ * on every pointer event. Transforming the dab box instead keeps the dirty
+ * region proportional to the stroke. */
+static void mark_radial_dirty_rect(int w, int h, int x0, int y0, int x1, int y1) {
+    int last_x = w - 1, last_y = h - 1;
+    float mid_x = (float)last_x * 0.5f, mid_y = (float)last_y * 0.5f;
+
+    mark_dirty_rect(x0, y0, x1, y1);
+    mark_dirty_rect(last_x - x1, y0, last_x - x0, y1);
+    mark_dirty_rect(x0, last_y - y1, x1, last_y - y0);
+    mark_dirty_rect(last_x - x1, last_y - y1, last_x - x0, last_y - y0);
+
+    float off_xy = mid_x - mid_y;
+    int tx0 = (int)__builtin_floorf(off_xy + (float)y0) - 1;
+    int tx1 = (int)__builtin_ceilf(off_xy + (float)y1) + 1;
+    int ty0 = (int)__builtin_floorf(-off_xy + (float)x0) - 1;
+    int ty1 = (int)__builtin_ceilf(-off_xy + (float)x1) + 1;
+    mark_dirty_rect(tx0, ty0, tx1, ty1);
+    mark_dirty_rect(last_x - tx1, ty0, last_x - tx0, ty1);
+    mark_dirty_rect(tx0, last_y - ty1, tx1, last_y - ty0);
+    mark_dirty_rect(last_x - tx1, last_y - ty1, last_x - tx0, last_y - ty0);
+}
+
 static inline void mark_dab_bounds_dirty(int w, int h, float min_x, float min_y, float max_x, float max_y, int d_bound) {
     int d_x0 = (int)__builtin_floorf(min_x) - d_bound;
     int d_y0 = (int)__builtin_floorf(min_y) - d_bound;
@@ -2989,7 +3014,11 @@ static inline void mark_dab_bounds_dirty(int w, int h, float min_x, float min_y,
         mark_dirty_rect(s_x0, s_y0, s_x1, s_y1);
     }
     if (brush_config.symmetry == 4) {
-        mark_dirty_rect(0, 0, w, h);
+        int d_x0 = (int)__builtin_floorf(min_x) - d_bound;
+        int d_y0 = (int)__builtin_floorf(min_y) - d_bound;
+        int d_x1 = (int)__builtin_ceilf(max_x) + d_bound;
+        int d_y1 = (int)__builtin_ceilf(max_y) + d_bound;
+        mark_radial_dirty_rect(w, h, d_x0, d_y0, d_x1, d_y1);
     }
 }
 

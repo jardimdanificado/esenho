@@ -2,6 +2,7 @@ package app.esenho.ui
 
 import android.content.Context
 import android.graphics.*
+import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -120,15 +121,39 @@ class EsenhoCanvasView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
 
+    private val onionPrevDefaultFilter = PorterDuffColorFilter(0xFFFF3C3C.toInt(), PorterDuff.Mode.SRC_IN)
+    private val onionNextDefaultFilter = PorterDuffColorFilter(0xFF3C8CFF.toInt(), PorterDuff.Mode.SRC_IN)
     private val onionPrevPaint = Paint().apply {
         alpha = 90
-        colorFilter = PorterDuffColorFilter(0xFFFF3C3C.toInt(), PorterDuff.Mode.SRC_IN)
+        colorFilter = onionPrevDefaultFilter
     }
 
     private val onionNextPaint = Paint().apply {
         alpha = 90
-        colorFilter = PorterDuffColorFilter(0xFF3C8CFF.toInt(), PorterDuff.Mode.SRC_IN)
+        colorFilter = onionNextDefaultFilter
     }
+
+    private var onionPrevFilterTint = 0
+    private var onionPrevFilter = onionPrevDefaultFilter
+    private var onionNextFilterTint = 0
+    private var onionNextFilter = onionNextDefaultFilter
+
+    private fun onionFilter(isPrevious: Boolean, tint: Int): PorterDuffColorFilter {
+        if (isPrevious) {
+            if (tint != onionPrevFilterTint) {
+                onionPrevFilterTint = tint
+                onionPrevFilter = PorterDuffColorFilter(tint, PorterDuff.Mode.SRC_IN)
+            }
+            return onionPrevFilter
+        }
+        if (tint != onionNextFilterTint) {
+            onionNextFilterTint = tint
+            onionNextFilter = PorterDuffColorFilter(tint, PorterDuff.Mode.SRC_IN)
+        }
+        return onionNextFilter
+    }
+
+    private var lastAntsTickMs = 0L
 
     private val loupeRingPaint = Paint().apply {
         style = Paint.Style.STROKE
@@ -937,13 +962,13 @@ class EsenhoCanvasView @JvmOverloads constructor(
         eng.getOnionSkinPreviews().forEach { preview ->
             val paint = if (preview.isPrevious) onionPrevPaint else onionNextPaint
             paint.alpha = preview.alpha
-            paint.colorFilter = PorterDuffColorFilter(preview.tint, PorterDuff.Mode.SRC_IN)
+            paint.colorFilter = onionFilter(preview.isPrevious, preview.tint)
             canvas.drawBitmap(preview.bitmap, 0f, 0f, paint)
         }
         onionPrevPaint.alpha = 90
         onionNextPaint.alpha = 90
-        onionPrevPaint.colorFilter = PorterDuffColorFilter(0xFFFF3C3C.toInt(), PorterDuff.Mode.SRC_IN)
-        onionNextPaint.colorFilter = PorterDuffColorFilter(0xFF3C8CFF.toInt(), PorterDuff.Mode.SRC_IN)
+        onionPrevPaint.colorFilter = onionPrevDefaultFilter
+        onionNextPaint.colorFilter = onionNextDefaultFilter
 
         // 4. Pixel Art Grid Overlay
         if (eng.pixelArtGrid && gridScale >= 4f) {
@@ -1011,8 +1036,14 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 canvas.drawRect(left, top, right, bottom, selectionAntsWhitePaint)
             }
 
-            antsPhase = (antsPhase + 1f) % 16f
-            postInvalidateOnAnimation()
+            val nowMs = SystemClock.uptimeMillis()
+            if (nowMs - lastAntsTickMs >= 33L) {
+                antsPhase = (antsPhase + 1f) % 16f
+                lastAntsTickMs = nowMs
+            }
+            // Marching ants are cosmetic: 30 fps is enough and avoids a full
+            // composite + bitmap upload on every vsync while a selection exists.
+            postInvalidateDelayed(33L)
         }
 
         // 7. Interactive Shape Drag Previews

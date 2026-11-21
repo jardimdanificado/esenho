@@ -385,6 +385,13 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var scriptStatus by remember { mutableStateOf<String?>(null) }
     var scriptOutput by remember { mutableStateOf<List<String>>(emptyList()) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
+    var pendingNewProject by remember { mutableStateOf(false) }
+    LaunchedEffect(showWorkspaceActions, pendingNewProject) {
+        if (!showWorkspaceActions && pendingNewProject) {
+            showNewProjectDialog = true
+            pendingNewProject = false
+        }
+    }
     var showProjectManager by remember { mutableStateOf(false) }
     var showClearLayerConfirm by remember { mutableStateOf(false) }
     var showCanvasResizeDialog by remember { mutableStateOf(false) }
@@ -1814,7 +1821,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 leadingIcon = { Icon(Icons.Default.AddBox, null) },
                                 onClick = {
                                     showWorkspaceActions = false
-                                    showNewProjectDialog = true
+                                    pendingNewProject = true
                                 },
                             )
                             DropdownMenuItem(

@@ -65,10 +65,15 @@ bin/test_dynamic_dirty: tests/test_dynamic_dirty.c src/quadro.c $(wildcard src/i
 	mkdir -p bin
 	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_dynamic_dirty.c src/quadro.c -lm
 
-test-native: bin/test_dynamic_dirty bin/test_brush_dynamics bin/test_brush_coverage bin/test_brush_realism bin/test_native_svg bin/test_viewport_filter bin/test_tip_footprint
+bin/test_symmetry_dirty: tests/test_symmetry_dirty.c src/quadro.c $(wildcard src/include/*.h)
+	mkdir -p bin
+	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ $< src/quadro.c -lm
+
+test-native: bin/test_dynamic_dirty bin/test_brush_dynamics bin/test_brush_coverage bin/test_brush_realism bin/test_native_svg bin/test_viewport_filter bin/test_tip_footprint bin/test_symmetry_dirty
 	./bin/test_viewport_filter
 	./bin/test_tip_footprint
 	./bin/test_dynamic_dirty
+	./bin/test_symmetry_dirty
 	./bin/test_brush_dynamics
 	./bin/test_brush_coverage
 	./bin/test_brush_realism
