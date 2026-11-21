@@ -16,7 +16,8 @@ fun main(args: Array<String>) {
         smokeTest()
         return
     }
-    System.setProperty("esenho.uiSmoke", args.contains("--ui-smoke-test").toString())
+    val uiTest = args.contains("--ui-smoke-test") || args.contains("--shelf-test")
+    System.setProperty("esenho.uiSmoke", uiTest.toString())
     application {
         val state = rememberWindowState(width = 1440.dp, height = 960.dp)
         val defaultErrors = LocalWindowExceptionHandlerFactory.current
@@ -26,7 +27,8 @@ fun main(args: Array<String>) {
                     object : WindowExceptionHandler {
                         override fun onException(throwable: Throwable) {
                             throwable.printStackTrace()
-                            if (args.contains("--ui-smoke-test")) kotlin.system.exitProcess(1)
+                            if (args.contains("--ui-smoke-test") || args.contains("--shelf-test"))
+                                kotlin.system.exitProcess(1)
                             defaultErrors.exceptionHandler(window).onException(throwable)
                         }
                     }
@@ -34,10 +36,17 @@ fun main(args: Array<String>) {
         }
         CompositionLocalProvider(LocalWindowExceptionHandlerFactory provides errors) {
             Window(onCloseRequest = ::exitApplication, title = "Esenho", state = state) {
-                if (args.contains("--ui-smoke-test")) {
+                if (args.contains("--shelf-test")) {
+                    LaunchedEffect(Unit) {
+                        kotlinx.coroutines.delay(3000)
+                        exerciseBrushShelf(window)
+                        exitApplication()
+                    }
+                } else if (args.contains("--ui-smoke-test")) {
                     LaunchedEffect(Unit) {
                         kotlinx.coroutines.delay(3000)
                         exerciseDesktopCanvas(window)
+                        exerciseBrushShelf(window)
                         captureEditor(window, File("desktop/build/ui-smoke.png"))
                         exerciseProjectMenu(window)
                         for (panel in listOf("layers", "timeline", "scripts", "filters")) {

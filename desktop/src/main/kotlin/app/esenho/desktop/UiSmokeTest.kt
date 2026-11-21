@@ -187,6 +187,34 @@ suspend fun clickEditor(window: java.awt.Window, x: Int, y: Int) {
     kotlinx.coroutines.delay(400)
 }
 
+/** Clicks the second entry of the brush shelf and checks the engine actually switched brush. */
+suspend fun exerciseBrushShelf(window: java.awt.Window) {
+    val view = checkNotNull(desktopUiTestCanvas)
+    val engine = checkNotNull(view.engine)
+    checkNotNull(desktopUiTestCommand)("shelfShow")
+    kotlinx.coroutines.delay(500)
+    checkNotNull(desktopUiTestCommand)("shelfFill")
+    kotlinx.coroutines.delay(500)
+    val target = children(window).filterIsInstance<SkiaLayer>().first { it.isShowing }.canvas
+    val favorites = engine.presetCatalog.take(6).map { it.id }
+    check(favorites.size >= 3)
+    // Flat two-row shelf is the last bottom bar: divider + colors + divider + brushes.
+    val brushRowY = target.height - 18
+    // Second and third entries of the preset favorites strip.
+    clickEditor(window, 175, brushRowY)
+    kotlinx.coroutines.delay(300)
+    captureEditor(window, File("desktop/build/ui-brush-shelf.png"))
+    check(engine.selectedPreset?.id == favorites[1]) {
+        "Brush shelf click did not switch brush: selected=${engine.selectedPreset?.id}, expected=${favorites[1]}, y=$brushRowY"
+    }
+    clickEditor(window, 275, brushRowY)
+    kotlinx.coroutines.delay(300)
+    check(engine.selectedPreset?.id == favorites[2]) {
+        "Second shelf click did not switch brush: selected=${engine.selectedPreset?.id}, expected=${favorites[2]}, y=$brushRowY"
+    }
+    println("Desktop UI: brush shelf switches brush OK")
+}
+
 suspend fun exerciseProjectMenu(window: java.awt.Window) {
     val before =
         checkNotNull(desktopUiTestCanvas)

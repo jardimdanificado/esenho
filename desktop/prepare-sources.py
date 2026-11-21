@@ -57,6 +57,25 @@ for src in base.rglob('*'):
             "eyedropper" -> chooseTool(ToolMode.EYEDROPPER)
             "pan" -> chooseTool(ToolMode.PAN)
             "resetView" -> canvasViewRef?.resetView()
+            "shelfShow" -> {
+                activePanel = null
+                animationBarVisible = false
+                layersBarVisible = false
+                rasterToolsVisible = true
+                quickShelfVisible = true
+                quickShelfRecent = false
+                colorShelfRecent = false
+                persistShelfVisibility()
+                refreshState(false)
+            }
+            "shelfFill" -> {
+                favoriteBrushIds =
+                    (engine.presetCatalog.take(6).map { "preset:" + it.id } +
+                        engine.brushCatalog.take(3).map { "brush:" + it.id }).toSet()
+                storageManager.saveFavoriteBrushes(favoriteBrushIds)
+                engine.selectPreset(engine.presetCatalog.last())
+                refreshState(false)
+            }
         }
     }
 

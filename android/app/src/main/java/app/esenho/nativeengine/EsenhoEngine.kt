@@ -1396,6 +1396,31 @@ class EsenhoEngine(
 
     // ── Brush Preset & Procedural Selection & Tuning ──
 
+    /**
+     * Select a catalog preset by its bare id. Resolves against the current catalog
+     * every call, so stale shelf entries cannot silently do nothing. Returns false
+     * when the id no longer exists.
+     */
+    fun selectPresetById(id: String): Boolean {
+        val preset = presetCatalog.firstOrNull { it.id == id } ?: return false
+        selectPreset(preset)
+        return true
+    }
+
+    /**
+     * Select a procedural brush by its bare id. `classic` maps to the built-in
+     * tip. Returns false when the id no longer exists.
+     */
+    fun selectBrushById(id: String): Boolean {
+        if (id == "classic") {
+            selectBrush(null)
+            return true
+        }
+        val brush = brushCatalog.firstOrNull { it.id == id } ?: return false
+        selectBrush(brush)
+        return true
+    }
+
     fun selectPreset(sourcePreset: BrushPresetModel, restoreFavoriteState: Boolean = true) {
         endCurveStroke()
         rememberProceduralToolState()
