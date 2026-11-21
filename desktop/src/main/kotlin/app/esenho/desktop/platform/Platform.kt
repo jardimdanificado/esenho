@@ -178,6 +178,7 @@ object Base64 {
 
 object SystemClock {
     fun elapsedRealtime() = System.nanoTime() / 1_000_000
+    fun uptimeMillis() = elapsedRealtime()
 }
 
 class Looper {

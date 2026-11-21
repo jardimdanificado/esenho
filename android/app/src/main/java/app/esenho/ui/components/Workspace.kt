@@ -58,11 +58,13 @@ private fun CompactControls(content: @Composable () -> Unit) {
 @Composable
 fun CompactBarSurface(
     modifier: Modifier = Modifier,
+    scrollable: Boolean = false,
     content: @Composable RowScope.() -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface, modifier = modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 4.dp),
+            Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 4.dp)
+                .then(if (scrollable) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             content = content,

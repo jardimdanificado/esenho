@@ -195,6 +195,15 @@ open class View(val context: Context, attrs: AttributeSet? = null, style: Int = 
             }
     }
 
+    fun postInvalidateDelayed(delayMillis: Long) {
+        javax.swing
+            .Timer(delayMillis.coerceAtLeast(1L).toInt()) { repaint() }
+            .apply {
+                isRepeats = false
+                start()
+            }
+    }
+
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
         drawTo(g)

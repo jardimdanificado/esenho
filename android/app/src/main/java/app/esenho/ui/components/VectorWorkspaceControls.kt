@@ -152,7 +152,7 @@ fun EditorToolStrip(
         }
     Surface(color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            CompactBarSurface(Modifier.weight(1f)) {
+            CompactBarSurface(Modifier.weight(1f), scrollable = true) {
                 groups.forEachIndexed { index, group ->
                     if (index > 0)
                         VerticalDivider(

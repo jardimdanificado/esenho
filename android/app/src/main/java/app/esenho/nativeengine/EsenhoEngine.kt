@@ -2532,7 +2532,11 @@ class EsenhoEngine(
     }
 
     fun selectLayer(idx: Int) {
-        if (transformState != null) cancelTransform()
+        // A pending transform (e.g. the one opened automatically after importing
+        // an image) holds the only copy of the edited pixels. Commit it before
+        // switching layers, otherwise replaying the cel would restore the
+        // untransformed bitmap and discard the user's edits.
+        if (transformState != null) commitTransform()
         // Creation already selects and synchronizes the new layer. In
         // particular, scripting must not replay all tracks a second time.
         if (idx == activeLayerIndex) return
