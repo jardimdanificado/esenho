@@ -385,12 +385,19 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var scriptStatus by remember { mutableStateOf<String?>(null) }
     var scriptOutput by remember { mutableStateOf<List<String>>(emptyList()) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
-    var pendingNewProject by remember { mutableStateOf(false) }
-    LaunchedEffect(showWorkspaceActions, pendingNewProject) {
-        if (!showWorkspaceActions && pendingNewProject) {
-            showNewProjectDialog = true
-            pendingNewProject = false
+    // Dialogs opened from the document sheet must wait until the sheet has
+    // finished dismissing. Setting both states at once makes the sheet's
+    // dismissal consume the new dialog, so the click appears to do nothing.
+    var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    LaunchedEffect(showWorkspaceActions, pendingAction) {
+        if (!showWorkspaceActions && pendingAction != null) {
+            pendingAction?.invoke()
+            pendingAction = null
         }
+    }
+    fun openAfterSheet(action: () -> Unit) {
+        showWorkspaceActions = false
+        pendingAction = action
     }
     var showProjectManager by remember { mutableStateOf(false) }
     var showClearLayerConfirm by remember { mutableStateOf(false) }
@@ -1820,16 +1827,14 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 text = { Text("Nova tela") },
                                 leadingIcon = { Icon(Icons.Default.AddBox, null) },
                                 onClick = {
-                                    showWorkspaceActions = false
-                                    pendingNewProject = true
+                                    openAfterSheet { showNewProjectDialog = true }
                                 },
                             )
                             DropdownMenuItem(
                                 text = { Text("Salvar e abrir projetos") },
                                 leadingIcon = { Icon(Icons.Default.FolderOpen, null) },
                                 onClick = {
-                                    showWorkspaceActions = false
-                                    showProjectManager = true
+                                    openAfterSheet { showProjectManager = true }
                                 },
                             )
                             DropdownMenuItem(
@@ -1844,8 +1849,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 text = { Text("Exportar…") },
                                 leadingIcon = { Icon(Icons.Default.Share, null) },
                                 onClick = {
-                                    showWorkspaceActions = false
-                                    showExportDialog = true
+                                    openAfterSheet { showExportDialog = true }
                                 },
                             )
                             DropdownMenuItem(
@@ -2078,11 +2082,12 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 text = { Text("Redimensionar Tela...") },
                                 leadingIcon = { Icon(Icons.Default.AspectRatio, null) },
                                 onClick = {
-                                    showWorkspaceActions = false
-                                    canvasResizeWidth = engine.width.toString()
-                                    canvasResizeHeight = engine.height.toString()
-                                    canvasResizeError = null
-                                    showCanvasResizeDialog = true
+                                    openAfterSheet {
+                                        canvasResizeWidth = engine.width.toString()
+                                        canvasResizeHeight = engine.height.toString()
+                                        canvasResizeError = null
+                                        showCanvasResizeDialog = true
+                                    }
                                 },
                             )
                             DropdownMenuItem(
@@ -2158,8 +2163,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 text = { Text("Limpar Camada Atual") },
                                 leadingIcon = { Icon(Icons.Default.DeleteSweep, null) },
                                 onClick = {
-                                    showWorkspaceActions = false
-                                    showClearLayerConfirm = true
+                                    openAfterSheet { showClearLayerConfirm = true }
                                 },
                             )
                         }
