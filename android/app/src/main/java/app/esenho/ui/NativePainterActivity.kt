@@ -1470,7 +1470,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         }
                     }
                     val toolsVisible = if (vectorMode) vectorToolsVisible else rasterToolsVisible
-                    if (toolsVisible) EditorToolStrip(engine, engineRevision, onTool = { chooseTool(it) }) { refreshState(false) }
                     WorkspaceProperties(
                         vectorMode = engine.vectors.enabled,
                         toolsVisible = toolsVisible,
@@ -1587,6 +1586,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 else WorkspacePanel.EFFECTS
                         },
                     )
+                    if (toolsVisible) EditorToolStrip(engine, engineRevision, onTool = { chooseTool(it) }) { refreshState(false) }
                     if (quickShelfVisible) WorkspaceQuickShelf(
                             engine = engine,
                             favoriteBrushIds = favoriteBrushIds,

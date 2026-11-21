@@ -128,7 +128,7 @@ fun WorkspaceQuickShelf(
                 )
             else
                 LazyRow(
-                    Modifier.widthIn(max = 600.dp),
+                    Modifier.weight(1f, fill = false),
                     state = brushScroll,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     contentPadding = PaddingValues(end = 4.dp),
