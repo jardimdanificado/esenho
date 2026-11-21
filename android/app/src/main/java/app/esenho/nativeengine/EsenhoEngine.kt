@@ -2441,7 +2441,10 @@ class EsenhoEngine(
     }
 
     fun addLayer(): Int {
-        if (transformState != null) cancelTransform()
+        // A pending transform (e.g. right after importing an image) holds the
+        // only copy of the edited layer pixels. Commit it before adding a layer,
+        // otherwise cancel restores the pre-transform backup and loses edits.
+        if (transformState != null) commitTransform()
         // Only the active cel can have uncaptured edits. Existing native layers
         // already represent the shared tick; creating an empty layer must not
         // copy every cel and replay the entire timeline.

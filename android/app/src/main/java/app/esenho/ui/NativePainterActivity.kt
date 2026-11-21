@@ -354,10 +354,14 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var quickShelfRecent by remember {
         mutableStateOf(workspacePreferences.getBoolean("quick_shelf_recent", false))
     }
+    var colorShelfRecent by remember {
+        mutableStateOf(workspacePreferences.getBoolean("color_shelf_recent", false))
+    }
     fun persistShelfVisibility() {
         workspacePreferences.edit()
             .putBoolean("quick_shelf_visible", quickShelfVisible)
             .putBoolean("quick_shelf_recent", quickShelfRecent)
+            .putBoolean("color_shelf_recent", colorShelfRecent)
             .apply()
     }
 
@@ -1618,8 +1622,13 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                     if (activePanel == WorkspacePanel.BRUSHES) null
                                     else WorkspacePanel.BRUSHES
                             },
-                            recent = quickShelfRecent,
-                            onToggleRecent = {
+                            colorsRecent = colorShelfRecent,
+                            onToggleColorsRecent = {
+                                colorShelfRecent = !colorShelfRecent
+                                persistShelfVisibility()
+                            },
+                            brushesRecent = quickShelfRecent,
+                            onToggleBrushesRecent = {
                                 quickShelfRecent = !quickShelfRecent
                                 persistShelfVisibility()
                             },
@@ -1813,14 +1822,16 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 text = { Text("Nova tela") },
                                 leadingIcon = { Icon(Icons.Default.AddBox, null) },
                                 onClick = {
-                                    run { showWorkspaceActions = false; showNewProjectDialog = true  }
+                                    showWorkspaceActions = false
+                                    showNewProjectDialog = true
                                 },
                             )
                             DropdownMenuItem(
                                 text = { Text("Salvar e abrir projetos") },
                                 leadingIcon = { Icon(Icons.Default.FolderOpen, null) },
                                 onClick = {
-                                    run { showWorkspaceActions = false; showProjectManager = true  }
+                                    showWorkspaceActions = false
+                                    showProjectManager = true
                                 },
                             )
                             DropdownMenuItem(
@@ -1835,7 +1846,8 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 text = { Text("Exportar…") },
                                 leadingIcon = { Icon(Icons.Default.Share, null) },
                                 onClick = {
-                                    run { showWorkspaceActions = false; showExportDialog = true  }
+                                    showWorkspaceActions = false
+                                    showExportDialog = true
                                 },
                             )
                             DropdownMenuItem(
@@ -2148,7 +2160,8 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 text = { Text("Limpar Camada Atual") },
                                 leadingIcon = { Icon(Icons.Default.DeleteSweep, null) },
                                 onClick = {
-                                    run { showWorkspaceActions = false; showClearLayerConfirm = true  }
+                                    showWorkspaceActions = false
+                                    showClearLayerConfirm = true
                                 },
                             )
                         }
@@ -2216,7 +2229,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 },
             )
         }
-        if (showCreateBrushTipDialog) {
         if (showCreateBrushTipDialog) {
             AlertDialog(
                 onDismissRequest = { showCreateBrushTipDialog = false },
@@ -2534,7 +2546,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 onDismiss = { showExportDialog = false },
             )
         }
-    }
 }
 
 private fun Modifier.blockScriptTouches(blocked: Boolean): Modifier = pointerInput(blocked) {
