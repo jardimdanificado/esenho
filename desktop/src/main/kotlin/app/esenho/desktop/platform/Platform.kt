@@ -162,6 +162,19 @@ object Intent {
 }
 
 object Log {
+    const val VERBOSE = 2
+    const val DEBUG = 3
+    const val INFO = 4
+    const val WARN = 5
+    const val ERROR = 6
+
+    fun isLoggable(tag: String, level: Int) = false
+
+    fun d(tag: String, message: String): Int {
+        println("$tag: $message")
+        return 0
+    }
+
     fun e(tag: String, message: String, error: Throwable? = null) {
         System.err.println("$tag: $message")
         error?.printStackTrace()
@@ -179,6 +192,27 @@ object Base64 {
 object SystemClock {
     fun elapsedRealtime() = System.nanoTime() / 1_000_000
     fun uptimeMillis() = elapsedRealtime()
+}
+
+/** Desktop stand-in for Android's frame timing metrics (never enabled here). */
+class FrameMetrics {
+    companion object {
+        const val TOTAL_DURATION = 0
+        const val DRAW_DURATION = 1
+        const val SYNC_DURATION = 3
+        const val COMMAND_ISSUE_DURATION = 4
+        const val SWAP_BUFFERS_DURATION = 5
+    }
+
+    fun getMetric(id: Int): Long = 0L
+}
+
+/** Only used by debug perf tracing, which stays disabled on the desktop. */
+class Window {
+    fun addOnFrameMetricsAvailableListener(
+        listener: (Any?, FrameMetrics, Int) -> Unit,
+        handler: Handler,
+    ) {}
 }
 
 class Looper {

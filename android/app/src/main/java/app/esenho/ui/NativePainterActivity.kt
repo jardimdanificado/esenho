@@ -67,6 +67,7 @@ class NativePainterActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent { EsenhoNativeTheme { EsenhoMainScreen(onExport = ::export) } }
+        PerfTrace.attach(window)
     }
 
     private fun export(request: NativeExportRequest) {
@@ -310,6 +311,11 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     val scriptKeyboard = LocalSoftwareKeyboardController.current
     var canvasViewRef by remember { mutableStateOf<EsenhoCanvasView?>(null) }
     val engine = remember { EsenhoEngine(context, 1080, 1920) }
+    DisposableEffect(engine) {
+        // Slider drags repaint the canvas only; they must not recompose the editor.
+        engine.vectors.previewInvalidate = { canvasViewRef?.invalidate() }
+        onDispose { engine.vectors.previewInvalidate = null }
+    }
     val storageManager = remember { EsenhoStorageManager(context) }
     var sideSliderSettings by remember { mutableStateOf(storageManager.loadSideSliders()) }
     var favoriteBrushIds by remember { mutableStateOf(storageManager.loadFavoriteBrushes()) }
@@ -1208,17 +1214,22 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             if (!quickSlidersOpen) canvasViewRef?.previewBrushSize = 0f
                         },
                         onParameterChanged = { paramId, active ->
-                            brushSize = engine.brushSize
-                            brushOpacity = engine.brushOpacity
-                            if (active) engineRevision++
                             if (paramId == 1)
                                 canvasViewRef?.previewBrushSize =
                                     if (active) engine.brushSize else 0f
                             if (engine.vectors.enabled) {
+                                if (active) engine.vectors.beginInteractiveEdit()
                                 engine.vectors.applyStyleEdit()
-                                if (!active) engine.vectors.finishAppearanceEdit()
+                                if (!active) {
+                                    engine.vectors.endInteractiveEdit()
+                                    engine.vectors.finishAppearanceEdit()
+                                }
                             }
-                            if (!active) refreshState()
+                            if (!active) {
+                                brushSize = engine.brushSize
+                                brushOpacity = engine.brushOpacity
+                                refreshState()
+                            }
                         },
                         toolPicker = {
                             IconButton(

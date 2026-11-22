@@ -521,6 +521,13 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 lastSingleTouchX = event.x
                 lastSingleTouchY = event.y
 
+                // Ask for samples as they arrive instead of batched to vsync.
+                // Paint tools need the freshest coordinate for low draw latency.
+                val tool = engine?.currentTool
+                if (tool != null && tool != ToolMode.PAN && tool != ToolMode.EYEDROPPER) {
+                    requestUnbufferedDispatch(event)
+                }
+
                 if (beginGuideGesture(event.x, event.y)) return true
 
                 if (engine?.vectors?.enabled == true && engine?.guideCreationType == null) {
@@ -794,7 +801,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     val pressure = strokePressure(event.getToolType(0), event.pressure)
                     val tilt = (event.getAxisValue(MotionEvent.AXIS_TILT) * 180f / Math.PI).toInt()
 
+                    val touchStartNs = System.nanoTime()
                     engine?.onTouchMove(cx, cy, pressure, tilt, 0)
+                    PerfTrace.touch(System.nanoTime() - touchStartNs)
                     invalidate()
                     return true
                 }
@@ -919,6 +928,8 @@ class EsenhoCanvasView @JvmOverloads constructor(
     }
 
     override fun onDraw(canvas: Canvas) {
+        val drawStartNs = System.nanoTime()
+        var renderNs = 0L
         super.onDraw(canvas)
 
         // 1. Dark canvas workspace background
@@ -947,7 +958,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
         val scaleY = hypot(matrixValues[Matrix.MSKEW_X], matrixValues[Matrix.MSCALE_Y])
         val gridScale = min(scaleX, scaleY)
         displayPaint.isFilterBitmap = gridScale < 1f
+        val bmpStartNs = System.nanoTime()
         val bmp = eng.getRenderBitmap(gridScale)
+        renderNs = System.nanoTime() - bmpStartNs
         if (bmp != null) {
             displayBounds.set(0f, 0f, eng.width.toFloat(), eng.height.toFloat())
             canvas.drawBitmap(bmp, null, displayBounds, displayPaint)
@@ -1183,5 +1196,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
             val r = (previewBrushSize) * 0.5f
             canvas.drawCircle(cx, cy, r, sizePreviewPaint)
         }
+
+        PerfTrace.draw(System.nanoTime() - drawStartNs, renderNs, 0L)
     }
 }

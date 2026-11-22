@@ -186,6 +186,9 @@ open class View(val context: Context, attrs: AttributeSet? = null, style: Int = 
 
     open fun onTouchEvent(event: MotionEvent) = false
 
+    /** No input batching on desktop; kept so shared editor code compiles. */
+    fun requestUnbufferedDispatch(event: MotionEvent) {}
+
     fun postInvalidateOnAnimation() {
         javax.swing
             .Timer(16) { repaint() }

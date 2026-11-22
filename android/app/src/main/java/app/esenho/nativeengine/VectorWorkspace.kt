@@ -414,20 +414,31 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         appearanceToken = 0L
     }
 
+    /** Repaints just the editing surface while a control is dragged. */
+    var previewInvalidate: (() -> Unit)? = null
+
+    private fun notifyPreview() {
+        previewInvalidate?.invoke()
+    }
+
+    private fun markInteractiveDirty() {
+        interactiveDirty = true
+        notifyPreview()
+    }
+
     /**
      * Defers full layer re-rendering while a control (slider) is being dragged. The overlay
      * draws a cheap preview of the selected object; one real render runs on [endInteractiveEdit].
      */
     fun beginInteractiveEdit() {
         if (interactiveEdit) return
+        val preview = selected?.takeIf(::canPreview) ?: return
         interactiveEdit = true
         interactiveDirty = false
         /* Repaint the layer once without the edited object, so the overlay
          * preview replaces it instead of stacking on top of a stale copy. */
-        selected?.takeIf(::canPreview)?.let {
-            render(exclude = it)
-            interactiveDirty = true
-        }
+        render(exclude = preview)
+        markInteractiveDirty()
     }
 
     fun endInteractiveEdit() {
@@ -657,7 +668,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         rig.updateFk()
         if (interactiveEdit) {
             if (appearanceToken == 0L) appearanceToken = engine.beginVectorEdit()
-            interactiveDirty = true
+            markInteractiveDirty()
         } else {
             engine.beginVectorEdit()
             render()
@@ -666,7 +677,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
 
     fun setAnimationFrame(frame: Int) {
         animation.currentFrame = frame.coerceIn(0, animation.duration - 1)
-        if (interactiveEdit) interactiveDirty = true else render()
+        if (interactiveEdit) markInteractiveDirty() else render()
     }
 
     fun configureBonePhysics(
@@ -1104,7 +1115,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
             } ?: return
         if (appearanceToken == 0L) appearanceToken = engine.beginVectorEdit()
         targets.forEach(action)
-        if (interactiveEdit) interactiveDirty = true else render()
+        if (interactiveEdit) markInteractiveDirty() else render()
     }
 
     fun changeAppearance(action: (VectorObject) -> Unit) {
@@ -1136,7 +1147,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         if (!interactiveEdit) finishAppearanceEdit()
         if (appearanceToken == 0L) appearanceToken = engine.beginVectorEdit()
         action(obj)
-        if (interactiveEdit) interactiveDirty = true else render()
+        if (interactiveEdit) markInteractiveDirty() else render()
     }
 
     fun applyStyle() = changeAppearance { it.style = engine.captureVectorStyle() }
@@ -1604,11 +1615,14 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
 
     private fun drawTextObject(obj: VectorObject, bitmap: Bitmap) {
         bitmap.eraseColor(0)
-        val canvas = Canvas(bitmap)
+        paintTextObject(Canvas(bitmap), obj)
+    }
+
+    private fun paintTextObject(canvas: Canvas, obj: VectorObject, opacity: Float = 1f) {
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 textSize = obj.fontSize.coerceAtLeast(1f)
-                color = obj.fill ?: obj.style.optInt("color", 0xff000000.toInt())
+                color = previewColor(obj.fill ?: obj.style.optInt("color", 0xff000000.toInt()), opacity)
                 VectorFont.apply(this, obj.fontFamily, obj.fontWeight, obj.fontStyle)
             }
         val content = obj.text.orEmpty()
@@ -2079,6 +2093,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         }
         engine.captureCurrentFrame()
         engine.getRenderBitmap()
+        notifyPreview()
     }
 
     private fun previewColor(color: Int, opacity: Float): Int {
@@ -2122,7 +2137,6 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         obj.visible &&
             !obj.locked &&
             obj.imageData == null &&
-            obj.text == null &&
             !obj.style.optBoolean("svgStroke", false)
 
     private fun drawInteractivePreview(canvas: Canvas) {
@@ -2134,6 +2148,10 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 ?: skinned
         val opacity = obj.style.optDouble("opacity", 1.0).toFloat().coerceIn(0f, 1f)
         if (opacity <= 0f) return
+        if (obj.text != null) {
+            paintTextObject(canvas, obj, opacity)
+            return
+        }
         val path = obj.path()
         val fillColor = obj.fill
         val gradient = obj.fillGradient

@@ -45,6 +45,35 @@ private fun NoVectorSelection() {
     )
 }
 
+/**
+ * Slider that keeps its own draft value while dragged. Each tick repaints only the
+ * canvas preview; the editor recomposes and renders the real layer on release.
+ */
+@Composable
+private fun VectorLiveSlider(
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    label: ((Float) -> String)? = null,
+    onPreview: (Float) -> Unit,
+    onFinished: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var draft by remember(value, valueRange) {
+        androidx.compose.runtime.mutableFloatStateOf(value.coerceIn(valueRange))
+    }
+    if (label != null) Text(label(draft))
+    Slider(
+        value = draft.coerceIn(valueRange),
+        valueRange = valueRange,
+        onValueChange = {
+            draft = it
+            onPreview(it)
+        },
+        onValueChangeFinished = onFinished,
+        modifier = modifier,
+    )
+}
+
 private fun vectorIcon(tool: VectorTool): ImageVector =
     when (tool) {
         VectorTool.DRAW -> Icons.Default.Brush
@@ -263,16 +292,18 @@ fun VectorObjectPanel(
                             modifier = Modifier.padding(end = 4.dp),
                         )
                     }
-                    Text("Tamanho: ${selected.fontSize.toInt()} px")
-                    Slider(
-                        value = selected.fontSize.coerceIn(4f, 200f),
+                    VectorLiveSlider(
+                        value = selected.fontSize,
                         valueRange = 4f..200f,
-                        onValueChange = {
+                        label = { "Tamanho: ${it.toInt()} px" },
+                        onPreview = { value ->
                             vector.beginInteractiveEdit()
-                            vector.setFontSize(it)
+                            vector.setFontSize(value)
+                        },
+                        onFinished = {
+                            vector.endInteractiveEdit()
                             onChanged()
                         },
-                        onValueChangeFinished = { vector.endInteractiveEdit() },
                     )
                     var spacing by
                         remember(selected.id) {
@@ -397,27 +428,31 @@ fun VectorObjectPanel(
                         Text("Cor do preenchimento")
                     }
                 }
-                Text("Espessura: ${selected.style.optDouble("size",14.0).toInt()} px")
-                Slider(
-                    value = selected.style.optDouble("size", 14.0).toFloat().coerceIn(1f, 100f),
+                VectorLiveSlider(
+                    value = selected.style.optDouble("size", 14.0).toFloat(),
                     valueRange = 1f..100f,
-                    onValueChange = { value ->
+                    label = { "Espessura: ${it.toInt()} px" },
+                    onPreview = { value ->
                         vector.beginInteractiveEdit()
                         vector.setObjectSize(value)
+                    },
+                    onFinished = {
+                        vector.endInteractiveEdit()
                         onChanged()
                     },
-                    onValueChangeFinished = { vector.endInteractiveEdit() },
                 )
-                Text("Opacidade: ${(selected.style.optDouble("opacity",1.0)*100).toInt()}%")
-                Slider(
-                    value = selected.style.optDouble("opacity", 1.0).toFloat().coerceIn(0f, 1f),
+                VectorLiveSlider(
+                    value = selected.style.optDouble("opacity", 1.0).toFloat(),
                     valueRange = 0f..1f,
-                    onValueChange = { value ->
+                    label = { "Opacidade: ${(it * 100).toInt()}%" },
+                    onPreview = { value ->
                         vector.beginInteractiveEdit()
                         vector.setObjectOpacity(value)
+                    },
+                    onFinished = {
+                        vector.endInteractiveEdit()
                         onChanged()
                     },
-                    onValueChangeFinished = { vector.endInteractiveEdit() },
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
@@ -487,17 +522,19 @@ fun VectorObjectPanel(
                                         .background(Color(stop.color), CircleShape)
                                         .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
                                 )
-                                Slider(
-                                    value = stop.offset.coerceIn(0f, 1f),
+                                VectorLiveSlider(
+                                    value = stop.offset,
                                     valueRange = 0f..1f,
-                                    onValueChange = { value ->
+                                    onPreview = { value ->
                                         vector.beginInteractiveEdit()
                                         vector.updateGradient { g ->
                                             g.stops.firstOrNull { it === stop }?.offset = value
                                         }
+                                    },
+                                    onFinished = {
+                                        vector.endInteractiveEdit()
                                         onChanged()
                                     },
-                                    onValueChangeFinished = { vector.endInteractiveEdit() },
                                     modifier = Modifier.weight(1f),
                                 )
                                 IconButton(
@@ -749,17 +786,19 @@ fun VectorObjectPanel(
                     ) {
                         Text(if (animation.playing) "Pausar" else "Reproduzir")
                     }
-                    Text("Quadro ${animation.currentFrame + 1} / ${animation.duration}")
                 }
-                Slider(
-                    value = animation.currentFrame.toFloat().coerceIn(0f, animation.duration.toFloat()),
+                VectorLiveSlider(
+                    value = animation.currentFrame.toFloat(),
                     valueRange = 0f..animation.duration.toFloat().coerceAtLeast(1f),
-                    onValueChange = {
+                    label = { "Quadro ${it.toInt() + 1} / ${animation.duration}" },
+                    onPreview = { value ->
                         vector.beginInteractiveEdit()
-                        vector.setAnimationFrame(it.toInt())
+                        vector.setAnimationFrame(value.toInt())
+                    },
+                    onFinished = {
+                        vector.endInteractiveEdit()
                         onChanged()
                     },
-                    onValueChangeFinished = { vector.endInteractiveEdit() },
                 )
                 var rotation by remember(selected.id) { mutableStateOf("0") }
                 var scale by remember(selected.id) { mutableStateOf("1") }
@@ -956,19 +995,19 @@ fun VectorObjectPanel(
                     }
                 } else {
                     rig.bones.forEach { bone ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(bone.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                            Text("${bone.localAngle.toInt()}°", style = MaterialTheme.typography.labelSmall)
-                        }
-                        Slider(
-                            value = bone.localAngle.coerceIn(-180f, 180f),
+                        Text(bone.name, style = MaterialTheme.typography.bodySmall)
+                        VectorLiveSlider(
+                            value = bone.localAngle,
                             valueRange = -180f..180f,
-                            onValueChange = {
+                            label = { "Ângulo: ${it.toInt()}°" },
+                            onPreview = { angle ->
                                 vector.beginInteractiveEdit()
-                                vector.poseBone(bone.id, it)
+                                vector.poseBone(bone.id, angle)
+                            },
+                            onFinished = {
+                                vector.endInteractiveEdit()
                                 onChanged()
                             },
-                            onValueChangeFinished = { vector.endInteractiveEdit() },
                         )
                     }
                     Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
@@ -1224,27 +1263,31 @@ fun VectorObjectPanel(
                         ) {
                             Text("Mover nó")
                         }
-                        Text("Pressão do nó: ${(node.pressure*100).toInt()}%")
-                        Slider(
-                            value = node.pressure.coerceIn(.01f, 1f),
+                        VectorLiveSlider(
+                            value = node.pressure,
                             valueRange = .01f..1f,
-                            onValueChange = { value ->
+                            label = { "Pressão do nó: ${(it * 100).toInt()}%" },
+                            onPreview = { value ->
                                 vector.beginInteractiveEdit()
                                 vector.changeSelected { node.pressure = value }
+                            },
+                            onFinished = {
+                                vector.endInteractiveEdit()
                                 onChanged()
                             },
-                            onValueChangeFinished = { vector.endInteractiveEdit() },
                         )
-                        Text("Largura do nó: ${String.format(Locale.ROOT, "%.2f", node.width)}×")
-                        Slider(
-                            value = node.width.coerceIn(.05f, 4f),
+                        VectorLiveSlider(
+                            value = node.width,
                             valueRange = .05f..4f,
-                            onValueChange = { value ->
+                            label = { "Largura do nó: ${String.format(Locale.ROOT, "%.2f", it)}×" },
+                            onPreview = { value ->
                                 vector.beginInteractiveEdit()
                                 vector.changeSelected { node.width = value }
+                            },
+                            onFinished = {
+                                vector.endInteractiveEdit()
                                 onChanged()
                             },
-                            onValueChangeFinished = { vector.endInteractiveEdit() },
                         )
                     }
                 }
