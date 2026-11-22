@@ -348,6 +348,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var animationBarVisible by remember {
         mutableStateOf(workspacePreferences.getBoolean("animation_bar_visible", false))
     }
+    var selectionBarVisible by remember { mutableStateOf(false) }
     var layersBarVisible by remember {
         mutableStateOf(workspacePreferences.getBoolean("layers_bar_visible", false))
     }
@@ -409,14 +410,11 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var customBrushTipName by remember { mutableStateOf("") }
     var showCreateGrainDialog by remember { mutableStateOf(false) }
     var customGrainName by remember { mutableStateOf("") }
-    var showWandSettings by remember { mutableStateOf(false) }
     var showTransformModeMenu by remember { mutableStateOf(false) }
     var showTransformActions by remember { mutableStateOf(false) }
     var activeTransformMode by remember { mutableStateOf(engine.transformModePreference) }
     var activeTransformInterpolation by remember { mutableStateOf(engine.transformInterpolation) }
     var transformLockAspect by remember { mutableStateOf(engine.transformLockAspect) }
-    var wandTolerance by remember { mutableFloatStateOf(engine.wandTolerance.toFloat()) }
-    var wandContiguous by remember { mutableStateOf(engine.wandContiguous) }
     var showSymmetryMenu by remember { mutableStateOf(false) }
     var showGuidesMenu by remember { mutableStateOf(false) }
     var guideMenuRevision by remember { mutableIntStateOf(0) }
@@ -466,15 +464,15 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     fun chooseTool(mode: ToolMode) {
         showSelectMenu = false
         toolMenuCategory = null
-        if (mode.name.startsWith("SELECT_") || mode == ToolMode.LASSO_FILL)
-            activePanel = WorkspacePanel.SELECTION
-        else if (activePanel == WorkspacePanel.SELECTION) activePanel = null
+        if (mode.name.startsWith("SELECT_") || mode == ToolMode.LASSO_FILL) {
+            activePanel = null
+            selectionBarVisible = true
+        }
         if (mode == ToolMode.SELECT_WAND) {
             if (isTransformActive) engine.cancelTransform()
             isTransformActive = false
             currentTool = mode
             engine.currentTool = mode
-            showWandSettings = true
         } else if (mode == ToolMode.TRANSFORM) {
             if (engine.beginTransform(selectionOnly = engine.selectionActive)) {
                 isTransformActive = true
@@ -862,257 +860,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                     onFilterApplied = { refreshState() },
                     onDismiss = { activePanel = null },
                 )
-            WorkspacePanel.SELECTION ->
-                Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)
-                ) {
-                    EditorPanelHeader("Seleção", { activePanel = null })
-                    Text(
-                        if (selectionActive) "Edite a área selecionada"
-                        else "Desenhe uma seleção na tela ou use Selecionar tudo.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Box {
-                            TextButton(
-                                onClick = { showSelectionOpMenu = true },
-                                contentPadding = PaddingValues(horizontal = 5.dp),
-                                modifier = Modifier.height(30.dp),
-                            ) {
-                                Text(engine.selectionOp.displayName, fontSize = 10.sp, maxLines = 1)
-                                Icon(
-                                    Icons.Default.ExpandMore,
-                                    null,
-                                    modifier = Modifier.size(14.dp),
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showSelectionOpMenu,
-                                onDismissRequest = { showSelectionOpMenu = false },
-                            ) {
-                                SelectionOp.values().forEach { operation ->
-                                    DropdownMenuItem(
-                                        text = { Text(operation.displayName) },
-                                        trailingIcon =
-                                            if (engine.selectionOp == operation) {
-                                                { Icon(Icons.Default.Check, null) }
-                                            } else null,
-                                        onClick = {
-                                            engine.selectionOp = operation
-                                            showSelectionOpMenu = false
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                        WorkspaceActionButton(
-                            onClick = {
-                                if (engine.copySelectionToClipboard()) canPasteSelection = true
-                                refreshState()
-                            },
-                            enabled = selectionActive,
-                            description = "Copiar seleção",
-                            modifier = Modifier.width(140.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.ContentCopy,
-                                contentDescription = "Copiar seleção",
-                                modifier = Modifier.size(17.dp),
-                            )
-                        }
-                        WorkspaceActionButton(
-                            onClick = {
-                                if (engine.cutSelectionToClipboard()) canPasteSelection = true
-                                refreshState()
-                            },
-                            enabled = selectionActive,
-                            description = "Recortar seleção",
-                            modifier = Modifier.width(140.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.ContentCut,
-                                contentDescription = "Recortar seleção",
-                                modifier = Modifier.size(17.dp),
-                            )
-                        }
-                        WorkspaceActionButton(
-                            onClick = {
-                                engine.fillSelection(currentColor)
-                                refreshState()
-                            },
-                            enabled = selectionActive,
-                            description = "Preencher",
-                            modifier = Modifier.width(140.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.FormatColorFill,
-                                contentDescription = "Preencher seleção",
-                                modifier = Modifier.size(17.dp),
-                            )
-                        }
-                        WorkspaceActionButton(
-                            onClick = { if (engine.cropCanvasToSelection()) refreshState() },
-                            enabled = selectionActive,
-                            description = "Cortar tela",
-                            modifier = Modifier.width(140.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.Crop,
-                                contentDescription = "Cortar tela para seleção",
-                                modifier = Modifier.size(17.dp),
-                            )
-                        }
-                        WorkspaceActionButton(
-                            onClick = {
-                                customBrushTipName =
-                                    "Ponta ${engine.presetCatalog.count { it.isCustom } + 1}"
-                                showCreateBrushTipDialog = true
-                            },
-                            enabled = selectionActive,
-                            description = "Criar ponta",
-                            modifier = Modifier.width(140.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.Brush,
-                                contentDescription = "Criar ponta de pincel",
-                                modifier = Modifier.size(17.dp),
-                            )
-                        }
-                        WorkspaceActionButton(
-                            onClick = {
-                                customGrainName =
-                                    "Textura ${engine.presetCatalog.count { it.isCustom } + 1}"
-                                showCreateGrainDialog = true
-                            },
-                            enabled = selectionActive,
-                            description = "Criar textura",
-                            modifier = Modifier.width(140.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.GridOn,
-                                contentDescription = "Criar textura de grão",
-                                modifier = Modifier.size(17.dp),
-                            )
-                        }
-                        WorkspaceActionButton(
-                            onClick = {
-                                engine.pasteSelectionClipboard()
-                                refreshState()
-                            },
-                            description = "Colar seleção",
-                            enabled = canPasteSelection,
-                            modifier = Modifier.width(140.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.ContentPaste,
-                                contentDescription = "Colar seleção",
-                                modifier = Modifier.size(17.dp),
-                            )
-                        }
-                        // Select All
-                        WorkspaceActionButton(
-                            onClick = {
-                                engine.selectAll()
-                                refreshState()
-                            },
-                            description = "Selecionar Tudo",
-                            modifier = Modifier.width(140.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.SelectAll,
-                                contentDescription = "Selecionar Tudo",
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-
-                        // Invert Selection
-                        WorkspaceActionButton(
-                            onClick = {
-                                engine.invertSelection()
-                                refreshState()
-                            },
-                            enabled = selectionActive,
-                            description = "Inverter Seleção",
-                            modifier = Modifier.width(140.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.InvertColors,
-                                contentDescription = "Inverter Seleção",
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-
-                        TextButton(
-                            onClick = { activePanel = WorkspacePanel.SELECTION },
-                            contentPadding = PaddingValues(horizontal = 5.dp),
-                            modifier = Modifier.height(32.dp),
-                        ) {
-                            Text("Suavizar borda", fontSize = 10.sp, maxLines = 1)
-                        }
-
-                        // Deselect
-                        WorkspaceActionButton(
-                            onClick = {
-                                engine.clearSelection()
-                                refreshState()
-                            },
-                            enabled = selectionActive,
-                            description = "Deselecionar",
-                            modifier = Modifier.width(140.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.Deselect,
-                                contentDescription = "Deselecionar",
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-
-                        // Delete Selected Pixels
-                        WorkspaceActionButton(
-                            onClick = {
-                                engine.clearSelectedPixels()
-                                refreshState()
-                            },
-                            enabled = selectionActive,
-                            description = "Apagar Pixels Selecionados",
-                            modifier = Modifier.width(140.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.DeleteOutline,
-                                contentDescription = "Apagar Pixels Selecionados",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-
-                        // Transform Selection (M4 / R1)
-                        WorkspaceActionButton(
-                            onClick = {
-                                val ok = engine.beginTransform(selectionOnly = true)
-                                if (ok) {
-                                    isTransformActive = true
-                                    transformLockAspect = engine.transformState?.lockAspect ?: true
-                                    activePanel = null
-                                    currentTool = ToolMode.TRANSFORM
-                                    refreshState()
-                                }
-                            },
-                            enabled = selectionActive,
-                            description = "Transformar Seleção",
-                            modifier = Modifier.width(140.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.OpenWith,
-                                contentDescription = "Transformar Seleção",
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                    }
-                }
             null -> Unit
         }
     }
@@ -1188,7 +935,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 if (engine.vectors.enabled) {
                                     vectorTabRequest = VectorPanelTab.APARENCIA
                                     activePanel = WorkspacePanel.VECTOR
-                                } else activePanel = WorkspacePanel.SELECTION
+                                } else selectionBarVisible = !selectionBarVisible
                             },
                             onColor = { activePanel = if (activePanel == WorkspacePanel.COLOR) null else WorkspacePanel.COLOR },
                             onBrush = {
@@ -1271,6 +1018,76 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             },
                         )
                     }
+                    if (selectionBarVisible) {
+                        SelectionCompactBar(
+                            engine = engine,
+                            selectionActive = selectionActive,
+                            canPasteSelection = canPasteSelection,
+                            currentColor = currentColor,
+                            onCopy = {
+                                if (engine.copySelectionToClipboard()) canPasteSelection = true
+                                refreshState()
+                            },
+                            onCut = {
+                                if (engine.cutSelectionToClipboard()) canPasteSelection = true
+                                refreshState()
+                            },
+                            onFill = {
+                                engine.fillSelection(currentColor)
+                                refreshState()
+                            },
+                            onCrop = {
+                                engine.cropCanvasToSelection()
+                                refreshState()
+                            },
+                            onPaste = {
+                                engine.pasteSelectionClipboard()
+                                refreshState()
+                            },
+                            onSelectAll = {
+                                engine.selectAll()
+                                refreshState()
+                            },
+                            onInvert = {
+                                engine.invertSelection()
+                                refreshState()
+                            },
+                            onFeather = {
+                                selectionFeatherRadius = 4f
+                                showSelectionFeatherDialog = true
+                            },
+                            onDeselect = {
+                                engine.clearSelection()
+                                refreshState()
+                            },
+                            onDeletePixels = {
+                                engine.clearSelectedPixels()
+                                refreshState()
+                            },
+                            onTransform = {
+                                if (engine.beginTransform(selectionOnly = true)) {
+                                    isTransformActive = true
+                                    transformLockAspect =
+                                        engine.transformState?.lockAspect ?: true
+                                    selectionBarVisible = false
+                                    activePanel = null
+                                    currentTool = ToolMode.TRANSFORM
+                                    refreshState()
+                                }
+                            },
+                            onCreateTip = {
+                                customBrushTipName =
+                                    "Ponta ${engine.presetCatalog.count { it.isCustom } + 1}"
+                                showCreateBrushTipDialog = true
+                            },
+                            onCreateGrain = {
+                                customGrainName =
+                                    "Textura ${engine.presetCatalog.count { it.isCustom } + 1}"
+                                showCreateGrainDialog = true
+                            },
+                            onClose = { selectionBarVisible = false },
+                        )
+                    }
                     if (animationBarVisible) {
                         when {
                             vectorMode -> VectorAnimationCompactBar(
@@ -1326,7 +1143,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 activePanel = WorkspacePanel.BRUSHES
                             } else if (isTransformActive) Unit
                             else if (selectionActive || currentTool.name.startsWith("SELECT_"))
-                                activePanel = WorkspacePanel.SELECTION
+                                selectionBarVisible = !selectionBarVisible
                             else showSelectMenu = true
                         },
                         brushName = activeBrushName,
@@ -2014,42 +1831,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                 },
                 dismissButton = {
                     TextButton(onClick = { showClearLayerConfirm = false }) { Text("Cancelar") }
-                },
-            )
-        }
-        if (showWandSettings) {
-            AlertDialog(
-                onDismissRequest = { showWandSettings = false },
-                title = { Text("Varinha mágica") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            "Tolerância: ${wandTolerance.toInt()}",
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                        Slider(
-                            value = wandTolerance,
-                            onValueChange = {
-                                wandTolerance = it
-                                engine.wandTolerance = it.toInt()
-                            },
-                            valueRange = 0f..255f,
-                            steps = 254,
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = wandContiguous,
-                                onCheckedChange = {
-                                    wandContiguous = it
-                                    engine.wandContiguous = it
-                                },
-                            )
-                            Text("Selecionar apenas pixels conectados")
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showWandSettings = false }) { Text("Pronto") }
                 },
             )
         }

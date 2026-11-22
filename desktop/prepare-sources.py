@@ -55,6 +55,26 @@ for src in base.rglob('*'):
                 layersBarVisible = true
                 refreshState(false)
             }
+            "selectionBar" -> {
+                activePanel = null
+                selectionBarVisible = true
+                engine.selectAll()
+                refreshState(false)
+            }
+            "pinnedParams" -> {
+                activePanel = null
+                animationBarVisible = false
+                layersBarVisible = false
+                selectionBarVisible = false
+                quickSlidersOpen = false
+                val pinned = sideSliderSettings.filter { it.pinned }
+                if (pinned.size < 2) {
+                    sideSliderSettings =
+                        sideSliderSettings.map { it.copy(pinned = true) }
+                    storageManager.saveSideSliders(sideSliderSettings)
+                }
+                refreshState(false)
+            }
             "transform" -> {
                 if (engine.beginTransform(selectionOnly = engine.selectionActive)) {
                     isTransformActive = true

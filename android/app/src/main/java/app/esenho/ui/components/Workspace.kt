@@ -41,7 +41,6 @@ enum class WorkspacePanel(val title: String, val icon: ImageVector) {
     VECTOR("Objetos vetoriais", Icons.Default.Polyline),
     LAYERS("Camadas", Icons.Default.Layers),
     EFFECTS("Efeitos", Icons.Default.AutoAwesome),
-    SELECTION("Seleção", Icons.Default.CropFree),
     SCRIPTS("Scripts", Icons.Default.Code),
 }
 
@@ -286,9 +285,13 @@ fun WorkspaceProperties(
                     val cells: List<app.esenho.nativeengine.EsenhoStorageManager.SideSliderSetting?> =
                         if (pinnedSliders.isEmpty()) listOf(null) else pinnedSliders
                     cells.forEachIndexed { index, setting ->
-                        // The popup is anchored to the first cell, so it opens next to the parameters
-                        // instead of at the far edge of a full-width row.
-                        Box(Modifier.width(WorkspaceStyle.ParameterWidth).height(WorkspaceStyle.ItemHeight)) {
+                        // Pinned parameters share the free width of the bar equally. The popup is
+                        // anchored to the first cell, so it opens next to the parameters instead of
+                        // at the far edge of a full-width row.
+                        Box(
+                            Modifier.weight(1f)
+                                .height(WorkspaceStyle.ItemHeight)
+                        ) {
                             QuickParameterTrigger(
                                 engine,
                                 setting,
