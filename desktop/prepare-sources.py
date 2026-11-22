@@ -121,6 +121,21 @@ for src in base.rglob('*'):
             "brushes" -> { activePanel = WorkspacePanel.BRUSHES; refreshState(false) }
             "brushProperties" -> {
                 activePanel = WorkspacePanel.BRUSHES
+                brushSectionRequest = null
+                brushPropertiesRequest++
+                refreshState(false)
+            }
+            "brushBasico", "brushForma", "brushDinamica", "brushTextura", "brushTinta", "brushCurvas" -> {
+                val section = when (command) {
+                    "brushForma" -> BrushSection.SHAPE
+                    "brushDinamica" -> BrushSection.DYNAMICS
+                    "brushTextura" -> BrushSection.TEXTURE
+                    "brushTinta" -> BrushSection.PAINT
+                    "brushCurvas" -> BrushSection.CURVES
+                    else -> BrushSection.BASIC
+                }
+                activePanel = WorkspacePanel.BRUSHES
+                brushSectionRequest = section
                 brushPropertiesRequest++
                 refreshState(false)
             }

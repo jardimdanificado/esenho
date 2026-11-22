@@ -3,10 +3,13 @@ package app.esenho.nativeengine
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RadialGradient
 import android.graphics.RectF
+import android.graphics.Shader
 import kotlin.math.*
 import org.json.JSONArray
 import org.json.JSONObject
@@ -404,9 +407,36 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
     var editFillColor = false
     private var penPathId: String? = null
     private var appearanceToken = 0L
+    private var interactiveEdit = false
+    private var interactiveDirty = false
 
     fun finishAppearanceEdit() {
         appearanceToken = 0L
+    }
+
+    /**
+     * Defers full layer re-rendering while a control (slider) is being dragged. The overlay
+     * draws a cheap preview of the selected object; one real render runs on [endInteractiveEdit].
+     */
+    fun beginInteractiveEdit() {
+        if (interactiveEdit) return
+        interactiveEdit = true
+        interactiveDirty = false
+        /* Repaint the layer once without the edited object, so the overlay
+         * preview replaces it instead of stacking on top of a stale copy. */
+        selected?.takeIf(::canPreview)?.let {
+            render(exclude = it)
+            interactiveDirty = true
+        }
+    }
+
+    fun endInteractiveEdit() {
+        if (!interactiveEdit) return
+        interactiveEdit = false
+        val dirty = interactiveDirty
+        interactiveDirty = false
+        finishAppearanceEdit()
+        if (dirty) render()
     }
 
     fun finishPen() {
@@ -443,6 +473,8 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         releaseStrokeBase()
         finishPen()
         finishAppearanceEdit()
+        interactiveEdit = false
+        interactiveDirty = false
         selection.finish()
         layers.clear()
         groups.clear()
@@ -457,6 +489,8 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         engine.cancelActiveStroke()
         finishPen()
         finishAppearanceEdit()
+        interactiveEdit = false
+        interactiveDirty = false
         engine.isAnimationPlaying = false
         if (enabled == vector) return
         if (vector) {
@@ -621,8 +655,18 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         val bone = rig.bone(id) ?: return
         bone.localAngle = angle
         rig.updateFk()
-        engine.beginVectorEdit()
-        render()
+        if (interactiveEdit) {
+            if (appearanceToken == 0L) appearanceToken = engine.beginVectorEdit()
+            interactiveDirty = true
+        } else {
+            engine.beginVectorEdit()
+            render()
+        }
+    }
+
+    fun setAnimationFrame(frame: Int) {
+        animation.currentFrame = frame.coerceIn(0, animation.duration - 1)
+        if (interactiveEdit) interactiveDirty = true else render()
     }
 
     fun configureBonePhysics(
@@ -1060,7 +1104,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
             } ?: return
         if (appearanceToken == 0L) appearanceToken = engine.beginVectorEdit()
         targets.forEach(action)
-        render()
+        if (interactiveEdit) interactiveDirty = true else render()
     }
 
     fun changeAppearance(action: (VectorObject) -> Unit) {
@@ -1089,10 +1133,10 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
 
     fun changeSelected(action: (VectorObject) -> Unit) {
         val obj = selected?.takeIf { !it.locked && it.visible } ?: return
-        finishAppearanceEdit()
-        engine.beginVectorEdit()
+        if (!interactiveEdit) finishAppearanceEdit()
+        if (appearanceToken == 0L) appearanceToken = engine.beginVectorEdit()
         action(obj)
-        render()
+        if (interactiveEdit) interactiveDirty = true else render()
     }
 
     fun applyStyle() = changeAppearance { it.style = engine.captureVectorStyle() }
@@ -1796,7 +1840,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         }
     }
 
-    fun render(append: VectorObject? = null) {
+    fun render(append: VectorObject? = null, exclude: VectorObject? = null) {
         val objects = layers[engine.activeLayerIndex] ?: return
         val saved = engine.captureVectorStyle()
         val tool = engine.currentTool
@@ -1977,7 +2021,8 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 )
             }
             val visible =
-                (if (append == null) objects else listOf(append)).filter { it.visible }
+                (if (append == null) objects else listOf(append))
+                    .filter { it.visible && it.id != exclude?.id }
             val display =
                 visible.map { obj ->
                     val skinned = skeleton?.apply(obj) ?: obj
@@ -2036,6 +2081,98 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
         engine.getRenderBitmap()
     }
 
+    private fun previewColor(color: Int, opacity: Float): Int {
+        val alpha = (((color ushr 24) and 0xff) * opacity.coerceIn(0f, 1f)).toInt().coerceIn(0, 255)
+        return (alpha shl 24) or (color and 0x00ffffff)
+    }
+
+    private fun previewShader(
+        gradient: VectorGradient,
+        bounds: RectF,
+        opacity: Float,
+    ): Shader? {
+        val sorted = gradient.stops.sortedBy { it.offset }
+        if (sorted.size < 2) return null
+        val colors = sorted.map { previewColor(it.color, it.opacity * opacity) }.toIntArray()
+        val positions = sorted.map { it.offset.coerceIn(0f, 1f) }.toFloatArray()
+        val startX =
+            if (gradient.userSpace) gradient.startX else bounds.left + gradient.startX * bounds.width()
+        val startY =
+            if (gradient.userSpace) gradient.startY else bounds.top + gradient.startY * bounds.height()
+        val endX =
+            if (gradient.userSpace) gradient.endX else bounds.left + gradient.endX * bounds.width()
+        val endY =
+            if (gradient.userSpace) gradient.endY else bounds.top + gradient.endY * bounds.height()
+        val radius =
+            if (gradient.userSpace) gradient.radius
+            else maxOf(bounds.width(), bounds.height()) * gradient.radius
+        return if (gradient.type == "radial")
+            RadialGradient(
+                startX,
+                startY,
+                radius.coerceAtLeast(.001f),
+                colors,
+                positions,
+                Shader.TileMode.CLAMP,
+            )
+        else LinearGradient(startX, startY, endX, endY, colors, positions, Shader.TileMode.CLAMP)
+    }
+
+    private fun canPreview(obj: VectorObject): Boolean =
+        obj.visible &&
+            !obj.locked &&
+            obj.imageData == null &&
+            obj.text == null &&
+            !obj.style.optBoolean("svgStroke", false)
+
+    private fun drawInteractivePreview(canvas: Canvas) {
+        if (!interactiveEdit || !interactiveDirty) return
+        val source = selected?.takeIf(::canPreview) ?: return
+        val skinned = skeleton?.apply(source) ?: source
+        val obj =
+            animation.evaluate(skinned, animation.currentFrame)?.let { animatedObject(skinned, it) }
+                ?: skinned
+        val opacity = obj.style.optDouble("opacity", 1.0).toFloat().coerceIn(0f, 1f)
+        if (opacity <= 0f) return
+        val path = obj.path()
+        val fillColor = obj.fill
+        val gradient = obj.fillGradient
+        if (gradient != null || fillColor != null) {
+            val bounds = RectF()
+            path.computeBounds(bounds, true)
+            val baseColor =
+                fillColor ?: gradient?.stops?.minByOrNull { it.offset }?.color ?: 0xffffffff.toInt()
+            val paint =
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.FILL
+                    color = previewColor(baseColor, opacity)
+                    shader = gradient?.let { previewShader(it, bounds, opacity) }
+                }
+            canvas.drawPath(path, paint)
+        }
+        if (obj.style.optBoolean("strokeEnabled", true)) {
+            val paint =
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    color = previewColor(obj.style.optInt("color", engine.currentColor), opacity)
+                    strokeWidth = obj.style.optDouble("size", 14.0).toFloat().coerceIn(.1f, 400f)
+                    strokeCap =
+                        when (obj.style.optString("cap", "round")) {
+                            "butt" -> Paint.Cap.BUTT
+                            "square" -> Paint.Cap.SQUARE
+                            else -> Paint.Cap.ROUND
+                        }
+                    strokeJoin =
+                        when (obj.style.optString("join", "round")) {
+                            "miter" -> Paint.Join.MITER
+                            "bevel" -> Paint.Join.BEVEL
+                            else -> Paint.Join.ROUND
+                        }
+                }
+            canvas.drawPath(path, paint)
+        }
+    }
+
     fun drawOverlay(canvas: Canvas) {
         val scale = engine.vectorViewScale.coerceAtLeast(.01f)
         val paint =
@@ -2065,6 +2202,7 @@ class VectorWorkspace(private val engine: EsenhoEngine) {
                 canvas.drawCircle(bone.worldX1, bone.worldY1, HandleMetrics.dp(3f, scale), bonePaint)
             }
         }
+        drawInteractivePreview(canvas)
         if (tool == VectorTool.SELECT) selection.draw(canvas, paint)
         selected
             ?.takeIf { tool != VectorTool.SELECT && it.visible }

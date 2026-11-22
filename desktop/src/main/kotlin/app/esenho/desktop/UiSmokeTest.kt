@@ -242,6 +242,38 @@ suspend fun exerciseLayerReordering(window: java.awt.Window) {
     println("Desktop UI: layer chip long-press reorder OK")
 }
 
+/** A vertical drag over a slider must scroll the list and keep the brush value unchanged. */
+suspend fun exerciseBrushSliderScroll(window: java.awt.Window) {
+    val engine = checkNotNull(desktopUiTestCanvas).engine!!
+    checkNotNull(desktopUiTestCommand)("brushTinta")
+    kotlinx.coroutines.delay(700)
+    val target = children(window).filterIsInstance<SkiaLayer>().first { it.isShowing }.canvas
+    val before = engine.getPresetParam(50)
+    val x = target.width - 190
+    var stamp = System.currentTimeMillis()
+    fun event(id: Int, y: Int, mask: Int) {
+        stamp += 30
+        target.dispatchEvent(java.awt.event.MouseEvent(target, id, stamp, mask, x, y, 1, false, 1))
+    }
+    event(java.awt.event.MouseEvent.MOUSE_PRESSED, 205, java.awt.event.InputEvent.BUTTON1_DOWN_MASK)
+    kotlinx.coroutines.delay(60)
+    for (step in 1..10) {
+        event(
+            java.awt.event.MouseEvent.MOUSE_DRAGGED,
+            205 - step * 14,
+            java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
+        )
+        kotlinx.coroutines.delay(30)
+    }
+    event(java.awt.event.MouseEvent.MOUSE_RELEASED, 65, 0)
+    kotlinx.coroutines.delay(400)
+    check(engine.getPresetParam(50) == before) {
+        "vertical scroll over a slider changed the brush value: $before -> ${engine.getPresetParam(50)}"
+    }
+    captureEditor(window, File("desktop/build/ui-brush-scrolled.png"))
+    println("Desktop UI: brush slider keeps vertical scroll OK")
+}
+
 /** Clicks the second entry of the brush shelf and checks the engine actually switched brush. */
 suspend fun exerciseBrushShelf(window: java.awt.Window) {
     val view = checkNotNull(desktopUiTestCanvas)

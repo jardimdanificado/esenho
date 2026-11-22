@@ -100,6 +100,7 @@ class Paint(flags: Int = 0) {
     var isFilterBitmap = flags and FILTER_BITMAP_FLAG != 0
     var colorFilter: PorterDuffColorFilter? = null
     var xfermode: PorterDuffXfermode? = null
+    var shader: Shader? = null
     var pathEffect: DashPathEffect? = null
     var typeface: String? = null
     var bold: Boolean = false
@@ -141,6 +142,7 @@ private constructor(
 
     private fun setup(p: Paint) {
         graphics.color = java.awt.Color(p.color, true)
+        p.shader?.awtPaint()?.let { graphics.paint = it }
         graphics.composite =
             when (p.xfermode?.mode) {
                 PorterDuff.Mode.DST_IN -> AlphaComposite.DstIn

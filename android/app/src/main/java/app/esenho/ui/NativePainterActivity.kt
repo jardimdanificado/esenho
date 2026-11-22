@@ -349,6 +349,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         mutableStateOf(workspacePreferences.getBoolean("animation_bar_visible", false))
     }
     var selectionBarVisible by remember { mutableStateOf(false) }
+    var brushSectionRequest by remember { mutableStateOf<BrushSection?>(null) }
     var layersBarVisible by remember {
         mutableStateOf(workspacePreferences.getBoolean("layers_bar_visible", false))
     }
@@ -806,6 +807,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         presetRequest = brushPresetRequest,
                         propertiesRequest = brushPropertiesRequest,
                         revision = engineRevision,
+                        requestedSection = brushSectionRequest,
                         onToggleFavorite = { id ->
                             val updated =
                                 favoriteBrushIds.toMutableSet().apply { if (!add(id)) remove(id) }

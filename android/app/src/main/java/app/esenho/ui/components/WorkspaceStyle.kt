@@ -2,8 +2,10 @@ package app.esenho.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -124,17 +126,31 @@ fun WorkspaceSlider(
             .then(
                 if (!enabled) Modifier
                 else
-                    Modifier.pointerInput(valueRange.start, valueRange.endInclusive) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown()
-                            onValueChange(valueAt(down.position.x))
-                            drag(down.id) { change ->
-                                onValueChange(valueAt(change.position.x))
-                                change.consume()
+                    Modifier
+                        // A tap anywhere on the track sets the value, but a drag only owns the
+                        // gesture after horizontal touch slop. Vertical drags stay with the parent
+                        // scroll container, so lists with sliders stay scrollable.
+                        .pointerInput(valueRange.start, valueRange.endInclusive) {
+                            detectTapGestures { position ->
+                                onValueChange(valueAt(position.x))
+                                onValueChangeFinished?.invoke()
                             }
-                            onValueChangeFinished?.invoke()
                         }
-                    }
+                        .pointerInput(valueRange.start, valueRange.endInclusive) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val slop =
+                                    awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ ->
+                                        onValueChange(valueAt(change.position.x))
+                                    } ?: return@awaitEachGesture
+                                onValueChange(valueAt(slop.position.x))
+                                horizontalDrag(slop.id) { change ->
+                                    onValueChange(valueAt(change.position.x))
+                                    change.consume()
+                                }
+                                onValueChangeFinished?.invoke()
+                            }
+                        }
             )
             .semantics {
                 progressBarRangeInfo =

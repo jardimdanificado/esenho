@@ -268,9 +268,11 @@ fun VectorObjectPanel(
                         value = selected.fontSize.coerceIn(4f, 200f),
                         valueRange = 4f..200f,
                         onValueChange = {
+                            vector.beginInteractiveEdit()
                             vector.setFontSize(it)
                             onChanged()
                         },
+                        onValueChangeFinished = { vector.endInteractiveEdit() },
                     )
                     var spacing by
                         remember(selected.id) {
@@ -400,20 +402,22 @@ fun VectorObjectPanel(
                     value = selected.style.optDouble("size", 14.0).toFloat().coerceIn(1f, 100f),
                     valueRange = 1f..100f,
                     onValueChange = { value ->
+                        vector.beginInteractiveEdit()
                         vector.setObjectSize(value)
                         onChanged()
                     },
-                    onValueChangeFinished = { vector.finishAppearanceEdit() },
+                    onValueChangeFinished = { vector.endInteractiveEdit() },
                 )
                 Text("Opacidade: ${(selected.style.optDouble("opacity",1.0)*100).toInt()}%")
                 Slider(
                     value = selected.style.optDouble("opacity", 1.0).toFloat().coerceIn(0f, 1f),
                     valueRange = 0f..1f,
                     onValueChange = { value ->
+                        vector.beginInteractiveEdit()
                         vector.setObjectOpacity(value)
                         onChanged()
                     },
-                    onValueChangeFinished = { vector.finishAppearanceEdit() },
+                    onValueChangeFinished = { vector.endInteractiveEdit() },
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
@@ -487,11 +491,13 @@ fun VectorObjectPanel(
                                     value = stop.offset.coerceIn(0f, 1f),
                                     valueRange = 0f..1f,
                                     onValueChange = { value ->
+                                        vector.beginInteractiveEdit()
                                         vector.updateGradient { g ->
                                             g.stops.firstOrNull { it === stop }?.offset = value
                                         }
                                         onChanged()
                                     },
+                                    onValueChangeFinished = { vector.endInteractiveEdit() },
                                     modifier = Modifier.weight(1f),
                                 )
                                 IconButton(
@@ -749,10 +755,11 @@ fun VectorObjectPanel(
                     value = animation.currentFrame.toFloat().coerceIn(0f, animation.duration.toFloat()),
                     valueRange = 0f..animation.duration.toFloat().coerceAtLeast(1f),
                     onValueChange = {
-                        animation.currentFrame = it.toInt().coerceIn(0, animation.duration - 1)
-                        vector.render()
+                        vector.beginInteractiveEdit()
+                        vector.setAnimationFrame(it.toInt())
                         onChanged()
                     },
+                    onValueChangeFinished = { vector.endInteractiveEdit() },
                 )
                 var rotation by remember(selected.id) { mutableStateOf("0") }
                 var scale by remember(selected.id) { mutableStateOf("1") }
@@ -957,9 +964,11 @@ fun VectorObjectPanel(
                             value = bone.localAngle.coerceIn(-180f, 180f),
                             valueRange = -180f..180f,
                             onValueChange = {
+                                vector.beginInteractiveEdit()
                                 vector.poseBone(bone.id, it)
                                 onChanged()
                             },
+                            onValueChangeFinished = { vector.endInteractiveEdit() },
                         )
                     }
                     Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
@@ -1220,18 +1229,22 @@ fun VectorObjectPanel(
                             value = node.pressure.coerceIn(.01f, 1f),
                             valueRange = .01f..1f,
                             onValueChange = { value ->
+                                vector.beginInteractiveEdit()
                                 vector.changeSelected { node.pressure = value }
                                 onChanged()
                             },
+                            onValueChangeFinished = { vector.endInteractiveEdit() },
                         )
                         Text("Largura do nó: ${String.format(Locale.ROOT, "%.2f", node.width)}×")
                         Slider(
                             value = node.width.coerceIn(.05f, 4f),
                             valueRange = .05f..4f,
                             onValueChange = { value ->
+                                vector.beginInteractiveEdit()
                                 vector.changeSelected { node.width = value }
                                 onChanged()
                             },
+                            onValueChangeFinished = { vector.endInteractiveEdit() },
                         )
                     }
                 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -168,6 +169,7 @@ fun BrushDrawer(
     presetRequest: Int = 0,
     propertiesRequest: Int = 0,
     revision: Int = 0,
+    requestedSection: BrushSection? = null,
 ) {
     var activeTab by remember {
         mutableStateOf(
@@ -299,6 +301,7 @@ fun BrushDrawer(
                     preset = engine.selectedPreset,
                     onBack = { showTuner = false },
                     onClose = onDismiss,
+                    requestedSection = requestedSection,
                     onBrushUpdated = {
                         catalogVersion++
                         onBrushUpdated()
@@ -306,48 +309,41 @@ fun BrushDrawer(
                 )
             } else {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth().height(28.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     WorkspaceChoiceChip(
                         selected = activeTab == BrushDrawerTab.PRESETS,
                         onClick = { activeTab = BrushDrawerTab.PRESETS },
-                        label = {
-                            Text("Biblioteca", fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
-                        },
-                        modifier = Modifier.weight(1f).height(32.dp),
+                        label = { Text("Biblioteca", fontSize = 11.sp) },
+                        modifier = Modifier.weight(1f).height(26.dp),
                     )
                     WorkspaceChoiceChip(
                         selected = activeTab == BrushDrawerTab.WASM_PROCEDURAL,
                         onClick = { activeTab = BrushDrawerTab.WASM_PROCEDURAL },
-                        label = {
-                            Text("Procedurais", fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
-                        },
-                        modifier = Modifier.weight(1f).height(32.dp),
+                        label = { Text("Procedurais", fontSize = 11.sp) },
+                        modifier = Modifier.weight(1f).height(26.dp),
                     )
-                    IconButton(
-                        onClick = { showTuner = true },
-                        modifier = Modifier.size(32.dp),
-                    ) {
-                        Icon(Icons.Default.Tune, contentDescription = "Propriedades do pincel")
+                    IconButton(onClick = { showTuner = true }, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Tune, "Propriedades do pincel", Modifier.size(16.dp))
                     }
                 }
 
                 Row(
-                    Modifier.fillMaxWidth().height(36.dp),
+                    Modifier.fillMaxWidth().height(32.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
                     Box {
                         IconButton(
                             onClick = { categoryMenuExpanded = true },
-                            modifier = Modifier.size(32.dp),
+                            modifier = Modifier.size(28.dp),
                         ) {
                             Icon(
                                 Icons.Default.FilterList,
                                 "Categoria: $selectedCategory",
-                                Modifier.size(18.dp),
+                                Modifier.size(16.dp),
                             )
                         }
                         DropdownMenu(categoryMenuExpanded, { categoryMenuExpanded = false }) {
@@ -368,46 +364,21 @@ fun BrushDrawer(
                                 }
                         }
                     }
-                    BasicTextField(
-                        searchQuery,
-                        { searchQuery = it },
-                        singleLine = true,
-                        textStyle =
-                            TextStyle(
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    WorkspaceSearchField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = "Buscar pincel",
                         modifier = Modifier.weight(1f),
-                        decorationBox = { input ->
-                            Box(
-                                Modifier.fillMaxWidth()
-                                    .height(32.dp)
-                                    .clip(RoundedCornerShape(3.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .padding(horizontal = 8.dp),
-                                contentAlignment = Alignment.CenterStart,
-                            ) {
-                                if (searchQuery.isEmpty())
-                                    Text(
-                                        "Buscar · $selectedCategory",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 1,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                input()
-                            }
-                        },
                     )
                     IconToggleButton(
                         checked = favoritesOnly,
                         onCheckedChange = { favoritesOnly = it },
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(28.dp),
                     ) {
                         Icon(
                             if (favoritesOnly) Icons.Default.Star else Icons.Default.StarBorder,
                             "Filtrar favoritos",
-                            Modifier.size(18.dp),
+                            Modifier.size(16.dp),
                         )
                     }
                 }
@@ -499,7 +470,7 @@ fun PresetItemCard(
     Surface(
         modifier =
             Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(3.dp))
+                .clip(RoundedCornerShape(WorkspaceStyle.ItemRadius))
                 .clickable { onClick() },
         color =
             if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
@@ -507,7 +478,7 @@ fun PresetItemCard(
         tonalElevation = 0.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -590,7 +561,7 @@ fun BrushItemCard(
     Surface(
         modifier =
             Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(3.dp))
+                .clip(RoundedCornerShape(WorkspaceStyle.ItemRadius))
                 .clickable { onClick() },
         color =
             if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
@@ -598,7 +569,7 @@ fun BrushItemCard(
         tonalElevation = 0.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -695,6 +666,16 @@ enum class PresetTunerTab(val title: String) {
     JITTER("Jitter"),
 }
 
+/** Grouped sections of the brush properties editor. */
+enum class BrushSection(val title: String) {
+    BASIC("Básico"),
+    SHAPE("Forma"),
+    DYNAMICS("Dinâmica"),
+    TEXTURE("Textura"),
+    PAINT("Tinta"),
+    CURVES("Curvas"),
+}
+
 val BUILTIN_SHAPES =
     listOf(
         "circle" to "Círculo",
@@ -761,21 +742,23 @@ internal fun CompactOptionDropdown(
     Box(modifier = Modifier.fillMaxWidth()) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-            shape = RoundedCornerShape(3.dp),
-            modifier = Modifier.fillMaxWidth().clickable { expanded = true },
+            shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
+            modifier = Modifier.fillMaxWidth().height(28.dp).clickable { expanded = true },
         ) {
             Row(
-                Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                Modifier.fillMaxHeight().padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Text(title, modifier = Modifier.weight(1f), fontSize = 12.sp)
+                Text(title, modifier = Modifier.weight(1f), fontSize = 11.sp, maxLines = 1)
                 Text(
                     options.firstOrNull { it.first == selectedKey }?.second ?: selectedKey,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
                 )
                 TrackParameterButton(trackingId)
-                Icon(Icons.Default.ArrowDropDown, null)
+                Icon(Icons.Default.ArrowDropDown, null, Modifier.size(16.dp))
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -796,6 +779,7 @@ internal fun CompactOptionDropdown(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BrushPropertiesPanel(
     engine: EsenhoEngine,
@@ -803,13 +787,39 @@ fun BrushPropertiesPanel(
     onBrushUpdated: () -> Unit,
     onBack: () -> Unit,
     onClose: () -> Unit,
+    requestedSection: BrushSection? = null,
 ) {
     val brush = engine.selectedBrush
     val brushKey = preset?.let { "preset:${it.id}" } ?: brush?.let { "brush:${it.id}" } ?: "classic"
-    var tunerTab by remember(brushKey) { mutableStateOf(PresetTunerTab.COMMON) }
-    val tabs = if (brush != null) listOf(PresetTunerTab.COMMON, PresetTunerTab.SPECIFIC, PresetTunerTab.CURVES)
-        else if (preset != null) PresetTunerTab.values().filter { it != PresetTunerTab.SPECIFIC }
-        else listOf(PresetTunerTab.COMMON, PresetTunerTab.CURVES)
+    var section by remember(brushKey) { mutableStateOf(BrushSection.BASIC) }
+    LaunchedEffect(requestedSection) {
+        if (requestedSection != null) section = requestedSection
+    }
+    // Which property groups this brush exposes. Procedural brushes only own their
+    // common values, specific parameters and curves; the classic preset opens everything.
+    val sections =
+        when {
+            brush != null -> listOf(BrushSection.BASIC, BrushSection.CURVES)
+            preset != null ->
+                listOf(
+                    BrushSection.BASIC,
+                    BrushSection.SHAPE,
+                    BrushSection.DYNAMICS,
+                    BrushSection.TEXTURE,
+                    BrushSection.PAINT,
+                    BrushSection.CURVES,
+                )
+            else -> listOf(BrushSection.BASIC, BrushSection.CURVES)
+        }
+    val sectionTabs =
+        when (section) {
+            BrushSection.BASIC -> listOf(PresetTunerTab.COMMON)
+            BrushSection.SHAPE -> listOf(PresetTunerTab.TIP)
+            BrushSection.DYNAMICS -> listOf(PresetTunerTab.DYNAMICS, PresetTunerTab.JITTER)
+            BrushSection.TEXTURE -> listOf(PresetTunerTab.TEXTURE)
+            BrushSection.PAINT -> listOf(PresetTunerTab.PHYSICS, PresetTunerTab.REALISM)
+            BrushSection.CURVES -> listOf(PresetTunerTab.CURVES)
+        }
     var tunerVersion by remember(brushKey) { mutableIntStateOf(0) }
     val currentSpecificValues = brush?.params?.map { it.currentVal }.orEmpty()
     val specificValues = remember(brushKey, tunerVersion, currentSpecificValues) { currentSpecificValues }
@@ -825,54 +835,58 @@ fun BrushPropertiesPanel(
     }
 
     Column(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
-        Row(Modifier.fillMaxWidth().height(32.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth().height(32.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
             IconButton(onBack, Modifier.size(28.dp)) {
                 Icon(Icons.Default.ArrowBack, "Voltar aos pincéis", Modifier.size(16.dp))
             }
             Text(
                 engine.activeBrushDisplayName,
                 Modifier.weight(1f),
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.labelLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            // Delete button for custom presets
-            if (preset?.isCustom == true) {
-                IconButton(
-                    onClick = { showDeleteConfirmDialog = true },
-                    modifier = Modifier.size(28.dp),
-                ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Excluir Preset",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            }
-
             if (preset != null) {
-                TextButton(
-                    onClick = {
-                        engine.resetPresetToDefaults()
-                        tunerVersion++
-                        onBrushUpdated()
-                    },
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                    modifier = Modifier.height(30.dp).defaultMinSize(minWidth = 1.dp),
-                ) {
-                    Text("Padrão", fontSize = 11.sp)
-                }
-                TextButton(
-                    onClick = {
-                        presetNameInput = "${preset.name} (Cópia)"
-                        saveErrorMessage = null
-                        showSavePresetDialog = true
-                    },
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                    modifier = Modifier.height(30.dp).defaultMinSize(minWidth = 1.dp),
-                ) {
-                    Text("Salvar", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                var actionsMenu by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(
+                        onClick = { actionsMenu = true },
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(Icons.Default.MoreVert, "Ações do pincel", Modifier.size(17.dp))
+                    }
+                    DropdownMenu(actionsMenu, { actionsMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Restaurar padrão") },
+                            onClick = {
+                                actionsMenu = false
+                                engine.resetPresetToDefaults()
+                                tunerVersion++
+                                onBrushUpdated()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Salvar como preset…") },
+                            onClick = {
+                                actionsMenu = false
+                                presetNameInput = "${preset.name} (Cópia)"
+                                saveErrorMessage = null
+                                showSavePresetDialog = true
+                            },
+                        )
+                        if (preset.isCustom)
+                            DropdownMenuItem(
+                                text = { Text("Excluir preset", color = MaterialTheme.colorScheme.error) },
+                                onClick = {
+                                    actionsMenu = false
+                                    showDeleteConfirmDialog = true
+                                },
+                            )
+                    }
                 }
             }
             IconButton(onClose, Modifier.size(28.dp)) {
@@ -975,69 +989,79 @@ fun BrushPropertiesPanel(
             )
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        FlowRow(
+            modifier =
+                Modifier.fillMaxWidth()
+                    .padding(top = 2.dp, bottom = 4.dp)
+                    .selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            tabs.forEach { tab ->
-                val selected = tunerTab == tab
+            sections.forEach { candidate ->
+                val selected = section == candidate
                 Surface(
-                    modifier = Modifier.clip(RoundedCornerShape(6.dp))
-                        .selectable(selected = selected, role = Role.Tab) { tunerTab = tab },
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (selected) MaterialTheme.colorScheme.secondaryContainer
-                        else MaterialTheme.colorScheme.surface,
-                    contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+                    modifier =
+                        Modifier.height(26.dp)
+                            .clip(RoundedCornerShape(WorkspaceStyle.ItemRadius))
+                            .selectable(selected = selected, role = Role.Tab) { section = candidate },
+                    shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
+                    color =
+                        if (selected) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    contentColor =
+                        if (selected) MaterialTheme.colorScheme.onPrimaryContainer
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                 ) {
-                    Box(Modifier.height(30.dp).padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
-                        Text(tab.title, fontSize = 11.sp,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                    Box(Modifier.padding(horizontal = 9.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            candidate.title,
+                            fontSize = 11.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        )
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
-
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            if (tunerTab == PresetTunerTab.CURVES) {
+            if (section == BrushSection.CURVES) {
                 item { BrushCurvesPanel(engine, onBrushUpdated) }
-            } else if (tunerTab == PresetTunerTab.COMMON) {
+            } else if (section == BrushSection.BASIC) {
                 item { CommonBrushControls(engine, onBrushUpdated) }
-            } else if (brush != null) {
-                if (brush.params.isEmpty()) {
-                    item { Text("Este pincel não possui ajustes específicos.", style = MaterialTheme.typography.bodySmall) }
-                }
-                items(brush.params.size, key = { "$brushKey:$it" }) { index ->
-                    val param = brush.params[index]
-                    TunerSliderCard(
-                        trackingId = PROCEDURAL_PARAM_BASE + index,
-                        label = param.name,
-                        value = specificValues[index].toFloat(),
-                        range = param.min.toFloat()..param.max.toFloat(),
-                        unit = param.unit,
-                        onValueChange = {
-                            engine.setBrushCustomParam(index, it.toInt())
-                            tunerVersion++
-                            onBrushUpdated()
-                        },
-                    )
+                if (brush != null) {
+                    if (brush.params.isEmpty()) {
+                        item {
+                            Text(
+                                "Este pincel não possui ajustes específicos.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    items(brush.params.size, key = { "$brushKey:$it" }) { index ->
+                        val param = brush.params[index]
+                        TunerSliderCard(
+                            trackingId = PROCEDURAL_PARAM_BASE + index,
+                            label = param.name,
+                            value = specificValues[index].toFloat(),
+                            range = param.min.toFloat()..param.max.toFloat(),
+                            unit = param.unit,
+                            onValueChange = {
+                                engine.setBrushCustomParam(index, it.toInt())
+                                tunerVersion++
+                                onBrushUpdated()
+                            },
+                        )
+                    }
                 }
             } else if (preset != null) {
+                sectionTabs.forEach { tunerTab ->
                 when (tunerTab) {
                     PresetTunerTab.COMMON, PresetTunerTab.SPECIFIC, PresetTunerTab.CURVES -> Unit
                     PresetTunerTab.REALISM -> {
-                        item {
-                            Text("A pressão usa 100% como resposta linear. Valores menores tornam a resposta mais suave; maiores, mais firme. Cerdas e desgaste em zero desativam seus efeitos.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
                         engine.realismParameters.groupBy { it.group }.forEach { (group, parameters) ->
                             item { Text(group, style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp)) }
@@ -1114,7 +1138,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSwitchCard(
                                 trackingId = 32,
-                                label = "Anti-Aliasing Subpixel (Precisão de Ponta)",
+                                label = "Anti-Aliasing Subpixel",
                                 checked = preset.subpixel == 1,
                                 onCheckedChange = { updateParam(32, if (it) 1 else 0) },
                             )
@@ -1138,7 +1162,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSwitchCard(
                                 trackingId = 22,
-                                label = "Auto-Rotação na Trajetória",
+                                label = "Auto-rotação na trajetória",
                                 checked = preset.autoRotate == 1,
                                 onCheckedChange = { updateParam(22, if (it) 1 else 0) },
                             )
@@ -1146,7 +1170,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSwitchCard(
                                 trackingId = 39,
-                                label = "Pressão Controla Tamanho",
+                                label = "Pressão controla tamanho",
                                 checked = preset.pressureSize == 1,
                                 onCheckedChange = { updateParam(39, if (it) 1 else 0) },
                             )
@@ -1154,7 +1178,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSwitchCard(
                                 trackingId = 40,
-                                label = "Pressão Controla Fluxo / Opacidade",
+                                label = "Pressão controla fluxo",
                                 checked = preset.pressureFlow == 1,
                                 onCheckedChange = { updateParam(40, if (it) 1 else 0) },
                             )
@@ -1162,7 +1186,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSwitchCard(
                                 trackingId = 41,
-                                label = "Inclinação (Tilt) Controla Ângulo",
+                                label = "Inclinação controla ângulo",
                                 checked = preset.tiltAngle == 1,
                                 onCheckedChange = { updateParam(41, if (it) 1 else 0) },
                             )
@@ -1170,7 +1194,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSwitchCard(
                                 trackingId = 42,
-                                label = "Acúmulo Contínuo (Buildup)",
+                                label = "Acúmulo contínuo",
                                 checked = preset.buildup == 1,
                                 onCheckedChange = { updateParam(42, if (it) 1 else 0) },
                             )
@@ -1178,7 +1202,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 23,
-                                label = "Sensibilidade à Velocidade",
+                                label = "Sensibilidade à velocidade",
                                 value = preset.velocity.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1188,7 +1212,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 24,
-                                label = "Afilamento Entrada (Taper In)",
+                                label = "Afilamento de entrada",
                                 value = preset.taperIn.toFloat(),
                                 range = 0f..200f,
                                 unit = "px",
@@ -1198,7 +1222,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 25,
-                                label = "Afilamento Saída (Taper Out)",
+                                label = "Afilamento de saída",
                                 value = preset.taperOut.toFloat(),
                                 range = 0f..200f,
                                 unit = "px",
@@ -1208,7 +1232,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 26,
-                                label = "Desvanecimento (Fade)",
+                                label = "Desvanecimento",
                                 value = preset.fade.toFloat(),
                                 range = 0f..2000f,
                                 unit = "px",
@@ -1283,7 +1307,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSwitchCard(
                                 trackingId = 57,
-                                label = "Escalar Textura Proporcional ao Tamanho",
+                                label = "Escalar textura com o tamanho",
                                 checked = preset.texScaleWithSize == 1,
                                 onCheckedChange = { updateParam(57, if (it) 1 else 0) },
                             )
@@ -1292,52 +1316,48 @@ fun BrushPropertiesPanel(
 
                     PresetTunerTab.PHYSICS -> {
                         item {
-                            Text(
-                                "Água acumulada no papel pode ser seca ou difundida no cel atual.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                            )
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 OutlinedButton(
                                     onClick = {
                                         engine.dryPaintWater()
                                         onBrushUpdated()
                                     },
-                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                    modifier = Modifier.weight(1f).height(28.dp),
                                 ) {
                                     Icon(
                                         Icons.Default.WbSunny,
                                         contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
+                                        modifier = Modifier.size(14.dp),
                                     )
-                                    Spacer(Modifier.width(5.dp))
-                                    Text("Secar água", fontSize = 12.sp)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Secar", fontSize = 11.sp)
                                 }
                                 OutlinedButton(
                                     onClick = {
                                         engine.diffusePaintWater()
                                         onBrushUpdated()
                                     },
-                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                    modifier = Modifier.weight(1f).height(28.dp),
                                 ) {
                                     Icon(
                                         Icons.Default.WaterDrop,
                                         contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
+                                        modifier = Modifier.size(14.dp),
                                     )
-                                    Spacer(Modifier.width(5.dp))
-                                    Text("Difundir", fontSize = 12.sp)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Difundir", fontSize = 11.sp)
                                 }
                             }
                         }
                         item {
                             TunerSliderCard(
                                 trackingId = 50,
-                                label = "Carga de Água (Water Load)",
+                                label = "Carga de água",
                                 value = preset.water.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1347,7 +1367,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 51,
-                                label = "Sangria & Difusão (Bleed)",
+                                label = "Sangria / difusão",
                                 value = preset.bleed.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1367,7 +1387,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 53,
-                                label = "Coffee Ring / Borda Escura (Fringe)",
+                                label = "Borda escura (fringe)",
                                 value = preset.fringe.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1377,7 +1397,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 11,
-                                label = "Umidade / Wetness",
+                                label = "Umidade",
                                 value = preset.wetness.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1387,7 +1407,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 10,
-                                label = "Força de Esfregaço / Smudge",
+                                label = "Força do esfregaço",
                                 value = preset.smudge.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1397,7 +1417,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 33,
-                                label = "Desgaste de Tinta (Depletion)",
+                                label = "Desgaste de tinta",
                                 value = preset.depletion.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1407,7 +1427,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 34,
-                                label = "Coleta de Cor (Color Pickup)",
+                                label = "Coleta de cor",
                                 value = preset.colorPickup.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1417,7 +1437,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 55,
-                                label = "Relevo 3D / Espessura a Óleo (Impasto)",
+                                label = "Relevo / Impasto",
                                 value = preset.impasto.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1427,7 +1447,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSwitchCard(
                                 trackingId = 54,
-                                label = "Mistura de Pigmento Subtrativo Físico",
+                                label = "Mistura subtrativa de pigmento",
                                 checked = preset.pigmentMode == 1,
                                 onCheckedChange = { updateParam(54, if (it) 1 else 0) },
                             )
@@ -1435,7 +1455,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 56,
-                                label = "Taxa de Evaporação / Secagem",
+                                label = "Evaporação / secagem",
                                 value = preset.dryingRate.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1448,7 +1468,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 8,
-                                label = "Dispersão de Dabs (Scatter)",
+                                label = "Dispersão de dabs",
                                 value = preset.scatter.toFloat(),
                                 range = 0f..100f,
                                 unit = "",
@@ -1458,7 +1478,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 27,
-                                label = "Variação de Tamanho (Size Jitter)",
+                                label = "Variação de tamanho",
                                 value = preset.sizeJitter.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1468,7 +1488,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 28,
-                                label = "Variação de Ângulo (Angle Jitter)",
+                                label = "Variação de ângulo",
                                 value = preset.angleJitter.toFloat(),
                                 range = 0f..360f,
                                 unit = "°",
@@ -1478,7 +1498,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 29,
-                                label = "Variação de Opacidade (Opacity Jitter)",
+                                label = "Variação de opacidade",
                                 value = preset.opacityJitter.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1488,7 +1508,7 @@ fun BrushPropertiesPanel(
                         item {
                             TunerSliderCard(
                                 trackingId = 30,
-                                label = "Variação de Cor (Color Jitter)",
+                                label = "Variação de cor",
                                 value = preset.colorJitter.toFloat(),
                                 range = 0f..100f,
                                 unit = "%",
@@ -1496,6 +1516,7 @@ fun BrushPropertiesPanel(
                             )
                         }
                     }
+                }
                 }
             }
         }
@@ -1506,12 +1527,12 @@ fun BrushPropertiesPanel(
 private fun CommonBrushControls(engine: EsenhoEngine, onBrushUpdated: () -> Unit) {
     var version by remember(engine.selectedPreset?.id, engine.selectedBrush?.id) { mutableIntStateOf(0) }
     val controls = listOf(
-        Triple(1, "Tamanho (Diâmetro)", "px"),
+        Triple(1, "Tamanho", "px"),
         Triple(2, "Opacidade", "%"),
-        Triple(4, "Fluxo de Tinta", "%"),
-        Triple(19, "Estabilização / Suavização", "%"),
-        Triple(5, "Espaçamento entre Dabs", "%"),
-        Triple(20, "Curvatura do Traço", "%"),
+        Triple(4, "Fluxo", "%"),
+        Triple(19, "Estabilização", "%"),
+        Triple(5, "Espaçamento", "%"),
+        Triple(20, "Curvatura do traço", "%"),
     )
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         controls.forEach { (id, label, unit) ->
@@ -1641,13 +1662,7 @@ private fun DynamicCurveEditor(
                 }
         }
     val curveColor = MaterialTheme.colorScheme.primary
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(
-            "Curva de resposta",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(6.dp))
+    Column(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         CompactOptionDropdown(
             "Parâmetro",
             settingName,
@@ -1788,6 +1803,7 @@ private fun DynamicCurveEditor(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(
+                modifier = Modifier.height(28.dp),
                 onClick = {
                     if (points.size < 16) {
                         val segment =
@@ -1808,6 +1824,7 @@ private fun DynamicCurveEditor(
                 Text("Adicionar ponto")
             }
             TextButton(
+                modifier = Modifier.height(28.dp),
                 onClick = {
                     engine.setDynamicCurve(setting, input, null)
                     points.clear()
@@ -1830,32 +1847,30 @@ private fun DynamicBaseSlider(
     onValueChange: (Float) -> Unit,
 ) {
     var local by remember(value) { mutableFloatStateOf(value) }
-    Card(
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .35f)
-            )
-    ) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Valor base", Modifier.weight(1f), fontSize = 13.sp)
-                TrackParameterButton(trackingId)
-                Text(
-                    "%.2f".format(local),
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                )
-            }
-            Slider(
-                value = local.coerceIn(range.start, range.endInclusive),
-                valueRange = range,
-                onValueChange = {
-                    local = it
-                    onValueChange(it)
-                },
+    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 1.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text("Valor base", Modifier.weight(1f), fontSize = 11.sp)
+            TrackParameterButton(trackingId)
+            Text(
+                "%.2f".format(local),
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
             )
         }
+        WorkspaceSlider(
+            value = local.coerceIn(range.start, range.endInclusive),
+            valueRange = range,
+            onValueChange = {
+                local = it
+                onValueChange(it)
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -2000,23 +2015,84 @@ private fun DynamicPressureControls(
     }
 }
 
+/** Text action sized like the editor bars, without Material's 40 dp padding. */
 @Composable
-fun TunerSwitchCard(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, trackingId: Int? = null) {
-    Card(
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-            ),
-        shape = RoundedCornerShape(8.dp),
+internal fun CompactTextButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    emphasized: Boolean = false,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
+        color =
+            when {
+                emphasized && enabled -> MaterialTheme.colorScheme.primary
+                !enabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+            },
+        contentColor =
+            when {
+                emphasized && enabled -> MaterialTheme.colorScheme.onPrimary
+                !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                else -> MaterialTheme.colorScheme.onSurface
+            },
+        modifier = modifier.height(26.dp),
+    ) {
+        Box(Modifier.padding(horizontal = 9.dp), contentAlignment = Alignment.Center) {
+            Text(text, fontSize = 11.sp, maxLines = 1)
+        }
+    }
+}
+
+/** Small 34x18 switch so dense rows keep a compact rhythm. */
+@Composable
+internal fun CompactSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = { onCheckedChange(!checked) },
+        shape = RoundedCornerShape(9.dp),
+        color =
+            if (checked) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.surfaceVariant,
+        modifier = modifier.size(width = 34.dp, height = 18.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            Modifier.fillMaxSize().padding(2.dp),
+            horizontalArrangement = if (checked) Arrangement.End else Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(label, Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 13.sp)
-            TrackParameterButton(trackingId)
-            Switch(checked = checked, onCheckedChange = onCheckedChange)
+            Box(
+                Modifier.size(14.dp).clip(CircleShape).background(
+                    if (checked) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
         }
+    }
+}
+
+@Composable
+fun TunerSwitchCard(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, trackingId: Int? = null) {
+    Row(
+        modifier = Modifier.fillMaxWidth().height(30.dp).padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            label,
+            Modifier.weight(1f),
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        TrackParameterButton(trackingId)
+        CompactSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

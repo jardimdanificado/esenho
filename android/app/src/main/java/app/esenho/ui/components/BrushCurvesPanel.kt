@@ -112,28 +112,30 @@ fun BrushCurvesPanel(engine: EsenhoEngine, onChanged: () -> Unit, focusParameter
         if (curves.none { it.id == curveId }) curveId = curves.firstOrNull()?.id.orEmpty()
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Biblioteca de curvas", style = MaterialTheme.typography.titleSmall)
-        Text("Salve uma forma e reutilize em qualquer parâmetro compatível. Os vínculos pertencem a este brush e as mudanças valem no próximo traço.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Curvas salvas", style = MaterialTheme.typography.labelLarge)
         CompactOptionDropdown("Curva salva", curveId, curves.map { it.id to it.name }) { curveId = it }
         selectedCurve?.let { CurvePreview(it, Modifier.fillMaxWidth().height(90.dp)) }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = {
+            CompactTextButton("Nova", onClick = {
                 editor = SavedBrushCurve("curve_user_${UUID.randomUUID()}", "Nova curva ${curves.count { !it.builtin } + 1}", listOf(0f to 0f, 1f to 1f))
                 editorIsCopy = false
-            }) { Text("Nova") }
-            TextButton(enabled = selectedCurve != null, onClick = {
-                editor = selectedCurve
-                editorIsCopy = selectedCurve?.builtin == true
-            }) { Text(if (selectedCurve?.builtin == true) "Criar a partir" else "Editar") }
-            TextButton(enabled = selectedCurve != null, onClick = { editor = selectedCurve; editorIsCopy = true }) { Text("Duplicar") }
-            IconButton(enabled = selectedCurve != null && !selectedCurve.builtin, onClick = { deleting = selectedCurve }) {
-                Icon(Icons.Default.Delete, "Excluir curva salva")
+            })
+            CompactTextButton(if (selectedCurve?.builtin == true) "Criar a partir" else "Editar",
+                enabled = selectedCurve != null, onClick = {
+                    editor = selectedCurve
+                    editorIsCopy = selectedCurve?.builtin == true
+                })
+            CompactTextButton("Duplicar", enabled = selectedCurve != null, onClick = { editor = selectedCurve; editorIsCopy = true })
+            IconButton(
+                enabled = selectedCurve != null && !selectedCurve.builtin,
+                onClick = { deleting = selectedCurve },
+                modifier = Modifier.size(26.dp),
+            ) {
+                Icon(Icons.Default.Delete, "Excluir curva salva", Modifier.size(15.dp))
             }
         }
         HorizontalDivider()
-        Text("Vincular ao brush atual", style = MaterialTheme.typography.titleSmall)
-        Text("O valor base permanece salvo. Os limites de saída definem o valor durante o traço.", style = MaterialTheme.typography.bodySmall)
+        Text("Vincular ao pincel", style = MaterialTheme.typography.labelLarge)
         CompactOptionDropdown("Parâmetro", parameterId.toString(), configs.map { it.paramId.toString() to it.name }) { parameterId = it.toInt() }
         CompactOptionDropdown("Entrada", input, CURVE_INPUTS) {
             input = it
@@ -144,16 +146,13 @@ fun BrushCurvesPanel(engine: EsenhoEngine, onChanged: () -> Unit, focusParameter
             val range = when (input) { "speed" -> 50f..4000f; "time" -> .1f..20f; "noise" -> 5f..500f; else -> 10f..2000f }
             val label = when (input) { "speed" -> "Velocidade para chegar a 100%"; "time" -> "Duração do ciclo"; "noise" -> "Comprimento do ruído"; else -> "Distância do ciclo" }
             val unit = when (input) { "speed" -> "px/s"; "time" -> "s"; else -> "px" }
-            Text("$label: ${formatCurveNumber(scale)} $unit", style = MaterialTheme.typography.labelMedium)
-            Slider(scale.coerceIn(range.start, range.endInclusive), { scale = it }, valueRange = range)
+            Text("$label: ${formatCurveNumber(scale)} $unit", style = MaterialTheme.typography.labelSmall)
+            WorkspaceSlider(scale.coerceIn(range.start, range.endInclusive), { scale = it }, valueRange = range, modifier = Modifier.fillMaxWidth())
         }
         if (input in setOf("time", "distance")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Repetir o ciclo", Modifier.weight(1f)); Switch(repeat, { repeat = it })
+                Text("Repetir o ciclo", Modifier.weight(1f)); CompactSwitch(repeat, { repeat = it })
             }
-            if (input == "time") Text(if (engine.usesContinuousBrush)
-                "Pincéis contínuos precisam de uma taxa de marcas por segundo acima de zero para pintar parados."
-                else "Para pintar parado, ative Acumular Tinta em Dinâmica.", style = MaterialTheme.typography.bodySmall)
         }
         fun outputLabel(value: Float): String {
             val actual = target.min + (target.max - target.min) * value
@@ -161,14 +160,14 @@ fun BrushCurvesPanel(engine: EsenhoEngine, onChanged: () -> Unit, focusParameter
                 else if (target.kind == "switch") if (actual >= .5f) "Ligado" else "Desligado"
                 else "${formatCurveNumber(actual)} ${config.unit}".trim()
         }
-        Text("Saída mínima: ${outputLabel(low)}", style = MaterialTheme.typography.labelMedium)
-        Slider(low, { low = it.coerceAtMost(high) }, valueRange = 0f..1f)
-        Text("Saída máxima: ${outputLabel(high)}", style = MaterialTheme.typography.labelMedium)
-        Slider(high, { high = it.coerceAtLeast(low) }, valueRange = 0f..1f)
-        FilledTonalButton(enabled = selectedCurve != null, onClick = {
-            updated(engine.brushCurves.bind(BrushParameterCurve(target, curveId, input, scale, repeat, low, high)))
-        }) { Text(if (existing == null) "Aplicar curva" else "Atualizar vínculo") }
-        if (target.kind != "slider") Text("Seletores e interruptores usam a saída da curva para alternar entre seus estados.", style = MaterialTheme.typography.bodySmall)
+        Text("Saída mínima: ${outputLabel(low)}", style = MaterialTheme.typography.labelSmall)
+        WorkspaceSlider(low, { low = it.coerceAtMost(high) }, valueRange = 0f..1f, modifier = Modifier.fillMaxWidth())
+        Text("Saída máxima: ${outputLabel(high)}", style = MaterialTheme.typography.labelSmall)
+        WorkspaceSlider(high, { high = it.coerceAtLeast(low) }, valueRange = 0f..1f, modifier = Modifier.fillMaxWidth())
+        CompactTextButton(if (existing == null) "Aplicar curva" else "Atualizar vínculo",
+            enabled = selectedCurve != null, emphasized = true, onClick = {
+                updated(engine.brushCurves.bind(BrushParameterCurve(target, curveId, input, scale, repeat, low, high)))
+            })
         if (engine.brushCurves.bindings.isNotEmpty()) {
             HorizontalDivider()
             Text("Vínculos deste brush", style = MaterialTheme.typography.titleSmall)
@@ -178,11 +177,15 @@ fun BrushCurvesPanel(engine: EsenhoEngine, onChanged: () -> Unit, focusParameter
                 Row(Modifier.fillMaxWidth().clickable(enabled = supported) { parameterId = binding.target.id }, verticalAlignment = Alignment.CenterVertically) {
                     Text("$name · ${curves.firstOrNull { it.id == binding.curveId }?.name ?: "Curva ausente"} · ${CURVE_INPUTS.firstOrNull { it.first == binding.input }?.second.orEmpty()}",
                         Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                    Switch(binding.enabled, { updated(engine.brushCurves.bind(binding.copy(enabled = it))) },
-                        enabled = supported && curves.any { it.id == binding.curveId })
+                    CompactSwitch(
+                        checked = binding.enabled,
+                        onCheckedChange = {
+                            if (supported && curves.any { curve -> curve.id == binding.curveId })
+                                updated(engine.brushCurves.bind(binding.copy(enabled = it)))
+                        },
+                    )
                     IconButton(onClick = { updated(engine.brushCurves.unbind(binding.target.id)) }) { Icon(Icons.Default.Close, "Remover vínculo de $name") }
                 }
-                if (!supported) Text("Parâmetro indisponível neste motor ou versão do brush.", style = MaterialTheme.typography.bodySmall)
             }
         }
         message?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
@@ -240,7 +243,6 @@ private fun CurveEditorDialog(source: SavedBrushCurve, copy: Boolean, onDismiss:
     CurveWindow(if (copy) "Criar curva a partir de ${source.name}" else "Editar curva", onDismiss) {
         OutlinedTextField(name, { name = it.take(64) }, label = { Text("Nome da curva") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         CompactOptionDropdown("Interpolação", interpolation, CURVE_INTERPOLATIONS) { interpolation = it }
-        Text("Arraste os pontos. Toque no gráfico para adicionar ou selecionar um ponto. Os extremos mantêm a posição horizontal.", style = MaterialTheme.typography.bodySmall)
         Canvas(Modifier.fillMaxWidth().height(210.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
             .semantics { contentDescription = "Editor de curva com ${points.size} pontos; entrada e saída de zero a cem por cento" }
             .pointerInput(source.id) {
@@ -289,17 +291,16 @@ private fun CurveEditorDialog(source: SavedBrushCurve, copy: Boolean, onDismiss:
             points.forEachIndexed { i, p -> drawCircle(if (i == selected) selectedColor else color, 6.dp.toPx(), Offset(pad+p.first*w, pad+(1-p.second)*h)) }
         }
         Row {
-            TextButton(enabled = points.size < 32, onClick = {
+            CompactTextButton("Adicionar ponto", enabled = points.size < 32, onClick = {
                 val i = (0 until points.lastIndex).maxByOrNull { points[it+1].first-points[it].first } ?: 0
                 val x = (points[i].first+points[i+1].first)/2
                 points.add(i+1, x to preview.evaluator.valueAt(x)); selected = i+1
-            }) { Text("Adicionar ponto") }
-            TextButton(enabled = selected > 0 && selected < points.lastIndex, onClick = { points.removeAt(selected); selected = (selected-1).coerceAtLeast(0) }) { Text("Remover ponto") }
+            })
+            CompactTextButton("Remover ponto", enabled = selected > 0 && selected < points.lastIndex, onClick = { points.removeAt(selected); selected = (selected-1).coerceAtLeast(0) })
         }
-        if (!copy) Text("Editar uma curva salva atualiza todos os vínculos que a usam.", style = MaterialTheme.typography.bodySmall)
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        FilledTonalButton(enabled = name.isNotBlank(), onClick = {
+        CompactTextButton(if (copy) "Salvar cópia" else "Salvar curva", enabled = name.isNotBlank(), emphasized = true, onClick = {
             if (!onSave(SavedBrushCurve(id, name.trim(), points.toList(), interpolation))) error = "Não foi possível salvar. Use um nome diferente e tente novamente."
-        }) { Text(if (copy) "Salvar cópia na biblioteca" else "Salvar na biblioteca") }
+        })
     }
 }

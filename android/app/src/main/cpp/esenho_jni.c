@@ -167,9 +167,14 @@ static int procedural_capture_region(uint32_t *pixels, int cw,
 static void procedural_apply_region(uint32_t *pixels, int cw,
     int x0, int y0, int x1, int y1, uint32_t coverage) {
     int rw = x1 - x0 + 1;
+    size_t row_bytes = (size_t)rw * sizeof(uint32_t);
     for (int y = y0; y <= y1; ++y) {
-        w_brush_apply_coverage(pixels + (size_t)y * cw + x0,
-            g_procedural_before + (size_t)(y - y0) * rw, (size_t)rw, coverage);
+        uint32_t *row = pixels + (size_t)y * cw + x0;
+        const uint32_t *before = g_procedural_before + (size_t)(y - y0) * rw;
+        /* Most rows in a large capture box are untouched; memcmp skips them
+         * with vectorized compares instead of a per-pixel branch. */
+        if (memcmp(row, before, row_bytes) == 0) continue;
+        w_brush_apply_coverage(row, before, (size_t)rw, coverage);
     }
 }
 
@@ -621,7 +626,12 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
          * cost ~8 MB per move event on a phone screen at partial opacity. */
         int box_x0 = 0, box_y0 = 0, box_x1 = -1, box_y1 = -1;
         int dirty_x0 = 0, dirty_y0 = 0, dirty_x1 = -1, dirty_y1 = -1;
-        float reach = radius * 1.5f + 256.0f;
+        /* Cover both fixed-size trail kernels (about radius + 150 px) and the
+         * widest scatter kernels (about 3x radius). The old 1.5x + 256 box was
+         * up to twice as large as needed for small and medium brushes. */
+        float reach = radius * 2.0f + 160.0f;
+        float scatter_reach = radius * 3.0f + 8.0f;
+        if (scatter_reach > reach) reach = scatter_reach;
         /* Radial symmetry used to mark the whole layer, so keep a wider margin
          * there; other modes keep the original tight radius+4 dirty box. */
         float dirty_reach = (g_procedural_symmetry == 4) ? reach : radius + 4.0f;
@@ -668,6 +678,17 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
                 float speed = dt > 0.0001f ? dist / dt : 0.0f;
                 float angle_deg = atan2f(dy, dx) * 180.0f / 3.14159265f;
                 int steps = (int)(dist / step);
+                /* Very low spacing values can request hundreds of dabs for a
+                 * single move event. Large dabs overlap heavily, so cap the
+                 * count: roughly constant dabs per screen distance, far less
+                 * per-event latency, and no visible gap for wide brushes. */
+                if (radius >= 16.0f) {
+                    int max_steps = (int)(2000.0f / radius);
+                    if (max_steps < 16) max_steps = 16;
+                    if (max_steps > 64) max_steps = 64;
+                    if (steps > max_steps) steps = max_steps;
+                }
+                if (steps < 1) steps = 1;
                 for (int s = 1; s <= steps; s++) {
                     float t = (float)s / (float)steps;
                     float ix = g_last_dab_x + dx * t;

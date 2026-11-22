@@ -287,6 +287,11 @@ class Path() {
     val isEmpty: Boolean
         get() = shape.currentPoint == null
 
+    fun computeBounds(bounds: RectF, exact: Boolean) {
+        val area = shape.bounds2D
+        bounds.set(area.x.toFloat(), area.y.toFloat(), (area.x + area.width).toFloat(), (area.y + area.height).toFloat())
+    }
+
     fun op(other: Path, operation: Op): Boolean {
         val area = java.awt.geom.Area(shape)
         val right = java.awt.geom.Area(other.shape)

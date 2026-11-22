@@ -98,6 +98,20 @@ fun main(args: Array<String>) {
                         exerciseLayerReordering(window)
                         checkNotNull(desktopUiTestCommand)("compact")
                         kotlinx.coroutines.delay(300)
+                        for ((command, name) in
+                            listOf(
+                                "brushBasico" to "ui-brush-basic",
+                                "brushForma" to "ui-brush-shape",
+                                "brushDinamica" to "ui-brush-dynamics",
+                                "brushTextura" to "ui-brush-texture",
+                                "brushTinta" to "ui-brush-paint",
+                                "brushCurvas" to "ui-brush-curves",
+                            )) {
+                            checkNotNull(desktopUiTestCommand)(command)
+                            kotlinx.coroutines.delay(500)
+                            captureEditor(window, File("desktop/build/$name.png"))
+                        }
+                        exerciseBrushSliderScroll(window)
                         checkNotNull(desktopUiTestCommand)("selectionBar")
                         kotlinx.coroutines.delay(500)
                         captureEditor(window, File("desktop/build/ui-selection-bar.png"))
