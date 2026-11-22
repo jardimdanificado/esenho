@@ -154,10 +154,29 @@ for src in base.rglob('*'):
                 animationBarVisible = false
                 layersBarVisible = false
                 rasterToolsVisible = true
-                quickShelfVisible = true
+                swatchesBarVisible = true
+                brushesBarVisible = true
                 quickShelfRecent = false
                 colorShelfRecent = false
                 persistShelfVisibility()
+                refreshState(false)
+            }
+            "swatchesOnly" -> {
+                activePanel = null
+                swatchesBarVisible = true
+                brushesBarVisible = false
+                refreshState(false)
+            }
+            "brushesOnly" -> {
+                activePanel = null
+                swatchesBarVisible = false
+                brushesBarVisible = true
+                refreshState(false)
+            }
+            "shelfHidden" -> {
+                activePanel = null
+                swatchesBarVisible = false
+                brushesBarVisible = false
                 refreshState(false)
             }
             "shelfFill" -> {

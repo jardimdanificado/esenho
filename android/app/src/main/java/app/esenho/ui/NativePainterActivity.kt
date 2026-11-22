@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -353,8 +354,23 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     var layersBarVisible by remember {
         mutableStateOf(workspacePreferences.getBoolean("layers_bar_visible", false))
     }
-    var quickShelfVisible by remember {
-        mutableStateOf(workspacePreferences.getBoolean("quick_shelf_visible", true))
+    // Independent visibility for the two strips. The legacy single flag still
+    // seeds both bars for existing installs.
+    var swatchesBarVisible by remember {
+        mutableStateOf(
+            workspacePreferences.getBoolean(
+                "swatches_bar_visible",
+                workspacePreferences.getBoolean("quick_shelf_visible", true),
+            )
+        )
+    }
+    var brushesBarVisible by remember {
+        mutableStateOf(
+            workspacePreferences.getBoolean(
+                "brushes_bar_visible",
+                workspacePreferences.getBoolean("quick_shelf_visible", true),
+            )
+        )
     }
     var quickShelfRecent by remember {
         mutableStateOf(workspacePreferences.getBoolean("quick_shelf_recent", false))
@@ -364,7 +380,8 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     }
     fun persistShelfVisibility() {
         workspacePreferences.edit()
-            .putBoolean("quick_shelf_visible", quickShelfVisible)
+            .putBoolean("swatches_bar_visible", swatchesBarVisible)
+            .putBoolean("brushes_bar_visible", brushesBarVisible)
             .putBoolean("quick_shelf_recent", quickShelfRecent)
             .putBoolean("color_shelf_recent", colorShelfRecent)
             .apply()
@@ -555,7 +572,12 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         val api = NativeScriptApi(engine, canvas, { refreshState(persistFavoriteTool = false) }, ::chooseTool) { operation, args ->
             if (operation == "ui.export") showExportDialog = true
             else if (operation == "ui.configure") {
-                if (args.has("quickShelfVisible")) quickShelfVisible = args.getBoolean("quickShelfVisible")
+                if (args.has("quickShelfVisible")) {
+                    swatchesBarVisible = args.getBoolean("quickShelfVisible")
+                    brushesBarVisible = swatchesBarVisible
+                }
+                if (args.has("swatchesBarVisible")) swatchesBarVisible = args.getBoolean("swatchesBarVisible")
+                if (args.has("brushesBarVisible")) brushesBarVisible = args.getBoolean("brushesBarVisible")
                 if (args.has("quickShelfRecent")) quickShelfRecent = args.getBoolean("quickShelfRecent")
                 if (args.has("quickParameters")) quickSlidersOpen = args.getBoolean("quickParameters")
                 persistShelfVisibility()
@@ -873,6 +895,15 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
     }
 
 
+    // Screens narrower than 700 dp (or portrait tablets) dock panels at the bottom.
+    // The decision is hoisted so the bottom bars can step aside while a panel is open.
+    val layoutConfiguration = LocalConfiguration.current
+    val sideLayout =
+        layoutConfiguration.screenWidthDp >= 700 ||
+            (layoutConfiguration.screenWidthDp >= 600 &&
+                layoutConfiguration.screenWidthDp > layoutConfiguration.screenHeightDp * 1.4f)
+    val bottomPanelCoversBars = !sideLayout && activePanel != null
+
     Scaffold(
         modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing)
             .then(if (activePanel == WorkspacePanel.SCRIPTS) Modifier.imePadding() else Modifier),
@@ -931,8 +962,16 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 layersBarVisible = !layersBarVisible
                                 workspacePreferences.edit().putBoolean("layers_bar_visible", layersBarVisible).apply()
                             },
-                            quickShelfVisible = quickShelfVisible,
-                            onToggleQuickShelf = { quickShelfVisible = !quickShelfVisible; persistShelfVisibility() },
+                            swatchesBarVisible = swatchesBarVisible,
+                            onToggleSwatchesBar = {
+                                swatchesBarVisible = !swatchesBarVisible
+                                persistShelfVisibility()
+                            },
+                            brushesBarVisible = brushesBarVisible,
+                            onToggleBrushesBar = {
+                                brushesBarVisible = !brushesBarVisible
+                                persistShelfVisibility()
+                            },
                             onToolOptions = {
                                 if (engine.vectors.enabled) {
                                     vectorTabRequest = VectorPanelTab.APARENCIA
@@ -954,6 +993,9 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             }
         },
         bottomBar = {
+            // Bottom panels open over the bars, so the bars yield their space instead
+            // of limiting the panel height.
+            if (!bottomPanelCoversBars) {
                 Column(Modifier.blockScriptTouches(scriptSession != null || markingScriptPivot)) {
                     val vectorMode = engine.vectors.enabled
                     if (isTransformActive) {
@@ -1236,7 +1278,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                         },
                     )
                     if (toolsVisible) EditorToolStrip(engine, engineRevision, onTool = { chooseTool(it) }) { refreshState(false) }
-                    if (quickShelfVisible) WorkspaceQuickShelf(
+                    if (swatchesBarVisible || brushesBarVisible) WorkspaceQuickShelf(
                             engine = engine,
                             favoriteBrushIds = favoriteBrushIds,
                             revision = engineRevision,
@@ -1277,13 +1319,15 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 quickShelfRecent = !quickShelfRecent
                                 persistShelfVisibility()
                             },
+                            showSwatches = swatchesBarVisible,
+                            showBrushes = brushesBarVisible,
                         )
                 }
+            }
         },
     ) { paddingValues ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(paddingValues)) {
-            val useSideInspector =
-                maxWidth >= 700.dp || (maxWidth >= 600.dp && maxWidth > maxHeight * 1.4f)
+            val useSideInspector = sideLayout
             val dockDensity = LocalDensity.current
             var bottomDockHeight by remember { mutableStateOf<Dp?>(null) }
             var sideDockWidth by remember { mutableStateOf<Dp?>(null) }

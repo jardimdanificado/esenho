@@ -345,8 +345,10 @@ fun WorkspaceOverflowMenu(
     onToggleAnimationBar: () -> Unit,
     layersBarVisible: Boolean,
     onToggleLayersBar: () -> Unit,
-    quickShelfVisible: Boolean,
-    onToggleQuickShelf: () -> Unit,
+    swatchesBarVisible: Boolean,
+    onToggleSwatchesBar: () -> Unit,
+    brushesBarVisible: Boolean,
+    onToggleBrushesBar: () -> Unit,
     onToolOptions: () -> Unit,
     onColor: () -> Unit,
     onBrush: () -> Unit,
@@ -384,7 +386,8 @@ fun WorkspaceOverflowMenu(
             Triple(if (toolsVisible) "Ocultar ferramentas" else "Mostrar ferramentas", toolsVisible, onToggleTools),
             Triple(if (animationBarVisible) "Ocultar barra de animação" else "Mostrar barra de animação", animationBarVisible, onToggleAnimationBar),
             Triple(if (layersBarVisible) "Ocultar barra de objetos" else "Mostrar barra de objetos", layersBarVisible, onToggleLayersBar),
-            Triple(if (quickShelfVisible) "Ocultar barra de cores e pincéis" else "Mostrar barra de cores e pincéis", quickShelfVisible, onToggleQuickShelf),
+            Triple(if (swatchesBarVisible) "Ocultar barra de cores" else "Mostrar barra de cores", swatchesBarVisible, onToggleSwatchesBar),
+            Triple(if (brushesBarVisible) "Ocultar barra de pincéis" else "Mostrar barra de pincéis", brushesBarVisible, onToggleBrushesBar),
         ).forEach { (label, visible, toggle) ->
             DropdownMenuItem(
                 text = { Text(label) },

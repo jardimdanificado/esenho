@@ -112,6 +112,30 @@ fun main(args: Array<String>) {
                             captureEditor(window, File("desktop/build/$name.png"))
                         }
                         exerciseBrushSliderScroll(window)
+                        // Each shelf strip hides on its own. No divider between them.
+                        for ((command, name) in
+                            listOf(
+                                "swatchesOnly" to "ui-shelf-swatches",
+                                "brushesOnly" to "ui-shelf-brushes",
+                                "shelfHidden" to "ui-shelf-hidden",
+                            )) {
+                            checkNotNull(desktopUiTestCommand)(command)
+                            kotlinx.coroutines.delay(400)
+                            captureEditor(window, File("desktop/build/$name.png"))
+                        }
+                        // Vertical layout: the bottom panel owns the bottom edge and
+                        // covers the bar stack instead of shrinking above it.
+                        state.size = androidx.compose.ui.unit.DpSize(560.dp, 900.dp)
+                        kotlinx.coroutines.delay(900)
+                        checkNotNull(desktopUiTestCommand)("shelfShow")
+                        kotlinx.coroutines.delay(300)
+                        captureEditor(window, File("desktop/build/ui-vertical-bars.png"))
+                        checkNotNull(desktopUiTestCommand)("brushes")
+                        kotlinx.coroutines.delay(700)
+                        captureEditor(window, File("desktop/build/ui-vertical-panel.png"))
+                        checkNotNull(desktopUiTestCommand)("compact")
+                        state.size = androidx.compose.ui.unit.DpSize(1440.dp, 960.dp)
+                        kotlinx.coroutines.delay(900)
                         checkNotNull(desktopUiTestCommand)("selectionBar")
                         kotlinx.coroutines.delay(500)
                         captureEditor(window, File("desktop/build/ui-selection-bar.png"))

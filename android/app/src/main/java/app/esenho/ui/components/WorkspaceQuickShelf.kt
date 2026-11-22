@@ -45,6 +45,8 @@ fun WorkspaceQuickShelf(
     onToggleColorsRecent: () -> Unit,
     brushesRecent: Boolean,
     onToggleBrushesRecent: () -> Unit,
+    showSwatches: Boolean = true,
+    showBrushes: Boolean = true,
 ) {
     val brushes =
         remember(
@@ -253,10 +255,8 @@ fun WorkspaceQuickShelf(
 
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxWidth()) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            colorStrip(Modifier.fillMaxWidth().height(40.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            brushStrip(Modifier.fillMaxWidth().height(40.dp))
+            if (showSwatches) colorStrip(Modifier.fillMaxWidth().height(40.dp))
+            if (showBrushes) brushStrip(Modifier.fillMaxWidth().height(40.dp))
         }
     }
 }
