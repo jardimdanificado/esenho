@@ -1603,7 +1603,17 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
     int has_tex = (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0));
 
     update_hardness_lut(brush_config.hardness);
-    int area_tip = brush_config.subpixel;
+    /* The four-sample coverage mask is only worth its cost for the analytic
+     * circle/square tips. A textured tip already carries its own antialiased
+     * alpha; supersampling it four times per pixel cost ~5x more per dab for no
+     * visible gain. Bilinear tip sampling is used for those tips instead. */
+    int area_tip = brush_config.subpixel && (shape_id == 0 || shape_id == 1);
+    /* Hoist the two tip-map divisions out of the per-pixel loop. */
+    float tex_scale_x = 0.0f, tex_scale_y = 0.0f;
+    if (!is_builtin_circle && !is_builtin_square && stex->pixels && stex->width > 1 && stex->height > 1) {
+        tex_scale_x = (float)(stex->width - 1) / (2.0f * rf);
+        tex_scale_y = (float)(stex->height - 1) / (2.0f * rf);
+    }
 
     for (int y = min_y; y <= max_y; y++) {
         float dy = (float)y - cy;
@@ -1670,10 +1680,12 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
             if (!area_tip && !is_builtin_circle && !is_builtin_square) {
                 if (stex->pixels && stex->width > 0 && stex->height > 0) {
                     if (brush_config.subpixel && stex->width > 1 && stex->height > 1 && r > 0) {
-                        float fx = ((u + rf) * (float)(stex->width - 1)) / (2.0f * rf);
-                        float fy = ((v_scaled + rf) * (float)(stex->height - 1)) / (2.0f * rf);
-                        int x0 = (int)__builtin_floorf(fx);
-                        int y0 = (int)__builtin_floorf(fy);
+                        float fx = (u + rf) * tex_scale_x;
+                        float fy = (v_scaled + rf) * tex_scale_y;
+                        /* The cull above keeps u,v inside the tip, so both
+                         * coordinates are non-negative and truncation floors. */
+                        int x0 = (int)fx;
+                        int y0 = (int)fy;
                         int x1 = x0 + 1;
                         int y1 = y0 + 1;
                         float wx = fx - (float)x0;
