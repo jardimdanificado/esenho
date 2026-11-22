@@ -175,7 +175,64 @@ fun smokeTest() {
     vectorTraceModesSmokeTest(context)
     vectorRigSmokeTest(context)
     vectorBooleanSvgSmokeTest(context)
+    mergeSmokeTest(context)
     println(
         "Desktop smoke test: pincéis, filtros, traço, undo/redo, camadas, seleção, projeto, animação, PNG/JPEG/WebP/GIF/WebM, filtro, homografia e QuickJS OK"
     )
+}
+
+/**
+ * Merge Down must leave the composite untouched: layer pixels are straight
+ * copies, so a generic premultiplied Canvas draw would corrupt every
+ * semi-transparent pixel and drop the source blend mode.
+ */
+private fun mergeSmokeTest(context: Context) {
+    fun fill(engine: EsenhoEngine, x0: Int, y0: Int, x1: Int, y1: Int, color: Int) {
+        engine.selectRect(x0, y0, x1, y1)
+        check(engine.fillSelection(color))
+        engine.clearSelection()
+    }
+
+    fun checkPreserved(name: String, prepare: (EsenhoEngine, Int, Int) -> Unit) {
+        val engine = EsenhoEngine(context, 96, 96)
+        val destination = engine.addLayer()
+        val source = engine.addLayer()
+        prepare(engine, destination, source)
+        val probes = listOf(24, 44, 64, 84)
+        val before = probes.map { engine.getRenderBitmap()!!.getPixel(it, it) }
+        engine.mergeDown(source)
+        val after = probes.map { engine.getRenderBitmap()!!.getPixel(it, it) }
+        for (index in probes.indices) {
+            for (shift in intArrayOf(24, 16, 8, 0)) {
+                val diff =
+                    kotlin.math.abs(
+                        ((before[index] ushr shift) and 0xff) - ((after[index] ushr shift) and 0xff)
+                    )
+                check(diff <= 1) {
+                    "Mesclar[$name] alterou o composto em (${probes[index]},${probes[index]}): $diff"
+                }
+            }
+        }
+    }
+
+    checkPreserved("pixels semi-transparentes") { engine, destination, source ->
+        engine.selectLayer(destination)
+        fill(engine, 16, 16, 80, 80, 0x80C82828.toInt())
+        engine.selectLayer(source)
+        fill(engine, 32, 32, 88, 88, 0x803C3CDC.toInt())
+    }
+    checkPreserved("opacidade da camada") { engine, destination, source ->
+        engine.selectLayer(destination)
+        fill(engine, 16, 16, 80, 80, Color.rgb(200, 40, 40))
+        engine.selectLayer(source)
+        fill(engine, 32, 32, 88, 88, Color.rgb(40, 60, 220))
+        engine.setLayerOpacity(source, 128)
+    }
+    checkPreserved("modo de mesclagem") { engine, destination, source ->
+        engine.selectLayer(destination)
+        fill(engine, 16, 16, 80, 80, Color.rgb(200, 40, 40))
+        engine.selectLayer(source)
+        fill(engine, 32, 32, 88, 88, Color.rgb(40, 60, 220))
+        engine.setLayerBlendMode(source, LayerBlendMode.MULTIPLY)
+    }
 }

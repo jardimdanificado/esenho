@@ -79,16 +79,8 @@ fun LayerDrawer(
         modifier = if (embedded) modifier.fillMaxSize() else modifier.fillMaxWidth().height(320.dp),
         color = MaterialTheme.colorScheme.surface,
     ) {
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth().height(32.dp).padding(start = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Camadas · ${layersList.size}",
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelMedium,
-                )
+        Column(Modifier.fillMaxSize().padding(start = 8.dp, end = 8.dp, top = 4.dp)) {
+            EditorPanelHeader("Camadas · ${layersList.size}", onDismiss) {
                 IconButton(
                     onClick = {
                         engine.addLayer()
@@ -96,7 +88,7 @@ fun LayerDrawer(
                     },
                     modifier = Modifier.size(32.dp),
                 ) {
-                    Icon(Icons.Default.Add, "Adicionar camada", Modifier.size(19.dp))
+                    Icon(Icons.Default.Add, "Adicionar camada", Modifier.size(18.dp))
                 }
                 IconButton(
                     onClick = {
@@ -105,20 +97,17 @@ fun LayerDrawer(
                     },
                     modifier = Modifier.size(32.dp),
                 ) {
-                    Icon(Icons.Default.ContentCopy, "Duplicar camada", Modifier.size(17.dp))
+                    Icon(Icons.Default.ContentCopy, "Duplicar camada", Modifier.size(18.dp))
                 }
                 IconButton(
                     enabled = layersList.size > 1,
                     onClick = { confirmAction = "merge" },
                     modifier = Modifier.size(32.dp),
                 ) {
-                    Icon(Icons.Default.Merge, "Mesclar com a de baixo", Modifier.size(17.dp))
+                    Icon(Icons.Default.Merge, "Mesclar com a de baixo", Modifier.size(18.dp))
                 }
                 IconButton(onClick = { engine.editRasterGroups { engine.createRasterLayerGroup() }; refresh() }, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.CreateNewFolder,"Novo grupo",Modifier.size(19.dp))
-                }
-                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Close, "Fechar camadas", Modifier.size(17.dp))
+                    Icon(Icons.Default.CreateNewFolder,"Novo grupo",Modifier.size(18.dp))
                 }
             }
             LazyColumn(

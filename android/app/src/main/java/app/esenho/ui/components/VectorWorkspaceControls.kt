@@ -209,7 +209,8 @@ fun VectorObjectPanel(
     val vector = engine.vectors
     val selected = vector.selected
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         EditorPanelHeader("Objetos vetoriais", onDismiss)

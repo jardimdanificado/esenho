@@ -139,6 +139,14 @@ object EsenhoNativeBridge {
     external fun nativeCanvasFlipH()
     external fun nativeCanvasFlipV()
     external fun nativeLayerDrawBitmap(layerIdx: Int, bitmap: Bitmap, dstX: Int, dstY: Int, dstW: Int, dstH: Int)
+    external fun nativeMergeCelBitmaps(
+        out: Bitmap,
+        destination: Bitmap?,
+        source: Bitmap?,
+        sourceOpacity: Int,
+        blendMode: Int,
+        clipToDestination: Boolean
+    )
 
     // Wet-media paint physics
     external fun nativeDryAllWater()

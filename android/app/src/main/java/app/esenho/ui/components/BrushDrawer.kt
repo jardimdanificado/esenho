@@ -291,8 +291,6 @@ fun BrushDrawer(
             modifier =
                 Modifier.fillMaxWidth()
                     .then(if (embedded) Modifier.fillMaxSize() else Modifier.heightIn(max = 620.dp))
-                    .padding(horizontal = 8.dp)
-                    .padding(bottom = 4.dp)
         ) {
             if (!showTuner) EditorPanelHeader("Pincéis", onDismiss)
             if (showTuner) {
@@ -835,64 +833,52 @@ fun BrushPropertiesPanel(
     }
 
     Column(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
-        Row(
-            Modifier.fillMaxWidth().height(32.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            IconButton(onBack, Modifier.size(28.dp)) {
-                Icon(Icons.Default.ArrowBack, "Voltar aos pincéis", Modifier.size(16.dp))
-            }
-            Text(
-                engine.activeBrushDisplayName,
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (preset != null) {
-                var actionsMenu by remember { mutableStateOf(false) }
-                Box {
-                    IconButton(
-                        onClick = { actionsMenu = true },
-                        modifier = Modifier.size(28.dp),
-                    ) {
-                        Icon(Icons.Default.MoreVert, "Ações do pincel", Modifier.size(17.dp))
-                    }
-                    DropdownMenu(actionsMenu, { actionsMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Restaurar padrão") },
-                            onClick = {
-                                actionsMenu = false
-                                engine.resetPresetToDefaults()
-                                tunerVersion++
-                                onBrushUpdated()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Salvar como preset…") },
-                            onClick = {
-                                actionsMenu = false
-                                presetNameInput = "${preset.name} (Cópia)"
-                                saveErrorMessage = null
-                                showSavePresetDialog = true
-                            },
-                        )
-                        if (preset.isCustom)
+        EditorPanelHeader(
+            title = engine.activeBrushDisplayName,
+            onClose = onClose,
+            onBack = onBack,
+            actions = {
+                if (preset != null) {
+                    var actionsMenu by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(
+                            onClick = { actionsMenu = true },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(Icons.Default.MoreVert, "Ações do pincel", Modifier.size(18.dp))
+                        }
+                        DropdownMenu(actionsMenu, { actionsMenu = false }) {
                             DropdownMenuItem(
-                                text = { Text("Excluir preset", color = MaterialTheme.colorScheme.error) },
+                                text = { Text("Restaurar padrão") },
                                 onClick = {
                                     actionsMenu = false
-                                    showDeleteConfirmDialog = true
+                                    engine.resetPresetToDefaults()
+                                    tunerVersion++
+                                    onBrushUpdated()
                                 },
                             )
+                            DropdownMenuItem(
+                                text = { Text("Salvar como preset...") },
+                                onClick = {
+                                    actionsMenu = false
+                                    presetNameInput = "${preset.name} (Cópia)"
+                                    saveErrorMessage = null
+                                    showSavePresetDialog = true
+                                },
+                            )
+                            if (preset.isCustom)
+                                DropdownMenuItem(
+                                    text = { Text("Excluir preset", color = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        actionsMenu = false
+                                        showDeleteConfirmDialog = true
+                                    },
+                                )
+                        }
                     }
                 }
-            }
-            IconButton(onClose, Modifier.size(28.dp)) {
-                Icon(Icons.Default.Close, "Fechar ajustes", Modifier.size(16.dp))
-            }
-        }
+            },
+        )
 
         if (preset != null && showSavePresetDialog) {
             AlertDialog(

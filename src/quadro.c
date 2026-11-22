@@ -409,6 +409,78 @@ static inline uint32_t blend_pixel(uint32_t dst, uint32_t src, uint8_t alpha_mod
     return blend_pixel_mode(dst, src, alpha_mod, 0);
 }
 
+/* Flattens one cel onto another the way composite_region stacks layers.
+ * Layer pixels and cel copies share the same channel encoding, so the merged
+ * cel must reproduce "destination layer, then source layer" exactly instead of
+ * running a generic premultiplied Porter-Duff draw over it.
+ * dst/out may alias; each channel is weighted by the alpha its layer
+ * contributes, which keeps the merged single layer identical over any
+ * backdrop. Callers pass cel-sized buffers (canvas size after normalization). */
+W_EXPORT void w_merge_cel_pixels(
+    uint32_t *out, int32_t out_w, int32_t out_h,
+    const uint32_t *dest, int32_t dest_w, int32_t dest_h,
+    const uint32_t *src, int32_t src_w, int32_t src_h,
+    uint8_t opacity, uint8_t blend_mode, uint8_t clip) {
+    if (!out || out_w <= 0 || out_h <= 0) return;
+    for (int i = 0; i < out_w * out_h; i++) out[i] = 0;
+
+    if (dest && dest_w > 0 && dest_h > 0) {
+        int copy_w = dest_w < out_w ? dest_w : out_w;
+        int copy_h = dest_h < out_h ? dest_h : out_h;
+        for (int y = 0; y < copy_h; y++) {
+            const uint32_t *dest_row = dest + (size_t)y * dest_w;
+            uint32_t *row = out + (size_t)y * out_w;
+            for (int x = 0; x < copy_w; x++) row[x] = dest_row[x];
+        }
+    }
+
+    if (!src || src_w <= 0 || src_h <= 0 || opacity == 0) return;
+    int copy_w = src_w < out_w ? src_w : out_w;
+    int copy_h = src_h < out_h ? src_h : out_h;
+    for (int y = 0; y < copy_h; y++) {
+        const uint32_t *src_row = src + (size_t)y * src_w;
+        uint32_t *row = out + (size_t)y * out_w;
+        for (int x = 0; x < copy_w; x++) {
+            uint32_t sp = src_row[x];
+            uint32_t raw_sa = (sp >> 24) & 0xFF;
+            if (raw_sa == 0) continue;
+            uint32_t dp = row[x];
+            uint32_t da = (dp >> 24) & 0xFF;
+
+            uint32_t eff_op = opacity;
+            if (clip) {
+                if (da == 0) continue;
+                eff_op = DIV255(opacity * da);
+                if (eff_op == 0) continue;
+            }
+            uint32_t sa = (eff_op == 255) ? raw_sa : DIV255(raw_sa * eff_op);
+            if (sa == 0) continue;
+
+            uint32_t blended = (blend_mode > 0) ? w_apply_dab_blend(blend_mode, sp, dp) : sp;
+
+            uint32_t br = blended & 0xFF;
+            uint32_t bg = (blended >> 8) & 0xFF;
+            uint32_t bb = (blended >> 16) & 0xFF;
+            uint32_t dr = dp & 0xFF;
+            uint32_t dg = (dp >> 8) & 0xFF;
+            uint32_t db = (dp >> 16) & 0xFF;
+
+            uint32_t inv_sa = 255 - sa;
+            uint32_t denom = sa * 255 + da * inv_sa;
+            if (denom == 0) continue;
+            uint32_t out_a = DIV255(denom);
+            uint32_t out_r = (br * sa * 255 + dr * da * inv_sa + denom / 2) / denom;
+            uint32_t out_g = (bg * sa * 255 + dg * da * inv_sa + denom / 2) / denom;
+            uint32_t out_b = (bb * sa * 255 + db * da * inv_sa + denom / 2) / denom;
+            if (out_r > 255) out_r = 255;
+            if (out_g > 255) out_g = 255;
+            if (out_b > 255) out_b = 255;
+
+            row[x] = (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
+        }
+    }
+}
+
 static void clear_layer_pixels(uint32_t *pix, uint32_t num_pixels) {
     if (!pix) return;
 #if defined(__wasm_simd128__)

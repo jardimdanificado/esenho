@@ -2780,8 +2780,16 @@ class EsenhoEngine(
 
         val sourceState = captureRasterLayerState(idx)
         val beforeGroups = rasterLayerGroups.mapValues { (_, group) -> group.layerIds.toList() }
-        val mergedFrames = buildMergedTrackFrames(destinationTrack, sourceTrack, sourceState.opacity)
-            ?: return
+        val mergedFrames = buildMergedTrackFrames(
+            destinationTrack,
+            sourceTrack,
+            sourceState.opacity,
+            sourceState.blendMode,
+            sourceState.clipping,
+            // Base visibility, not the current cel's flag: hidden cels must not be
+            // baked in, but the merge still walks every exposure of the track.
+            sourceState.visible && isRasterLayerGroupVisible(idx)
+        ) ?: return
         val previousActive = activeLayerIndex
         val previousTick = currentAnimationTick
 
@@ -2830,7 +2838,10 @@ class EsenhoEngine(
     private fun buildMergedTrackFrames(
         destination: AnimationTrack,
         source: AnimationTrack,
-        sourceLayerOpacity: Int
+        sourceLayerOpacity: Int,
+        sourceBlendMode: Int = LayerBlendMode.NORMAL.id,
+        sourceClipping: Boolean = false,
+        sourceVisible: Boolean = true
     ): MutableList<AnimationCel>? {
         fun celAt(track: AnimationTrack, tick: Int): AnimationCel? {
             return track.frames.getOrNull(AnimationExposure.indexAt(
@@ -2863,18 +2874,20 @@ class EsenhoEngine(
                     height,
                     Bitmap.Config.ARGB_8888
                 )
-                val canvas = android.graphics.Canvas(bitmap)
-                val bitmapPaint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
-                if (destinationCel?.visible == true) {
-                    canvas.drawBitmap(destinationCel.bitmap, 0f, 0f, bitmapPaint)
-                }
+                // Cels are raw copies of layer pixels, so composite them with the
+                // engine's own blending instead of Canvas.drawBitmap: a Canvas draw
+                // assumes premultiplied pixels and destroys semi-transparent ones.
                 val sourceOpacity = (sourceLayerOpacity.coerceIn(0, 255) * (sourceCel?.opacity ?: 0).coerceIn(0, 255)) / 255
-                if (sourceCel?.visible == true && sourceOpacity > 0) {
-                    val sourcePaint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG).apply {
-                        alpha = sourceOpacity
-                    }
-                    canvas.drawBitmap(sourceCel.bitmap, 0f, 0f, sourcePaint)
-                }
+                EsenhoNativeBridge.nativeMergeCelBitmaps(
+                    out = bitmap,
+                    destination = destinationCel?.bitmap?.takeIf { destinationCel.visible && !it.isRecycled },
+                    source = sourceCel?.bitmap?.takeIf {
+                        sourceVisible && sourceCel.visible && !it.isRecycled && sourceOpacity > 0
+                    },
+                    sourceOpacity = sourceOpacity,
+                    blendMode = sourceBlendMode,
+                    clipToDestination = sourceClipping
+                )
                 merged += AnimationCel(
                     id = "merge_${System.nanoTime()}_$index",
                     bitmap = bitmap,

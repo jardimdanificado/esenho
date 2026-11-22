@@ -528,7 +528,11 @@ fun WorkspacePanelContainer(
     onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (embedded) Column(Modifier.fillMaxSize(), content = content)
+    if (embedded)
+        Column(
+            Modifier.fillMaxSize().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            content = content,
+        )
     else
         androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
             Surface(

@@ -1432,6 +1432,53 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeCanvasFlipV(
 }
 
 JNIEXPORT void JNICALL
+Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeMergeCelBitmaps(
+    JNIEnv *env, jobject thiz, jobject out_bitmap, jobject dest_bitmap, jobject src_bitmap,
+    jint source_opacity, jint blend_mode, jboolean clip_to_dest) {
+    AndroidBitmapInfo out_info, dest_info, src_info;
+    void *out_pixels = NULL;
+    void *dest_pixels = NULL;
+    void *src_pixels = NULL;
+    int have_out = 0, have_dest = 0, have_src = 0;
+
+    if (AndroidBitmap_getInfo(env, out_bitmap, &out_info) < 0) return;
+    if (out_info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return;
+    if (AndroidBitmap_lockPixels(env, out_bitmap, &out_pixels) < 0 || !out_pixels) return;
+    have_out = 1;
+
+    if (dest_bitmap) {
+        if (AndroidBitmap_getInfo(env, dest_bitmap, &dest_info) >= 0 &&
+            dest_info.format == ANDROID_BITMAP_FORMAT_RGBA_8888 &&
+            AndroidBitmap_lockPixels(env, dest_bitmap, &dest_pixels) >= 0 && dest_pixels) {
+            have_dest = 1;
+        }
+    }
+    if (src_bitmap) {
+        if (AndroidBitmap_getInfo(env, src_bitmap, &src_info) >= 0 &&
+            src_info.format == ANDROID_BITMAP_FORMAT_RGBA_8888 &&
+            AndroidBitmap_lockPixels(env, src_bitmap, &src_pixels) >= 0 && src_pixels) {
+            have_src = 1;
+        }
+    }
+
+    w_merge_cel_pixels(
+        (uint32_t *)out_pixels, (int32_t)out_info.width, (int32_t)out_info.height,
+        have_dest ? (const uint32_t *)dest_pixels : NULL,
+        have_dest ? (int32_t)dest_info.width : 0,
+        have_dest ? (int32_t)dest_info.height : 0,
+        have_src ? (const uint32_t *)src_pixels : NULL,
+        have_src ? (int32_t)src_info.width : 0,
+        have_src ? (int32_t)src_info.height : 0,
+        (uint8_t)(source_opacity < 0 ? 0 : (source_opacity > 255 ? 255 : source_opacity)),
+        (uint8_t)(blend_mode < 0 ? 0 : blend_mode),
+        (uint8_t)(clip_to_dest ? 1 : 0));
+
+    if (have_src) AndroidBitmap_unlockPixels(env, src_bitmap);
+    if (have_dest) AndroidBitmap_unlockPixels(env, dest_bitmap);
+    if (have_out) AndroidBitmap_unlockPixels(env, out_bitmap);
+}
+
+JNIEXPORT void JNICALL
 Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeLayerDrawBitmap(
     JNIEnv *env, jobject thiz, jint layer_idx, jobject bitmap, jint dst_x, jint dst_y, jint dst_w, jint dst_h) {
     AndroidBitmapInfo info;

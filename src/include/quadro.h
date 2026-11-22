@@ -207,6 +207,11 @@ static inline void w_set_texture(uint32_t *pixels, int32_t width, int32_t height
 
 W_EXPORT int32_t w_layer_resize(int32_t layer_idx, int32_t new_w, int32_t new_h, int32_t resample);
 W_EXPORT int32_t w_layer_duplicate(int32_t layer_idx);
+W_EXPORT void w_merge_cel_pixels(
+    uint32_t *out, int32_t out_w, int32_t out_h,
+    const uint32_t *dest, int32_t dest_w, int32_t dest_h,
+    const uint32_t *src, int32_t src_w, int32_t src_h,
+    uint8_t opacity, uint8_t blend_mode, uint8_t clip);
 W_EXPORT uint32_t w_pick_color(int32_t x, int32_t y, int32_t sample_composite);
 W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser);
 W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser, int32_t pressure, int32_t tilt_x, int32_t tilt_y);

@@ -102,7 +102,10 @@ fun NativeScriptEditor(
     var presetName by remember { mutableStateOf("") }
     val selected = presets.firstOrNull { it.id == selectedPresetId }
     val modified = selected != null && source != selected.source
-    Column(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        Modifier.fillMaxSize().padding(start = 8.dp, end = 8.dp, top = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
         EditorPanelHeader("Scripts JavaScript", { releaseEditorFocus(); onDismiss() })
         WorkspaceSectionTabs(listOf("Código", "API", "Pivots"),tab,{ tab=it })
         if (tab == 1) ScriptReferencePanel(Modifier.weight(1f))

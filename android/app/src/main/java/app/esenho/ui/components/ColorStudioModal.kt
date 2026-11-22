@@ -88,11 +88,7 @@ fun ColorStudioModal(
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Row(
-                    Modifier.fillMaxWidth().height(28.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("Cores", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
+                EditorPanelHeader("Cores", onDismiss, actions = {
                     Box {
                         TextButton(
                             { modesOpen = true },
@@ -136,10 +132,7 @@ fun ColorStudioModal(
                             style = MaterialTheme.typography.labelSmall,
                         )
                     }
-                    IconButton(onDismiss, Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, "Fechar cores", Modifier.size(16.dp))
-                    }
-                }
+                })
                 when (mode) {
                     0 ->
                         Row(
