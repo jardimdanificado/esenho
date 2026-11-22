@@ -824,7 +824,7 @@ fun BrushPropertiesPanel(
         onBrushUpdated()
     }
 
-    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+    Column(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
         Row(Modifier.fillMaxWidth().height(32.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack, Modifier.size(28.dp)) {
                 Icon(Icons.Default.ArrowBack, "Voltar aos pincéis", Modifier.size(16.dp))
@@ -1003,8 +1003,8 @@ fun BrushPropertiesPanel(
         Spacer(modifier = Modifier.height(6.dp))
 
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().height(420.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             if (tunerTab == PresetTunerTab.CURVES) {
                 item { BrushCurvesPanel(engine, onBrushUpdated) }
@@ -1513,7 +1513,7 @@ private fun CommonBrushControls(engine: EsenhoEngine, onBrushUpdated: () -> Unit
         Triple(5, "Espaçamento entre Dabs", "%"),
         Triple(20, "Curvatura do Traço", "%"),
     )
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         controls.forEach { (id, label, unit) ->
             val value = remember(version, engine.getPresetParam(id)) {
                 engine.getPresetParam(id).toFloat()
@@ -1550,37 +1550,38 @@ fun TunerSliderCard(
 ) {
     var localValue by remember(value) { mutableFloatStateOf(value) }
 
-    Card(
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-            ),
-        shape = RoundedCornerShape(8.dp),
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(label, Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                TrackParameterButton(trackingId)
-                Text(
-                    "${localValue.toInt()} $unit".trim(),
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                )
-            }
-            Slider(
-                value = localValue.coerceIn(range.start, range.endInclusive),
-                onValueChange = {
-                    localValue = it
-                    onValueChange(it)
-                },
-                onValueChangeFinished = onValueChangeFinished,
-                valueRange = range,
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 1.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                label,
+                Modifier.weight(1f),
+                fontWeight = FontWeight.Medium,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            TrackParameterButton(trackingId)
+            Text(
+                "${localValue.toInt()} $unit".trim(),
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
             )
         }
+        WorkspaceSlider(
+            value = localValue.coerceIn(range.start, range.endInclusive),
+            onValueChange = {
+                localValue = it
+                onValueChange(it)
+            },
+            onValueChangeFinished = onValueChangeFinished,
+            valueRange = range,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

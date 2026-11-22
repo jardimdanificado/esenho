@@ -468,8 +468,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         toolMenuCategory = null
         if (mode.name.startsWith("SELECT_") || mode == ToolMode.LASSO_FILL)
             activePanel = WorkspacePanel.SELECTION
-        else if (activePanel == WorkspacePanel.SELECTION || activePanel == WorkspacePanel.TRANSFORM)
-            activePanel = null
+        else if (activePanel == WorkspacePanel.SELECTION) activePanel = null
         if (mode == ToolMode.SELECT_WAND) {
             if (isTransformActive) engine.cancelTransform()
             isTransformActive = false
@@ -480,7 +479,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
             if (engine.beginTransform(selectionOnly = engine.selectionActive)) {
                 isTransformActive = true
                 transformLockAspect = engine.transformState?.lockAspect ?: false
-                activePanel = WorkspacePanel.TRANSFORM
+                activePanel = null
                 currentTool = mode
             }
         } else {
@@ -1097,7 +1096,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                                 if (ok) {
                                     isTransformActive = true
                                     transformLockAspect = engine.transformState?.lockAspect ?: true
-                                    activePanel = WorkspacePanel.TRANSFORM
+                                    activePanel = null
                                     currentTool = ToolMode.TRANSFORM
                                     refreshState()
                                 }
@@ -1113,245 +1112,6 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             )
                         }
                     }
-                }
-            WorkspacePanel.TRANSFORM ->
-                Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)
-                ) {
-                    EditorPanelHeader("Transformação", { activePanel = null })
-                    if (!isTransformActive)
-                        Text(
-                            "Escolha uma área para transformar.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    else
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(
-                                text = "Transformar",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(end = 4.dp),
-                            )
-                            Box {
-                                TextButton(
-                                    onClick = { showTransformModeMenu = true },
-                                    contentPadding = PaddingValues(horizontal = 6.dp),
-                                ) {
-                                    Text(activeTransformMode.title, fontSize = 11.sp)
-                                    Icon(
-                                        Icons.Default.ExpandMore,
-                                        contentDescription = "Modo de transformação",
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                }
-                                DropdownMenu(
-                                    expanded = showTransformModeMenu,
-                                    onDismissRequest = { showTransformModeMenu = false },
-                                ) {
-                                    TransformState.Mode.values().forEach { mode ->
-                                        DropdownMenuItem(
-                                            text = { Text(mode.title) },
-                                            trailingIcon =
-                                                if (activeTransformMode == mode) {
-                                                    { Icon(Icons.Default.Check, null) }
-                                                } else null,
-                                            onClick = {
-                                                activeTransformMode = mode
-                                                engine.transformModePreference = mode
-                                                engine.transformState?.mode = mode
-                                                showTransformModeMenu = false
-                                                canvasViewRef?.invalidate()
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-
-                            WorkspaceActionButton(
-                                onClick = {
-                                    transformLockAspect = !transformLockAspect
-                                    engine.transformLockAspect = transformLockAspect
-                                    engine.transformState?.lockAspect = transformLockAspect
-                                    canvasViewRef?.invalidate()
-                                },
-                                description =
-                                    if (transformLockAspect) "Proporção bloqueada"
-                                    else "Bloquear proporção",
-                                modifier = Modifier.width(140.dp),
-                            ) {
-                                Icon(
-                                    if (transformLockAspect) Icons.Default.Lock
-                                    else Icons.Default.LockOpen,
-                                    contentDescription =
-                                        if (transformLockAspect) "Proporção bloqueada"
-                                        else "Proporção livre",
-                                    tint =
-                                        if (transformLockAspect) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(19.dp),
-                                )
-                            }
-
-                            TextButton(
-                                onClick = {
-                                    activeTransformInterpolation =
-                                        if (
-                                            activeTransformInterpolation ==
-                                                TransformState.Interpolation.NEAREST
-                                        )
-                                            TransformState.Interpolation.BILINEAR
-                                        else TransformState.Interpolation.NEAREST
-                                    engine.transformInterpolation = activeTransformInterpolation
-                                    engine.transformState?.interpolation =
-                                        activeTransformInterpolation
-                                    canvasViewRef?.invalidate()
-                                },
-                                contentPadding = PaddingValues(horizontal = 6.dp),
-                            ) {
-                                Text(activeTransformInterpolation.title, fontSize = 10.sp)
-                            }
-
-                            WorkspaceActionButton(
-                                onClick = {
-                                    engine.flipTransformH()
-                                    canvasViewRef?.invalidate()
-                                },
-                                description = "Espelhar Horizontal",
-                                modifier = Modifier.width(140.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.Flip,
-                                    contentDescription = "Espelhar Horizontal",
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-
-                            WorkspaceActionButton(
-                                onClick = {
-                                    engine.rotateTransform90()
-                                    canvasViewRef?.invalidate()
-                                },
-                                description = "Girar 90°",
-                                modifier = Modifier.width(140.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.RotateRight,
-                                    contentDescription = "Girar 90°",
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-
-                            Box {
-                                WorkspaceActionButton(
-                                    onClick = { showTransformActions = true },
-                                    description = "Mais ações de transformação",
-                                    modifier = Modifier.width(140.dp),
-                                ) {
-                                    Icon(
-                                        Icons.Default.MoreVert,
-                                        contentDescription = "Ações de transformação",
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                }
-                                DropdownMenu(
-                                    expanded = showTransformActions,
-                                    onDismissRequest = { showTransformActions = false },
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text("Girar 90° anti-horário") },
-                                        leadingIcon = { Icon(Icons.Default.RotateLeft, null) },
-                                        onClick = {
-                                            showTransformActions = false
-                                            engine.rotateTransformBy(-90f)
-                                            canvasViewRef?.invalidate()
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Girar 180°") },
-                                        leadingIcon = {
-                                            Icon(Icons.Default.Rotate90DegreesCw, null)
-                                        },
-                                        onClick = {
-                                            showTransformActions = false
-                                            engine.rotateTransformBy(180f)
-                                            canvasViewRef?.invalidate()
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Centralizar no canvas") },
-                                        leadingIcon = {
-                                            Icon(Icons.Default.CenterFocusStrong, null)
-                                        },
-                                        onClick = {
-                                            showTransformActions = false
-                                            engine.centerTransform()
-                                            canvasViewRef?.invalidate()
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Ajustar ao canvas") },
-                                        leadingIcon = { Icon(Icons.Default.FitScreen, null) },
-                                        onClick = {
-                                            showTransformActions = false
-                                            engine.fitTransformToCanvas()
-                                            canvasViewRef?.invalidate()
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Redefinir transformação") },
-                                        leadingIcon = { Icon(Icons.Default.Refresh, null) },
-                                        onClick = {
-                                            showTransformActions = false
-                                            engine.resetTransform()
-                                            canvasViewRef?.invalidate()
-                                        },
-                                    )
-                                }
-                            }
-
-                            WorkspaceActionButton(
-                                onClick = {
-                                    isTransformActive = false
-                                    activePanel = null
-                                    engine.cancelTransform()
-                                    currentTool = ToolMode.BRUSH
-                                    refreshState()
-                                },
-                                description = "Cancelar Transformação",
-                                modifier = Modifier.width(140.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Cancelar",
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-
-                            WorkspaceActionButton(
-                                onClick = {
-                                    isTransformActive = false
-                                    activePanel = null
-                                    engine.commitTransform()
-                                    currentTool = ToolMode.BRUSH
-                                    refreshState()
-                                },
-                                description = "Confirmar Transformação",
-                                emphasized = true,
-                                modifier = Modifier.width(140.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.Check,
-                                    contentDescription = "Confirmar Transformação",
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                        }
                 }
             null -> Unit
         }
@@ -1447,6 +1207,70 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
         bottomBar = {
                 Column(Modifier.blockScriptTouches(scriptSession != null || markingScriptPivot)) {
                     val vectorMode = engine.vectors.enabled
+                    if (isTransformActive) {
+                        TransformCompactBar(
+                            mode = activeTransformMode,
+                            onModeChange = { mode ->
+                                activeTransformMode = mode
+                                engine.transformModePreference = mode
+                                engine.transformState?.mode = mode
+                                canvasViewRef?.invalidate()
+                            },
+                            lockAspect = transformLockAspect,
+                            onToggleLockAspect = {
+                                transformLockAspect = !transformLockAspect
+                                engine.transformLockAspect = transformLockAspect
+                                engine.transformState?.lockAspect = transformLockAspect
+                                canvasViewRef?.invalidate()
+                            },
+                            interpolation = activeTransformInterpolation,
+                            onToggleInterpolation = {
+                                activeTransformInterpolation =
+                                    if (
+                                        activeTransformInterpolation ==
+                                            TransformState.Interpolation.NEAREST
+                                    )
+                                        TransformState.Interpolation.BILINEAR
+                                    else TransformState.Interpolation.NEAREST
+                                engine.transformInterpolation = activeTransformInterpolation
+                                engine.transformState?.interpolation =
+                                    activeTransformInterpolation
+                                canvasViewRef?.invalidate()
+                            },
+                            onFlipH = {
+                                engine.flipTransformH()
+                                canvasViewRef?.invalidate()
+                            },
+                            onRotate = {
+                                engine.rotateTransformBy(it)
+                                canvasViewRef?.invalidate()
+                            },
+                            onCenter = {
+                                engine.centerTransform()
+                                canvasViewRef?.invalidate()
+                            },
+                            onFit = {
+                                engine.fitTransformToCanvas()
+                                canvasViewRef?.invalidate()
+                            },
+                            onReset = {
+                                engine.resetTransform()
+                                canvasViewRef?.invalidate()
+                            },
+                            onCancel = {
+                                isTransformActive = false
+                                engine.cancelTransform()
+                                currentTool = ToolMode.BRUSH
+                                refreshState()
+                            },
+                            onConfirm = {
+                                isTransformActive = false
+                                engine.commitTransform()
+                                currentTool = ToolMode.BRUSH
+                                refreshState()
+                            },
+                        )
+                    }
                     if (animationBarVisible) {
                         when {
                             vectorMode -> VectorAnimationCompactBar(
@@ -1500,7 +1324,7 @@ fun EsenhoMainScreen(onExport: (NativeExportRequest) -> Unit) {
                             } else if (currentTool == ToolMode.BRUSH) {
                                 brushPropertiesRequest++
                                 activePanel = WorkspacePanel.BRUSHES
-                            } else if (isTransformActive) activePanel = WorkspacePanel.TRANSFORM
+                            } else if (isTransformActive) Unit
                             else if (selectionActive || currentTool.name.startsWith("SELECT_"))
                                 activePanel = WorkspacePanel.SELECTION
                             else showSelectMenu = true

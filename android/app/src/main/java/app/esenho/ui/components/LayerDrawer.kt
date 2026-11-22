@@ -58,6 +58,7 @@ fun LayerDrawer(
         activeLayerId = engine.activeLayerIndex
     }
     var movingLayer by remember { mutableStateOf<Int?>(null) }
+    var draggingLayerId by remember { mutableStateOf<Int?>(null) }
     val treeRows = layerTree(engine,layersList)
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     var layerMenuId by remember { mutableStateOf<Int?>(null) }
@@ -97,6 +98,22 @@ fun LayerDrawer(
                 ) {
                     Icon(Icons.Default.Add, "Adicionar camada", Modifier.size(19.dp))
                 }
+                IconButton(
+                    onClick = {
+                        engine.duplicateLayer(activeLayerId)
+                        refresh()
+                    },
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(Icons.Default.ContentCopy, "Duplicar camada", Modifier.size(17.dp))
+                }
+                IconButton(
+                    enabled = layersList.size > 1,
+                    onClick = { confirmAction = "merge" },
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(Icons.Default.Merge, "Mesclar com a de baixo", Modifier.size(17.dp))
+                }
                 IconButton(onClick = { engine.editRasterGroups { engine.createRasterLayerGroup() }; refresh() }, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.CreateNewFolder,"Novo grupo",Modifier.size(19.dp))
                 }
@@ -122,9 +139,51 @@ fun LayerDrawer(
                             .height(40.dp)
                             .clip(RoundedCornerShape(3.dp))
                             .background(
-                                if (selected) MaterialTheme.colorScheme.primaryContainer
-                                else Color.Transparent
+                                when {
+                                    draggingLayerId == layer.id ->
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                    selected -> MaterialTheme.colorScheme.primaryContainer
+                                    else -> Color.Transparent
+                                }
                             )
+                            .pointerInput(layer.id, rowPixels) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = {
+                                        engine.selectLayer(layer.id)
+                                        draggingLayerId = layer.id
+                                        refresh()
+                                        dragRemainder = 0f
+                                        reorderToken = 0L
+                                    },
+                                    onDragEnd = {
+                                        draggingLayerId = null
+                                        dragRemainder = 0f
+                                        reorderToken = 0L
+                                    },
+                                    onDragCancel = {
+                                        draggingLayerId = null
+                                        dragRemainder = 0f
+                                        reorderToken = 0L
+                                    },
+                                    onDrag = { change, amount ->
+                                        change.consume()
+                                        dragRemainder += amount.y
+                                        val steps = (dragRemainder / rowPixels).toInt()
+                                        if (steps != 0) {
+                                            if (reorderToken == 0L)
+                                                reorderToken = engine.beginLayerOrderChange()
+                                            engine.moveLayerByOrderDelta(
+                                                layer.id,
+                                                steps,
+                                                captureUndo = false,
+                                                orderHistoryToken = reorderToken,
+                                            )
+                                            dragRemainder -= steps * rowPixels
+                                            refresh()
+                                        }
+                                    },
+                                )
+                            }
                             .clickable {
                                 engine.selectLayer(layer.id)
                                 refresh()
@@ -169,41 +228,7 @@ fun LayerDrawer(
                             )
                         }
                         Box(
-                            Modifier.size(36.dp).pointerInput(layer.id, rowPixels) {
-                                detectDragGesturesAfterLongPress(
-                                    onDragStart = {
-                                        engine.selectLayer(layer.id)
-                                        refresh()
-                                        dragRemainder = 0f
-                                        reorderToken = 0L
-                                    },
-                                    onDragEnd = {
-                                        dragRemainder = 0f
-                                        reorderToken = 0L
-                                    },
-                                    onDragCancel = {
-                                        dragRemainder = 0f
-                                        reorderToken = 0L
-                                    },
-                                    onDrag = { change, amount ->
-                                        change.consume()
-                                        dragRemainder += amount.y
-                                        val steps = (dragRemainder / rowPixels).toInt()
-                                        if (steps != 0) {
-                                            if (reorderToken == 0L)
-                                                reorderToken = engine.beginLayerOrderChange()
-                                            engine.moveLayerByOrderDelta(
-                                                layer.id,
-                                                steps,
-                                                captureUndo = false,
-                                                orderHistoryToken = reorderToken,
-                                            )
-                                            dragRemainder -= steps * rowPixels
-                                            refresh()
-                                        }
-                                    },
-                                )
-                            },
+                            Modifier.size(36.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(

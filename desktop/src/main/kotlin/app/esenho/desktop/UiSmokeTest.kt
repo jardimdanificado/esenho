@@ -189,6 +189,54 @@ suspend fun clickEditor(window: java.awt.Window, x: Int, y: Int) {
     kotlinx.coroutines.delay(400)
 }
 
+/** Long-press drags a layer chip sideways and checks the stack order really moved. */
+suspend fun exerciseLayerReordering(window: java.awt.Window) {
+    val engine = checkNotNull(desktopUiTestCanvas).engine!!
+    checkNotNull(desktopUiTestCommand)("layersBar")
+    kotlinx.coroutines.delay(600)
+    val target = children(window).filterIsInstance<SkiaLayer>().first { it.isShowing }.canvas
+    val before = engine.layers.map { it.id }
+    check(before.size >= 3) { "expected at least three layers, got $before" }
+    // Layers bar sits above parameters/tools/color/brush strips.
+    val y = target.height - 184
+    val startX = 130
+    val time = System.currentTimeMillis()
+    var stamp = time
+    fun event(id: Int, x: Int, mask: Int) {
+        stamp += 30
+        target.dispatchEvent(
+            java.awt.event.MouseEvent(
+                target,
+                id,
+                stamp,
+                mask,
+                x,
+                y,
+                1,
+                false,
+                1,
+            )
+        )
+    }
+    event(java.awt.event.MouseEvent.MOUSE_PRESSED, startX, java.awt.event.InputEvent.BUTTON1_DOWN_MASK)
+    kotlinx.coroutines.delay(700)
+    for (step in 1..8) {
+        event(
+            java.awt.event.MouseEvent.MOUSE_DRAGGED,
+            startX + step * 10,
+            java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
+        )
+        kotlinx.coroutines.delay(40)
+    }
+    event(java.awt.event.MouseEvent.MOUSE_RELEASED, startX + 80, 0)
+    kotlinx.coroutines.delay(500)
+    val after = engine.layers.map { it.id }
+    check(after.toSet() == before.toSet()) { "layer drag lost a layer: $before -> $after" }
+    check(after != before) { "layer drag did not reorder the stack: $before" }
+    captureEditor(window, File("desktop/build/ui-layers-dragged.png"))
+    println("Desktop UI: layer chip long-press reorder OK")
+}
+
 /** Clicks the second entry of the brush shelf and checks the engine actually switched brush. */
 suspend fun exerciseBrushShelf(window: java.awt.Window) {
     val view = checkNotNull(desktopUiTestCanvas)

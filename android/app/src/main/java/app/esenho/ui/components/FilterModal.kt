@@ -1,11 +1,7 @@
 package app.esenho.ui.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -17,8 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,198 +30,177 @@ fun FilterModal(
     var selectedFilter by remember { mutableStateOf<FilterModel?>(null) }
     var param1 by remember { mutableFloatStateOf(10f) }
     var param2 by remember { mutableFloatStateOf(1f) }
-    var showHsvAdjustment by remember { mutableStateOf(false) }
     var search by remember { mutableStateOf("") }
-    val visibleFilters = engine.filterCatalog.filter {
-        it.title.contains(search.trim(), ignoreCase = true) || it.id.contains(search.trim(), ignoreCase = true)
-    }
-    var hue by remember { mutableFloatStateOf(0f) }
-    var saturation by remember { mutableFloatStateOf(0f) }
-    var value by remember { mutableFloatStateOf(0f) }
+    val visibleFilters =
+        engine.filterCatalog.filter {
+            it.title.contains(search.trim(), ignoreCase = true) ||
+                it.id.contains(search.trim(), ignoreCase = true)
+        }
 
     WorkspacePanelContainer(embedded = embedded, onDismiss = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(if (embedded) Modifier.fillMaxHeight() else Modifier)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 14.dp)
-                .padding(bottom = 12.dp)
-        ) {
-            EditorPanelHeader("Filtros · ${engine.filterCatalog.size}", onDismiss)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                WorkspaceChoiceChip(
-                    selected = !showHsvAdjustment,
-                    onClick = { showHsvAdjustment = false },
-                    label = { Text("Filtros") }
-                )
-                WorkspaceChoiceChip(
-                    selected = showHsvAdjustment,
-                    onClick = { showHsvAdjustment = true },
-                    label = { Text("Cor HSV") }
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
+        EditorPanelHeader("Filtros · ${engine.filterCatalog.size}", onDismiss)
+        WorkspaceSearchField(
+            value = search,
+            onValueChange = { search = it },
+            placeholder = "Buscar filtro por nome ou ID",
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            "${visibleFilters.size} de ${engine.filterCatalog.size} filtros · camada ativa",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 6.dp),
+        )
 
-            if (showHsvAdjustment) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text("Ajustar cor da camada ativa", style = MaterialTheme.typography.titleSmall)
-                        Text("Matiz: ${hue.toInt()}°", style = MaterialTheme.typography.labelSmall)
-                        Slider(value = hue, onValueChange = { hue = it }, valueRange = -180f..180f)
-                        Text("Saturação: ${saturation.toInt()}%", style = MaterialTheme.typography.labelSmall)
-                        Slider(value = saturation, onValueChange = { saturation = it }, valueRange = -100f..100f)
-                        Text("Valor: ${value.toInt()}%", style = MaterialTheme.typography.labelSmall)
-                        Slider(value = value, onValueChange = { value = it }, valueRange = -100f..100f)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TextButton(onClick = { hue = 0f; saturation = 0f; value = 0f }) {
-                                Text("Redefinir")
-                            }
-                            Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius), onClick = {
-                                engine.adjustActiveLayerHsv(hue.toInt(), saturation.toInt(), value.toInt())
+        selectedFilter?.let { f ->
+            Surface(
+                shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+            ) {
+                Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            f.title,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        TextButton(
+                            onClick = {
+                                engine.applyFilter(f, param1.toInt(), param2.toInt())
                                 onFilterApplied()
                                 onDismiss()
-                            }) {
-                                Text("Aplicar")
-                            }
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                            modifier = Modifier.height(26.dp),
+                        ) {
+                            Text("Aplicar", fontSize = 11.sp)
+                        }
+                        TextButton(
+                            onClick = { selectedFilter = null },
+                            contentPadding = PaddingValues(horizontal = 6.dp),
+                            modifier = Modifier.height(26.dp),
+                        ) {
+                            Text("Fechar", fontSize = 11.sp)
                         }
                     }
-                }
-            }
-
-            // Parameter Adjustment Box if filter selected
-            if (!showHsvAdjustment && selectedFilter != null) {
-                val f = selectedFilter!!
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Ajustes: ${f.title}",
-                                modifier = Modifier.weight(1f).padding(end = 8.dp),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Button(shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
-                                onClick = {
-                                    engine.applyFilter(f, param1.toInt(), param2.toInt())
-                                    onFilterApplied()
-                                    onDismiss()
-                                },
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
-                            ) {
-                                Text("Aplicar", fontSize = 12.sp)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        if (f.params.isNotEmpty()) {
-                            val p1 = f.params[0]
-                            Text("${p1.name}: ${param1.toInt()} ${p1.unit}", style = MaterialTheme.typography.labelSmall)
-                            Slider(
+                    if (f.params.isNotEmpty()) {
+                        val p = f.params[0]
+                        ParamRow(p.name, "${param1.toInt()} ${p.unit}".trim()) {
+                            WorkspaceSlider(
                                 value = param1,
                                 onValueChange = { param1 = it },
-                                valueRange = p1.min.toFloat()..p1.max.toFloat()
+                                valueRange = p.min.toFloat()..p.max.toFloat(),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
-
-                        if (f.params.size > 1) {
-                            val p2 = f.params[1]
-                            Text("${p2.name}: ${param2.toInt()} ${p2.unit}", style = MaterialTheme.typography.labelSmall)
-                            Slider(
+                    }
+                    if (f.params.size > 1) {
+                        val p = f.params[1]
+                        ParamRow(p.name, "${param2.toInt()} ${p.unit}".trim()) {
+                            WorkspaceSlider(
                                 value = param2,
                                 onValueChange = { param2 = it },
-                                valueRange = p2.min.toFloat()..p2.max.toFloat()
+                                valueRange = p.min.toFloat()..p.max.toFloat(),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            if (!showHsvAdjustment) {
-                OutlinedTextField(
-                    value = search,
-                    onValueChange = { search = it },
-                    label = { Text("Buscar filtro por nome ou ID") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text(
-                    "${visibleFilters.size} de ${engine.filterCatalog.size} filtros · camada ativa",
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-                if (visibleFilters.isEmpty()) {
-                    Text("Nenhum filtro encontrado.", style = MaterialTheme.typography.bodySmall)
-                }
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 96.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(320.dp)
-                ) {
-                    items(visibleFilters, key = { it.id }) { filter ->
-                        val isSelected = selectedFilter?.id == filter.id
-
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(78.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable {
-                                selectedFilter = filter
-                                param1 = if (filter.params.isNotEmpty()) filter.params[0].defaultVal.toFloat() else 10f
-                                param2 = if (filter.params.size > 1) filter.params[1].defaultVal.toFloat() else 1f
-                            },
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(6.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                Icons.Default.AutoAwesome,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = filter.title,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontSize = 11.sp,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
                     }
                 }
             }
         }
+
+        if (visibleFilters.isEmpty()) {
+            Text("Nenhum filtro encontrado.", style = MaterialTheme.typography.bodySmall)
+            return@WorkspacePanelContainer
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 84.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            contentPadding = PaddingValues(bottom = 8.dp),
+            modifier =
+                if (embedded) Modifier.fillMaxWidth().weight(1f)
+                else Modifier.fillMaxWidth().height(320.dp),
+        ) {
+            items(visibleFilters, key = { it.id }) { filter ->
+                val isSelected = selectedFilter?.id == filter.id
+                Surface(
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .height(54.dp)
+                            .clip(RoundedCornerShape(WorkspaceStyle.ItemRadius))
+                            .clickable {
+                                selectedFilter = filter
+                                param1 =
+                                    if (filter.params.isNotEmpty())
+                                        filter.params[0].defaultVal.toFloat()
+                                    else 10f
+                                param2 =
+                                    if (filter.params.size > 1)
+                                        filter.params[1].defaultVal.toFloat()
+                                    else 1f
+                            },
+                    color =
+                        if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(
+                            Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(13.dp),
+                            tint =
+                                if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = filter.title,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 10.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            color =
+                                if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParamRow(
+    name: String,
+    valueLabel: String,
+    slider: @Composable () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            "$name: $valueLabel",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.width(120.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Box(Modifier.weight(1f)) { slider() }
     }
 }

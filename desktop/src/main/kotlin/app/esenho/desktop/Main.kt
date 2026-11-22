@@ -68,6 +68,7 @@ fun main(args: Array<String>) {
                             listOf(
                                 "quickParams" to "ui-quick-params",
                                 "brushes" to "ui-brushes",
+                                "brushProperties" to "ui-brush-properties",
                                 "vectorColor" to "ui-color",
                             )) {
                             checkNotNull(desktopUiTestCommand)(command)
@@ -76,6 +77,23 @@ fun main(args: Array<String>) {
                             checkNotNull(desktopUiTestCommand)("compact")
                             kotlinx.coroutines.delay(300)
                         }
+                        for ((command, name) in
+                            listOf(
+                                "transform" to "ui-transform-bar",
+                                "layersBar" to "ui-layers-bar",
+                            )) {
+                            checkNotNull(desktopUiTestCommand)(command)
+                            kotlinx.coroutines.delay(500)
+                            captureEditor(window, File("desktop/build/$name.png"))
+                        }
+                        // Layer management must survive duplicate, reorder and merge.
+                        checkNotNull(desktopUiTestCommand)("layersSelfTest")
+                        kotlinx.coroutines.delay(400)
+                        captureEditor(window, File("desktop/build/ui-layers-after-ops.png"))
+                        println("Desktop UI: layer duplicate, reorder and merge OK")
+                        exerciseLayerReordering(window)
+                        checkNotNull(desktopUiTestCommand)("compact")
+                        kotlinx.coroutines.delay(300)
                         checkNotNull(desktopUiTestCommand)("newProject")
                         kotlinx.coroutines.delay(500)
                         captureEditor(window, File("desktop/build/ui-new-dialog.png"))

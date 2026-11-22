@@ -49,10 +49,61 @@ for src in base.rglob('*'):
             "vectorDelete" -> { engine.vectors.selection.delete(); refreshState(false) }
             "vectorNodes" -> { engine.vectors.tool = app.esenho.nativeengine.VectorTool.NODES; refreshState(false) }
             "layers" -> activePanel = WorkspacePanel.LAYERS
+            "layersBar" -> {
+                activePanel = null
+                animationBarVisible = false
+                layersBarVisible = true
+                refreshState(false)
+            }
+            "transform" -> {
+                if (engine.beginTransform(selectionOnly = engine.selectionActive)) {
+                    isTransformActive = true
+                    transformLockAspect = engine.transformState?.lockAspect ?: false
+                    activePanel = null
+                    currentTool = ToolMode.TRANSFORM
+                    refreshState(false)
+                }
+            }
+            "layerDuplicate" -> {
+                engine.duplicateLayer(engine.activeLayerIndex)
+                refreshState(false)
+            }
+            "layerMergeDown" -> {
+                engine.mergeDown(engine.activeLayerIndex)
+                refreshState(false)
+            }
+            "layerMoveUp" -> {
+                engine.moveLayerUp(engine.activeLayerIndex)
+                refreshState(false)
+            }
+            "layerMoveDown" -> {
+                engine.moveLayerDown(engine.activeLayerIndex)
+                refreshState(false)
+            }
+            "layersSelfTest" -> {
+                val raster = engine.layers.lastOrNull { it.id !in engine.vectors.layers }
+                check(raster != null) { "no raster layer" }
+                engine.selectLayer(raster.id)
+                val startCount = engine.layers.size
+                engine.duplicateLayer(engine.activeLayerIndex)
+                check(engine.layers.size == startCount + 1) { "duplicate failed" }
+                engine.moveLayerDown(engine.activeLayerIndex)
+                engine.moveLayerUp(engine.activeLayerIndex)
+                engine.mergeDown(engine.activeLayerIndex)
+                check(engine.layers.size == startCount) {
+                    "merge down failed: ${engine.layers.size} != $startCount"
+                }
+                refreshState(false)
+            }
             "timeline" -> { activePanel = null; animationBarVisible = true; refreshState(false) }
             "compact" -> { activePanel = null; animationBarVisible = false; layersBarVisible = false; quickSlidersOpen = false; refreshState(false) }
             "quickParams" -> { activePanel = null; quickSlidersOpen = true; refreshState(false) }
             "brushes" -> { activePanel = WorkspacePanel.BRUSHES; refreshState(false) }
+            "brushProperties" -> {
+                activePanel = WorkspacePanel.BRUSHES
+                brushPropertiesRequest++
+                refreshState(false)
+            }
             "newProject" -> { showNewProjectDialog = true }
             "exportDialog" -> { showExportDialog = true }
             "dismissDialogs" -> { showNewProjectDialog = false; showExportDialog = false; refreshState(false) }

@@ -42,7 +42,6 @@ enum class WorkspacePanel(val title: String, val icon: ImageVector) {
     LAYERS("Camadas", Icons.Default.Layers),
     EFFECTS("Efeitos", Icons.Default.AutoAwesome),
     SELECTION("Seleção", Icons.Default.CropFree),
-    TRANSFORM("Transformação", Icons.Default.OpenWith),
     SCRIPTS("Scripts", Icons.Default.Code),
 }
 
