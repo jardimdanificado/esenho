@@ -5,7 +5,6 @@ import android.graphics.*
 import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.MotionEvent
-import android.view.View
 import app.esenho.nativeengine.EsenhoEngine
 import app.esenho.nativeengine.CanvasGuide
 import app.esenho.nativeengine.DrawingGuideType
@@ -18,7 +17,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
-) : View(context, attrs, defStyleAttr) {
+) : CanvasHost(context, attrs, defStyleAttr) {
 
     var engine: EsenhoEngine? = null
         set(value) {
@@ -32,6 +31,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
     init {
         HandleMetrics.density = resources.displayMetrics.density.coerceAtLeast(1f)
+        drawContent = ::drawEditor
     }
 
     // Transform Matrix for Pan, Zoom & Rotate
@@ -927,10 +927,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
         return super.onTouchEvent(event)
     }
 
-    override fun onDraw(canvas: Canvas) {
+    private fun drawEditor(canvas: Canvas) {
         val drawStartNs = System.nanoTime()
         var renderNs = 0L
-        super.onDraw(canvas)
 
         // 1. Dark canvas workspace background
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
