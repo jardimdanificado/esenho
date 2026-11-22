@@ -60,6 +60,8 @@ fun LayersCompactBar(
                 horizontalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 layers.forEach { layer ->
+                    // Stable identity keeps the in-flight drag alive while the stack reorders.
+                    key(layer.id) {
                     Surface(
                         shape = RoundedCornerShape(WorkspaceStyle.ItemRadius),
                         color =
@@ -135,6 +137,7 @@ fun LayersCompactBar(
                                     else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                    }
                     }
                 }
             }

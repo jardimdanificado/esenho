@@ -220,7 +220,7 @@ suspend fun exerciseLayerReordering(window: java.awt.Window) {
     }
     event(java.awt.event.MouseEvent.MOUSE_PRESSED, startX, java.awt.event.InputEvent.BUTTON1_DOWN_MASK)
     kotlinx.coroutines.delay(700)
-    for (step in 1..8) {
+    for (step in 1..14) {
         event(
             java.awt.event.MouseEvent.MOUSE_DRAGGED,
             startX + step * 10,
@@ -228,11 +228,16 @@ suspend fun exerciseLayerReordering(window: java.awt.Window) {
         )
         kotlinx.coroutines.delay(40)
     }
-    event(java.awt.event.MouseEvent.MOUSE_RELEASED, startX + 80, 0)
+    event(java.awt.event.MouseEvent.MOUSE_RELEASED, startX + 140, 0)
     kotlinx.coroutines.delay(500)
     val after = engine.layers.map { it.id }
     check(after.toSet() == before.toSet()) { "layer drag lost a layer: $before -> $after" }
     check(after != before) { "layer drag did not reorder the stack: $before" }
+    val biggestMove =
+        before.indices.maxOf { index ->
+            kotlin.math.abs(after.indexOf(before[index]) - index)
+        }
+    check(biggestMove >= 2) { "layer drag only moved one position: $before -> $after" }
     captureEditor(window, File("desktop/build/ui-layers-dragged.png"))
     println("Desktop UI: layer chip long-press reorder OK")
 }
