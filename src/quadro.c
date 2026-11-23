@@ -1644,6 +1644,22 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
             if (is_builtin_circle && v_scaled_sq > r_sq + (brush_config.subpixel ? (2.0f * rf + 1.0f) : 0.0f)) continue;
             else if (!is_builtin_circle && (dy < -rf || dy > rf)) continue;
         }
+        /* Trim the square bounding box to the circle's own reach. A pixel can
+         * only be touched when its nearest point is within the tip radius
+         * (plus the half-pixel sample pad), so the corners of the box are dead
+         * work: for a 22 px tip that is more than half of the scanned pixels. The
+         * per-pixel culls below still decide inclusion, so this range only has
+         * to be a superset of the painted pixels. */
+        if (is_unrotated && is_builtin_circle) {
+            float reach = rf + 1.0f;
+            float reach_sq = reach * reach;
+            if (v_scaled_sq > reach_sq) continue;
+            float half = __builtin_sqrtf(reach_sq - v_scaled_sq);
+            int rx_min = (int)__builtin_floorf(cx - half) - 1;
+            int rx_max = (int)__builtin_ceilf(cx + half) + 1;
+            if (rx_min > row_min_x) row_min_x = rx_min;
+            if (rx_max < row_max_x) row_max_x = rx_max;
+        }
 
         for (int x = row_min_x; x <= row_max_x; x++) {
             if (is_pixel_clipped(x, y)) continue;
