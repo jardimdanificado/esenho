@@ -1540,6 +1540,39 @@ static void w_rot_row_span(float row_u, float row_v, float cos_f, float sin_f,
     *out_max = (int)__builtin_ceilf(cx + mid + half) + 2;
 }
 
+/* Span of a rotated square tip on one row. The tip is |u| <= reach and
+ * |v*rs| <= reach, and both coordinates are linear in dx, so the span is the
+ * intersection of two one-sided clamps: no square root and no per-pixel work.
+ * The incoming bounds are used as the outer interval and narrowed in place. */
+static void w_rot_square_row_span(float row_u, float row_v, float cos_f, float sin_f,
+        float roundness_scale, float reach, float cx, int *out_min, int *out_max) {
+    float lo = (float)*out_min - cx;
+    float hi = (float)*out_max - cx;
+    if (cos_f > 1e-6f || cos_f < -1e-6f) {
+        float d0 = (-reach - row_u) / cos_f;
+        float d1 = (reach - row_u) / cos_f;
+        if (d0 > d1) { float t = d0; d0 = d1; d1 = t; }
+        if (d0 > lo) lo = d0;
+        if (d1 < hi) hi = d1;
+    } else if (__builtin_fabsf(row_u) > reach) {
+        *out_min = 1; *out_max = 0; return;
+    }
+    float b = -sin_f * roundness_scale;
+    float base = row_v * roundness_scale;
+    if (b > 1e-6f || b < -1e-6f) {
+        float d0 = (-reach - base) / b;
+        float d1 = (reach - base) / b;
+        if (d0 > d1) { float t = d0; d0 = d1; d1 = t; }
+        if (d0 > lo) lo = d0;
+        if (d1 < hi) hi = d1;
+    } else if (__builtin_fabsf(base) > reach) {
+        *out_min = 1; *out_max = 0; return;
+    }
+    if (lo > hi) { *out_min = 1; *out_max = 0; return; }
+    *out_min = (int)__builtin_floorf(cx + lo) - 2;
+    *out_max = (int)__builtin_ceilf(cx + hi) + 2;
+}
+
 static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float cy, uint32_t color, int eraser, int move_dx, int move_dy, float dab_r, int dab_angle, int dab_flow_pct, int cur_d) {
     int is_alpha_locked = (active_layer >= 0 && active_layer < layer_count && layers[active_layer].alpha_lock);
     float rf = dab_r > 0 ? dab_r : (float)brush_config.size;
@@ -1719,10 +1752,14 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
 #if defined(__clang__)
         /* GCC keeps this row loop sensitive to any extra call edge and loses
          * about 5% on the unrotated tips, so it keeps the plain scan. */
-        if (!is_unrotated && is_builtin_circle) {
-            int rmin, rmax;
-            w_rot_row_span(row_u, row_v, cos_f, sin_f, roundness_scale,
-                           rf + 1.0f, cx, &rmin, &rmax);
+        if (!is_unrotated && (is_builtin_circle || is_builtin_square)) {
+            int rmin = row_min_x, rmax = row_max_x;
+            if (is_builtin_square)
+                w_rot_square_row_span(row_u, row_v, cos_f, sin_f, roundness_scale,
+                                      rf + 1.0f, cx, &rmin, &rmax);
+            else
+                w_rot_row_span(row_u, row_v, cos_f, sin_f, roundness_scale,
+                               rf + 1.0f, cx, &rmin, &rmax);
             if (rmin > row_min_x) row_min_x = rmin;
             if (rmax < row_max_x) row_max_x = rmax;
         }
