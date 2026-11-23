@@ -1510,7 +1510,6 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
     float inner_rf = rf * brush_config.hardness * 0.01f;
     float r_sq = rf * rf;
     float inner_r_sq = inner_rf * inner_rf;
-    float inv_r_sq_1023 = r_sq > 0.0f ? 1023.0f / r_sq : 1023.0f;
     /* Grain gate as a threshold compare: avoids a modulo per painted pixel. */
     uint32_t grain_threshold =
         brush_config.grain > 0 ? (uint32_t)((uint64_t)brush_config.grain * 42949673u) : 0;
@@ -1603,11 +1602,13 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
     int has_tex = (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0));
 
     update_hardness_lut(brush_config.hardness);
-    /* The four-sample coverage mask is only worth its cost for the analytic
-     * circle/square tips. A textured tip already carries its own antialiased
-     * alpha; supersampling it four times per pixel cost ~5x more per dab for no
-     * visible gain. Bilinear tip sampling is used for those tips instead. */
-    int area_tip = brush_config.subpixel && (shape_id == 0 || shape_id == 1);
+    /* The four-sample coverage mask is only worth its cost for hard edges.
+     * Textured tips carry their own antialiased alpha, and a circle whose
+     * feather already spans a pixel or more is antialiased by the hardness
+     * LUT. Supersampling those cost ~1.5-5x more per dab with no visible gain. */
+    int soft_circle = shape_id == 0 && brush_config.hardness < 100 &&
+        rf * (float)(100 - brush_config.hardness) >= 100.0f;
+    int area_tip = brush_config.subpixel && (shape_id == 0 || shape_id == 1) && !soft_circle;
     /* Hoist the two tip-map divisions out of the per-pixel loop. */
     float tex_scale_x = 0.0f, tex_scale_y = 0.0f;
     if (!is_builtin_circle && !is_builtin_square && stex->pixels && stex->width > 1 && stex->height > 1) {
@@ -1719,17 +1720,6 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                tiny custom tips within each sample so their detail survives. */
             if (area_tip && !solid_area) {
                 uint32_t total=0;
-                int soft_rim_center = is_builtin_circle && brush_config.hardness < 100 &&
-                    rf * (float)(100 - brush_config.hardness) >= 100.0f;
-                if (soft_rim_center) {
-                    /* Wide soft rim: the falloff spans more than a pixel, so the
-                       centre sample matches the 4-sample average and its edge
-                       contribution is already ~0 there. */
-                    int lut_idx=(int)(dist_sq*inv_r_sq_1023);
-                    if (lut_idx<0) lut_idx=0;
-                    if (lut_idx>1023) lut_idx=1023;
-                    shape_a=(uint32_t)g_hardness_lut[lut_idx];
-                } else
                 for (int cell=0; cell<4; ++cell) {
                     float ox=dx+((cell&1) ? 0.25f : -0.25f);
                     float oy=dy+((cell&2) ? 0.25f : -0.25f);
@@ -1772,7 +1762,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                     subpixel_shape[cell]=(uint8_t)(sum+0.5f);
                     total+=subpixel_shape[cell];
                 }
-                if (!soft_rim_center) shape_a=(total+2)/4;
+                shape_a=(total+2)/4;
             }
             if (shape_a == 0) continue;
 
