@@ -1520,6 +1520,26 @@ static int32_t last_trajectory_angle = 0;
  * Renders a single parametric dab at (cx, cy) onto active layer pixels.
  * Samples shape texture alpha channel for arbitrary tip geometry.
  */
+/* Horizontal span of a rotated circular tip. Along a row the sample position is
+ * linear in dx, so the ellipse reach (u^2 + (v*rs)^2 <= reach^2) becomes a
+ * quadratic in dx and its two roots bound the span with one square root.
+ * Keeping this out of line leaves the row loop of the unrotated tips byte for
+ * byte unchanged. */
+static void w_rot_row_span(float row_u, float row_v, float cos_f, float sin_f,
+        float roundness_scale, float reach, float cx, int *out_min, int *out_max) {
+    float rs = roundness_scale;
+    float qa = cos_f * cos_f + sin_f * sin_f * rs * rs;
+    float qb = cos_f * row_u - sin_f * rs * rs * row_v;
+    float qc = row_u * row_u + row_v * row_v * rs * rs - reach * reach;
+    float disc = qb * qb - qa * qc;
+    if (disc < 0.0f) { *out_min = 1; *out_max = 0; return; }
+    float root = __builtin_sqrtf(disc);
+    float half = root / qa;
+    float mid = -qb / qa;
+    *out_min = (int)__builtin_floorf(cx + mid - half) - 2;
+    *out_max = (int)__builtin_ceilf(cx + mid + half) + 2;
+}
+
 static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float cy, uint32_t color, int eraser, int move_dx, int move_dy, float dab_r, int dab_angle, int dab_flow_pct, int cur_d) {
     int is_alpha_locked = (active_layer >= 0 && active_layer < layer_count && layers[active_layer].alpha_lock);
     float rf = dab_r > 0 ? dab_r : (float)brush_config.size;
@@ -1696,6 +1716,17 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
             if (rx_min > row_min_x) row_min_x = rx_min;
             if (rx_max < row_max_x) row_max_x = rx_max;
         }
+#if defined(__clang__)
+        /* GCC keeps this row loop sensitive to any extra call edge and loses
+         * about 5% on the unrotated tips, so it keeps the plain scan. */
+        if (!is_unrotated && is_builtin_circle) {
+            int rmin, rmax;
+            w_rot_row_span(row_u, row_v, cos_f, sin_f, roundness_scale,
+                           rf + 1.0f, cx, &rmin, &rmax);
+            if (rmin > row_min_x) row_min_x = rmin;
+            if (rmax < row_max_x) row_max_x = rmax;
+        }
+#endif
 
         for (int x = row_min_x; x <= row_max_x; x++) {
             if (is_pixel_clipped(x, y)) continue;
