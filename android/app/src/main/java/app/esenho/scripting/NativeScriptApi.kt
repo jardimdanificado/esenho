@@ -297,6 +297,7 @@ class NativeScriptApi(
             reset(); postTranslate(-x, -y); postScale(zoom, zoom); postRotate(rotation)
             postTranslate(canvas.width / 2f, canvas.height / 2f)
         }
+        canvas.updateInverseMatrix()
         canvas.invalidate()
     }
 

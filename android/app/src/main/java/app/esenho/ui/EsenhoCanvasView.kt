@@ -37,6 +37,11 @@ class EsenhoCanvasView @JvmOverloads constructor(
     // Transform Matrix for Pan, Zoom & Rotate
     val transformMatrix = Matrix()
     private val inverseMatrix = Matrix()
+    // Scratch points reused by the touch path. Sharing is safe because no
+    // mapping call nests inside another.
+    private val strokePoint = FloatArray(2)
+    private val screenPoint = FloatArray(2)
+    private val snapCandidates = ArrayList<CanvasGuide>()
 
     // 2-Finger Transform tracking (Pan, Zoom, Rotate)
     private var isTransforming = false
@@ -263,7 +268,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
             if (oldw > 0 && oldh > 0) {
                 // Opening an inspector preserves zoom and the drawing point at the center.
                 transformMatrix.postTranslate((w - oldw) / 2f, (h - oldh) / 2f)
-                transformMatrix.invert(inverseMatrix)
+                updateInverseMatrix()
                 invalidate()
             } else {
                 centerCanvas(w, h)
@@ -287,7 +292,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
         transformMatrix.postScale(fitScale, fitScale)
         transformMatrix.postTranslate(offsetX, offsetY)
-        transformMatrix.invert(inverseMatrix)
+        updateInverseMatrix()
         invalidate()
     }
 
@@ -295,17 +300,43 @@ class EsenhoCanvasView @JvmOverloads constructor(
         centerCanvas()
     }
 
-    private fun mapToCanvas(screenX: Float, screenY: Float): Pair<Float, Float> {
+    /**
+     * Maps one screen point into document space and applies guide snapping,
+     * leaving the result in [strokePoint].
+     *
+     * The stroke path calls this for every sample, including every historical
+     * sample of a batched stylus event, so it allocates nothing: the inverse is
+     * kept current by [updateInverseMatrix] instead of being recomputed here,
+     * and no Pair or scratch array is created per call.
+     */
+    private fun mapAndConstrain(screenX: Float, screenY: Float) {
+        strokePoint[0] = screenX
+        strokePoint[1] = screenY
+        inverseMatrix.mapPoints(strokePoint)
+        constrainToGuideInPlace(strokePoint)
+    }
+
+    /**
+     * Recomputes the cached screen-to-document inverse. Every mutation of
+     * [transformMatrix] must call this: touch mapping reads the inverse on the
+     * hot path instead of inverting per sample.
+     */
+    internal fun updateInverseMatrix() {
         transformMatrix.invert(inverseMatrix)
-        val pts = floatArrayOf(screenX, screenY)
-        inverseMatrix.mapPoints(pts)
-        return Pair(pts[0], pts[1])
+    }
+
+    private fun mapToCanvas(screenX: Float, screenY: Float): Pair<Float, Float> {
+        strokePoint[0] = screenX
+        strokePoint[1] = screenY
+        inverseMatrix.mapPoints(strokePoint)
+        return strokePoint[0] to strokePoint[1]
     }
 
     private fun mapToScreen(canvasX: Float, canvasY: Float): Pair<Float, Float> {
-        val pts = floatArrayOf(canvasX, canvasY)
-        transformMatrix.mapPoints(pts)
-        return Pair(pts[0], pts[1])
+        screenPoint[0] = canvasX
+        screenPoint[1] = canvasY
+        transformMatrix.mapPoints(screenPoint)
+        return screenPoint[0] to screenPoint[1]
     }
 
     private fun distanceToSegment(px: Float, py: Float, a: GuidePoint, b: GuidePoint): Float {
@@ -386,13 +417,12 @@ class EsenhoCanvasView @JvmOverloads constructor(
     private fun processHistoricalStrokeSamples(event: MotionEvent) {
         val eng = engine ?: return
         for (h in 0 until event.historySize) {
-            val raw = mapToCanvas(event.getHistoricalX(0, h), event.getHistoricalY(0, h))
-            val (cx, cy) = constrainToGuide(raw.first, raw.second)
+            mapAndConstrain(event.getHistoricalX(0, h), event.getHistoricalY(0, h))
             val historicalPressure = event.getHistoricalPressure(0, h)
             val pressure = strokePressure(event.getToolType(0), historicalPressure)
             val tiltRadians = event.getHistoricalAxisValue(MotionEvent.AXIS_TILT, 0, h)
             val tilt = (tiltRadians * 180f / Math.PI).toInt()
-            eng.onTouchMove(cx, cy, pressure, tilt, 0)
+            eng.onTouchMove(strokePoint[0], strokePoint[1], pressure, tilt, 0)
         }
     }
 
@@ -462,19 +492,39 @@ class EsenhoCanvasView @JvmOverloads constructor(
         invalidate()
     }
 
-    private fun constrainToGuide(x: Float, y: Float): Pair<Float, Float> {
-        val eng = engine ?: return x to y
+    /**
+     * Snaps [point] onto the nearest enabled guide path without allocating.
+     * Guide snapping runs per stroke sample, and the old version built a list
+     * plus `mapNotNull` intermediates for every call even when snapping was
+     * off, which on a stylus move with several historical samples meant dozens
+     * of short-lived objects per event on the UI thread.
+     */
+    private fun constrainToGuideInPlace(point: FloatArray) {
+        val eng = engine ?: return
         val tool = eng.currentTool
         if (!eng.guideSnapEnabled || eng.guideCreationType != null ||
-            (tool != ToolMode.BRUSH && tool != ToolMode.ERASER && tool != ToolMode.SMUDGE && tool != ToolMode.BLEND)) return x to y
-        val guides = if (eng.snapToAllVisibleGuides) eng.canvasGuides.toList()
-            else eng.snapGuideIndices.mapNotNull { eng.canvasGuides.getOrNull(it) }
-        if (guides.isEmpty()) return x to y
+            (tool != ToolMode.BRUSH && tool != ToolMode.ERASER && tool != ToolMode.SMUDGE && tool != ToolMode.BLEND)) return
+        val allVisible = eng.snapToAllVisibleGuides
+        val guides = eng.canvasGuides
+        snapCandidates.clear()
+        if (allVisible) {
+            snapCandidates.addAll(guides)
+        } else {
+            for (index in eng.snapGuideIndices) {
+                guides.getOrNull(index)?.let { snapCandidates.add(it) }
+            }
+        }
+        if (snapCandidates.isEmpty()) return
+
+        val x = point[0]
+        val y = point[1]
         var bestDistance = Float.POSITIVE_INFINITY
         var bestX = x
         var bestY = y
-        guides.forEach { guide ->
-            guide.paths.forEach { path ->
+        for (guide in snapCandidates) {
+            val paths = guide.paths
+            for (p in 0 until paths.size) {
+                val path = paths[p]
                 for (i in 0 until path.lastIndex) {
                     val a = path[i]
                     val b = path[i + 1]
@@ -489,7 +539,8 @@ class EsenhoCanvasView @JvmOverloads constructor(
                 }
             }
         }
-        return bestX to bestY
+        point[0] = bestX
+        point[1] = bestY
     }
 
     private fun drawGuide(canvas: Canvas, guide: CanvasGuide) {
@@ -591,8 +642,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     engine?.currentTool = ToolMode.ERASER
                 }
 
-                val raw = mapToCanvas(event.x, event.y)
-                val (cx, cy) = constrainToGuide(raw.first, raw.second)
+                mapAndConstrain(event.x, event.y)
+                val cx = strokePoint[0]
+                val cy = strokePoint[1]
                 val pressure = strokePressure(event.getToolType(0), event.pressure)
                 val tilt = (event.getAxisValue(MotionEvent.AXIS_TILT) * 180f / Math.PI).toInt()
                 if (event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) {
@@ -762,7 +814,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     // 3. Pan Translate to current midpoint
                     transformMatrix.postTranslate(panDx, panDy)
 
-                    transformMatrix.invert(inverseMatrix)
+                    updateInverseMatrix()
 
                     lastMidX = currMidX
                     lastMidY = currMidY
@@ -778,7 +830,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
                         val dx = event.x - lastSingleTouchX
                         val dy = event.y - lastSingleTouchY
                         transformMatrix.postTranslate(dx, dy)
-                        transformMatrix.invert(inverseMatrix)
+                        updateInverseMatrix()
                         lastSingleTouchX = event.x
                         lastSingleTouchY = event.y
                         invalidate()
@@ -796,13 +848,12 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
                     processHistoricalStrokeSamples(event)
 
-                    val raw = mapToCanvas(event.x, event.y)
-                    val (cx, cy) = constrainToGuide(raw.first, raw.second)
+                    mapAndConstrain(event.x, event.y)
                     val pressure = strokePressure(event.getToolType(0), event.pressure)
                     val tilt = (event.getAxisValue(MotionEvent.AXIS_TILT) * 180f / Math.PI).toInt()
 
                     val touchStartNs = System.nanoTime()
-                    engine?.onTouchMove(cx, cy, pressure, tilt, 0)
+                    engine?.onTouchMove(strokePoint[0], strokePoint[1], pressure, tilt, 0)
                     PerfTrace.touch(System.nanoTime() - touchStartNs)
                     invalidate()
                     return true
@@ -846,7 +897,7 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     if (!historyGestureHandled && !twoFingerMoved && duration <= 650L) {
                         historyGestureHandled = true
                         transformMatrix.set(matrixBeforeTwoFinger)
-                        transformMatrix.invert(inverseMatrix)
+                        updateInverseMatrix()
                         if (engine?.transformState != null) {
                             // Cancelling a pending transform rolls back its own
                             // reserved snapshot; don't consume the preceding
@@ -894,9 +945,12 @@ class EsenhoCanvasView @JvmOverloads constructor(
                     return true
                 }
 
-                val raw = mapToCanvas(event.x, event.y)
-                val (cx, cy) = constrainToGuide(raw.first, raw.second)
+                mapAndConstrain(event.x, event.y)
                 val pressure = strokePressure(event.getToolType(0), event.pressure)
+                // Historical samples reuse strokePoint, so keep the release point
+                // before processing them.
+                val cx = strokePoint[0]
+                val cy = strokePoint[1]
                 pendingCanvasDown?.let { pending ->
                     pendingCanvasDown = null
                     engine?.onTouchDown(pending.x, pending.y, pending.pressure, pending.tilt, 0)
