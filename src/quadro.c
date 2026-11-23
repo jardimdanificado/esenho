@@ -1703,6 +1703,14 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                 float max_sq=max_u*max_u+max_v*max_v;
                 float solid_sq=(brush_config.hardness>=100 ? r_sq : inner_r_sq);
                 solid_area = max_sq <= solid_sq;
+            } else if (area_tip && is_builtin_square) {
+                // A square pixel that lies wholly inside the tip has all four
+                // coverage samples at 255, and the tip edge stays axis aligned
+                // after rotation, so the per-axis test is exact.
+                float pad=0.5f*(__builtin_fabsf(cos_f)+__builtin_fabsf(sin_f));
+                float max_u=__builtin_fabsf(u)+pad;
+                float max_v=__builtin_fabsf(v_scaled)+pad*roundness_scale;
+                solid_area = max_u<=rf && max_v<=rf;
             }
             uint32_t shape_a = 255;
             uint8_t subpixel_shape[4] = {255,255,255,255};
