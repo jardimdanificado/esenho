@@ -1163,7 +1163,18 @@ static void ensure_stroke_buffers(uint32_t required_pixels) {
 /* Four independent coverage samples form a 2x stroke surface without a
  * second RGBA canvas. Flow approaches each sample's geometric coverage;
  * overlapping dabs cannot turn a partially covered edge into a solid pixel. */
-static uint32_t accumulate_subpixel_coverage(int index, uint32_t alpha,
+/* This runs twice per painted pixel in the two paint branches, so the call
+ * overhead and the argument shuffling are a measurable share of a stroke.
+ * Clang's inliner rejects the body at its default threshold; forcing it in
+ * takes 2-12% off the paint path there. GCC makes the opposite trade and pays
+ * a few percent on soft tips when the body is duplicated into the row loop,
+ * so the attribute is requested only from the compiler that profits. */
+#if defined(__clang__)
+#  define W_COVERAGE_INLINE static inline __attribute__((always_inline))
+#else
+#  define W_COVERAGE_INLINE static
+#endif
+W_COVERAGE_INLINE uint32_t accumulate_subpixel_coverage(int index, uint32_t alpha,
         uint32_t shape, const uint8_t samples[4], uint32_t limit) {
     uint32_t packed=stroke_subpixel_mask[index], next=0, sum=0;
     if (packed==0xffffffffu) return 255;
