@@ -1165,14 +1165,26 @@ static void ensure_stroke_buffers(uint32_t required_pixels) {
  * overlapping dabs cannot turn a partially covered edge into a solid pixel. */
 static uint32_t accumulate_subpixel_coverage(int index, uint32_t alpha,
         uint32_t shape, const uint8_t samples[4], uint32_t limit) {
-    uint32_t flow=shape ? (alpha*255+shape/2)/shape : 0;
-    if (flow>255) flow=255;
     uint32_t packed=stroke_subpixel_mask[index], next=0, sum=0;
     if (packed==0xffffffffu) return 255;
     if (alpha==255 && shape==255 && limit==255) {
         stroke_subpixel_mask[index]=0xffffffffu;
         return 255;
     }
+    /* Solid interior of a hard tip: all four coverage samples are 255, so the
+     * four lanes hold the same value and no ratio is needed. The flow ratio
+     * (alpha*255+127)/255 is exactly alpha. */
+    if (shape==255 && limit==255 && samples[0]==255 && samples[1]==255 &&
+        samples[2]==255 && samples[3]==255 &&
+        (packed==0 || ((packed & 255) * 0x01010101u) == packed)) {
+        uint32_t value=packed & 255;
+        value+=DIV255(alpha*(255-value));
+        if (value>255) value=255;
+        stroke_subpixel_mask[index]=value*0x01010101u;
+        return value;
+    }
+    uint32_t flow=shape ? (alpha*255+shape/2)/shape : 0;
+    if (flow>255) flow=255;
     for (int i=0; i<4; ++i) {
         uint32_t old=(packed>>(i*8))&255;
         uint32_t target=DIV255(samples[i]*limit);
