@@ -45,6 +45,12 @@ add_library(esenho_core SHARED
 # Compile flags
 target_compile_options(esenho_core PRIVATE
     -O3
+    # The brush renderer calls sqrtf and floorf in its innermost loops. Without
+    # this flag clang must assume every one of those calls can set errno, so it
+    # keeps the branch that tests and reports it. The renderer never reads errno,
+    # and the flag does not change any floating point result: it only lets the
+    # math builtins inline as instructions.
+    -fno-math-errno
     -Wall
     -Wextra
     -Wno-unused-parameter
