@@ -51,6 +51,7 @@ fun main(args: Array<String>) {
                     LaunchedEffect(Unit) {
                         kotlinx.coroutines.delay(3000)
                         exerciseDesktopCanvas(window)
+                        exerciseWheelZoomMapping()
                         exerciseBrushShelf(window)
                         captureEditor(window, File("desktop/build/ui-smoke.png"))
                         exerciseProjectMenu(window)

@@ -129,9 +129,13 @@ open class View(val context: Context, attrs: AttributeSet? = null, style: Int = 
 
                 override fun mouseDragged(e: MouseEvent) {
                     if (panning) {
-                        (this@View as? app.esenho.ui.EsenhoCanvasView)
-                            ?.transformMatrix
-                            ?.postTranslate((e.x - lastX).toFloat(), (e.y - lastY).toFloat())
+                        (this@View as? app.esenho.ui.EsenhoCanvasView)?.let { view ->
+                            view.transformMatrix.postTranslate((e.x - lastX).toFloat(), (e.y - lastY).toFloat())
+                            // Touch mapping reads the cached inverse, so it must
+                            // follow every transform change or strokes land at the
+                            // old pan position.
+                            view.updateInverseMatrix()
+                        }
                         lastX = e.x
                         lastY = e.y
                         repaint()
@@ -156,6 +160,9 @@ open class View(val context: Context, attrs: AttributeSet? = null, style: Int = 
                         val scale = Math.pow(1.12, -e.preciseWheelRotation).toFloat()
                         view.transformMatrix.postScale(scale, scale, e.x.toFloat(), e.y.toFloat())
                     }
+                    // Touch mapping reads the cached inverse; without this the
+                    // brush keeps drawing at the pre-zoom coordinates.
+                    view.updateInverseMatrix()
                     repaint()
                 }
             }

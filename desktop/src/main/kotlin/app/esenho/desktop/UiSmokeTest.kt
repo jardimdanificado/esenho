@@ -527,3 +527,49 @@ suspend fun exerciseDesktopVectors(window: java.awt.Window) {
         "Desktop UI: raster/vector tools, independent visibility, pen anchors, shapes and color editing OK"
     )
 }
+
+/**
+ * A desktop mouse wheel zooms or rotates the view. Strokes map through the
+ * cached screen->document inverse, so every transform change must refresh it;
+ * otherwise the brush keeps drawing at the pre-zoom coordinates.
+ */
+suspend fun exerciseWheelZoomMapping() {
+    val view = checkNotNull(desktopUiTestCanvas)
+    val saved = app.esenho.desktop.graphics.Matrix().also { it.set(view.transformMatrix) }
+    val anchorX = view.width / 2
+    val anchorY = view.height / 2
+    // Away from the wheel anchor, where a zoom really changes the mapping.
+    val probe = floatArrayOf(anchorX + 60f, anchorY + 40f)
+    view.dispatchEvent(
+        java.awt.event.MouseWheelEvent(
+            view,
+            java.awt.event.MouseEvent.MOUSE_WHEEL,
+            System.currentTimeMillis(),
+            0,
+            anchorX,
+            anchorY,
+            0,
+            false,
+            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
+            1,
+            -2,
+        )
+    )
+    kotlinx.coroutines.delay(100)
+    val cached = probe.copyOf()
+    view.inverseMatrix.mapPoints(cached)
+    val expected = probe.copyOf()
+    val fresh = app.esenho.desktop.graphics.Matrix()
+    check(view.transformMatrix.invert(fresh)) { "view transform is not invertible" }
+    fresh.mapPoints(expected)
+    check(
+        kotlin.math.abs(cached[0] - expected[0]) < 0.01f &&
+            kotlin.math.abs(cached[1] - expected[1]) < 0.01f
+    ) {
+        "wheel zoom left a stale screen->document inverse: " +
+            "cached=${cached.toList()} expected=${expected.toList()}"
+    }
+    view.transformMatrix.set(saved)
+    view.updateInverseMatrix()
+    println("Desktop UI: wheel zoom keeps the stroke mapping OK")
+}

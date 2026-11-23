@@ -36,7 +36,9 @@ class EsenhoCanvasView @JvmOverloads constructor(
 
     // Transform Matrix for Pan, Zoom & Rotate
     val transformMatrix = Matrix()
-    private val inverseMatrix = Matrix()
+    // Cached inverse of transformMatrix; read by the stroke mapping, so the
+    // desktop smoke test inspects it to catch a transform that was not applied.
+    internal val inverseMatrix = Matrix()
     // Scratch points reused by the touch path. Sharing is safe because no
     // mapping call nests inside another.
     private val strokePoint = FloatArray(2)
