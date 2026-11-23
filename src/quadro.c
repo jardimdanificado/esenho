@@ -1628,14 +1628,30 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
         tex_scale_y = (float)(stex->height - 1) / (2.0f * rf);
     }
 
+    /* The axis-aligned square tip reaches only rf on each axis, so the padded
+     * bounding box wastes more than half of its scanned pixels in the corners.
+     * The tip is constant for the whole dab, so the trimmed span is resolved
+     * once here and the row loop keeps its original shape. */
+    int span_min_x = min_x, span_max_x = max_x;
+    if (is_unrotated && is_builtin_square) {
+        span_min_x = (int)(cx - (rf + 1.0f)) - 2;
+        span_max_x = (int)(cx + (rf + 1.0f)) + 2;
+        if (span_min_x < min_x) span_min_x = min_x;
+        if (span_max_x > max_x) span_max_x = max_x;
+        int y_lo = (int)__builtin_floorf(cy - (rf / roundness_scale + 1.0f));
+        int y_hi = (int)__builtin_ceilf(cy + (rf / roundness_scale + 1.0f));
+        if (y_lo > min_y) min_y = y_lo;
+        if (y_hi < max_y) max_y = y_hi;
+    }
+
     for (int y = min_y; y <= max_y; y++) {
         float dy = (float)y - cy;
         float row_u = dy * sin_f;
         float row_v = dy * cos_f;
         int row_idx = y * w;
 
-        int row_min_x = min_x;
-        int row_max_x = max_x;
+        int row_min_x = span_min_x;
+        int row_max_x = span_max_x;
 
         float v_scaled = dy * roundness_scale;
         float v_scaled_sq = v_scaled * v_scaled;
@@ -1644,10 +1660,10 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
             if (is_builtin_circle && v_scaled_sq > r_sq + (brush_config.subpixel ? (2.0f * rf + 1.0f) : 0.0f)) continue;
             else if (!is_builtin_circle && (dy < -rf || dy > rf)) continue;
         }
-        /* Trim the square bounding box to the circle's own reach. A pixel can
-         * only be touched when its nearest point is within the tip radius
-         * (plus the half-pixel sample pad), so the corners of the box are dead
-         * work: for a 22 px tip that is more than half of the scanned pixels. The
+        /* Trim the bounding box to the tip's own reach. A pixel can only be
+         * touched when its nearest point is within the tip radius (plus the
+         * half-pixel sample pad), so the corners of the box are dead work: for
+         * a 22 px tip that is more than half of the scanned pixels. The
          * per-pixel culls below still decide inclusion, so this range only has
          * to be a superset of the painted pixels. */
         if (is_unrotated && is_builtin_circle) {
