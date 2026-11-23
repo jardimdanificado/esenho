@@ -20,6 +20,29 @@ static void w_viewport_reduce(const uint32_t *src, int sw, int sh,
     if (sw%dw==0 && sh%dh==0) {
         int nx=sw/dw, ny=sh/dh;
         uint64_t count=(uint64_t)nx*ny;
+        /* Divisor zoom is the hot path while painting. A 2x2 box is by far the
+         * most common reduction, and its four per-channel integer divisions
+         * dominated the loop. Unroll it and keep the same rounded result. */
+        if (nx==2 && ny==2) {
+            for (int y=y0; y<=y1; ++y) {
+                uint32_t *row=(uint32_t*)((uint8_t*)dst+(size_t)y*stride);
+                const uint32_t *s0=src+(size_t)(y*2)*sw+x0*2;
+                const uint32_t *s1=s0+sw;
+                for (int x=x0; x<=x1; ++x) {
+                    uint32_t p00=s0[0], p01=s0[1], p10=s1[0], p11=s1[1];
+                    uint32_t red=(p00&255)+(p01&255)+(p10&255)+(p11&255);
+                    uint32_t green=((p00>>8)&255)+((p01>>8)&255)+((p10>>8)&255)+((p11>>8)&255);
+                    uint32_t blue=((p00>>16)&255)+((p01>>16)&255)+((p10>>16)&255)+((p11>>16)&255);
+                    uint32_t alpha=(p00>>24)+(p01>>24)+(p10>>24)+(p11>>24);
+                    row[x]=((red+2)>>2)|(((green+2)>>2)<<8)|(((blue+2)>>2)<<16)|(((alpha+2)>>2)<<24);
+                    s0+=2; s1+=2;
+                }
+            }
+            return;
+        }
+        int power_of_two=(count&(count-1))==0;
+        int shift=power_of_two ? __builtin_ctzll(count) : 0;
+        uint64_t reciprocal=power_of_two ? 0 : ((1ULL<<32)+count-1)/count;
         for (int y=y0; y<=y1; ++y) {
             uint32_t *row=(uint32_t*)((uint8_t*)dst+(size_t)y*stride);
             for (int x=x0; x<=x1; ++x) {
@@ -32,10 +55,25 @@ static void w_viewport_reduce(const uint32_t *src, int sw, int sh,
                         blue+=(p>>16)&255; alpha+=p>>24;
                     }
                 }
-                row[x]=(uint32_t)((red+count/2)/count)
-                    | (uint32_t)((green+count/2)/count)<<8
-                    | (uint32_t)((blue+count/2)/count)<<16
-                    | (uint32_t)((alpha+count/2)/count)<<24;
+                uint32_t r,g,b,a;
+                if (power_of_two) {
+                    uint32_t half=(uint32_t)(count/2);
+                    r=(uint32_t)(red+half)>>shift;
+                    g=(uint32_t)(green+half)>>shift;
+                    b=(uint32_t)(blue+half)>>shift;
+                    a=(uint32_t)(alpha+half)>>shift;
+                } else {
+                    uint64_t half=count/2;
+                    r=(uint32_t)(((red+half)*reciprocal)>>32);
+                    g=(uint32_t)(((green+half)*reciprocal)>>32);
+                    b=(uint32_t)(((blue+half)*reciprocal)>>32);
+                    a=(uint32_t)(((alpha+half)*reciprocal)>>32);
+                    if (red+half >= (uint64_t)(r+1)*count) r++;
+                    if (green+half >= (uint64_t)(g+1)*count) g++;
+                    if (blue+half >= (uint64_t)(b+1)*count) b++;
+                    if (alpha+half >= (uint64_t)(a+1)*count) a++;
+                }
+                row[x]=r|(g<<8)|(b<<16)|(a<<24);
             }
         }
         return;
