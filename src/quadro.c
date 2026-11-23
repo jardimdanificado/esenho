@@ -1642,9 +1642,18 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
     /* The axis-aligned square tip reaches only rf on each axis, so the padded
      * bounding box wastes more than half of its scanned pixels in the corners.
      * The tip is constant for the whole dab, so the trimmed span is resolved
-     * once here and the row loop keeps its original shape. */
+     * once here and the row loop keeps its original shape.
+     *
+     * Textured tips have the same axis-aligned reach and are trimmed too, but
+     * only under clang: its inliner keeps the circle path at full speed with
+     * the extra setup, while GCC dedicates the saved registers to the circle
+     * falloff and loses more there than the textured tip gains. */
+    int trim_span = is_builtin_square;
+#if defined(__clang__)
+    trim_span = !is_builtin_circle;
+#endif
     int span_min_x = min_x, span_max_x = max_x;
-    if (is_unrotated && is_builtin_square) {
+    if (is_unrotated && trim_span) {
         span_min_x = (int)(cx - (rf + 1.0f)) - 2;
         span_max_x = (int)(cx + (rf + 1.0f)) + 2;
         if (span_min_x < min_x) span_min_x = min_x;
