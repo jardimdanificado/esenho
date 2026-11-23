@@ -2114,10 +2114,17 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, float cx, float c
                             ? accumulate_subpixel_coverage(idx,a,shape_a,subpixel_shape,limit)
                             : cur_m + (limit > cur_m ? DIV255(a * (limit - cur_m)) : 0);
                     if (new_m > 255) new_m = 255;
-                    stroke_mask[idx] = (uint8_t)new_m;
-                    uint32_t eff_stroke_a = DIV255(new_m * max_stroke_a);
-                    uint32_t res = w_blend_fast(target_color, stroke_orig[idx], eff_stroke_a, 255);
-                    pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+                    /* A repeated dab over saturated coverage cannot change the
+                     * pixel: the blend reads the same stroke_orig with the same
+                     * alpha it used when it wrote pix, so its output would be
+                     * the value already there. Skipping keeps every store and
+                     * the whole blend off the overlapped interior. */
+                    if (new_m != cur_m) {
+                        stroke_mask[idx] = (uint8_t)new_m;
+                        uint32_t eff_stroke_a = DIV255(new_m * max_stroke_a);
+                        uint32_t res = w_blend_fast(target_color, stroke_orig[idx], eff_stroke_a, 255);
+                        pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+                    }
                 } else {
                     uint32_t eff_dab_a = DIV255(a * max_stroke_a);
                     uint32_t res = w_blend_fast(target_color, dst_p, eff_dab_a, 255);
