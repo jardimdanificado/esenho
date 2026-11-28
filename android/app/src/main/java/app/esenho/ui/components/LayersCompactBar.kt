@@ -186,16 +186,31 @@ fun LayersCompactBar(
                     HorizontalDivider()
                     val active = layers.firstOrNull { it.id == activeId }
                     if (active != null) {
+                        var localOpacity by remember(active.id) { mutableFloatStateOf(active.opacity.toFloat()) }
+                        var isDraggingOpacity by remember(active.id) { mutableStateOf(false) }
+                        LaunchedEffect(active.id, active.opacity) {
+                            if (!isDraggingOpacity) localOpacity = active.opacity.toFloat()
+                        }
                         Text(
-                            "Opacidade: ${active.opacity * 100 / 255}%",
+                            "Opacidade: ${(localOpacity * 100 / 255).toInt()}%",
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                         )
-                        WorkspaceSlider(
-                            value = active.opacity.toFloat(),
-                            onValueChange = { engine.setLayerOpacity(activeId, it.toInt()) },
+                        Slider(
+                            value = localOpacity.coerceIn(0f, 255f),
+                            onValueChange = {
+                                isDraggingOpacity = true
+                                localOpacity = it
+                                engine.setLayerOpacity(activeId, it.toInt(), commitUndo = false)
+                                onChanged()
+                            },
+                            onValueChangeFinished = {
+                                isDraggingOpacity = false
+                                engine.setLayerOpacity(activeId, localOpacity.toInt(), commitUndo = true)
+                                refresh()
+                            },
                             valueRange = 0f..255f,
-                            modifier = Modifier.padding(horizontal = 12.dp),
+                            modifier = Modifier.widthIn(min = 200.dp).padding(horizontal = 12.dp),
                         )
                     }
                 }

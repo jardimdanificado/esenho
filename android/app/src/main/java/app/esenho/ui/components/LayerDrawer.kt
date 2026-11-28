@@ -368,94 +368,115 @@ fun LayerDrawer(
             }
             if (activeLayer != null) {
                 var localOpacity by
-                    remember(activeLayer.id, activeLayer.opacity) {
+                    remember(activeLayer.id) {
                         mutableFloatStateOf(activeLayer.opacity.toFloat())
                     }
+                var isDraggingOpacity by remember(activeLayer.id) { mutableStateOf(false) }
+                LaunchedEffect(activeLayer.id, activeLayer.opacity) {
+                    if (!isDraggingOpacity) {
+                        localOpacity = activeLayer.opacity.toFloat()
+                    }
+                }
                 var blendMenu by remember { mutableStateOf(false) }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Row(
-                    Modifier.fillMaxWidth().height(36.dp).padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "${(localOpacity * 100 / 255).toInt()}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.width(32.dp),
-                    )
-                    Slider(
-                        value = localOpacity.coerceIn(0f, 255f),
-                        valueRange = 0f..255f,
-                        onValueChange = {
-                            localOpacity = it
-                            engine.setLayerOpacity(activeLayer.id, it.toInt(), commitUndo = false)
-                            onLayersUpdated()
-                        },
-                        onValueChangeFinished = {
-                            engine.setLayerOpacity(
-                                activeLayer.id,
-                                localOpacity.toInt(),
-                                commitUndo = true,
-                            )
-                            refresh()
-                        },
-                        modifier = Modifier.weight(1f),
-                    )
-                    Box(Modifier.weight(0.8f)) {
-                        TextButton(
-                            onClick = { blendMenu = true },
-                            contentPadding = PaddingValues(horizontal = 6.dp),
-                            modifier = Modifier.height(32.dp),
-                        ) {
-                            Text(
-                                activeLayer.blendMode.displayName,
-                                modifier = Modifier.weight(1f, fill = false),
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1,
-                            )
-                            Icon(Icons.Default.ExpandMore, null, Modifier.size(14.dp))
-                        }
-                        DropdownMenu(blendMenu, { blendMenu = false }) {
-                            LayerBlendMode.values().forEach { mode ->
-                                DropdownMenuItem(
-                                    text = { Text(mode.displayName) },
-                                    trailingIcon =
-                                        if (mode == activeLayer.blendMode) {
-                                            { Icon(Icons.Default.Check, null) }
-                                        } else null,
-                                    onClick = {
-                                        blendMenu = false
-                                        engine.setLayerBlendMode(activeLayer.id, mode)
-                                        refresh()
-                                    },
-                                )
-                            }
-                        }
-                    }
-                    IconToggleButton(
-                        checked = activeLayer.alphaLock,
-                        onCheckedChange = {
-                            engine.setLayerAlphaLock(activeLayer.id, it)
-                            refresh()
-                        },
-                        modifier = Modifier.size(32.dp),
+                Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
-                            if (activeLayer.alphaLock) Icons.Default.Lock
-                            else Icons.Default.LockOpen,
-                            "Bloquear alfa",
-                            Modifier.size(17.dp),
+                        Text(
+                            "Opacidade",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 6.dp),
+                        )
+                        Slider(
+                            value = localOpacity.coerceIn(0f, 255f),
+                            valueRange = 0f..255f,
+                            onValueChange = {
+                                isDraggingOpacity = true
+                                localOpacity = it
+                                engine.setLayerOpacity(activeLayer.id, it.toInt(), commitUndo = false)
+                                onLayersUpdated()
+                            },
+                            onValueChangeFinished = {
+                                isDraggingOpacity = false
+                                engine.setLayerOpacity(
+                                    activeLayer.id,
+                                    localOpacity.toInt(),
+                                    commitUndo = true,
+                                )
+                                refresh()
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            "${(localOpacity * 100 / 255).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.width(36.dp).padding(start = 6.dp),
                         )
                     }
-                    IconToggleButton(
-                        checked = activeLayer.clipping,
-                        onCheckedChange = {
-                            engine.setLayerClipping(activeLayer.id, it)
-                            refresh()
-                        },
-                        modifier = Modifier.size(32.dp),
+                    Row(
+                        Modifier.fillMaxWidth().height(34.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Default.ContentCut, "Máscara de corte", Modifier.size(17.dp))
+                        Box(Modifier.weight(1f)) {
+                            TextButton(
+                                onClick = { blendMenu = true },
+                                contentPadding = PaddingValues(horizontal = 6.dp),
+                                modifier = Modifier.height(32.dp),
+                            ) {
+                                Text(
+                                    activeLayer.blendMode.displayName,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                )
+                                Icon(Icons.Default.ExpandMore, null, Modifier.size(14.dp))
+                            }
+                            DropdownMenu(blendMenu, { blendMenu = false }) {
+                                LayerBlendMode.values().forEach { mode ->
+                                    DropdownMenuItem(
+                                        text = { Text(mode.displayName) },
+                                        trailingIcon =
+                                            if (mode == activeLayer.blendMode) {
+                                                { Icon(Icons.Default.Check, null) }
+                                            } else null,
+                                        onClick = {
+                                            blendMenu = false
+                                            engine.setLayerBlendMode(activeLayer.id, mode)
+                                            refresh()
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        IconToggleButton(
+                            checked = activeLayer.alphaLock,
+                            onCheckedChange = {
+                                engine.setLayerAlphaLock(activeLayer.id, it)
+                                refresh()
+                            },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                if (activeLayer.alphaLock) Icons.Default.Lock
+                                else Icons.Default.LockOpen,
+                                "Bloquear alfa",
+                                Modifier.size(17.dp),
+                            )
+                        }
+                        IconToggleButton(
+                            checked = activeLayer.clipping,
+                            onCheckedChange = {
+                                engine.setLayerClipping(activeLayer.id, it)
+                                refresh()
+                            },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(Icons.Default.ContentCut, "Máscara de corte", Modifier.size(17.dp))
+                        }
                     }
                 }
             }
