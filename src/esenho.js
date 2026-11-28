@@ -10660,10 +10660,38 @@ class EsenhoScreenHost {
       if (isDynamic) {
         const strokeFn = this.canvasActor.exports.w_brush_dyn_stroke_to || this.canvasActor.exports.w_mypaint_brush_stroke_to;
         const resetFn = this.canvasActor.exports.w_brush_dyn_reset_state || this.canvasActor.exports.w_mypaint_brush_reset_state;
+        const setBaseFn = this.canvasActor.exports.w_brush_dyn_set_base || this.canvasActor.exports.w_mypaint_brush_set_base;
         if (s === 0) {
           this.syncDynBrushParams();
           if (typeof resetFn === 'function') resetFn();
           this._dynStrokeLastTime = performance.now();
+        }
+        if (typeof setBaseFn === 'function') {
+          const bp = this.brushParams || {};
+          const op = (bp.opacity !== undefined ? bp.opacity : 100) / 100.0;
+          const fl = (bp.flow !== undefined ? bp.flow : 100) / 100.0;
+          const dynOp = bp.dyn_opaque !== undefined ? Number(bp.dyn_opaque) : 1.0;
+          setBaseFn(0, dynOp * op * fl);
+          const ucol = col >>> 0;
+          const cr = (ucol & 255) / 255.0;
+          const cg = ((ucol >> 8) & 255) / 255.0;
+          const cb = ((ucol >> 16) & 255) / 255.0;
+          const maxc = Math.max(cr, cg, cb);
+          const minc = Math.min(cr, cg, cb);
+          const delta = maxc - minc;
+          let h = 0.0;
+          const sat = maxc <= 0.0001 ? 0.0 : delta / maxc;
+          if (delta > 0.0001) {
+            if (maxc === cr) h = (cg - cb) / delta;
+            else if (maxc === cg) h = 2.0 + (cb - cr) / delta;
+            else h = 4.0 + (cr - cg) / delta;
+            h /= 6.0;
+            if (h < 0.0) h += 1.0;
+          }
+          setBaseFn(19, h);
+          setBaseFn(20, sat);
+          setBaseFn(21, maxc);
+          setBaseFn(32, eraser ? 1.0 : 0.0);
         }
         const now = performance.now();
         const dtSec = Math.max(0.001, ((now - (this._dynStrokeLastTime || now)) / 1000.0));

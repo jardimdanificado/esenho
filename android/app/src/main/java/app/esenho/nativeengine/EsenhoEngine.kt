@@ -1446,7 +1446,18 @@ class EsenhoEngine(
         EsenhoNativeBridge.nativeDynBrushReset()
         EsenhoNativeBridge.nativeDynBrushEnable(false)
 
+        val savedDynRadiusLog = if (isDynamicPreset(preset)) {
+            when {
+                preset.dynamicConfig.has("dyn_radius_log") -> preset.dynamicConfig.optDouble("dyn_radius_log", Double.NaN)
+                preset.dynamicConfig.has("mypaint_radius_log") -> preset.dynamicConfig.optDouble("mypaint_radius_log", Double.NaN)
+                else -> Double.NaN
+            }
+        } else Double.NaN
+
         brushSize = preset.size.toFloat()
+        if (!savedDynRadiusLog.isNaN()) {
+            preset.dynamicConfig.put("dyn_radius_log", savedDynRadiusLog)
+        }
         brushOpacity = preset.opacity / 100f
         brushHardness = preset.hardness
         brushSmooth = preset.smoothing
@@ -1602,6 +1613,7 @@ class EsenhoEngine(
             val value = when {
                 preset.dynamicConfig.has("dyn_$name") -> preset.dynamicConfig.optDouble("dyn_$name", Double.NaN)
                 preset.dynamicConfig.has("mypaint_$name") -> preset.dynamicConfig.optDouble("mypaint_$name", Double.NaN)
+                index == 13 && preset.dynamicConfig.has("dyn_jitter_offset") -> preset.dynamicConfig.optDouble("dyn_jitter_offset", Double.NaN)
                 else -> Double.NaN
             }
             if (!value.isNaN()) EsenhoNativeBridge.nativeDynBrushSetBase(index, if (index == 0) value.toFloat() * preset.opacity.coerceIn(0, 100) * preset.flow.coerceIn(0, 100) / 10000f else value.toFloat())

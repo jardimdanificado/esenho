@@ -527,9 +527,9 @@ static void sample_surface_area_gaussian(const uint32_t *pixels, int width, int 
 
             uint32_t p = row[x];
             float a = (float)((p >> 24) & 0xFF) / 255.0f;
-            float r = dyn_srgb_to_linear((float)((p >> 16) & 0xFF) / 255.0f);
+            float b = dyn_srgb_to_linear((float)((p >> 16) & 0xFF) / 255.0f);
             float g = dyn_srgb_to_linear((float)((p >> 8) & 0xFF) / 255.0f);
-            float b = dyn_srgb_to_linear((float)(p & 0xFF) / 255.0f);
+            float r = dyn_srgb_to_linear((float)(p & 0xFF) / 255.0f);
 
             sum_weight += weight;
             sum_r += r * a * weight;
@@ -619,9 +619,9 @@ void w_dyn_surface_render_dab(uint32_t *pixels, int width, int height, const w_d
 
             uint32_t bg_pix = row[px];
             float bg_a = (float)((bg_pix >> 24) & 0xFF) / 255.0f;
-            float bg_r = dyn_srgb_to_linear((float)((bg_pix >> 16) & 0xFF) / 255.0f);
+            float bg_b = dyn_srgb_to_linear((float)((bg_pix >> 16) & 0xFF) / 255.0f);
             float bg_g = dyn_srgb_to_linear((float)((bg_pix >> 8) & 0xFF) / 255.0f);
-            float bg_b = dyn_srgb_to_linear((float)(bg_pix & 0xFF) / 255.0f);
+            float bg_r = dyn_srgb_to_linear((float)(bg_pix & 0xFF) / 255.0f);
 
             if (dab->eraser) {
                 float out_a = bg_a * (1.0f - alpha);
@@ -643,7 +643,7 @@ void w_dyn_surface_render_dab(uint32_t *pixels, int width, int height, const w_d
                 uint8_t b_byte = (uint8_t)(dyn_linear_to_srgb(dyn_clamp(blend_b, 0.0f, 1.0f)) * 255.0f);
                 uint8_t a_byte = (uint8_t)(dyn_clamp(out_a, 0.0f, 1.0f) * 255.0f);
 
-                row[px] = ((uint32_t)a_byte << 24) | ((uint32_t)r_byte << 16) | ((uint32_t)g_byte << 8) | (uint32_t)b_byte;
+                row[px] = ((uint32_t)a_byte << 24) | ((uint32_t)b_byte << 16) | ((uint32_t)g_byte << 8) | (uint32_t)r_byte;
             } else {
                 float out_a = alpha + bg_a * (1.0f - alpha);
                 if (out_a > 0.0001f) {
@@ -668,9 +668,9 @@ void w_dyn_surface_render_dab(uint32_t *pixels, int width, int height, const w_d
                     uint8_t a_byte = (uint8_t)(dyn_clamp(out_a, 0.0f, 1.0f) * 255.0f);
 
                     row[px] = ((uint32_t)a_byte << 24) |
-                              ((uint32_t)r_byte << 16) |
+                              ((uint32_t)b_byte << 16) |
                               ((uint32_t)g_byte << 8)  |
-                              (uint32_t)b_byte;
+                              (uint32_t)r_byte;
                 }
             }
         }

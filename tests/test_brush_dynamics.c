@@ -121,7 +121,7 @@ static void test_gaussian_and_ellipse_rasterizer() {
 
     uint32_t center = pixels[32 * w + 32];
     uint8_t a = (center >> 24) & 0xFF;
-    uint8_t r = (center >> 16) & 0xFF;
+    uint8_t r = center & 0xFF;
     assert(a > 200 && r > 200);
 
     uint32_t far_corner = pixels[0];
@@ -137,7 +137,7 @@ static void test_area_smudge_and_decay() {
     uint32_t *pixels = (uint32_t *)calloc(w * h, sizeof(uint32_t));
 
     for (int i = 0; i < w * h; i++) {
-        pixels[i] = 0xFFFF0000;
+        pixels[i] = 0xFF0000FF;
     }
 
     w_dyn_brush_state_t state;

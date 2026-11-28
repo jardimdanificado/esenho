@@ -602,7 +602,7 @@ Java_app_esenho_nativeengine_EsenhoNativeBridge_nativeStrokeExt(
         if (delta > 0.0001f) { if (maxc == r) h = (g - b) / delta; else if (maxc == g) h = 2.0f + (b - r) / delta; else h = 4.0f + (r - g) / delta; h /= 6.0f; if (h < 0.0f) h += 1.0f; }
         w_brush_dyn_set_base(19, h); w_brush_dyn_set_base(20, s); w_brush_dyn_set_base(21, maxc);
         w_brush_dyn_set_base(32, eraser ? 1.0f : 0.0f);
-        w_brush_dyn_stroke_to(x1, y1, p, (float)tilt_x / 90.0f, (float)tilt_y / 90.0f, dt, 1.0f);
+        w_brush_dyn_stroke_to(x0, y0, p, (float)tilt_x / 90.0f, (float)tilt_y / 90.0f, dt, 1.0f);
         if (state == 2) g_dynamic_last_stroke_ns = 0;
         return;
     }
